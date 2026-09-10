@@ -33,6 +33,7 @@ python3 scripts/import_posts.py
 blog_importer/                 JSON/Markdown 로더와 원본 모델
 tak_brain/                     RAW 저장소와 분리된 KNOWLEDGE 모델
 scripts/import_posts.py        입력 폴더 일괄 import CLI
+scripts/import_naver_rss.py    네이버 RSS 공개 정보 점검 CLI
 input/                         사용자가 넣는 원본 JSON/Markdown
 data/                          누적 RAW 출력 위치(자동 생성, Git 제외)
 content_engine/                향후 AI 분석 엔진 자리
@@ -97,6 +98,16 @@ python3 -m unittest discover -s tests -p 'test*.py' -v
 - 자동 SNS 게시
 
 위험 플래그가 있는 콘텐츠는 사람이 검토하기 전 외부에 공개하지 않는 것을 기본 원칙으로 합니다.
+
+## 네이버 RSS 점검
+
+네이버가 제공하는 RSS만 먼저 확인하려면 다음 명령을 사용합니다. 기본값은 최대 10개이며, RSS에서 확보한 제목·날짜·URL·description과 위험 플래그를 출력합니다.
+
+```bash
+python3 scripts/import_naver_rss.py --url https://rss.blog.naver.com/tmong2.xml --limit 10
+```
+
+RSS description은 전체 본문이 아닐 수 있으므로 자동으로 본문 전체라고 간주하거나 개별 페이지를 우회 수집하지 않습니다. 실제 전체 원문이 필요하면 사용자가 확보한 Markdown/JSON을 `input/`에 넣습니다. 실제 확인 결과는 [docs/naver_rss_verification.md](docs/naver_rss_verification.md)에 기록되어 있습니다.
 
 ## 3단계 이후 설계
 
