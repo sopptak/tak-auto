@@ -71,6 +71,8 @@ review 상태는 로컬 KNOWLEDGE JSON에서 `review_knowledge.py`로 영속화�
 
 `scripts/generate_knowledge.py`는 저장된 RAW를 재수집하지 않고 순회합니다. 기존 `source_raw_id`가 있는 KNOWLEDGE는 건너뛰며, 새 레코드는 `pending`으로 생성합니다. 후속 콘텐츠 생성에는 `select_approved()`가 반환한 승인 레코드만 사용합니다.
 
+사람 검토는 `scripts/review_knowledge.py --pending` 또는 `--report`로 수행합니다. 두 명령은 저장된 KNOWLEDGE를 읽기만 하며, A/B/C 품질과 승인 권고를 표시해도 `knowledge_review_status`를 자동 변경하지 않습니다.
+
 ## 원본과 추출 지식의 연결
 
 KNOWLEDGE 레코드는 다음 연결값을 필수로 가집니다.

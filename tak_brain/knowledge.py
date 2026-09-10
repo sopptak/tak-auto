@@ -128,6 +128,23 @@ def list_pending_knowledge(path: str | Path) -> tuple[KnowledgeRecord, ...]:
     return tuple(record for record in load_knowledge_records(path) if record.knowledge_review_status == "pending")
 
 
+def assess_knowledge_quality(record: KnowledgeRecord) -> tuple[str, str, str]:
+    """저장된 KNOWLEDGE를 사람 검토용 A/B/C로 보수적으로 분류합니다."""
+    if not record.source_raw_id or not record.source_url or not record.evidence:
+        return "C", "출처 연결 또는 원문 근거가 부족합니다.", "거절"
+    if record.article_type == "general":
+        return "B", "글 유형이 불확실해 사람이 내용과 추출 적합성을 확인해야 합니다.", "수정검토"
+    if record.article_type == "book_philosophy" and record.experience:
+        return "C", "책의 주장이 작성자의 개인 경험처럼 기록되어 있습니다.", "거절"
+    if record.article_type == "finance" and record.experience:
+        return "B", "일반 금융 설명과 작성자의 개인 경험을 분리해 확인해야 합니다.", "수정검토"
+    if record.article_type == "ai_business" and record.result and "기다" in record.title:
+        return "C", "수익 목표와 실제 결과가 혼동될 가능성이 있습니다.", "거절"
+    if record.article_type == "workplace" and not record.lesson and not record.reusable_principle:
+        return "B", "직장 관찰의 핵심 판단기준이 부족해 사람이 보강해야 합니다.", "수정검토"
+    return "A", "유형과 원문 근거가 연결되어 있으며 명백한 과잉 생성이 없습니다.", "승인"
+
+
 def review_knowledge_file(
     path: str | Path,
     knowledge_id: str,

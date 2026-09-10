@@ -142,11 +142,14 @@ KNOWLEDGE review 상태는 로컬 JSON에 영속화할 수 있습니다.
 ```bash
 python3 scripts/review_knowledge.py --pending
 python3 scripts/review_knowledge.py --show knowledge-da6ddf5aa459
+python3 scripts/review_knowledge.py --report
 python3 scripts/review_knowledge.py --id knowledge-da6ddf5aa459 --approve
 python3 scripts/review_knowledge.py --id knowledge-da6ddf5aa459 --reject --note "검토 결과 승인하지 않음"
 ```
 
 review 변경은 `knowledge_review_status`, `reviewed_at`, 선택적 `review_note`만 갱신하며, `source_raw_id`와 `source_url` 및 나머지 KNOWLEDGE 필드는 보존합니다.
+
+`--pending`은 pending 레코드의 상세 필드와 자동 품질 판정(A/B/C)을 보여주고, `--report`는 제목·유형·도메인·품질·핵심 판단·주의사항·승인 권고를 요약합니다. 승인 권고는 사람 검토를 돕기 위한 표시일 뿐 review 상태를 변경하지 않습니다.
 
 RSS 메타데이터만 확인하려면 다음 명령을 사용합니다.
 

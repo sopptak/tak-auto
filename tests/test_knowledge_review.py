@@ -1,11 +1,14 @@
 import json
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
 from blog_importer.models import BlogPost
 from tak_brain import (
     RawContent,
+    assess_knowledge_quality,
     list_pending_knowledge,
     load_knowledge_records,
     review_knowledge_file,
@@ -86,6 +89,47 @@ class KnowledgeReviewPersistenceTests(unittest.TestCase):
         self.assertEqual({key: saved[key] for key in original}, original)
         self.assertTrue(first.reviewed_at)
         self.assertTrue(second.reviewed_at)
+
+    def test_quality_assessment_returns_conservative_review_recommendation(self):
+        record = load_knowledge_records(self._write_fixture())[0]
+        record = record.__class__(**{**record.to_dict(), "article_type": "experience", "lesson": "경험에서 얻은 교훈"})
+        quality, reason, recommendation = assess_knowledge_quality(record)
+
+        self.assertEqual(quality, "A")
+        self.assertTrue(reason)
+        self.assertEqual(recommendation, "승인")
+
+    def test_quality_assessment_marks_weak_workplace_record_for_review(self):
+        record = load_knowledge_records(self._write_fixture())[0]
+        record = record.__class__(**{**record.to_dict(), "article_type": "workplace", "lesson": None, "reusable_principle": None})
+        quality, reason, recommendation = assess_knowledge_quality(record)
+
+        self.assertEqual(quality, "B")
+        self.assertIn("보강", reason)
+        self.assertEqual(recommendation, "수정검토")
+
+    def test_review_report_commands_do_not_change_status(self):
+        path = self._write_fixture()
+        before = path.read_bytes()
+        script = Path(__file__).parents[1] / "scripts" / "review_knowledge.py"
+
+        report = subprocess.run(
+            [sys.executable, str(script), "--input", str(path), "--report"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        detail = subprocess.run(
+            [sys.executable, str(script), "--input", str(path), "--pending"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertIn("품질:", report.stdout)
+        self.assertIn("승인 권고:", report.stdout)
+        self.assertIn("experience:", detail.stdout)
+        self.assertEqual(path.read_bytes(), before)
 
 
 if __name__ == "__main__":
