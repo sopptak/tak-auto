@@ -34,6 +34,7 @@ blog_importer/                 JSON/Markdown 로더와 원본 모델
 tak_brain/                     RAW 저장소와 분리된 KNOWLEDGE 모델
 scripts/import_posts.py        입력 폴더 일괄 import CLI
 scripts/import_naver_rss.py    네이버 RSS 공개 정보 점검 CLI
+scripts/check_naver_post.py    공개 게시물 본문 영역 점검 CLI
 input/                         사용자가 넣는 원본 JSON/Markdown
 data/                          누적 RAW 출력 위치(자동 생성, Git 제외)
 content_engine/                향후 AI 분석 엔진 자리
@@ -108,6 +109,14 @@ python3 scripts/import_naver_rss.py --url https://rss.blog.naver.com/tmong2.xml 
 ```
 
 RSS description은 전체 본문이 아닐 수 있으므로 자동으로 본문 전체라고 간주하거나 개별 페이지를 우회 수집하지 않습니다. 실제 전체 원문이 필요하면 사용자가 확보한 Markdown/JSON을 `input/`에 넣습니다. 실제 확인 결과는 [docs/naver_rss_verification.md](docs/naver_rss_verification.md)에 기록되어 있습니다.
+
+RSS에서 얻은 공개 게시물 하나의 HTML 구조만 점검하려면 다음 명령을 사용합니다. 페이지와 응답에 명시된 공개 iframe을 일반 HTTP로 요청하고 `se-main-container` 텍스트의 존재와 길이만 출력하며, 본문 원문은 출력하지 않습니다.
+
+```bash
+python3 scripts/check_naver_post.py --url "https://blog.naver.com/tmong2/224407187378"
+```
+
+실제 게시물 점검 결과는 [docs/naver_post_verification.md](docs/naver_post_verification.md)에 기록되어 있습니다. 이 프로토타입은 RAW 저장이나 KNOWLEDGE 생성을 수행하지 않습니다.
 
 ## 3단계 이후 설계
 
