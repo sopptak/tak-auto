@@ -36,6 +36,7 @@ scripts/import_posts.py        입력 폴더 일괄 import CLI
 scripts/import_naver_rss.py    네이버 RSS 공개 정보 점검 CLI
 scripts/check_naver_post.py    공개 게시물 본문 영역 점검 CLI
 scripts/collect_naver_raw.py   RSS 메타데이터와 공개 본문 RAW 수집 CLI
+scripts/create_knowledge.py    RAW 한 건을 KNOWLEDGE 초안으로 변환하는 CLI
 input/                         사용자가 넣는 원본 JSON/Markdown
 data/                          누적 RAW 출력 위치(자동 생성, Git 제외)
 content_engine/                향후 AI 분석 엔진 자리
@@ -112,6 +113,17 @@ python3 scripts/collect_naver_raw.py --url https://rss.blog.naver.com/tmong2.xml
 수집 순서는 RSS `pubDate`, `title`, item URL을 기준 메타데이터로 고정한 뒤 공개 HTML 본문을 시도하는 방식입니다. RSS 날짜가 게시일 1순위이고 HTML 날짜는 보조값이며, `1시간 전` 같은 상대값은 저장하지 않습니다. HTML 본문 성공 시 `naver_public_html/full`, 실패 시 RSS description을 `naver_rss_description/partial`로 저장합니다. 위험 검사는 개인정보·연락처·이메일·계좌번호·고객 식별 정보·내부정보를 대상으로 하며, 위험 RAW를 삭제하지 않고 metadata에 flag를 기록합니다.
 
 RAW 파일은 기본적으로 `data/tak_brain_raw.json`에 저장되며 `.gitignore`로 Git에서 제외됩니다. 실제 네이버 원문과 RAW는 GitHub에 commit하지 않고, 코드·테스트·문서만 commit합니다. 이 단계에서는 KNOWLEDGE 자동 생성을 수행하지 않습니다.
+
+## 첫 KNOWLEDGE 변환
+
+규칙 기반 변환기로 RAW 한 건을 KNOWLEDGE 초안으로 만들 수 있습니다. 외부 AI API는 사용하지 않으며, 원문 근거는 `evidence`, 분석에 따른 일반화는 `ai_inference`로 분리합니다.
+
+```bash
+python3 scripts/create_knowledge.py \
+	--source-url "https://blog.naver.com/tmong2/224407187378?fromRss=true&trackingCode=rss"
+```
+
+KNOWLEDGE는 `id`, `source_raw_id`, `source_url`, `title`, `domain`, `knowledge_type`, `experience`, `problem`, `action`, `decision`, `result`, `lesson`, `reusable_principle`, `evidence`, `ai_inference`, `confidence`, `created_at`을 가집니다. 자동 생성 직후 `knowledge_review_status`는 `pending`입니다. `approved`만 이후 콘텐츠 생성 대상이며 `pending`과 `rejected`는 제외합니다. 실제 KNOWLEDGE 파일도 `data/` 아래에 저장되어 GitHub에 commit하지 않습니다.
 
 RSS 메타데이터만 확인하려면 다음 명령을 사용합니다.
 

@@ -17,6 +17,23 @@ RAW의 `id`, `source_url`, `published_at`, `body`, `tags`, `source`, `collected_
 
 ## KNOWLEDGE 필드
 
+첫 변환 단계의 대표 레코드는 다음 필드를 사용합니다.
+
+| 필드 | 내용 |
+| --- | --- |
+| `id` | KNOWLEDGE 식별자 |
+| `source_raw_id` | 원본 RAW의 id |
+| `source_url` | 원본 게시물 URL |
+| `title` | RSS에서 보존한 제목 |
+| `domain` | 기존 category 체계의 도메인 |
+| `knowledge_type` | 경험, 사례, 판단기준, 정보, 의견 |
+| `experience` ~ `reusable_principle` | 구조화된 경험·문제·행동·결과·교훈·재사용 원칙 |
+| `evidence` | 원문에서 확인한 근거 목록 |
+| `ai_inference` | 원문에서 직접 확인되지 않는 분석·일반화 |
+| `confidence` | 변환 결과의 신뢰도 |
+| `created_at` | KNOWLEDGE 생성 시각 |
+| `knowledge_review_status` | `pending`, `approved`, `rejected` |
+
 | 필드 | 내용 |
 | --- | --- |
 | `category` | 금융, 대출, 경매, 부동산, 인간관계, 심리, 자기계발, 독서, 건강, 가족, 골프, 기타 |
@@ -34,6 +51,8 @@ RAW의 `id`, `source_url`, `published_at`, `body`, `tags`, `source`, `collected_
 | `internal_information_risk` | 금융기관 등 내부정보 위험 |
 
 `knowledge_type`은 글 전체에 하나만 강제하지 않고, 필요하면 key point 단위로 근거와 함께 여러 유형을 기록할 수 있습니다. 다만 초기 검증에서는 대표 유형 하나와 근거 문장을 함께 저장합니다.
+
+현재 규칙 기반 변환기는 대표 KNOWLEDGE 하나만 생성합니다. 자동 생성 결과는 항상 `pending`이며, `select_approved()`가 `approved`만 후속 콘텐츠 생성 대상으로 선택합니다. 외부 AI API 연결은 이 인터페이스 뒤에 별도 구현합니다.
 
 ## RAW → KNOWLEDGE 변환 흐름
 

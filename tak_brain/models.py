@@ -49,6 +49,23 @@ class RawContent:
 
 @dataclass(frozen=True)
 class KnowledgeRecord:
+    id: str = ""
+    source_raw_id: str = ""
+    source_url: str = ""
+    title: str = ""
+    domain: str | None = None
+    experience: str | None = None
+    problem: str | None = None
+    action: str | None = None
+    decision: str | None = None
+    result: str | None = None
+    lesson: str | None = None
+    reusable_principle: str | None = None
+    evidence: tuple[str, ...] = ()
+    ai_inference: str | None = None
+    confidence: float = 0.0
+    created_at: str = ""
+    knowledge_review_status: str = "pending"
     category: str | None = None
     knowledge_type: str | None = None
     summary: str | None = None
@@ -62,6 +79,39 @@ class KnowledgeRecord:
     verification_required: bool = False
     privacy_risk: bool = False
     internal_information_risk: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        result = {
+            "id": self.id,
+            "source_raw_id": self.source_raw_id,
+            "source_url": self.source_url,
+            "title": self.title,
+            "domain": self.domain,
+            "knowledge_type": self.knowledge_type,
+            "experience": self.experience,
+            "problem": self.problem,
+            "action": self.action,
+            "decision": self.decision,
+            "result": self.result,
+            "lesson": self.lesson,
+            "reusable_principle": self.reusable_principle,
+            "evidence": list(self.evidence),
+            "ai_inference": self.ai_inference,
+            "confidence": self.confidence,
+            "created_at": self.created_at,
+            "knowledge_review_status": self.knowledge_review_status,
+            "category": self.category,
+            "key_points": list(self.key_points),
+            "case": self.case,
+            "judgment_rule": self.judgment_rule,
+            "opinion": self.opinion,
+            "factual_information": self.factual_information,
+            "current_validity": self.current_validity,
+            "verification_required": self.verification_required,
+            "privacy_risk": self.privacy_risk,
+            "internal_information_risk": self.internal_information_risk,
+        }
+        return result
 
 
 @dataclass(frozen=True)

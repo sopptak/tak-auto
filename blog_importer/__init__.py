@@ -4,7 +4,6 @@ from .loaders import load_file, load_paths
 from .models import BlogPost, ValidationError
 from .naver_rss import NaverRssError, NaverRssRecord, fetch_rss, parse_rss
 from .naver_post import NaverPostError, PublicPostExtraction, fetch_public_post, find_frame_url, parse_public_post
-from .naver_raw import NaverRawReport, collect_naver_rss, is_absolute_date, select_published_at
 from .pipeline import ImportResult, import_files
 
 __all__ = [
@@ -28,3 +27,11 @@ __all__ = [
     "is_absolute_date",
     "select_published_at",
 ]
+
+
+def __getattr__(name: str):
+    if name in {"NaverRawReport", "collect_naver_rss", "is_absolute_date", "select_published_at"}:
+        from . import naver_raw
+
+        return getattr(naver_raw, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
