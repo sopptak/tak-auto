@@ -25,7 +25,14 @@ class PilotImportTests(unittest.TestCase):
             self.assertEqual(report.duplicate_posts, 0)
             self.assertEqual(report.validation_errors, 0)
             self.assertEqual(before, {path.name: path.read_bytes() for path in input_dir.iterdir()})
-            self.assertEqual(len(json.loads(output_path.read_text(encoding="utf-8"))), 10)
+            records = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(records), 10)
+            for index, record in enumerate(records):
+                raw = record["raw"]
+                expected = self._post(index)
+                self.assertEqual(raw["body"], expected["body"])
+                self.assertEqual(raw["source_url"], expected["source_url"])
+                self.assertEqual(raw["published_at"], expected["published_at"])
 
     def test_second_import_reports_duplicates(self):
         with tempfile.TemporaryDirectory() as directory:

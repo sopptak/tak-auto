@@ -25,6 +25,8 @@ python3 scripts/import_posts.py
 
 입력 폴더 사용법과 JSON/Markdown 템플릿은 [input/README.md](input/README.md)에 있습니다. 입력 파일은 import 과정에서 읽기만 하며 수정하거나 삭제하지 않습니다.
 
+실제 글은 글 하나당 파일 하나로 저장하고, 파일명은 `YYYYMMDD-간단한-slug-고유id.json` 또는 `.md` 규칙을 사용합니다. 10개를 넣은 뒤 첫 실행에서 `전체 10`, `신규 10`인지 확인하고, 같은 명령을 다시 실행했을 때 `중복 10`인지 확인합니다. 현재 `input/`에는 실제 글이 제공되지 않았으므로 예시 원문을 넣지 않았습니다.
+
 ## 폴더 구조
 
 ```text
@@ -95,3 +97,7 @@ python3 -m unittest discover -s tests -p 'test*.py' -v
 - 자동 SNS 게시
 
 위험 플래그가 있는 콘텐츠는 사람이 검토하기 전 외부에 공개하지 않는 것을 기본 원칙으로 합니다.
+
+## 3단계 이후 설계
+
+RAW 원본을 검토한 뒤의 지식 추출 설계는 [docs/knowledge_extraction_design.md](docs/knowledge_extraction_design.md)에 정리했습니다. 이 단계에서는 AI API를 연결하지 않고 데이터 구조와 원본-지식 연결 관계만 검증합니다.
