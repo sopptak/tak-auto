@@ -116,14 +116,14 @@ RAW 파일은 기본적으로 `data/tak_brain_raw.json`에 저장되며 `.gitign
 
 ## 첫 KNOWLEDGE 변환
 
-규칙 기반 변환기로 RAW 한 건을 KNOWLEDGE 초안으로 만들 수 있습니다. 외부 AI API는 사용하지 않으며, 원문 근거는 `evidence`, 분석에 따른 일반화는 `ai_inference`로 분리합니다.
+규칙 기반 변환기로 RAW 한 건을 KNOWLEDGE 초안으로 만들 수 있습니다. 외부 AI API는 사용하지 않으며, 원문 근거는 `evidence`, 규칙 기반 일반화는 `derived_insight`로 분리하고 `inference_method`에 `rule_based_template`을 기록합니다. 실제 LLM 연결 시 `ai_inference`를 별도 필드로 추가할 수 있습니다.
 
 ```bash
 python3 scripts/create_knowledge.py \
 	--source-url "https://blog.naver.com/tmong2/224407187378?fromRss=true&trackingCode=rss"
 ```
 
-KNOWLEDGE는 `id`, `source_raw_id`, `source_url`, `title`, `domain`, `knowledge_type`, `experience`, `problem`, `action`, `decision`, `result`, `lesson`, `reusable_principle`, `evidence`, `ai_inference`, `confidence`, `created_at`을 가집니다. 자동 생성 직후 `knowledge_review_status`는 `pending`입니다. `approved`만 이후 콘텐츠 생성 대상이며 `pending`과 `rejected`는 제외합니다. 실제 KNOWLEDGE 파일도 `data/` 아래에 저장되어 GitHub에 commit하지 않습니다.
+KNOWLEDGE는 `id`, `source_raw_id`, `source_url`, `title`, `domain`, `knowledge_type`, `experience`, `problem`, `action`, `decision`, `result`, `lesson`, `reusable_principle`, `evidence`, `derived_insight`, `inference_method`, `confidence`, `created_at`을 가집니다. 현재 규칙 기반 변환에서는 근거 없는 `confidence`를 저장하지 않습니다. 자동 생성 직후 `knowledge_review_status`는 `pending`입니다. `approved`만 이후 콘텐츠 생성 대상이며 `pending`과 `rejected`는 제외합니다. 실제 KNOWLEDGE 파일도 `data/` 아래에 저장되어 GitHub에 commit하지 않습니다.
 
 RSS 메타데이터만 확인하려면 다음 명령을 사용합니다.
 

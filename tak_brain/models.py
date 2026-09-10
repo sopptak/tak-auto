@@ -62,15 +62,15 @@ class KnowledgeRecord:
     lesson: str | None = None
     reusable_principle: str | None = None
     evidence: tuple[str, ...] = ()
-    ai_inference: str | None = None
-    confidence: float = 0.0
+    derived_insight: str | None = None
+    inference_method: str | None = None
+    confidence: float | None = None
     created_at: str = ""
     knowledge_review_status: str = "pending"
     category: str | None = None
     knowledge_type: str | None = None
     summary: str | None = None
     key_points: tuple[str, ...] = ()
-    experience: str | None = None
     case: str | None = None
     judgment_rule: str | None = None
     opinion: str | None = None
@@ -96,7 +96,8 @@ class KnowledgeRecord:
             "lesson": self.lesson,
             "reusable_principle": self.reusable_principle,
             "evidence": list(self.evidence),
-            "ai_inference": self.ai_inference,
+            "derived_insight": self.derived_insight,
+            "inference_method": self.inference_method,
             "confidence": self.confidence,
             "created_at": self.created_at,
             "knowledge_review_status": self.knowledge_review_status,

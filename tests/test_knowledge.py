@@ -1,7 +1,10 @@
+import ast
+import inspect
+import textwrap
 import unittest
 
 from blog_importer.models import BlogPost
-from tak_brain import RawContent, select_approved, set_review_status, transform_raw
+from tak_brain import KnowledgeRecord, RawContent, select_approved, set_review_status, transform_raw
 
 
 class KnowledgePipelineTests(unittest.TestCase):
@@ -27,8 +30,9 @@ class KnowledgePipelineTests(unittest.TestCase):
         self.assertEqual(knowledge.knowledge_type, "경험")
         self.assertTrue(knowledge.evidence)
         self.assertIn("비공개 테스트", knowledge.evidence[-1])
-        self.assertIsNotNone(knowledge.ai_inference)
-        self.assertGreater(knowledge.confidence, 0)
+        self.assertIsNotNone(knowledge.derived_insight)
+        self.assertEqual(knowledge.inference_method, "rule_based_template")
+        self.assertIsNone(knowledge.confidence)
         self.assertEqual(knowledge.knowledge_review_status, "pending")
         self.assertNotIn(self.raw.body, knowledge.lesson or "")
 
@@ -42,6 +46,16 @@ class KnowledgePipelineTests(unittest.TestCase):
     def test_invalid_review_status_is_rejected(self):
         with self.assertRaises(ValueError):
             set_review_status(transform_raw(self.raw), "published")
+
+    def test_schema_has_no_ai_inference_or_duplicate_experience_field(self):
+        fields = [
+            node.target.id
+            for node in ast.walk(ast.parse(textwrap.dedent(inspect.getsource(KnowledgeRecord))))
+            if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
+        ]
+
+        self.assertNotIn("ai_inference", fields)
+        self.assertEqual(fields.count("experience"), 1)
 
 
 if __name__ == "__main__":

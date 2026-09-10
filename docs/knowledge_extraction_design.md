@@ -29,8 +29,9 @@ RAW의 `id`, `source_url`, `published_at`, `body`, `tags`, `source`, `collected_
 | `knowledge_type` | 경험, 사례, 판단기준, 정보, 의견 |
 | `experience` ~ `reusable_principle` | 구조화된 경험·문제·행동·결과·교훈·재사용 원칙 |
 | `evidence` | 원문에서 확인한 근거 목록 |
-| `ai_inference` | 원문에서 직접 확인되지 않는 분석·일반화 |
-| `confidence` | 변환 결과의 신뢰도 |
+| `derived_insight` | 원문에서 직접 확인되지 않고 규칙 기반 템플릿이 도출한 정리·일반화 |
+| `inference_method` | 도출 방식. 현재는 `rule_based_template` |
+| `confidence` | 향후 근거와 영향 필드를 설계한 뒤 도입. 현재 규칙 기반 변환에서는 저장하지 않음 |
 | `created_at` | KNOWLEDGE 생성 시각 |
 | `knowledge_review_status` | `pending`, `approved`, `rejected` |
 
