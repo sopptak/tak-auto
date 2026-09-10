@@ -53,6 +53,7 @@ class KnowledgeRecord:
     source_raw_id: str = ""
     source_url: str = ""
     title: str = ""
+    article_type: str | None = None
     domain: str | None = None
     experience: str | None = None
     problem: str | None = None
@@ -88,6 +89,7 @@ class KnowledgeRecord:
             "source_raw_id": self.source_raw_id,
             "source_url": self.source_url,
             "title": self.title,
+            "article_type": self.article_type,
             "domain": self.domain,
             "knowledge_type": self.knowledge_type,
             "experience": self.experience,

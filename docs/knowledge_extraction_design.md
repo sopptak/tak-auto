@@ -60,11 +60,14 @@ review 상태는 로컬 KNOWLEDGE JSON에서 `review_knowledge.py`로 영속화�
 ## RAW → KNOWLEDGE 변환 흐름
 
 1. RAW의 `content_hash`로 원본을 고정합니다.
-2. 본문을 수정하지 않고 분석용 읽기 전용 입력으로 전달합니다.
-3. 문장 또는 단락별로 경험·사례·판단기준·정보·의견 후보를 추출합니다.
-4. category와 현재 유효성을 분류하고, 사실 확인이 필요한 항목을 표시합니다.
-5. 개인정보 및 내부정보 위험도를 다시 판정합니다.
-6. 사람이 결과를 검토한 뒤 KNOWLEDGE를 저장합니다.
+2. `ArticleTypeClassifier`가 제목과 본문 근거를 함께 읽어 글 유형을 분류합니다.
+3. 유형별 transformer가 경험·금융·직장·AI 사업·독서·일반 글에 맞는 필드만 채웁니다.
+4. 본문에 근거가 없는 필드는 `null`로 둡니다.
+5. `evidence`가 실제 근거를 가리키는지 공통 validation으로 확인합니다.
+6. 개인정보 및 내부정보 위험도를 다시 판정합니다.
+7. 사람이 결과를 검토한 뒤 KNOWLEDGE를 저장합니다.
+
+현재 유형은 `experience`, `finance`, `workplace`, `ai_business`, `book_philosophy`, `general`입니다. 확신이 낮으면 `general`로 분류하며, 원문에 없는 사실을 유형별 transformer가 보완하지 않습니다.
 
 ## 원본과 추출 지식의 연결
 

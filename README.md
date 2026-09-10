@@ -32,6 +32,8 @@ python3 scripts/import_posts.py
 ```text
 blog_importer/                 JSON/Markdown 로더와 원본 모델
 tak_brain/                     RAW 저장소와 분리된 KNOWLEDGE 모델
+tak_brain/article_types.py     제목·본문 기반 글 유형 분류기
+tak_brain/knowledge_transformers.py 유형별 근거 기반 KNOWLEDGE 변환기
 scripts/import_posts.py        입력 폴더 일괄 import CLI
 scripts/import_naver_rss.py    네이버 RSS 공개 정보 점검 CLI
 scripts/check_naver_post.py    공개 게시물 본문 영역 점검 CLI
@@ -125,6 +127,8 @@ python3 scripts/create_knowledge.py \
 ```
 
 KNOWLEDGE는 `id`, `source_raw_id`, `source_url`, `title`, `domain`, `knowledge_type`, `experience`, `problem`, `action`, `decision`, `result`, `lesson`, `reusable_principle`, `evidence`, `derived_insight`, `inference_method`, `confidence`, `created_at`을 가집니다. 현재 규칙 기반 변환에서는 근거 없는 `confidence`를 저장하지 않습니다. 자동 생성 직후 `knowledge_review_status`는 `pending`입니다. `approved`만 이후 콘텐츠 생성 대상이며 `pending`과 `rejected`는 제외합니다. 실제 KNOWLEDGE 파일도 `data/` 아래에 저장되어 GitHub에 commit하지 않습니다.
+
+RAW에서 KNOWLEDGE를 만들 때는 `ArticleTypeClassifier`가 제목과 본문을 함께 확인해 `experience`, `finance`, `workplace`, `ai_business`, `book_philosophy`, `general` 중 하나를 선택합니다. 유형별 transformer는 근거가 없는 필드를 `null`로 두며, 기존 앱 제작용 규칙을 다른 글에 적용하지 않습니다.
 
 KNOWLEDGE review 상태는 로컬 JSON에 영속화할 수 있습니다.
 
