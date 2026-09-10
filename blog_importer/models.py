@@ -31,6 +31,8 @@ class BlogPost:
     source: str = ""
     collected_at: str = field(default_factory=utc_now)
     content_hash: str = ""
+    extraction_method: str = "manual"
+    extraction_status: str = "full"
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "BlogPost":
@@ -60,6 +62,8 @@ class BlogPost:
             source=str(data["source"]).strip(),
             collected_at=str(data.get("collected_at") or utc_now()).strip(),
             content_hash="",
+            extraction_method=str(data.get("extraction_method") or "manual").strip(),
+            extraction_status=str(data.get("extraction_status") or "full").strip(),
         )
         generated_hash = post.calculate_content_hash()
         supplied_hash = str(data.get("content_hash") or "").strip()

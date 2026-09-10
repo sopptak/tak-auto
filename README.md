@@ -35,6 +35,7 @@ tak_brain/                     RAW 저장소와 분리된 KNOWLEDGE 모델
 scripts/import_posts.py        입력 폴더 일괄 import CLI
 scripts/import_naver_rss.py    네이버 RSS 공개 정보 점검 CLI
 scripts/check_naver_post.py    공개 게시물 본문 영역 점검 CLI
+scripts/collect_naver_raw.py   RSS 메타데이터와 공개 본문 RAW 수집 CLI
 input/                         사용자가 넣는 원본 JSON/Markdown
 data/                          누적 RAW 출력 위치(자동 생성, Git 제외)
 content_engine/                향후 AI 분석 엔진 자리
@@ -51,9 +52,9 @@ tests/test_mvp.py              MVP 회귀 테스트 4개
 
 입력 원본은 다음 필드를 사용합니다.
 
-`id`, `title`, `published_at`, `body`, `tags`, `source_url`, `source`, `collected_at`, `content_hash`
+`id`, `title`, `published_at`, `body`, `tags`, `source_url`, `source`, `collected_at`, `content_hash`, `extraction_method`, `extraction_status`
 
-`collected_at`이 없으면 import 시 UTC 시각을 만들고, `content_hash`가 없으면 제목·작성일·본문·태그·출처 URL·출처를 정규화해 SHA-256을 생성합니다. 같은 hash는 한 번만 저장합니다.
+`collected_at`이 없으면 import 시 UTC 시각을 만들고, `content_hash`가 없으면 제목·작성일·본문·태그·출처 URL·출처를 정규화해 SHA-256을 생성합니다. 같은 hash 또는 같은 `source_url`은 한 번만 저장합니다. `extraction_method`는 `naver_public_html`, `naver_rss_description` 등을, `extraction_status`는 `full`, `partial`, `failed`를 기록합니다.
 
 TAK BRAIN에서는 원본을 `RawContent`로 그대로 보존하고, AI 분석 결과는 별도 `KnowledgeRecord`에 둡니다. 분석 결과가 아직 없을 때는 `knowledge=None`입니다. 자동 생성되는 metadata에는 `verification_required`, `privacy_risk`, `internal_information_risk`가 포함됩니다.
 
@@ -100,15 +101,23 @@ python3 -m unittest discover -s tests -p 'test*.py' -v
 
 위험 플래그가 있는 콘텐츠는 사람이 검토하기 전 외부에 공개하지 않는 것을 기본 원칙으로 합니다.
 
-## 네이버 RSS 점검
+## 네이버 RSS와 공개 본문 RAW 수집
 
-네이버가 제공하는 RSS만 먼저 확인하려면 다음 명령을 사용합니다. 기본값은 최대 10개이며, RSS에서 확보한 제목·날짜·URL·description과 위험 플래그를 출력합니다.
+네이버 RSS 메타데이터와 공개 게시물 본문을 결합해 로컬 RAW에 저장하려면 다음 명령을 사용합니다. 기본값은 `tmong2` RSS의 최대 10개이며 본문 원문은 터미널에 출력하지 않습니다.
+
+```bash
+python3 scripts/collect_naver_raw.py --url https://rss.blog.naver.com/tmong2.xml --limit 10
+```
+
+수집 순서는 RSS `pubDate`, `title`, item URL을 기준 메타데이터로 고정한 뒤 공개 HTML 본문을 시도하는 방식입니다. RSS 날짜가 게시일 1순위이고 HTML 날짜는 보조값이며, `1시간 전` 같은 상대값은 저장하지 않습니다. HTML 본문 성공 시 `naver_public_html/full`, 실패 시 RSS description을 `naver_rss_description/partial`로 저장합니다. 위험 검사는 개인정보·연락처·이메일·계좌번호·고객 식별 정보·내부정보를 대상으로 하며, 위험 RAW를 삭제하지 않고 metadata에 flag를 기록합니다.
+
+RAW 파일은 기본적으로 `data/tak_brain_raw.json`에 저장되며 `.gitignore`로 Git에서 제외됩니다. 실제 네이버 원문과 RAW는 GitHub에 commit하지 않고, 코드·테스트·문서만 commit합니다. 이 단계에서는 KNOWLEDGE 자동 생성을 수행하지 않습니다.
+
+RSS 메타데이터만 확인하려면 다음 명령을 사용합니다.
 
 ```bash
 python3 scripts/import_naver_rss.py --url https://rss.blog.naver.com/tmong2.xml --limit 10
 ```
-
-RSS description은 전체 본문이 아닐 수 있으므로 자동으로 본문 전체라고 간주하거나 개별 페이지를 우회 수집하지 않습니다. 실제 전체 원문이 필요하면 사용자가 확보한 Markdown/JSON을 `input/`에 넣습니다. 실제 확인 결과는 [docs/naver_rss_verification.md](docs/naver_rss_verification.md)에 기록되어 있습니다.
 
 RSS에서 얻은 공개 게시물 하나의 HTML 구조만 점검하려면 다음 명령을 사용합니다. 페이지와 응답에 명시된 공개 iframe을 일반 HTTP로 요청하고 `se-main-container` 텍스트의 존재와 길이만 출력하며, 본문 원문은 출력하지 않습니다.
 

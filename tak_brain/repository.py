@@ -8,11 +8,13 @@ from .models import BrainRecord, RawContent, build_metadata
 class BrainRepository:
     def __init__(self) -> None:
         self._records: dict[str, BrainRecord] = {}
+        self._source_urls: set[str] = set()
 
     def add(self, post: BlogPost) -> bool:
-        if post.content_hash in self._records:
+        if post.content_hash in self._records or post.source_url in self._source_urls:
             return False
         self._records[post.content_hash] = BrainRecord(RawContent.from_post(post), build_metadata(post))
+        self._source_urls.add(post.source_url)
         return True
 
     def add_many(self, posts: list[BlogPost]) -> int:
