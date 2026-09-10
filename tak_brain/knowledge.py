@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import replace
+from dataclasses import fields, replace
 from pathlib import Path
 import json
 import re
+import tempfile
 from typing import Any, Iterable
 
 from blog_importer.models import BlogPost, utc_now
@@ -101,3 +102,51 @@ def set_review_status(record: KnowledgeRecord, status: str) -> KnowledgeRecord:
     if status not in {"pending", "approved", "rejected"}:
         raise ValueError("knowledge_review_status는 pending, approved, rejected 중 하나여야 합니다.")
     return replace(record, knowledge_review_status=status)
+
+
+def _knowledge_from_dict(data: dict[str, Any]) -> KnowledgeRecord:
+    field_names = {field.name for field in fields(KnowledgeRecord)}
+    values = {key: value for key, value in data.items() if key in field_names}
+    values["evidence"] = tuple(values.get("evidence", ()))
+    values["key_points"] = tuple(values.get("key_points", ()))
+    return KnowledgeRecord(**values)
+
+
+def load_knowledge_records(path: str | Path) -> list[KnowledgeRecord]:
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
+        raise ValueError("KNOWLEDGE 파일은 객체 목록이어야 합니다.")
+    return [_knowledge_from_dict(item) for item in data]
+
+
+def list_pending_knowledge(path: str | Path) -> tuple[KnowledgeRecord, ...]:
+    return tuple(record for record in load_knowledge_records(path) if record.knowledge_review_status == "pending")
+
+
+def review_knowledge_file(
+    path: str | Path,
+    knowledge_id: str,
+    status: str,
+    review_note: str | None = None,
+) -> KnowledgeRecord:
+    if status not in {"pending", "approved", "rejected"}:
+        raise ValueError("review status는 pending, approved, rejected 중 하나여야 합니다.")
+    output_path = Path(path)
+    data = json.loads(output_path.read_text(encoding="utf-8"))
+    if not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
+        raise ValueError("KNOWLEDGE 파일은 객체 목록이어야 합니다.")
+
+    target = next((item for item in data if item.get("id") == knowledge_id), None)
+    if target is None:
+        raise KeyError(f"KNOWLEDGE ID를 찾을 수 없습니다: {knowledge_id}")
+    target["knowledge_review_status"] = status
+    target["reviewed_at"] = utc_now()
+    if review_note is not None:
+        target["review_note"] = review_note
+
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=output_path.parent, delete=False) as handle:
+        json.dump(data, handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+        temporary_path = Path(handle.name)
+    temporary_path.replace(output_path)
+    return _knowledge_from_dict(target)

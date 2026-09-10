@@ -37,6 +37,7 @@ scripts/import_naver_rss.py    네이버 RSS 공개 정보 점검 CLI
 scripts/check_naver_post.py    공개 게시물 본문 영역 점검 CLI
 scripts/collect_naver_raw.py   RSS 메타데이터와 공개 본문 RAW 수집 CLI
 scripts/create_knowledge.py    RAW 한 건을 KNOWLEDGE 초안으로 변환하는 CLI
+scripts/review_knowledge.py    KNOWLEDGE review 상태 조회·저장 CLI
 input/                         사용자가 넣는 원본 JSON/Markdown
 data/                          누적 RAW 출력 위치(자동 생성, Git 제외)
 content_engine/                향후 AI 분석 엔진 자리
@@ -124,6 +125,16 @@ python3 scripts/create_knowledge.py \
 ```
 
 KNOWLEDGE는 `id`, `source_raw_id`, `source_url`, `title`, `domain`, `knowledge_type`, `experience`, `problem`, `action`, `decision`, `result`, `lesson`, `reusable_principle`, `evidence`, `derived_insight`, `inference_method`, `confidence`, `created_at`을 가집니다. 현재 규칙 기반 변환에서는 근거 없는 `confidence`를 저장하지 않습니다. 자동 생성 직후 `knowledge_review_status`는 `pending`입니다. `approved`만 이후 콘텐츠 생성 대상이며 `pending`과 `rejected`는 제외합니다. 실제 KNOWLEDGE 파일도 `data/` 아래에 저장되어 GitHub에 commit하지 않습니다.
+
+KNOWLEDGE review 상태는 로컬 JSON에 영속화할 수 있습니다.
+
+```bash
+python3 scripts/review_knowledge.py --pending
+python3 scripts/review_knowledge.py --id knowledge-da6ddf5aa459 --approve
+python3 scripts/review_knowledge.py --id knowledge-da6ddf5aa459 --reject --note "검토 결과 승인하지 않음"
+```
+
+review 변경은 `knowledge_review_status`, `reviewed_at`, 선택적 `review_note`만 갱신하며, `source_raw_id`와 `source_url` 및 나머지 KNOWLEDGE 필드는 보존합니다.
 
 RSS 메타데이터만 확인하려면 다음 명령을 사용합니다.
 

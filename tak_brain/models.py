@@ -67,6 +67,8 @@ class KnowledgeRecord:
     confidence: float | None = None
     created_at: str = ""
     knowledge_review_status: str = "pending"
+    reviewed_at: str | None = None
+    review_note: str | None = None
     category: str | None = None
     knowledge_type: str | None = None
     summary: str | None = None
@@ -101,6 +103,8 @@ class KnowledgeRecord:
             "confidence": self.confidence,
             "created_at": self.created_at,
             "knowledge_review_status": self.knowledge_review_status,
+            "reviewed_at": self.reviewed_at,
+            "review_note": self.review_note,
             "category": self.category,
             "key_points": list(self.key_points),
             "case": self.case,

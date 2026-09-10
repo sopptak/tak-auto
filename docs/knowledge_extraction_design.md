@@ -55,6 +55,8 @@ RAW의 `id`, `source_url`, `published_at`, `body`, `tags`, `source`, `collected_
 
 현재 규칙 기반 변환기는 대표 KNOWLEDGE 하나만 생성합니다. 자동 생성 결과는 항상 `pending`이며, `select_approved()`가 `approved`만 후속 콘텐츠 생성 대상으로 선택합니다. 외부 AI API 연결은 이 인터페이스 뒤에 별도 구현합니다.
 
+review 상태는 로컬 KNOWLEDGE JSON에서 `review_knowledge.py`로 영속화합니다. 상태 변경 시 `knowledge_review_status`, `reviewed_at`, 선택적 `review_note`만 갱신하고, RAW 연결 필드와 분석 내용은 보존합니다.
+
 ## RAW → KNOWLEDGE 변환 흐름
 
 1. RAW의 `content_hash`로 원본을 고정합니다.
