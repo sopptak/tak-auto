@@ -34,7 +34,11 @@ class BlogPost:
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "BlogPost":
-        missing = [name for name in REQUIRED_FIELDS if not str(data.get(name, "")).strip()]
+        missing = []
+        for name in REQUIRED_FIELDS:
+            value = data.get(name)
+            if value is None or (isinstance(value, str) and not value.strip()):
+                missing.append(name)
         if missing:
             raise ValidationError(f"필수 필드가 없습니다: {', '.join(missing)}")
 

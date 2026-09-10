@@ -54,6 +54,6 @@ def load_paths(paths: list[str | Path]) -> list[BlogPost]:
         if candidate.is_file():
             files.append(candidate)
             continue
-        files.extend(sorted(candidate.glob("*.json")))
-        files.extend(sorted(candidate.glob("*.md")))
+        files.extend(sorted(candidate.rglob("*.json")))
+        files.extend(sorted(candidate.rglob("*.md")))
     return [post for file_path in files for post in load_file(file_path)]
