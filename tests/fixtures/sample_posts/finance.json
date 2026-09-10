@@ -1,0 +1,10 @@
+{
+  "id": "sample-finance-001",
+  "title": "월급 관리에서 먼저 정한 것",
+  "published_at": "2020-03-15",
+  "body": "고정비를 먼저 정하고 남은 금액으로 생활하니 판단이 쉬워졌다.",
+  "tags": ["금융", "생활습관"],
+  "source_url": "https://blog.example.test/sample-finance-001",
+  "source": "manual_naver_export",
+  "collected_at": "2026-09-10T00:00:00+00:00"
+}

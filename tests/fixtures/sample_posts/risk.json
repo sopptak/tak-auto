@@ -1,0 +1,10 @@
+{
+  "id": "sample-risk-001",
+  "title": "공유 전에 확인할 내용",
+  "published_at": "2021-11-02",
+  "body": "문의는 010-1234-5678 또는 owner@example.com으로 받았다. 기관 내부 대외비는 공개하지 않는다.",
+  "tags": ["기타"],
+  "source_url": "https://blog.example.test/sample-risk-001",
+  "source": "manual_naver_export",
+  "collected_at": "2026-09-10T00:00:00+00:00"
+}
