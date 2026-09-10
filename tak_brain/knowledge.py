@@ -33,6 +33,46 @@ def transform_raw(raw: RawContent, transformer: KnowledgeTransformer | None = No
     return knowledge
 
 
+def append_knowledge_file(
+    raw_path: str | Path,
+    knowledge_path: str | Path,
+) -> tuple[int, int, int]:
+    """기존 KNOWLEDGE를 보존하면서 RAW별 신규 초안만 누적합니다."""
+    output_path = Path(knowledge_path)
+    raw_records = load_raw_records(raw_path)
+    if output_path.exists():
+        data = json.loads(output_path.read_text(encoding="utf-8"))
+        if not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
+            raise ValueError("KNOWLEDGE 파일은 객체 목록이어야 합니다.")
+    else:
+        data = []
+
+    existing_source_ids = {item.get("source_raw_id") for item in data}
+    created = 0
+    duplicates = 0
+    errors = 0
+    for raw in raw_records:
+        if raw.id in existing_source_ids:
+            duplicates += 1
+            continue
+        try:
+            knowledge = transform_raw(raw)
+        except (ValueError, KeyError, TypeError):
+            errors += 1
+            continue
+        data.append(knowledge.to_dict())
+        existing_source_ids.add(raw.id)
+        created += 1
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=output_path.parent, delete=False) as handle:
+        json.dump(data, handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+        temporary_path = Path(handle.name)
+    temporary_path.replace(output_path)
+    return created, duplicates, errors
+
+
 def validate_knowledge(knowledge: KnowledgeRecord) -> None:
     if not knowledge.source_raw_id or not knowledge.source_url:
         raise ValueError("KNOWLEDGE는 source_raw_id와 source_url이 필요합니다.")

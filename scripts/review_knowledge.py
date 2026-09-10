@@ -18,6 +18,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="TAK BRAIN KNOWLEDGE review")
     parser.add_argument("--input", default=str(ROOT / "data" / "tak_brain_knowledge.json"))
     parser.add_argument("--pending", action="store_true", help="pending KNOWLEDGE 목록")
+    parser.add_argument("--show", dest="show_id", help="검토용 KNOWLEDGE 요약")
     parser.add_argument("--id", dest="knowledge_id", help="KNOWLEDGE ID")
     decision = parser.add_mutually_exclusive_group()
     decision.add_argument("--approve", action="store_true")
@@ -28,6 +29,21 @@ def main(argv: list[str] | None = None) -> int:
     if args.pending:
         for record in list_pending_knowledge(args.input):
             print(f"{record.id}\t{record.title}")
+        return 0
+
+    if args.show_id:
+        from tak_brain import load_knowledge_records
+
+        record = next((item for item in load_knowledge_records(args.input) if item.id == args.show_id), None)
+        if record is None:
+            parser.error(f"KNOWLEDGE ID를 찾을 수 없습니다: {args.show_id}")
+        for field in (
+            "id", "title", "domain", "knowledge_type", "experience", "problem",
+            "action", "decision", "result", "lesson", "reusable_principle",
+            "evidence", "derived_insight", "inference_method", "confidence",
+            "knowledge_review_status", "source_raw_id", "source_url",
+        ):
+            print(f"{field}: {getattr(record, field)}")
         return 0
 
     if not args.knowledge_id or not (args.approve or args.reject):

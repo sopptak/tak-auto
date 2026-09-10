@@ -39,6 +39,7 @@ scripts/import_naver_rss.py    네이버 RSS 공개 정보 점검 CLI
 scripts/check_naver_post.py    공개 게시물 본문 영역 점검 CLI
 scripts/collect_naver_raw.py   RSS 메타데이터와 공개 본문 RAW 수집 CLI
 scripts/create_knowledge.py    RAW 한 건을 KNOWLEDGE 초안으로 변환하는 CLI
+scripts/generate_knowledge.py  RAW 전체를 중복 방지하며 KNOWLEDGE 초안으로 변환하는 CLI
 scripts/review_knowledge.py    KNOWLEDGE review 상태 조회·저장 CLI
 input/                         사용자가 넣는 원본 JSON/Markdown
 data/                          누적 RAW 출력 위치(자동 생성, Git 제외)
@@ -130,10 +131,17 @@ KNOWLEDGE는 `id`, `source_raw_id`, `source_url`, `title`, `domain`, `knowledge_
 
 RAW에서 KNOWLEDGE를 만들 때는 `ArticleTypeClassifier`가 제목과 본문을 함께 확인해 `experience`, `finance`, `workplace`, `ai_business`, `book_philosophy`, `general` 중 하나를 선택합니다. 유형별 transformer는 근거가 없는 필드를 `null`로 두며, 기존 앱 제작용 규칙을 다른 글에 적용하지 않습니다.
 
+실제 RAW 전체를 재수집하지 않고 KNOWLEDGE 초안으로 누적하려면 다음 명령을 사용합니다. 이미 같은 `source_raw_id`가 있으면 건너뛰고, 기존 approved 레코드는 변경하지 않습니다.
+
+```bash
+python3 scripts/generate_knowledge.py
+```
+
 KNOWLEDGE review 상태는 로컬 JSON에 영속화할 수 있습니다.
 
 ```bash
 python3 scripts/review_knowledge.py --pending
+python3 scripts/review_knowledge.py --show knowledge-da6ddf5aa459
 python3 scripts/review_knowledge.py --id knowledge-da6ddf5aa459 --approve
 python3 scripts/review_knowledge.py --id knowledge-da6ddf5aa459 --reject --note "검토 결과 승인하지 않음"
 ```

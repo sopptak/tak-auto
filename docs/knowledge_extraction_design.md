@@ -69,6 +69,8 @@ review 상태는 로컬 KNOWLEDGE JSON에서 `review_knowledge.py`로 영속화�
 
 현재 유형은 `experience`, `finance`, `workplace`, `ai_business`, `book_philosophy`, `general`입니다. 확신이 낮으면 `general`로 분류하며, 원문에 없는 사실을 유형별 transformer가 보완하지 않습니다.
 
+`scripts/generate_knowledge.py`는 저장된 RAW를 재수집하지 않고 순회합니다. 기존 `source_raw_id`가 있는 KNOWLEDGE는 건너뛰며, 새 레코드는 `pending`으로 생성합니다. 후속 콘텐츠 생성에는 `select_approved()`가 반환한 승인 레코드만 사용합니다.
+
 ## 원본과 추출 지식의 연결
 
 KNOWLEDGE 레코드는 다음 연결값을 필수로 가집니다.

@@ -3,7 +3,7 @@ from pathlib import Path
 import unittest
 
 from blog_importer.models import BlogPost
-from tak_brain import ArticleTypeClassifier, RawContent, transform_raw
+from tak_brain import ArticleTypeClassifier, RawContent, append_knowledge_file, transform_raw
 from tak_brain.knowledge_transformers import (
     AIBusinessKnowledgeTransformer,
     BookPhilosophyKnowledgeTransformer,
@@ -84,6 +84,65 @@ class ArticleTypePipelineTests(unittest.TestCase):
         self.assertIsNone(book.experience)
         self.assertIsNone(general.experience)
         self.assertIsNone(general.derived_insight)
+
+    def test_workplace_observation_does_not_invent_experience_or_topic(self):
+        raw = self._raw(10, "직장에서 일 잘해도 인정받지 못하는 이유", "직장에서는 신뢰와 인정의 차이를 관찰할 수 있다. 다른 사람의 거절 사례도 언급한다.")
+        knowledge = transform_raw(raw)
+
+        self.assertEqual(knowledge.article_type, "workplace")
+        self.assertIsNone(knowledge.experience)
+        self.assertIsNone(knowledge.lesson)
+        self.assertIsNone(knowledge.reusable_principle)
+
+    def test_ai_business_does_not_treat_title_goal_as_revenue(self):
+        raw = self._raw(11, "AI로 번 첫 1만원을 기다린다", "AI 프로젝트를 시작했고 첫 수익을 기다리는 중이다.")
+        knowledge = transform_raw(raw)
+
+        self.assertEqual(knowledge.article_type, "ai_business")
+        self.assertIsNone(knowledge.result)
+
+    def test_workplace_title_topic_takes_priority_over_incidental_terms(self):
+        raw = self._raw(12, "거절을 잘하는 사람이 직장에서 더 신뢰받는 이유", "작은 약속과 거절 방식이 신뢰에 영향을 준다.")
+        knowledge = transform_raw(raw)
+
+        self.assertIn("거절", knowledge.lesson or "")
+        self.assertIn("거절", knowledge.reusable_principle or "")
+
+    def test_batch_generation_preserves_approved_and_deduplicates_source(self):
+        import tempfile
+
+        raws = []
+        for index, (_, title, body) in enumerate(self.FIXTURES[:2]):
+            raw = self._raw(index, title, body)
+            raws.append(
+                {
+                    "raw": {
+                        "id": raw.id,
+                        "title": raw.title,
+                        "published_at": raw.published_at,
+                        "body": raw.body,
+                        "tags": list(raw.tags),
+                        "source_url": raw.source_url,
+                        "source": raw.source,
+                    }
+                }
+            )
+        approved = transform_raw(self._raw(0, self.FIXTURES[0][1], self.FIXTURES[0][2])).to_dict()
+        approved["knowledge_review_status"] = "approved"
+        with tempfile.TemporaryDirectory() as directory:
+            from pathlib import Path
+
+            raw_path = Path(directory) / "raw.json"
+            knowledge_path = Path(directory) / "knowledge.json"
+            raw_path.write_text(json.dumps(raws, ensure_ascii=False), encoding="utf-8")
+            knowledge_path.write_text(json.dumps([approved], ensure_ascii=False), encoding="utf-8")
+
+            created, duplicates, errors = append_knowledge_file(raw_path, knowledge_path)
+            saved = json.loads(knowledge_path.read_text(encoding="utf-8"))
+
+        self.assertEqual((created, duplicates, errors), (1, 1, 0))
+        self.assertEqual(saved[0]["knowledge_review_status"], "approved")
+        self.assertEqual(len({item["source_raw_id"] for item in saved}), 2)
 
     def test_existing_knowledge_001_remains_approved(self):
         record = next(

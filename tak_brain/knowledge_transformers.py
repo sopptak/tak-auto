@@ -105,18 +105,18 @@ class WorkplaceKnowledgeTransformer(BaseKnowledgeTransformer):
                 evidence_items.append(f"본문에서 '{term}'과 직장 내 관계를 다룬 내용을 확인했다.")
         lesson = None
         principle = None
-        if "약속" in body and "신뢰" in body:
-            lesson = "작은 약속을 지키는 행동과 직장 내 신뢰의 관계를 설명한다."
-            principle = "직장 내 신뢰를 판단할 때 큰 성과뿐 아니라 약속을 지키는 행동을 함께 본다."
-        elif "거절" in body and "신뢰" in body:
+        if "거절" in raw.title and "신뢰" in body:
             lesson = "업무상 거절 방식과 직장 내 신뢰의 관계를 설명한다."
             principle = "거절이 필요한 상황에서는 관계와 업무 맥락을 함께 고려한다."
+        elif ("작은 약속" in body or "약속을 지키" in body) and "신뢰" in body:
+            lesson = "작은 약속을 지키는 행동과 직장 내 신뢰의 관계를 설명한다."
+            principle = "직장 내 신뢰를 판단할 때 큰 성과뿐 아니라 약속을 지키는 행동을 함께 본다."
         return self._record(
             raw,
             classification,
             domain="직장·인간관계",
             knowledge_type="판단기준",
-            experience="작성자가 23년 직장생활을 바탕으로 관찰을 제시했다." if "23년차" in body else None,
+            experience=None,
             lesson=lesson,
             reusable_principle=principle,
             evidence=self._evidence(raw, *evidence_items),

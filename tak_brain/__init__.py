@@ -5,6 +5,7 @@ from .article_types import ArticleClassification, ArticleTypeClassifier
 from .knowledge import (
 	KnowledgeTransformer,
 	RuleBasedKnowledgeTransformer,
+	append_knowledge_file,
 	load_raw_records,
 	load_knowledge_records,
 	list_pending_knowledge,
@@ -33,6 +34,7 @@ __all__ = [
 	"KnowledgeTransformer",
 	"RawContent",
 	"RuleBasedKnowledgeTransformer",
+	"append_knowledge_file",
 	"load_raw_records",
 	"load_knowledge_records",
 	"list_pending_knowledge",
