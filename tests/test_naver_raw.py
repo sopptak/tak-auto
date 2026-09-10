@@ -82,6 +82,8 @@ class NaverRawTests(unittest.TestCase):
             self.assertEqual(report.risk_flags, 1)
             self.assertTrue(records[0]["metadata"]["risk_flag"])
             self.assertIn("privacy_or_financial", records[0]["metadata"]["risk_flags"])
+            self.assertTrue(records[0]["metadata"]["false_positive_possible"])
+            self.assertEqual(records[0]["metadata"]["review_status"], "pending")
 
 
 if __name__ == "__main__":

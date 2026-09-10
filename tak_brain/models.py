@@ -91,5 +91,7 @@ def build_metadata(post: BlogPost) -> dict[str, Any]:
         "internal_information_risk": internal_information_risk,
         "risk_flag": bool(risk_flags),
         "risk_flags": risk_flags,
+        "false_positive_possible": bool(risk_flags),
+        "review_status": "pending",
         "verification_required": True,
     }
