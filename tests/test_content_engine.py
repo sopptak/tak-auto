@@ -1,8 +1,12 @@
 from pathlib import Path
 from dataclasses import replace
+import json
+import subprocess
+import sys
 import unittest
 
 from content_engine.generator import build_content_brief, generate_content_bundle, generate_from_approved
+from content_engine.llm_provider import LLMConfigurationError, OpenAICompatibleRewriteProvider
 from content_engine.models import ContentBundle
 from content_engine.rewrite import MockRewriteProvider, RewriteService
 from tak_brain import KnowledgeRecord, load_knowledge_records, select_approved
@@ -347,6 +351,182 @@ class RewriteLayerTests(unittest.TestCase):
 
         self.assertEqual(result.validation_status, "invalid")
         self.assertTrue(any("사실 범위를 넓히는 표현" in error for error in result.validation_errors))
+
+
+class LLMRewriteExperimentTests(unittest.TestCase):
+    KNOWLEDGE_PATH = Path(__file__).parents[1] / "data" / "tak_brain_knowledge.json"
+
+    def setUp(self) -> None:
+        records = load_knowledge_records(self.KNOWLEDGE_PATH)
+        self.knowledge = next(record for record in records if record.id == "knowledge-da6ddf5aa459")
+        self.draft = generate_content_bundle(self.knowledge).blog
+
+    def test_provider_requires_explicit_environment_configuration(self):
+        with self.assertRaises(LLMConfigurationError):
+            OpenAICompatibleRewriteProvider.from_environment({})
+
+    def test_provider_uses_openai_compatible_request_without_network(self):
+        calls = []
+
+        def transport(endpoint, headers, payload, timeout_seconds):
+            calls.append((endpoint, headers, payload, timeout_seconds))
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "title": "왜 지금 시작해야 할까",
+                                    "body": "코딩을 몰라도 시작할 수 있다는 이야기를 자연스럽게 풀어냅니다.",
+                                },
+                                ensure_ascii=False,
+                            )
+                        }
+                    }
+                ]
+            }
+
+        provider = OpenAICompatibleRewriteProvider.from_environment(
+            {
+                "TAK_MEDIA_LLM_API_KEY": "test-key",
+                "TAK_MEDIA_LLM_ENDPOINT": "https://llm.example.test/v1/chat/completions",
+                "TAK_MEDIA_LLM_MODEL": "test-model",
+            },
+            transport=transport,
+        )
+        result = RewriteService(provider).rewrite(self.knowledge, self.draft)
+
+        self.assertEqual(result.validation_status, "valid")
+        self.assertEqual(result.rewritten_draft.title, "왜 지금 시작해야 할까")
+        self.assertEqual(len(calls), 1)
+        endpoint, headers, payload, timeout_seconds = calls[0]
+        self.assertEqual(endpoint, "https://llm.example.test/v1/chat/completions")
+        self.assertEqual(headers["Authorization"], "Bearer test-key")
+        self.assertEqual(payload["model"], "test-model")
+        self.assertEqual(timeout_seconds, 30.0)
+        self.assertIn(self.knowledge.source_url, payload["messages"][1]["content"])
+        self.assertIn(self.knowledge.evidence[0], payload["messages"][1]["content"])
+
+    def test_experiment_script_defaults_to_network_free_dry_run(self):
+        script = Path(__file__).parents[1] / "scripts" / "experiment_llm_rewrite.py"
+        result = subprocess.run(
+            [sys.executable, str(script)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertIn("dry-run: knowledge-da6ddf5aa459", result.stdout)
+        self.assertIn("drafts: 9 (Blog 1, Shorts 3, Threads 5)", result.stdout)
+        self.assertIn("네트워크 호출 없음", result.stdout)
+
+    def test_prompt_contract_includes_validator_fact_boundary(self):
+        captured = {}
+
+        def transport(endpoint, headers, payload, timeout_seconds):
+            captured["payload"] = payload
+            user_prompt = json.loads(payload["messages"][1]["content"])
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": json.dumps(user_prompt["original_draft"], ensure_ascii=False)
+                        }
+                    }
+                ]
+            }
+
+        provider = OpenAICompatibleRewriteProvider.from_environment(
+            {
+                "TAK_MEDIA_LLM_API_KEY": "test-key",
+                "TAK_MEDIA_LLM_ENDPOINT": "https://llm.example.test/v1/chat/completions",
+                "TAK_MEDIA_LLM_MODEL": "test-model",
+            },
+            transport=transport,
+        )
+        result = RewriteService(provider).rewrite(self.knowledge, self.draft)
+        system_prompt = captured["payload"]["messages"][0]["content"]
+        user_prompt = json.loads(captured["payload"]["messages"][1]["content"])
+
+        self.assertEqual(result.validation_status, "valid")
+        self.assertIn("Never add, infer, amplify", system_prompt)
+        self.assertEqual(user_prompt["platform"], "blog")
+        self.assertIn("새 사실·숫자·사람·기관·상품", user_prompt["prohibited_changes"])
+        self.assertIn("법률·규정 판단", user_prompt["prohibited_changes"])
+        self.assertIn("source_url, evidence, 근거 단위 추적 정보", user_prompt["validation_requirements"])
+        self.assertEqual(user_prompt["approved_knowledge_facts"]["experience"], self.knowledge.experience)
+
+    def test_mock_llm_rewrites_all_nine_knowledge_001_drafts(self):
+        calls = []
+
+        def transport(endpoint, headers, payload, timeout_seconds):
+            calls.append(payload)
+            user_prompt = json.loads(payload["messages"][1]["content"])
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": json.dumps(user_prompt["original_draft"], ensure_ascii=False)
+                        }
+                    }
+                ]
+            }
+
+        provider = OpenAICompatibleRewriteProvider.from_environment(
+            {
+                "TAK_MEDIA_LLM_API_KEY": "test-key",
+                "TAK_MEDIA_LLM_ENDPOINT": "https://llm.example.test/v1/chat/completions",
+                "TAK_MEDIA_LLM_MODEL": "test-model",
+            },
+            transport=transport,
+        )
+        bundle = generate_content_bundle(self.knowledge)
+        drafts = (bundle.blog, *bundle.shorts, *bundle.threads)
+        results = [RewriteService(provider).rewrite(self.knowledge, draft) for draft in drafts]
+        prompts = [json.loads(call["messages"][1]["content"]) for call in calls]
+
+        self.assertEqual(len(results), 9)
+        self.assertTrue(all(result.validation_status == "valid" for result in results))
+        self.assertEqual([prompt["platform"] for prompt in prompts], ["blog", "shorts", "shorts", "shorts", "threads", "threads", "threads", "threads", "threads"])
+        self.assertTrue(all(prompt["source_url"] == self.knowledge.source_url for prompt in prompts))
+        self.assertTrue(all(tuple(prompt["evidence"]) == self.knowledge.evidence for prompt in prompts))
+
+    def test_finance_prompt_preserves_author_observation_boundary(self):
+        records = load_knowledge_records(self.KNOWLEDGE_PATH)
+        finance = next(record for record in records if record.id == "knowledge-e1cc05264953")
+        finance_draft = generate_content_bundle(finance).blog
+        captured = {}
+
+        def transport(endpoint, headers, payload, timeout_seconds):
+            captured["payload"] = payload
+            user_prompt = json.loads(payload["messages"][1]["content"])
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": json.dumps(user_prompt["original_draft"], ensure_ascii=False)
+                        }
+                    }
+                ]
+            }
+
+        provider = OpenAICompatibleRewriteProvider.from_environment(
+            {
+                "TAK_MEDIA_LLM_API_KEY": "test-key",
+                "TAK_MEDIA_LLM_ENDPOINT": "https://llm.example.test/v1/chat/completions",
+                "TAK_MEDIA_LLM_MODEL": "test-model",
+            },
+            transport=transport,
+        )
+        result = RewriteService(provider).rewrite(finance, finance_draft)
+        system_prompt = captured["payload"]["messages"][0]["content"]
+        user_prompt = json.loads(captured["payload"]["messages"][1]["content"])
+
+        self.assertEqual(result.validation_status, "valid")
+        self.assertEqual(user_prompt["article_type"], "finance")
+        self.assertIn("author's observation and official institution criteria", system_prompt)
+        self.assertIn("금융기관 공식 기준으로의 확대", user_prompt["prohibited_changes"])
+        self.assertIn("공식 기준 비해석 문구", user_prompt["validation_requirements"])
 
 
 if __name__ == "__main__":
