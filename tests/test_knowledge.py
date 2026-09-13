@@ -57,6 +57,31 @@ class KnowledgePipelineTests(unittest.TestCase):
         self.assertNotIn("ai_inference", fields)
         self.assertEqual(fields.count("experience"), 1)
 
+    def test_book_knowledge_keeps_financial_claims_separate_from_book_claims(self):
+        post = BlogPost.from_mapping(
+            {
+                "id": "raw-sun-tzu-finance-001",
+                "title": "이기는 사람은 절대 무작정 싸우지 않는다",
+                "published_at": "2026-09-10T00:00:00+00:00",
+                "body": (
+                    "손자병법의 핵심 메시지. 지점장의 현장 인사이트 대출 심사를 하다 보면 "
+                    "성공하는 기업들의 공통점이 보입니다. 현금흐름을 계산하고, 위험을 분석합니다. "
+                    "리스크 관리의 교과서라고 설명합니다."
+                ),
+                "source_url": "https://blog.example.test/sun-tzu-finance-001",
+                "source": "naver_rss",
+            }
+        )
+
+        knowledge = transform_raw(RawContent.from_post(post))
+
+        self.assertIsNone(knowledge.experience)
+        self.assertTrue(any("손자병법의 핵심 메시지와 해석" in item for item in knowledge.evidence))
+        financial_evidence = next(item for item in knowledge.evidence if "작성자의 주장·관찰" in item)
+        self.assertNotIn("지점장의 대출 심사 현장 관찰", financial_evidence)
+        self.assertIn("작성자의 금융 관련 주장·관찰", knowledge.lesson)
+        self.assertIn("작성자의 금융 관련 주장·관찰", knowledge.reusable_principle)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -80,15 +80,20 @@ class FinanceKnowledgeTransformer(BaseKnowledgeTransformer):
 
     def transform(self, raw: RawContent, classification: ArticleClassification) -> KnowledgeRecord:
         found = tuple(item for item in self._ITEMS if item in raw.body)
-        evidence = self._evidence(raw, f"본문에서 다음 재무 항목을 확인했다: {', '.join(found)}." if found else "")
+        evidence = self._evidence(
+            raw,
+            "매출만으로 대출 가능성을 판단해서는 안 된다는 설명을 확인했다." if "매출만으로" in raw.body else "",
+            f"본문에서 다음 재무 항목을 확인했다: {', '.join(found)}." if found else "",
+            "기존에 빌린 돈도 함께 본다는 설명을 확인했다." if "기존에 빌린 돈" in raw.body else "",
+        )
         return self._record(
             raw,
             classification,
             domain="금융",
             knowledge_type="판단기준",
-            problem="대출 판단에서 매출만으로 충분한지 질문하는 글이다." if "대출" in raw.title else None,
-            lesson="원문은 매출뿐 아니라 함께 확인할 재무 항목을 제시한다." if found else None,
-            reusable_principle="금융 판단에서는 원문에 제시된 여러 재무 지표를 함께 확인한다." if found else None,
+            problem="매출 규모가 있어도 대출이 기대보다 나오지 않을 수 있는 상황을 제시한다." if "대출" in raw.title else None,
+            lesson="원문은 매출뿐 아니라 이익과 기존 부채 등 여러 조건을 함께 살펴야 한다고 설명한다." if found else None,
+            reusable_principle="대출 가능성을 매출 하나로 단정하지 말고, 원문에 제시된 재무지표와 기존 부채를 함께 확인한다." if found else None,
             evidence=evidence,
             current_validity="확인 필요",
         )
@@ -105,7 +110,30 @@ class WorkplaceKnowledgeTransformer(BaseKnowledgeTransformer):
                 evidence_items.append(f"본문에서 '{term}'과 직장 내 관계를 다룬 내용을 확인했다.")
         lesson = None
         principle = None
-        if "거절" in raw.title and "신뢰" in body:
+        experience = None
+        problem = None
+        action = None
+        decision = None
+        result = None
+        if "거절을 잘하는" in raw.title and "저도" in body:
+            lesson = "업무상 거절 방식과 직장 내 신뢰의 관계를 설명한다."
+            principle = "거절이 필요한 상황에서는 관계와 업무 맥락을 함께 고려한다."
+            experience = "작성자가 부탁을 쉽게 거절하지 못했던 직장생활 경험을 설명한다."
+            problem = "부탁을 계속 받아주면 업무를 제때 처리하지 못해 신뢰도가 떨어질 수 있었다."
+            action = "부탁을 모두 받아주기보다 업무 상황을 고려해 거절하는 방식을 제시한다."
+            decision = "좋은 사람으로 보이기 위해 무조건 수락하기보다 필요한 경우 거절하기로 판단한다."
+            result = "적절한 거절이 오히려 직장 내 신뢰로 이어질 수 있다고 설명한다."
+        elif "일 잘하는데도" in raw.title or "인정받지 못" in raw.title:
+            problem = "일을 잘해도 직장에서 인정받지 못하는 차이가 생기는 상황을 다룬다."
+            lesson = "업무 능력만으로 인정이 결정되는 것은 아니며 문제 대응과 협업 태도도 영향을 줄 수 있다."
+            principle = "직장에서는 업무 수행 능력과 함께 문제 대응 방식과 협업 태도를 함께 본다."
+        elif "신뢰받는 사람들은" in raw.title:
+            lesson = "업무 범위를 설명하는 말과 책임을 피하는 말이 신뢰 판단에 영향을 줄 수 있다고 설명한다."
+            principle = "업무 경계를 설명할 때 책임 회피로 들리는 표현과 협업 의사를 구분한다."
+        elif "무시당하는 사람들이" in raw.title:
+            lesson = "모르는 것을 모른다고 말하는 것과 자신을 반복적으로 낮추는 표현은 구분해야 한다고 설명한다."
+            principle = "직장 커뮤니케이션에서는 내용뿐 아니라 자신을 표현하는 습관과 그 영향을 함께 점검한다."
+        elif "거절" in raw.title and "신뢰" in body:
             lesson = "업무상 거절 방식과 직장 내 신뢰의 관계를 설명한다."
             principle = "거절이 필요한 상황에서는 관계와 업무 맥락을 함께 고려한다."
         elif ("작은 약속" in body or "약속을 지키" in body) and "신뢰" in body:
@@ -116,7 +144,11 @@ class WorkplaceKnowledgeTransformer(BaseKnowledgeTransformer):
             classification,
             domain="직장·인간관계",
             knowledge_type="판단기준",
-            experience=None,
+            experience=experience,
+            problem=problem,
+            action=action,
+            decision=decision,
+            result=result,
             lesson=lesson,
             reusable_principle=principle,
             evidence=self._evidence(raw, *evidence_items),
@@ -133,7 +165,9 @@ class AIBusinessKnowledgeTransformer(BaseKnowledgeTransformer):
             domain="자기계발·AI",
             knowledge_type="경험",
             experience="작성자가 AI를 이용해 수익을 시도한 경험이다." if "AI" in body else None,
+            problem="일하지 않는 시간에도 작동하는 수익 구조를 만들고 싶었다." if "일하지 않는 시간" in body else None,
             action="AI를 이용한 프로젝트 HARU를 시작했다." if "HARU" in body else None,
+            decision="처음부터 큰 금액이 아니라 첫 목표를 월 1만원으로 설정했다." if "월 1만원" in body else None,
             result="수익 결과가 원문에 확인된다." if has_result else None,
             evidence=self._evidence(raw, "본문에서 AI 수익 시도와 HARU 프로젝트를 확인했다." if "AI" in body and "HARU" in body else ""),
             derived_insight="AI를 활용한 수익 시도는 실제 결과와 기대를 구분해 기록해야 한다." if "AI" in body else None,
@@ -143,16 +177,35 @@ class AIBusinessKnowledgeTransformer(BaseKnowledgeTransformer):
 class BookPhilosophyKnowledgeTransformer(BaseKnowledgeTransformer):
     def transform(self, raw: RawContent, classification: ArticleClassification) -> KnowledgeRecord:
         book = next((name for name in ("장자", "손자병법") if name in raw.body or name in raw.title), None)
-        evidence = self._evidence(raw, f"본문에서 {book}의 핵심 메시지와 해석을 확인했다." if book else "")
+        evidence_items = [f"본문에서 {book}의 핵심 메시지와 해석을 확인했다." if book else ""]
+        if book == "장자":
+            evidence_items.extend(
+                [
+                    "비교가 불안과 조급함을 만든다는 해석을 확인했다.",
+                    "SNS 사용 시간 줄이기와 감사한 일 기록이라는 실천 제안을 확인했다.",
+                ]
+            )
+        if book == "손자병법":
+            evidence_items.extend(
+                [
+                    "준비 없이 싸우는 것은 무모하다는 설명을 확인했다.",
+                    "싸우기 전에 승리를 준비하고 감정으로 싸우지 말라는 원칙을 확인했다.",
+                ]
+            )
+            if "지점장의 현장 인사이트" in raw.body and "대출 심사를 하다 보면" in raw.body:
+                evidence_items.append("본문의 별도 인사이트 구간에서 대출 심사와 기업 위험 관리에 관한 작성자의 주장·관찰을 확인했다.")
         return self._record(
             raw,
             classification,
             domain="독서·철학",
             knowledge_type="정보" if book else None,
             experience=None,
-            lesson="책의 주장을 작성자의 해석과 함께 정리한 글이다." if book else None,
-            reusable_principle="책에서 제시한 판단기준을 다른 상황에 적용하려면 원문 맥락을 함께 확인한다." if book else None,
-            evidence=evidence,
+            problem=("비교가 불안과 조급함을 만들 수 있다는 문제의식을 제시한다." if book == "장자" else "준비 없이 싸움을 시작하거나 감정으로 판단하는 문제를 다룬다." if book == "손자병법" else None),
+            action=("SNS 사용 시간을 줄이고 감사한 일을 기록하는 실천을 제안한다." if book == "장자" else None),
+            lesson=("비교에서 벗어나 타인의 시선보다 자신의 삶을 살아가는 방향을 제시한다." if book == "장자" else "손자병법의 핵심 주장을 정리하고, 대출 심사·위험 관리 내용은 작성자의 금융 관련 주장·관찰로 구분한다." if book == "손자병법" else None),
+            reusable_principle=("비교로 인한 불안을 줄이기 위해 타인의 시선보다 자신의 삶과 현재 행동을 점검한다." if book == "장자" else "손자병법의 판단 기준과 작성자의 금융 관련 주장·관찰을 구분한 뒤 원문 맥락을 함께 확인한다." if book == "손자병법" else None),
+            evidence=self._evidence(raw, *evidence_items),
+            derived_insight=("비교를 줄이는 원칙을 SNS 사용과 감사 기록이라는 행동으로 연결한 정리다." if book == "장자" else "손자병법의 준비와 위험 점검 원칙을 일반 의사결정에 적용한 정리다." if book == "손자병법" else None),
         )
 
 

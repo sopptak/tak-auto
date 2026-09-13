@@ -91,8 +91,8 @@ class ArticleTypePipelineTests(unittest.TestCase):
 
         self.assertEqual(knowledge.article_type, "workplace")
         self.assertIsNone(knowledge.experience)
-        self.assertIsNone(knowledge.lesson)
-        self.assertIsNone(knowledge.reusable_principle)
+        self.assertIn("인정", knowledge.lesson or "")
+        self.assertIn("문제 대응", knowledge.lesson or "")
 
     def test_ai_business_does_not_treat_title_goal_as_revenue(self):
         raw = self._raw(11, "AI로 번 첫 1만원을 기다린다", "AI 프로젝트를 시작했고 첫 수익을 기다리는 중이다.")
@@ -107,6 +107,30 @@ class ArticleTypePipelineTests(unittest.TestCase):
 
         self.assertIn("거절", knowledge.lesson or "")
         self.assertIn("거절", knowledge.reusable_principle or "")
+
+    def test_finance_output_does_not_claim_official_bank_criteria(self):
+        raw = self._raw(13, "은행 대출과 재무제표", "매출, 영업이익, 당기순이익, 이익률을 함께 살펴볼 필요가 있다.")
+        knowledge = transform_raw(raw)
+
+        self.assertIsNone(knowledge.experience)
+        self.assertNotIn("공식", knowledge.lesson or "")
+        self.assertIn("재무", knowledge.evidence[1])
+
+    def test_book_output_keeps_author_experience_null_and_preserves_finance_observation_as_evidence(self):
+        raw = self._raw(14, "손자병법의 승리 전략", "손자병법은 준비를 강조한다. 지점장의 현장 인사이트로 대출 심사를 하다 보면 리스크 관리가 중요하다고 설명한다.")
+        knowledge = transform_raw(raw)
+
+        self.assertIsNone(knowledge.experience)
+        self.assertTrue(any("작성자의 주장·관찰" in item for item in knowledge.evidence))
+        self.assertNotIn("금융기관 공식", knowledge.derived_insight or "")
+
+    def test_workplace_direct_experience_is_only_filled_when_explicit(self):
+        raw = self._raw(15, "거절을 잘하는 사람이 직장에서 더 신뢰받는 이유", "저도 직장생활을 하면서 부탁을 쉽게 거절하지 못했던 경험이 있습니다. 거절이 신뢰로 이어질 수 있다.")
+        knowledge = transform_raw(raw)
+
+        self.assertIsNotNone(knowledge.experience)
+        self.assertIsNotNone(knowledge.problem)
+        self.assertIsNotNone(knowledge.result)
 
     def test_batch_generation_preserves_approved_and_deduplicates_source(self):
         import tempfile
