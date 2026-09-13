@@ -34,6 +34,12 @@ from .pipeline import (
     run_media_batch,
     run_media_batch_file,
 )
+from .threads_publisher import (
+    ThreadsAPIError,
+    ThreadsClient,
+    ThreadsConfigurationError,
+    ThreadsPublishResult,
+)
 
 __all__ = [
     "BLOG_COUNT",
@@ -64,4 +70,8 @@ __all__ = [
     "generate_media_batch_dry_run",
     "run_media_batch",
     "run_media_batch_file",
+    "ThreadsClient",
+    "ThreadsConfigurationError",
+    "ThreadsAPIError",
+    "ThreadsPublishResult",
 ]

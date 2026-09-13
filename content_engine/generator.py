@@ -216,15 +216,35 @@ def _thread(brief: ContentBrief, title: str, fields: tuple[str, ...], supporting
     used_ids: set[str] = set()
     message = _pick(brief, used_ids, *fields)
     supporting = _pick(brief, used_ids, *supporting_fields)
+
+    body = _body(
+        _quote(message, "", "."),
+        _quote(supporting, "원문은 ", "고 덧붙입니다."),
+    )
+    units = (message, supporting)
+
+    if len(body) > 500:
+        body = _body(_quote(message, "", "."))
+        units = (message,)
+
+    if len(body) > 500 and message:
+        body = message.text.rstrip(".!?").strip() + "."
+        units = (message,)
+
+    if len(body) > 500:
+        for unit in brief.evidence_units:
+            if unit.field_name in fields and len(unit.text) <= 500:
+                message = unit
+                body = message.text.rstrip(".!?").strip() + "."
+                units = (message,)
+                break
+
     return _draft(
         brief,
         ThreadDraft,
         title,
-        _body(
-            _quote(message, "", "."),
-            _quote(supporting, "원문은 ", "고 덧붙입니다."),
-        ),
-        (message, supporting),
+        body,
+        units,
     )
 
 

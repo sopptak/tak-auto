@@ -176,7 +176,7 @@ class OpenAICompatibleRewriteProvider(RewriteProvider):
         if isinstance(draft, ShortDraft):
             return "말하듯 짧고 선명하게 다듬고, 훅은 본문을 그대로 반복하지 않는다."
         if isinstance(draft, ThreadDraft):
-            return "짧고 독립적으로 읽히게 다듬되, 다른 Threads의 주장이나 사례를 추가하지 않는다."
+            return "짧고 독립적으로 읽히게 다듬되, 다른 Threads의 주장이나 사례를 추가하지 않는다. Threads 본문 전체 길이는 공백 포함 500자 이내여야 한다."
         return "플랫폼 문체만 다듬고 사실 범위를 유지한다."
 
     @staticmethod

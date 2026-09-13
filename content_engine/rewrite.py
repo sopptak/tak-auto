@@ -8,7 +8,7 @@ import re
 
 from tak_brain.models import KnowledgeRecord
 
-from .models import ContentDraft
+from .models import ContentDraft, ThreadDraft
 
 
 _NUMBER_PATTERN = re.compile(r"\d+(?:[.,]\d+)?")
@@ -110,6 +110,7 @@ class RewriteValidator:
         errors.extend(self._fact_scope_errors(source_text, rewritten_draft, request.article_type))
         errors.extend(self._finance_errors(request, rewritten_draft))
         errors.extend(self._style_errors(request, rewritten_draft))
+        errors.extend(self._threads_length_errors(request, rewritten_draft))
         return RewriteValidation("valid" if not errors else "invalid", tuple(errors))
 
     @staticmethod
@@ -204,6 +205,16 @@ class RewriteValidator:
                 # 원본 draft 본문 자체에 이미 포함되어 있던 템플릿 인용구 제외하고, 새로 작성된 텍스트에서 검출된 경우만 체크
                 if match.group() not in request.draft.body and match.group() not in request.draft.title:
                     return (f"경험형 콘텐츠 스타일 위반: 3인칭 요약체 또는 메타 표현이 포함되었습니다 ({match.group().strip()}).",)
+        return ()
+
+    @staticmethod
+    def _threads_length_errors(request: RewriteRequest, rewritten_draft: ContentDraft) -> tuple[str, ...]:
+        is_threads = isinstance(rewritten_draft, ThreadDraft) or isinstance(request.draft, ThreadDraft)
+        if not is_threads:
+            return ()
+        clean_body = rewritten_draft.body.strip()
+        if len(clean_body) > 500:
+            return (f"Threads text exceeds 500 characters: {len(clean_body)}",)
         return ()
 
 

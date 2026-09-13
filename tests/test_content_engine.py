@@ -379,6 +379,35 @@ class RewriteLayerTests(unittest.TestCase):
         self.assertEqual(result.validation_status, "invalid")
         self.assertTrue(any("사람·기관·상품명" in error for error in result.validation_errors))
 
+    def test_threads_draft_exceeding_500_chars_is_rejected(self):
+        threads_draft = generate_content_bundle(self.knowledge).threads[0]
+        rewritten = replace(threads_draft, body="가" * 501)
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, threads_draft)
+
+        self.assertEqual(result.validation_status, "invalid")
+        self.assertTrue(any("Threads text exceeds 500 characters: 501" in error for error in result.validation_errors))
+
+    def test_generated_thread_draft_body_is_within_500_chars(self):
+        long_knowledge = KnowledgeRecord(
+            id="knowledge-long-threads",
+            source_url="https://example.test/long",
+            title="아주 긴 내용의 KNOWLEDGE",
+            article_type="experience",
+            knowledge_type="경험",
+            experience="가" * 300 + ".",
+            problem="나" * 300 + ".",
+            action="다" * 300 + ".",
+            result="라" * 300 + ".",
+            lesson="마" * 300 + ".",
+            reusable_principle="바" * 300 + ".",
+            derived_insight="사" * 300 + ".",
+            evidence=("원문 근거",),
+            knowledge_review_status="approved",
+        )
+        bundle = generate_content_bundle(long_knowledge)
+        for thread_draft in bundle.threads:
+            self.assertLessEqual(len(thread_draft.body.strip()), 500)
+
     def test_new_product_name_fails_validation(self):
         rewritten = replace(self.draft, body="TAK상품을 새로 출시했다.")
         result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
