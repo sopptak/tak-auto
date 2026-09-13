@@ -1,12 +1,15 @@
 from pathlib import Path
 from dataclasses import replace
+from io import BytesIO
 import json
 import subprocess
 import sys
+from urllib.error import HTTPError
 import unittest
+from unittest import mock
 
 from content_engine.generator import build_content_brief, generate_content_bundle, generate_from_approved
-from content_engine.llm_provider import LLMConfigurationError, OpenAICompatibleRewriteProvider
+from content_engine.llm_provider import LLMConfigurationError, LLMResponseError, OpenAICompatibleRewriteProvider, _http_transport
 from content_engine.models import ContentBundle
 from content_engine.rewrite import MockRewriteProvider, RewriteService
 from tak_brain import KnowledgeRecord, load_knowledge_records, select_approved
@@ -283,6 +286,48 @@ class RewriteLayerTests(unittest.TestCase):
         self.assertEqual(result.validation_status, "invalid")
         self.assertTrue(any("공식 기준 비해석 경계" in error for error in result.validation_errors))
 
+    def test_finance_boundary_ending_variations(self):
+        records = load_knowledge_records(self.KNOWLEDGE_PATH)
+        finance = next(record for record in records if record.id == "knowledge-e1cc05264953")
+        finance_draft = generate_content_bundle(finance).blog
+
+        # PASS 케이스: 동일한 부정 의미의 활용형
+        pass_cases = [
+            "금융기관의 공식 심사 기준으로 해석하지 않습니다.",
+            "금융기관의 공식 심사 기준으로 해석하지 않는다.",
+            "금융기관의 공식 심사 기준으로 해석하지 않으며, 개인의 설명입니다.",
+        ]
+        for boundary_text in pass_cases:
+            with self.subTest(boundary_text=boundary_text, expected="PASS"):
+                rewritten_body = finance_draft.body.replace(
+                    "이 글의 금융 관련 내용은 원문 작성자의 설명이며, 금융기관의 공식 심사 기준으로 해석하지 않습니다.",
+                    f"이 글의 금융 관련 내용은 원문 작성자의 설명이며, {boundary_text}",
+                )
+                rewritten = replace(finance_draft, body=rewritten_body)
+                result = RewriteService(MockRewriteProvider(rewritten)).rewrite(finance, finance_draft)
+                self.assertEqual(result.validation_status, "valid", f"Unexpected validation error: {result.validation_errors}")
+
+        # FAIL 케이스: 긍정 또는 공식 기준 확대 표현
+        fail_cases = [
+            "금융기관의 공식 심사 기준으로 해석할 수 있습니다.",
+            "금융기관의 공식 심사 기준입니다.",
+            "금융기관의 공식 심사 기준으로 볼 수 있습니다.",
+            "금융기관의 공식 심사 기준에 해당합니다.",
+        ]
+        for boundary_text in fail_cases:
+            with self.subTest(boundary_text=boundary_text, expected="FAIL"):
+                rewritten_body = finance_draft.body.replace(
+                    "이 글의 금융 관련 내용은 원문 작성자의 설명이며, 금융기관의 공식 심사 기준으로 해석하지 않습니다.",
+                    f"이 글의 금융 관련 내용은 원문 작성자의 설명이며, {boundary_text}",
+                )
+                rewritten = replace(finance_draft, body=rewritten_body)
+                result = RewriteService(MockRewriteProvider(rewritten)).rewrite(finance, finance_draft)
+                self.assertEqual(result.validation_status, "invalid")
+                self.assertTrue(
+                    any("공식 기준" in err or "공식 심사 기준" in err for err in result.validation_errors),
+                    f"Expected finance error in {result.validation_errors}",
+                )
+
     def test_natural_korean_rewrite_with_new_connectives_is_allowed(self):
         rewritten = replace(
             self.draft,
@@ -352,6 +397,100 @@ class RewriteLayerTests(unittest.TestCase):
         self.assertEqual(result.validation_status, "invalid")
         self.assertTrue(any("사실 범위를 넓히는 표현" in error for error in result.validation_errors))
 
+    def test_normal_phrasings_with_method_or_way_are_allowed(self):
+        for body in (
+            "문제를 해결하는 방법이 여기에 있습니다.",
+            "코딩을 몰라도 직접 앱을 만드는 법을 배웠습니다.",
+            "시작하는 법과 반복하는 방법을 다룹니다.",
+        ):
+            with self.subTest(body=body):
+                rewritten = replace(self.draft, body=body)
+                result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+                self.assertEqual(result.validation_status, "valid", f"Unexpected validation errors: {result.validation_errors}")
+
+    def test_new_legal_regulations_or_specific_statutes_fail_validation(self):
+        for phrase in ("관련 규정을 준수해야 한다.", "조례에 따른 기준이다.", "시행령에 명시되어 있다.", "법적 책임을 진다."):
+            with self.subTest(phrase=phrase):
+                rewritten = replace(self.draft, body=phrase)
+                result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+                self.assertEqual(result.validation_status, "invalid")
+                self.assertTrue(any("사실 범위를 넓히는 표현" in error for error in result.validation_errors))
+
+        # _ENTITY_PATTERN에 의한 구체적 법률명 차단 검증
+        for statute in ("전자상거래법에 의거하여 처리했다.", "소비자보호법을 적용해야 한다.", "개인정보보호법에 따릅니다."):
+            with self.subTest(statute=statute):
+                rewritten = replace(self.draft, body=statute)
+                result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+                self.assertEqual(result.validation_status, "invalid")
+                self.assertTrue(any("사람·기관·상품명" in error for error in result.validation_errors))
+
+    def test_source_url_number_is_not_treated_as_new_number_error(self):
+        # source_url contains '224407187378'
+        self.assertIn("224407187378", self.draft.source_url)
+        # Draft body has no 224407187378, rewrite keeps metadata source_url intact
+        result = RewriteService(MockRewriteProvider(self.draft)).rewrite(self.knowledge, self.draft)
+        self.assertEqual(result.validation_status, "valid")
+
+    def test_nine_experiment_paraphrases_pass_validation(self):
+        # 9개의 실제 paraphrase 표현들이 단어 활용형 및 자연스러운 한국어 문장 변형으로 통과하는지 검증
+        cases = [
+            ("blog", "결과물을 만들며 시도했던 경험은 결코 헛되지 않았습니다."),
+            ("shorts_1", "문제를 해결하는 과정을 통해 알게 된 것을 실천에 옮깁니다."),
+            ("shorts_2", "완벽을 기다리는 대신 시도하며 얻은 점이 분명히 있습니다."),
+            ("shorts_3", "비개발자의 아이디어가 있어도 직접 구현할 수 있다고 생각했습니다."),
+            ("threads_1", "문제마다 수정을 반복하면 해결할 수 있습니다."),
+            ("threads_2", "직접 전달하며 제작했던 시도가 큰 도움이 되었습니다."),
+            ("threads_3", "개발자도 코딩도 몰랐지만 스스로 정리하며 만들어갔습니다."),
+            ("threads_4", "완벽할 때까지 기다릴 필요는 없다는 것을 경험으로 배웠다."),
+            ("threads_5", "시도를 통해 배울 수 있어 기다릴 필요는 없다는 것을 배웠습니다."),
+        ]
+        for label, body in cases:
+            with self.subTest(label=label):
+                rewritten = replace(self.draft, body=body)
+                result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+                self.assertEqual(result.validation_status, "valid", f"{label} failed: {result.validation_errors}")
+
+    def test_experience_style_rejects_third_person_summary(self):
+        # 경험형 콘텐츠에서 3인칭 요약체 및 AI 메타 보고 표현 차단 검증
+        third_person_cases = [
+            "작성자는 직접 전달하며 제작했다는 경험을 남겼습니다.",
+            "저자는 이 과정에서 큰 교훈을 얻었다고 합니다.",
+            "원문에서는 ChatGPT를 활용했다고 설명합니다.",
+            "글쓴이는 실패를 두려워하지 않고 도전했습니다.",
+            "이 글은 비개발자가 앱을 만든 경험을 다룹니다.",
+            "작성자의 설명에 따르면 다음과 같습니다.",
+        ]
+        for body in third_person_cases:
+            with self.subTest(body=body):
+                rewritten = replace(self.draft, body=body)
+                result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+                self.assertEqual(result.validation_status, "invalid")
+                self.assertTrue(
+                    any("3인칭 요약체" in error or "스타일" in error for error in result.validation_errors),
+                    f"Expected style error in {result.validation_errors}",
+                )
+
+    def test_experience_style_allows_first_person_and_direct_narrative(self):
+        # 1인칭 직접 서술 및 담백한 실행형 문장은 통과 검증
+        first_person_cases = [
+            "내가 직접 ChatGPT로 기획을 잡고 앱을 만들었다.",
+            "직접 부딪혀보니 처음부터 완벽할 필요는 없었습니다.",
+            "문제가 생기면 수정하고 다시 테스트하며 배웠습니다.",
+        ]
+        for body in first_person_cases:
+            with self.subTest(body=body):
+                rewritten = replace(self.draft, body=body)
+                result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+                self.assertEqual(result.validation_status, "valid", f"Unexpected error: {result.validation_errors}")
+
+    def test_unmentioned_fact_risk_terms_fail_validation(self):
+        for term in ("매출", "수익", "투자", "계약", "수상"):
+            with self.subTest(term=term):
+                rewritten = replace(self.draft, body=f"그 결과 높은 {term}을 달성했습니다.")
+                result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+                self.assertEqual(result.validation_status, "invalid")
+                self.assertTrue(any("사실 범위를 넓히는 표현" in error for error in result.validation_errors))
+
 
 class LLMRewriteExperimentTests(unittest.TestCase):
     KNOWLEDGE_PATH = Path(__file__).parents[1] / "data" / "tak_brain_knowledge.json"
@@ -364,6 +503,42 @@ class LLMRewriteExperimentTests(unittest.TestCase):
     def test_provider_requires_explicit_environment_configuration(self):
         with self.assertRaises(LLMConfigurationError):
             OpenAICompatibleRewriteProvider.from_environment({})
+
+    def test_http_error_exposes_only_safe_openai_error_fields(self):
+        body = BytesIO(
+            json.dumps(
+                {
+                    "error": {
+                        "message": "Unsupported parameter: temperature",
+                        "type": "invalid_request_error",
+                        "code": "unsupported_parameter",
+                        "param": "temperature",
+                        "internal": "must not be exposed",
+                    }
+                }
+            ).encode("utf-8")
+        )
+
+        with self.assertRaises(LLMResponseError) as raised:
+            with mock.patch(
+                "content_engine.llm_provider.urlopen",
+                side_effect=HTTPError("https://llm.example.test", 400, "Bad Request", {}, body),
+            ):
+                _http_transport(
+                    "https://llm.example.test",
+                    {"Authorization": "Bearer secret-key"},
+                    {"model": "test-model", "messages": []},
+                    30.0,
+                )
+
+        message = str(raised.exception)
+        self.assertIn("LLM HTTP 400", message)
+        self.assertIn("message=Unsupported parameter: temperature", message)
+        self.assertIn("type=invalid_request_error", message)
+        self.assertIn("code=unsupported_parameter", message)
+        self.assertIn("param=temperature", message)
+        self.assertNotIn("secret-key", message)
+        self.assertNotIn("internal", message)
 
     def test_provider_uses_openai_compatible_request_without_network(self):
         calls = []
@@ -403,6 +578,8 @@ class LLMRewriteExperimentTests(unittest.TestCase):
         self.assertEqual(endpoint, "https://llm.example.test/v1/chat/completions")
         self.assertEqual(headers["Authorization"], "Bearer test-key")
         self.assertEqual(payload["model"], "test-model")
+        self.assertNotIn("temperature", payload)
+        self.assertEqual(payload["response_format"], {"type": "json_object"})
         self.assertEqual(timeout_seconds, 30.0)
         self.assertIn(self.knowledge.source_url, payload["messages"][1]["content"])
         self.assertIn(self.knowledge.evidence[0], payload["messages"][1]["content"])
@@ -450,9 +627,13 @@ class LLMRewriteExperimentTests(unittest.TestCase):
 
         self.assertEqual(result.validation_status, "valid")
         self.assertIn("Never add, infer, amplify", system_prompt)
+        self.assertIn("first person", system_prompt)
+        self.assertIn("작성자는", system_prompt)
         self.assertEqual(user_prompt["platform"], "blog")
         self.assertIn("새 사실·숫자·사람·기관·상품", user_prompt["prohibited_changes"])
         self.assertIn("법률·규정 판단", user_prompt["prohibited_changes"])
+        self.assertIn("3인칭 요약체", user_prompt["prohibited_changes"])
+        self.assertIn("1인칭 직접 서술", user_prompt["allowed_changes"])
         self.assertIn("source_url, evidence, 근거 단위 추적 정보", user_prompt["validation_requirements"])
         self.assertEqual(user_prompt["approved_knowledge_facts"]["experience"], self.knowledge.experience)
 

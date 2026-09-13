@@ -7,6 +7,7 @@ from dataclasses import dataclass, replace
 import json
 import os
 from typing import Any
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from .models import BlogDraft, ContentDraft, ShortDraft, ThreadDraft
@@ -36,11 +37,31 @@ def _http_transport(
         headers=dict(headers),
         method="POST",
     )
-    with urlopen(request, timeout=timeout_seconds) as response:
-        data = json.loads(response.read().decode("utf-8"))
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        raise LLMResponseError(_safe_http_error_message(error)) from None
     if not isinstance(data, dict):
         raise LLMResponseError("LLM 응답은 JSON 객체여야 합니다.")
     return data
+
+
+def _safe_http_error_message(error: HTTPError) -> str:
+    """HTTP 오류 본문에서 허용된 OpenAI 오류 필드만 노출한다."""
+    details = []
+    try:
+        payload = json.loads(error.read().decode("utf-8"))
+        error_data = payload.get("error", {}) if isinstance(payload, dict) else {}
+        if isinstance(error_data, dict):
+            for field_name in ("message", "type", "code", "param"):
+                value = error_data.get(field_name)
+                if isinstance(value, str) and value:
+                    details.append(f"{field_name}={value}")
+    except (UnicodeDecodeError, json.JSONDecodeError, OSError):
+        pass
+    detail_text = "; ".join(details) if details else "OpenAI 오류 필드를 읽을 수 없습니다."
+    return f"LLM HTTP {error.code}: {detail_text}"
 
 
 @dataclass(frozen=True)
@@ -84,7 +105,6 @@ class OpenAICompatibleRewriteProvider(RewriteProvider):
             },
             {
                 "model": self.model,
-                "temperature": 0,
                 "response_format": {"type": "json_object"},
                 "messages": [
                     {"role": "system", "content": self._system_prompt()},
@@ -102,6 +122,8 @@ class OpenAICompatibleRewriteProvider(RewriteProvider):
             "non-empty title and body strings. Preserve every factual claim, number, person, institution, "
             "product, experience, event, outcome, source URL, and evidence boundary supplied by the user. "
             "You may improve wording, grammar, sentence order, transitions, title, hook, and platform tone. "
+            "For experience-based content, write directly in the first person ('나', '내가', '직접 해보니') and "
+            "never use third-person summary language such as '작성자는', '저자는', '원문에서는', or '~경험을 남겼습니다/공유합니다'. "
             "Never add, infer, amplify, or replace facts. Never add legal or regulatory claims. For financial "
             "content, preserve the distinction between the author's observation and official institution criteria."
         )
@@ -120,11 +142,12 @@ class OpenAICompatibleRewriteProvider(RewriteProvider):
                 "original_draft": {"title": request.draft.title, "body": request.draft.body},
                 "allowed_changes": (
                     "조사와 어미 변경, 문장 순서 조정, 자연스러운 연결어, 제목과 훅 개선, "
-                    "동일 의미의 한국어 재표현"
+                    "1인칭 직접 서술로의 전환, 동일 의미의 한국어 재표현"
                 ),
                 "prohibited_changes": (
                     "새 사실·숫자·사람·기관·상품·사건·경험·성과 추가, 근거 없는 인과관계, "
-                    "법률·규정 판단 추가, 금융기관 공식 기준으로의 확대"
+                    "법률·규정 판단 추가, 금융기관 공식 기준으로의 확대, "
+                    "경험형 콘텐츠에서의 3인칭 요약체(작성자는, 저자는, 원문에서는, ~경험을 남겼습니다/공유합니다 등)"
                 ),
                 "validation_requirements": (
                     "source_url, evidence, 근거 단위 추적 정보는 원본 Draft와 동일하게 유지되며, "
