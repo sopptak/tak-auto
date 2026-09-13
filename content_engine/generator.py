@@ -1,4 +1,4 @@
-"""승인된 KNOWLEDGE를 규칙 기반 TAK미디어 콘텐츠로 변환한다."""
+"""승인된 KNOWLEDGE를 유형별 규칙 기반 TAK미디어 콘텐츠로 변환한다."""
 
 from __future__ import annotations
 
@@ -7,14 +7,7 @@ import re
 
 from tak_brain.models import KnowledgeRecord
 
-from .models import (
-    BlogDraft,
-    ContentBrief,
-    ContentBundle,
-    EvidenceUnit,
-    ShortDraft,
-    ThreadDraft,
-)
+from .models import BlogDraft, ContentBrief, ContentBundle, EvidenceUnit, ShortDraft, ThreadDraft
 
 
 _CONTENT_FIELDS = (
@@ -42,11 +35,7 @@ def _evidence_units(knowledge: KnowledgeRecord) -> tuple[EvidenceUnit, ...]:
         value = getattr(knowledge, field_name)
         if not isinstance(value, str) or not value.strip():
             continue
-        sentences = tuple(
-            sentence.strip()
-            for sentence in _SENTENCE_BOUNDARY.split(value)
-            if sentence.strip()
-        )
+        sentences = tuple(sentence.strip() for sentence in _SENTENCE_BOUNDARY.split(value) if sentence.strip())
         units.extend(
             EvidenceUnit(f"{field_name}:{index}", field_name, sentence)
             for index, sentence in enumerate(sentences, start=1)
@@ -66,6 +55,8 @@ def build_content_brief(knowledge: KnowledgeRecord) -> ContentBrief:
     return ContentBrief(
         knowledge_id=_required_text(knowledge, "id"),
         title=_required_text(knowledge, "title"),
+        article_type=knowledge.article_type,
+        knowledge_type=knowledge.knowledge_type,
         source_url=knowledge.source_url,
         experience=knowledge.experience,
         problem=knowledge.problem,
@@ -83,29 +74,33 @@ def _draft_metadata(brief: ContentBrief) -> dict[str, object]:
     return {"source_url": brief.source_url, "evidence": brief.evidence}
 
 
-def _units_for(brief: ContentBrief, *field_names: str) -> tuple[EvidenceUnit, ...]:
-    units = tuple(
-        unit
-        for field_name in field_names
-        for unit in brief.evidence_units
-        if unit.field_name == field_name
-    )
-    return units or brief.evidence_units
+def _profile(brief: ContentBrief) -> str:
+    if brief.article_type == "finance":
+        return "finance"
+    if brief.article_type == "book_philosophy":
+        return "book"
+    if brief.knowledge_type == "경험" or brief.article_type in {"experience", "ai_business"}:
+        return "experience"
+    return "criterion"
 
 
-def _pick(brief: ContentBrief, used_ids: set[str], *field_names: str) -> EvidenceUnit:
-    candidates = _units_for(brief, *field_names)
-    unit = next(
-        (candidate for candidate in candidates if candidate.id not in used_ids),
-        next((candidate for candidate in brief.evidence_units if candidate.id not in used_ids), candidates[0]),
-    )
-    used_ids.add(unit.id)
-    return unit
+def _pick(brief: ContentBrief, used_ids: set[str], *field_names: str) -> EvidenceUnit | None:
+    for field_name in field_names:
+        for unit in brief.evidence_units:
+            if unit.field_name == field_name and unit.id not in used_ids:
+                used_ids.add(unit.id)
+                return unit
+    return None
 
 
-def _restate(unit: EvidenceUnit, lead: str, ending: str) -> str:
-    text = unit.text.rstrip(".!?").strip()
-    return f'{lead}"{text}"{ending}'
+def _quote(unit: EvidenceUnit | None, lead: str, ending: str) -> str | None:
+    if unit is None:
+        return None
+    return f'{lead}"{unit.text.rstrip(".!?").strip()}"{ending}'
+
+
+def _body(*paragraphs: str | None) -> str:
+    return "\n\n".join(paragraph for paragraph in paragraphs if paragraph)
 
 
 def _draft(
@@ -113,93 +108,185 @@ def _draft(
     draft_type: type[BlogDraft] | type[ShortDraft] | type[ThreadDraft],
     title: str,
     body: str,
-    units: tuple[EvidenceUnit, ...],
+    units: tuple[EvidenceUnit | None, ...],
 ) -> BlogDraft | ShortDraft | ThreadDraft:
+    used_units = tuple(unit for unit in units if unit is not None)
     return draft_type(
         title=title,
         body=body,
-        evidence_unit_ids=tuple(unit.id for unit in units),
+        evidence_unit_ids=tuple(unit.id for unit in used_units),
         **_draft_metadata(brief),
     )
 
 
-def _blog(brief: ContentBrief) -> BlogDraft:
+def _experience_blog(brief: ContentBrief) -> BlogDraft:
     used_ids: set[str] = set()
     problem = _pick(brief, used_ids, "problem")
     experience = _pick(brief, used_ids, "experience")
     action = _pick(brief, used_ids, "action")
     result = _pick(brief, used_ids, "result")
     lesson = _pick(brief, used_ids, "lesson", "derived_insight")
-    principle = _pick(brief, used_ids, "reusable_principle", "derived_insight")
-    body = "\n\n".join(
-        (
-            _restate(problem, "이야기는 ", "라는 문제에서 시작합니다."),
-            _restate(experience, "기록에는 ", "라고 남아 있습니다."),
-            _restate(action, "그 과정에서는 ", "라고 설명합니다."),
-            _restate(result, "이어 ", "라는 결과를 확인했습니다."),
-            _restate(lesson, "여기서 남은 교훈은 ", "라는 점입니다."),
-            _restate(principle, "독자에게 적용할 원칙은 ", "라는 것입니다."),
-        )
-    )
+    principle = _pick(brief, used_ids, "reusable_principle")
     return _draft(
         brief,
         BlogDraft,
-        "문제 해결을 위한 실행과 교훈",
-        body,
+        "직접 시도하며 얻은 교훈",
+        _body(
+            _quote(problem, "처음 마주한 문제는 ", "였습니다."),
+            _quote(experience, "이 글은 ", "라는 경험을 다룹니다."),
+            _quote(action, "작성자는 ", "고 적었습니다."),
+            _quote(result, "그 뒤 ", "라는 결과를 기록했습니다."),
+            _quote(lesson, "이 경험에서 얻은 교훈은 ", "입니다."),
+            _quote(principle, "다음에 적용할 원칙은 ", "입니다."),
+        ),
         (problem, experience, action, result, lesson, principle),
     )
+
+
+def _criterion_blog(brief: ContentBrief, profile: str) -> BlogDraft:
+    used_ids: set[str] = set()
+    question = _pick(brief, used_ids, "problem")
+    observation = _pick(brief, used_ids, "lesson", "derived_insight")
+    principle = _pick(brief, used_ids, "reusable_principle")
+    caution = (
+        "이 글의 금융 관련 내용은 원문 작성자의 설명이며, 금융기관의 공식 심사 기준으로 해석하지 않습니다."
+        if profile == "finance"
+        else None
+    )
+    title = "재무 판단에서 함께 볼 기준" if profile == "finance" else "판단에 앞서 확인할 기준"
+    return _draft(
+        brief,
+        BlogDraft,
+        title,
+        _body(
+            _quote(question, "글은 ", "라는 질문을 던집니다."),
+            _quote(observation, "원문에서는 ", "고 설명합니다."),
+            _quote(principle, "이를 적용할 때는 ", "는 원칙을 제시합니다."),
+            caution,
+        ),
+        (question, observation, principle),
+    )
+
+
+def _book_blog(brief: ContentBrief) -> BlogDraft:
+    used_ids: set[str] = set()
+    interpretation = _pick(brief, used_ids, "lesson")
+    principle = _pick(brief, used_ids, "reusable_principle")
+    insight = _pick(brief, used_ids, "derived_insight")
+    return _draft(
+        brief,
+        BlogDraft,
+        "원문 맥락에서 읽는 생각",
+        _body(
+            _quote(interpretation, "이 글은 책의 생각을 ", "고 정리합니다."),
+            _quote(insight, "작성자의 해석은 ", "입니다."),
+            _quote(principle, "다른 상황에 적용할 때는 ", "는 원칙을 따릅니다."),
+        ),
+        (interpretation, insight, principle),
+    )
+
+
+def _blog(brief: ContentBrief, profile: str) -> BlogDraft:
+    if profile == "experience":
+        return _experience_blog(brief)
+    if profile == "book":
+        return _book_blog(brief)
+    return _criterion_blog(brief, profile)
 
 
 def _short(brief: ContentBrief, title: str, fields: tuple[str, ...], closing_fields: tuple[str, ...]) -> ShortDraft:
     used_ids: set[str] = set()
     hook = _pick(brief, used_ids, *fields)
-    core = _pick(brief, used_ids, *fields, "experience", "action", "result")
+    detail = _pick(brief, used_ids, *fields)
     closing = _pick(brief, used_ids, *closing_fields)
-    body = "\n\n".join(
-        (
-            f"훅\n{_restate(hook, '주목할 지점은 ', '입니다.')}",
-            f"핵심 내용\n{_restate(core, '기록에는 ', '라고 적혀 있습니다.')}",
-            f"마무리\n{_restate(closing, '여기서 확인할 수 있는 점은 ', '입니다.')}",
-        )
+    return _draft(
+        brief,
+        ShortDraft,
+        title,
+        _body(
+            _quote(hook, "", "."),
+            _quote(detail, "원문은 이어 ", "고 설명합니다."),
+            _quote(closing, "남는 기준은 ", "입니다."),
+        ),
+        (hook, detail, closing),
     )
-    return _draft(brief, ShortDraft, title, body, (hook, core, closing))
 
 
-def _thread(brief: ContentBrief, title: str, fields: tuple[str, ...], explanation_fields: tuple[str, ...], conclusion_fields: tuple[str, ...]) -> ThreadDraft:
+def _thread(brief: ContentBrief, title: str, fields: tuple[str, ...], supporting_fields: tuple[str, ...]) -> ThreadDraft:
     used_ids: set[str] = set()
-    claim = _pick(brief, used_ids, *fields)
-    explanation = _pick(brief, used_ids, *explanation_fields)
-    conclusion = _pick(brief, used_ids, *conclusion_fields)
-    body = "\n\n".join(
-        (
-            f"주장\n{_restate(claim, '기록이 전하는 주장은 ', '입니다.')}",
-            f"설명\n{_restate(explanation, '근거가 되는 내용은 ', '입니다.')}",
-            f"결론\n{_restate(conclusion, '따라서 남는 기준은 ', '입니다.')}",
-        )
+    message = _pick(brief, used_ids, *fields)
+    supporting = _pick(brief, used_ids, *supporting_fields)
+    return _draft(
+        brief,
+        ThreadDraft,
+        title,
+        _body(
+            _quote(message, "", "."),
+            _quote(supporting, "원문은 ", "고 덧붙입니다."),
+        ),
+        (message, supporting),
     )
-    return _draft(brief, ThreadDraft, title, body, (claim, explanation, conclusion))
 
 
-def _complete_bundle(brief: ContentBrief) -> ContentBundle:
-    return ContentBundle(
-        blog=_blog(brief),
-        shorts=(
+def _experience_content(brief: ContentBrief) -> tuple[tuple[ShortDraft, ...], tuple[ThreadDraft, ...]]:
+    return (
+        (
             _short(brief, "문제에서 시작된 전환", ("problem",), ("lesson", "derived_insight")),
             _short(brief, "실행으로 옮긴 방법", ("action",), ("reusable_principle", "lesson")),
             _short(brief, "결과가 남긴 교훈", ("result",), ("lesson", "derived_insight")),
         ),
-        threads=(
-            _thread(brief, "교훈에서 찾은 기준", ("derived_insight", "lesson"), ("lesson", "derived_insight"), ("reusable_principle", "lesson")),
-            _thread(brief, "경험으로 확인한 관찰", ("experience",), ("experience", "lesson"), ("lesson", "derived_insight")),
-            _thread(brief, "실행에서 확인한 방법", ("action",), ("action", "experience"), ("reusable_principle", "lesson")),
-            _thread(brief, "문제가 남긴 교훈", ("problem",), ("problem", "action"), ("lesson", "derived_insight")),
-            _thread(brief, "적용할 원칙", ("reusable_principle",), ("reusable_principle", "derived_insight"), ("reusable_principle", "lesson")),
+        (
+            _thread(brief, "교훈에서 찾은 기준", ("derived_insight", "lesson"), ("reusable_principle",)),
+            _thread(brief, "경험으로 확인한 관찰", ("experience",), ("lesson",)),
+            _thread(brief, "실행에서 확인한 방법", ("action",), ("reusable_principle",)),
+            _thread(brief, "문제가 남긴 교훈", ("problem",), ("lesson",)),
+            _thread(brief, "적용할 원칙", ("reusable_principle",), ("derived_insight", "lesson")),
         ),
     )
 
 
+def _criterion_content(brief: ContentBrief, profile: str) -> tuple[tuple[ShortDraft, ...], tuple[ThreadDraft, ...]]:
+    question_fields = ("problem", "lesson")
+    principle_fields = ("reusable_principle", "lesson")
+    caution_fields = ("lesson", "reusable_principle")
+    short_titles = (
+        "재무 판단의 출발점" if profile == "finance" else "판단이 시작되는 질문",
+        "함께 살펴볼 기준",
+        "적용 전에 확인할 점",
+    )
+    return (
+        (
+            _short(brief, short_titles[0], question_fields, principle_fields),
+            _short(brief, short_titles[1], principle_fields, ("lesson",)),
+            _short(brief, short_titles[2], caution_fields, principle_fields),
+        ),
+        (
+            _thread(brief, "원문이 제시한 판단", ("lesson", "derived_insight"), principle_fields),
+            _thread(brief, "판단 기준의 범위", principle_fields, ("lesson",)),
+            _thread(brief, "확인할 항목", ("lesson",), principle_fields),
+            _thread(brief, "질문에서 얻는 기준", question_fields, ("lesson",)),
+            _thread(brief, "적용 원칙", principle_fields, ("derived_insight", "lesson")),
+        ),
+    )
+
+
+def _book_content(brief: ContentBrief) -> tuple[tuple[ShortDraft, ...], tuple[ThreadDraft, ...]]:
+    return _criterion_content(brief, "book")
+
+
+def _complete_bundle(brief: ContentBrief) -> ContentBundle:
+    profile = _profile(brief)
+    if profile == "experience":
+        shorts, threads = _experience_content(brief)
+    elif profile == "book":
+        shorts, threads = _book_content(brief)
+    else:
+        shorts, threads = _criterion_content(brief, profile)
+    return ContentBundle(blog=_blog(brief, profile), shorts=shorts, threads=threads)
+
+
 def generate_content_bundle(knowledge: KnowledgeRecord) -> ContentBundle:
-    """승인된 KNOWLEDGE 1개를 Blog 1개, Shorts 3개, Threads 5개로 변환한다."""
+    """승인된 KNOWLEDGE 1개를 유형에 맞는 Blog, Shorts, Threads로 변환한다."""
     brief = build_content_brief(knowledge)
     if not brief.evidence_units:
         return ContentBundle(

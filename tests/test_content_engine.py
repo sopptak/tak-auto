@@ -21,6 +21,8 @@ class ContentEngineTests(unittest.TestCase):
             id="knowledge-complete",
             source_url="https://example.test/complete",
             title="원문 제목은 콘텐츠 제목에 사용하지 않는다",
+            article_type="experience",
+            knowledge_type="경험",
             experience=sentences("경험", 4),
             problem=sentences("문제", 6),
             action=sentences("행동", 8),
@@ -73,7 +75,7 @@ class ContentEngineTests(unittest.TestCase):
 
         self.assertIsNotNone(blog)
         self.assertNotEqual(blog.title, knowledge.title)
-        self.assertEqual(blog.title, "문제 해결을 위한 실행과 교훈")
+        self.assertEqual(blog.title, "직접 시도하며 얻은 교훈")
         for heading in ("문제제기", "경험/내용", "시도한 내용"):
             self.assertNotIn(f"{heading}\n", blog.body)
 
@@ -127,6 +129,33 @@ class ContentEngineTests(unittest.TestCase):
         self.assertIsNotNone(bundle.blog)
         self.assertEqual(len(bundle.shorts), 3)
         self.assertEqual(len(bundle.threads), 5)
+
+    def test_finance_content_uses_no_invented_experience_process_or_result(self):
+        records = load_knowledge_records(self.KNOWLEDGE_PATH)
+        finance = next(record for record in records if record.id == "knowledge-e1cc05264953")
+        bundle = generate_content_bundle(finance)
+        output = "\n".join(draft.body for draft in (bundle.blog, *bundle.shorts, *bundle.threads))
+
+        self.assertEqual(bundle.blog.title, "재무 판단에서 함께 볼 기준")
+        self.assertNotIn("그 과정", output)
+        self.assertNotIn("결과를 기록", output)
+        self.assertNotIn("경험을 다룹니다", output)
+        self.assertIn("공식 심사 기준으로 해석하지 않습니다", bundle.blog.body)
+
+    def test_workplace_criterion_content_does_not_imply_missing_fields(self):
+        records = load_knowledge_records(self.KNOWLEDGE_PATH)
+        workplace_ids = ("knowledge-da8e52862a79", "knowledge-a3f43f9bb62e")
+
+        for knowledge_id in workplace_ids:
+            with self.subTest(knowledge_id=knowledge_id):
+                knowledge = next(record for record in records if record.id == knowledge_id)
+                bundle = generate_content_bundle(knowledge)
+                output = "\n".join(draft.body for draft in (bundle.blog, *bundle.shorts, *bundle.threads))
+
+                self.assertEqual(bundle.blog.title, "판단에 앞서 확인할 기준")
+                self.assertNotIn("그 과정", output)
+                self.assertNotIn("결과를 기록", output)
+                self.assertNotIn("경험을 다룹니다", output)
 
     def test_generation_does_not_add_topic_specific_facts(self):
         bundle = generate_content_bundle(self._complete_knowledge())

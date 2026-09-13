@@ -25,6 +25,8 @@ class ContentBrief:
 
     knowledge_id: str
     title: str
+    article_type: str | None
+    knowledge_type: str | None
     source_url: str
     experience: str | None
     problem: str | None
