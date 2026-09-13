@@ -6,3 +6,4 @@ venv/
 data/*.json
 !data/tak_brain_knowledge.json
 !data/tak_media_batch_e2e_test.json
+!data/threads_publish_log.json

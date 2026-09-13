@@ -1,0 +1,127 @@
+name: TAK Threads Daily Post
+
+# 한국시간(KST, UTC+9) 매일 오전 8시에 scripts/run_daily.py를 실행해
+# TAK BRAIN -> TAK MEDIA -> Threads 자동 게시 파이프라인을 수행한다.
+# GitHub Actions의 schedule cron은 항상 UTC 기준이므로,
+# KST 08:00 = UTC 전날 23:00 = "0 23 * * *"로 지정한다.
+on:
+  schedule:
+    - cron: '0 23 * * *'
+  # 수동 실행 시 실수로 실제 Threads 게시가 발생하지 않도록, dry_run 입력값의 기본값을
+  # true로 둔다. 즉 workflow_dispatch 화면에서 아무 값도 바꾸지 않고 그대로 실행 버튼을
+  # 누르면 항상 안전한(게시 없는) 경로로 실행된다. schedule 트리거에는 이 입력값 자체가
+  # 존재하지 않으므로(아래 실행 분기의 event_name 조건 참고) 운영 자동화는 항상 실제 게시
+  # 경로를 그대로 사용한다.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "실제 Threads 게시 없이 테스트 (true = 게시 없음, false = 실제 게시)"
+        required: true
+        default: true
+        type: boolean
+
+# 게시 이력 파일(data/threads_publish_log.json)을 이 workflow가 직접 commit/push해야 하므로
+# 저장소 쓰기 권한이 필요하다. 그 외 권한은 기본값(read)으로 최소화한다.
+permissions:
+  contents: write
+
+# 동일 workflow가 동시에 두 번 실행되면 같은 미게시 Threads 콘텐츠를 동시에 골라
+# 중복 게시할 위험이 있다. cancel-in-progress를 false로 두어 "취소" 대신 "대기(큐)"시킨다.
+# 이미 실행 중인 작업을 취소하면 Threads API 호출은 끝났지만 publish history commit/push는
+# 아직 못한 상태로 잘릴 수 있어, 다음 실행이 이력 파일을 못 보고 같은 콘텐츠를 다시 게시할
+# 위험이 더 크다고 판단했다. 그래서 실행 중인 작업은 끝까지 완주시키고, 다음 실행은 큐에서
+# 기다리게 한다.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  run-daily:
+    name: Run TAK BRAIN -> TAK MEDIA -> Threads daily pipeline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 프로젝트 개발 환경이 실제로 사용 중인 Python 버전(3.14.x)에 맞춘다.
+      # 이 프로젝트는 표준 라이브러리만 사용하므로 별도 의존성 설치 단계는 두지 않는다.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Show Python version
+        run: python3 --version
+
+      # 테스트가 실패하면 이후 단계(TAK MEDIA 실행, Threads 게시)로 진행하지 않는다.
+      # GitHub Actions는 run 스텝이 0이 아닌 종료 코드를 반환하면 별도 설정 없이도
+      # 뒤따르는 스텝을 자동으로 건너뛰므로, 아래 스텝들에는 이후 실행을 이 스텝의
+      # 성공 여부에 의존하게 하는 조건을 별도로 추가하지 않았다.
+      - name: Run existing test suite
+        run: python3 -m unittest discover -s tests -p 'test*.py'
+
+      # scripts/run_daily.py 하나가 TAK BRAIN 확인 -> TAK MEDIA 실행 -> Threads 자동 선정/게시
+      # -> 성공 시 publish history 기록까지 전부 수행한다(내부 로직은 이번 단계에서 수정하지 않음).
+      # THREADS_ACCESS_TOKEN / TAK_MEDIA_LLM_* 값은 실제 Secrets 값을 로그로 노출하지 않도록
+      # 스크립트 어디에서도 print/echo하지 않는다(기존 코드가 이미 그렇게 되어 있음).
+      #
+      # 안전장치: 아래 두 스텝은 서로 배타적인 if 조건을 가지며, 정확히 하나만 실행된다.
+      #   - dry_run 스텝: event_name이 workflow_dispatch이고 입력값 dry_run이 'true'일 때만.
+      #     run_daily.py의 --dry-run은 (변경하지 않은) 기존 구현 그대로 Threads API 호출
+      #     자체를 건너뛰므로, 이 브랜치에서는 YAML 구조상으로도 실제 게시 스텝(아래)이
+      #     아예 실행되지 않는다.
+      #   - live 스텝: event_name이 workflow_dispatch가 아니거나(=schedule 등 다른 트리거),
+      #     dry_run 입력값이 'false'일 때. schedule 트리거에는 inputs 자체가 없으므로
+      #     이 조건이 항상 참이 되어 운영 자동화는 언제나 실제 게시 경로를 사용한다.
+      - name: Run daily orchestrator (dry-run, no actual Threads post)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          TAK_MEDIA_LLM_API_KEY: ${{ secrets.TAK_MEDIA_LLM_API_KEY }}
+          TAK_MEDIA_LLM_ENDPOINT: ${{ secrets.TAK_MEDIA_LLM_ENDPOINT }}
+          TAK_MEDIA_LLM_MODEL: ${{ secrets.TAK_MEDIA_LLM_MODEL }}
+        run: python3 scripts/run_daily.py --dry-run
+
+      - name: Run daily orchestrator (live, actual Threads post)
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run == 'false'
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          TAK_MEDIA_LLM_API_KEY: ${{ secrets.TAK_MEDIA_LLM_API_KEY }}
+          TAK_MEDIA_LLM_ENDPOINT: ${{ secrets.TAK_MEDIA_LLM_ENDPOINT }}
+          TAK_MEDIA_LLM_MODEL: ${{ secrets.TAK_MEDIA_LLM_MODEL }}
+        run: python3 scripts/run_daily.py
+
+      # 위 두 스텝 중 실제로 실행된 쪽(dry-run 또는 live)이 실패(0이 아닌 종료 코드)했다면
+      # 그 스텝에서 job이 이미 실패 처리되어 아래 커밋 스텝들은 실행되지 않는다. 이 스텝까지
+      # 도달했다는 것은 실행된 스텝이 성공(exit 0)했다는 뜻이며, 이는 다음 셋 중 하나다.
+      #   1) dry-run 스텝이 성공 (정의상 Threads 게시도, history 변경도 없음)
+      #   2) live 스텝이 "실제 게시 성공"으로 끝남
+      #   3) live 스텝이 "게시할 미게시 콘텐츠가 없어 정상 종료"로 끝남
+      # 세 경우를 구분하는 기준은 오직 data/threads_publish_log.json의 실제 변경 여부이며,
+      # dry-run(1)과 미게시 콘텐츠 없음(3)은 기존 코드 동작상 history를 절대 건드리지 않으므로
+      # 항상 changed=false로 판정되어 아래 커밋 스텝이 자연스럽게 건너뛰어진다.
+      - name: Check for publish history changes
+        id: history_diff
+        run: |
+          if [ -f data/threads_publish_log.json ]; then
+            git add data/threads_publish_log.json
+            if git diff --cached --quiet -- data/threads_publish_log.json; then
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # data/threads_publish_log.json에 실제 변경이 있을 때만 commit/push한다.
+      # 게시할 콘텐츠가 없어 run_daily.py가 아무것도 하지 않고 exit 0으로 끝난 경우에는
+      # 이 스텝의 조건이 거짓이 되어 커밋 없이 workflow가 정상 종료된다.
+      # commit 대상은 data/threads_publish_log.json 단 하나로 한정한다.
+      - name: Commit and push publish history
+        if: steps.history_diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: update Threads publish history"
+          git push
