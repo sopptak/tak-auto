@@ -251,3 +251,55 @@ def run_media_batch_file(
     if output_path:
         report.save_json(output_path)
     return report
+
+
+def generate_media_batch_dry_run(
+    records: Iterable[KnowledgeRecord],
+    total_count: int | None = None,
+) -> dict[str, Any]:
+    """승인된 KNOWLEDGE 목록에서 API 호출 없이 생성될 Draft 메타데이터(Dry-run)를 생성한다."""
+    records_list = tuple(records)
+    total_knowledge_count = total_count if total_count is not None else len(records_list)
+    approved_records = tuple(select_approved(records_list))
+    skipped_count = total_knowledge_count - len(approved_records)
+
+    items: list[dict[str, Any]] = []
+
+    for knowledge in approved_records:
+        bundle = generate_content_bundle(knowledge)
+        if bundle.status != "complete" or bundle.blog is None:
+            continue
+
+        drafts: tuple[ContentDraft, ...] = (bundle.blog, *bundle.shorts, *bundle.threads)
+        for draft in drafts:
+            platform = _platform_name(draft)
+            items.append(
+                {
+                    "knowledge_id": knowledge.id,
+                    "article_type": knowledge.article_type,
+                    "knowledge_type": knowledge.knowledge_type,
+                    "platform": platform,
+                    "title_template": draft.title,
+                    "original_title": draft.title,
+                    "original_body": draft.body,
+                    "evidence_unit_ids": list(draft.evidence_unit_ids),
+                    "source_url": draft.source_url,
+                    "evidence": list(draft.evidence),
+                    "status": "dry_run",
+                }
+            )
+
+    return {
+        "summary": {
+            "mode": "dry_run",
+            "total_knowledge_count": total_knowledge_count,
+            "approved_knowledge_count": len(approved_records),
+            "skipped_knowledge_count": skipped_count,
+            "total_draft_count": len(items),
+            "valid_count": 0,
+            "rejected_count": 0,
+            "error_count": 0,
+        },
+        "items": items,
+        "all_items": items,
+    }

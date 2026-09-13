@@ -291,11 +291,15 @@ class RewriteLayerTests(unittest.TestCase):
         finance = next(record for record in records if record.id == "knowledge-e1cc05264953")
         finance_draft = generate_content_bundle(finance).blog
 
-        # PASS 케이스: 동일한 부정 의미의 활용형
+        # PASS 케이스: 동일한 부정 의미의 활용형 및 자연스러운 안전 경계 표현
         pass_cases = [
             "금융기관의 공식 심사 기준으로 해석하지 않습니다.",
             "금융기관의 공식 심사 기준으로 해석하지 않는다.",
             "금융기관의 공식 심사 기준으로 해석하지 않으며, 개인의 설명입니다.",
+            "금융기관의 공식 기준으로 확대하지 않는다.",
+            "금융기관의 공식 기준으로 확대해석하지 않습니다.",
+            "은행의 공식 기준이라고 단정하는 내용이 아니다.",
+            "원문 작성자의 설명이며 공식 기준으로 해석하지 않는다.",
         ]
         for boundary_text in pass_cases:
             with self.subTest(boundary_text=boundary_text, expected="PASS"):
@@ -307,12 +311,16 @@ class RewriteLayerTests(unittest.TestCase):
                 result = RewriteService(MockRewriteProvider(rewritten)).rewrite(finance, finance_draft)
                 self.assertEqual(result.validation_status, "valid", f"Unexpected validation error: {result.validation_errors}")
 
-        # FAIL 케이스: 긍정 또는 공식 기준 확대 표현
+        # FAIL 케이스: 긍정 또는 공식 기준 확대/주장 표현
         fail_cases = [
             "금융기관의 공식 심사 기준으로 해석할 수 있습니다.",
             "금융기관의 공식 심사 기준입니다.",
             "금융기관의 공식 심사 기준으로 볼 수 있습니다.",
             "금융기관의 공식 심사 기준에 해당합니다.",
+            "금융기관이 반드시 이렇게 심사한다.",
+            "은행의 공식 심사 기준이다.",
+            "금융기관에서는 이 기준을 적용한다.",
+            "은행이 가장 먼저 보는 공식 기준이다.",
         ]
         for boundary_text in fail_cases:
             with self.subTest(boundary_text=boundary_text, expected="FAIL"):
@@ -324,8 +332,13 @@ class RewriteLayerTests(unittest.TestCase):
                 result = RewriteService(MockRewriteProvider(rewritten)).rewrite(finance, finance_draft)
                 self.assertEqual(result.validation_status, "invalid")
                 self.assertTrue(
-                    any("공식 기준" in err or "공식 심사 기준" in err for err in result.validation_errors),
-                    f"Expected finance error in {result.validation_errors}",
+                    any(
+                        "공식 기준" in err
+                        or "공식 심사 기준" in err
+                        or "사실 범위를 넓히는 표현" in err
+                        for err in result.validation_errors
+                    ),
+                    f"Expected finance/fact scope error in {result.validation_errors}",
                 )
 
     def test_natural_korean_rewrite_with_new_connectives_is_allowed(self):

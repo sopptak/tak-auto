@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
 
@@ -13,6 +14,7 @@ if str(ROOT) not in sys.path:
 
 from content_engine import (
     OpenAICompatibleRewriteProvider,
+    generate_media_batch_dry_run,
     run_media_batch_file,
 )
 from tak_brain import load_knowledge_records, select_approved
@@ -67,12 +69,19 @@ def main(argv: list[str] | None = None) -> int:
         approved = approved[: args.limit]
 
     if not args.execute:
+        dry_run_data = generate_media_batch_dry_run(approved, total_count=len(records))
         print("=== TAK MEDIA Batch Pipeline (Dry-run) ===")
         print(f"입력 파일: {args.input}")
         print(f"전체 KNOWLEDGE: {len(records)}건")
         print(f"승인 KNOWLEDGE: {len(approved)}건")
-        print(f"예상 생성 Draft: {len(approved) * 9}건 (1 KNOWLEDGE당 Blog 1, Shorts 3, Threads 5)")
+        print(f"예상 생성 Draft: {dry_run_data['summary']['total_draft_count']}건 (1 KNOWLEDGE당 Blog 1, Shorts 3, Threads 5)")
         print("네트워크 호출 없음. 실제 실행에는 --execute와 환경변수(TAK_MEDIA_LLM_API_KEY, TAK_MEDIA_LLM_ENDPOINT, TAK_MEDIA_LLM_MODEL)가 필요합니다.")
+
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(json.dumps(dry_run_data, ensure_ascii=False, indent=2), encoding="utf-8")
+            print(f"Dry-run 결과 저장 완료: {args.output}")
+
         return 0
 
     provider = OpenAICompatibleRewriteProvider.from_environment()

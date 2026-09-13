@@ -15,7 +15,10 @@ _NUMBER_PATTERN = re.compile(r"\d+(?:[.,]\d+)?")
 _TOKEN_PATTERN = re.compile(r"[A-Za-z가-힣]{2,}")
 _SENTENCE_PATTERN = re.compile(r"[^.!?\n]+")
 _ENTITY_PATTERN = re.compile(r"[A-Za-z가-힣]{2,}(?:은행|증권|보험|카드|법률|법|규정|령|고시|님|씨|앱|서비스|상품|프로젝트)")
-_FINANCE_BOUNDARY_PATTERN = re.compile(r"금융기관의\s+공식\s+심사\s+기준으로\s+해석하지\s+않(?:습니다|는다|으며|고|아)")
+_FINANCE_BOUNDARY_PATTERN = re.compile(
+    r"(?:금융기관의|은행의)?\s*(?:공식\s+)?(?:심사\s+)?기준(?:으로|으로의|이라)?\s*(?:해석|확대|확대해석)하지\s*(?:않|말)|"
+    r"은행의\s+공식\s+(?:심사\s+)?기준(?:이라|이라고|으로)?\s*단정하는\s*(?:내용|것|말|글)?(?:이|은)?\s*아니"
+)
 _THIRD_PERSON_SUMMARY_PATTERNS = (
     re.compile(r"(?:작성자|저자|글쓴이)(?:는|의|가|도)"),
     re.compile(r"원문(?:은|에서는|의|에 따르면)"),
@@ -104,7 +107,7 @@ class RewriteValidator:
 
         source_text = self._source_text(request)
         errors.extend(self._new_number_errors(source_text, rewritten_draft, request.source_url))
-        errors.extend(self._fact_scope_errors(source_text, rewritten_draft))
+        errors.extend(self._fact_scope_errors(source_text, rewritten_draft, request.article_type))
         errors.extend(self._finance_errors(request, rewritten_draft))
         errors.extend(self._style_errors(request, rewritten_draft))
         return RewriteValidation("valid" if not errors else "invalid", tuple(errors))
@@ -115,6 +118,7 @@ class RewriteValidator:
             value
             for value in (
                 request.knowledge.title,
+                request.knowledge.knowledge_type,
                 request.knowledge.experience,
                 request.knowledge.problem,
                 request.knowledge.action,
@@ -122,6 +126,7 @@ class RewriteValidator:
                 request.knowledge.lesson,
                 request.knowledge.reusable_principle,
                 request.knowledge.derived_insight,
+                request.knowledge.judgment_rule,
             )
             if value
         )
@@ -140,7 +145,11 @@ class RewriteValidator:
         return tuple(f"원문 근거에 없는 숫자가 추가되었습니다: {number}" for number in new_numbers)
 
     @staticmethod
-    def _fact_scope_errors(source_text: str, rewritten_draft: ContentDraft) -> tuple[str, ...]:
+    def _fact_scope_errors(
+        source_text: str,
+        rewritten_draft: ContentDraft,
+        article_type: str | None = None,
+    ) -> tuple[str, ...]:
         rewritten_text = f"{rewritten_draft.title} {rewritten_draft.body}"
         errors = []
         new_entities = sorted(
@@ -151,10 +160,17 @@ class RewriteValidator:
         if new_entities:
             errors.append(f"원문 근거에 없는 사람·기관·상품명이 추가되었습니다: {', '.join(new_entities)}")
 
+        risk_sentences = []
+        for sentence in _SENTENCE_PATTERN.findall(rewritten_text):
+            if article_type == "finance" and _FINANCE_BOUNDARY_PATTERN.search(sentence):
+                continue
+            risk_sentences.append(sentence)
+
+        text_to_check = " ".join(risk_sentences)
         new_risk_terms = sorted(
             term
             for term in _FACT_RISK_TERMS
-            if term in rewritten_text and term not in source_text
+            if term in text_to_check and term not in source_text
         )
         if new_risk_terms:
             errors.append(f"사실 범위를 넓히는 표현이 추가되었습니다: {', '.join(new_risk_terms)}")
@@ -169,7 +185,8 @@ class RewriteValidator:
         if _FINANCE_BOUNDARY_PATTERN.search(request.draft.body) and not _FINANCE_BOUNDARY_PATTERN.search(rewritten_text):
             return ("금융 콘텐츠의 공식 기준 비해석 경계가 유지되지 않았습니다.",)
         official_claim = any(
-            "공식 심사 기준" in sentence and not _FINANCE_BOUNDARY_PATTERN.search(sentence)
+            ("공식 심사 기준" in sentence or "공식 기준" in sentence or "심사 기준" in sentence)
+            and not _FINANCE_BOUNDARY_PATTERN.search(sentence)
             for sentence in _SENTENCE_PATTERN.findall(rewritten_text)
         )
         if official_claim:

@@ -30,6 +30,7 @@ from .rewrite import (
 from .pipeline import (
     MediaBatchItem,
     MediaBatchReport,
+    generate_media_batch_dry_run,
     run_media_batch,
     run_media_batch_file,
 )
@@ -60,6 +61,7 @@ __all__ = [
     "RewriteValidator",
     "MediaBatchItem",
     "MediaBatchReport",
+    "generate_media_batch_dry_run",
     "run_media_batch",
     "run_media_batch_file",
 ]

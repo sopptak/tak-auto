@@ -10,6 +10,7 @@ from content_engine.models import ContentDraft
 from content_engine.pipeline import (
     MediaBatchItem,
     MediaBatchReport,
+    generate_media_batch_dry_run,
     run_media_batch,
     run_media_batch_file,
 )
@@ -146,6 +147,26 @@ class MediaBatchPipelineTests(unittest.TestCase):
         self.assertEqual(report.approved_knowledge_count, 1)
         self.assertEqual(report.total_draft_count, 9)
 
+    def test_generate_media_batch_dry_run_structure(self):
+        result = generate_media_batch_dry_run(self.approved_records, total_count=len(self.records))
+
+        self.assertEqual(result["summary"]["mode"], "dry_run")
+        self.assertEqual(result["summary"]["approved_knowledge_count"], len(self.approved_records))
+        self.assertEqual(result["summary"]["total_draft_count"], len(self.approved_records) * 9)
+        self.assertEqual(len(result["items"]), len(self.approved_records) * 9)
+
+        for item in result["items"]:
+            self.assertIn("knowledge_id", item)
+            self.assertIn("article_type", item)
+            self.assertIn("knowledge_type", item)
+            self.assertIn("platform", item)
+            self.assertIn("title_template", item)
+            self.assertIn("evidence_unit_ids", item)
+            self.assertIn("source_url", item)
+            self.assertIn("evidence", item)
+            self.assertEqual(item["status"], "dry_run")
+            self.assertTrue(len(item["evidence_unit_ids"]) > 0)
+
     def test_cli_dry_run(self):
         script = Path(__file__).parents[1] / "scripts" / "run_media_batch.py"
         result = subprocess.run(
@@ -159,6 +180,33 @@ class MediaBatchPipelineTests(unittest.TestCase):
         self.assertIn("승인 KNOWLEDGE: 2건", result.stdout)
         self.assertIn("예상 생성 Draft: 18건", result.stdout)
         self.assertIn("네트워크 호출 없음", result.stdout)
+
+    def test_cli_dry_run_saves_json_output(self):
+        script = Path(__file__).parents[1] / "scripts" / "run_media_batch.py"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            out_path = Path(tmp_dir) / "dryrun_report.json"
+            result = subprocess.run(
+                [sys.executable, str(script), "--output", str(out_path)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertIn("Dry-run 결과 저장 완료", result.stdout)
+            self.assertTrue(out_path.exists())
+
+            data = json.loads(out_path.read_text(encoding="utf-8"))
+            self.assertEqual(data["summary"]["approved_knowledge_count"], 4)
+            self.assertEqual(data["summary"]["total_draft_count"], 36)
+            self.assertEqual(len(data["items"]), 36)
+            first_item = data["items"][0]
+            self.assertIn("knowledge_id", first_item)
+            self.assertIn("article_type", first_item)
+            self.assertIn("knowledge_type", first_item)
+            self.assertIn("platform", first_item)
+            self.assertIn("title_template", first_item)
+            self.assertIn("evidence_unit_ids", first_item)
 
 
 if __name__ == "__main__":
