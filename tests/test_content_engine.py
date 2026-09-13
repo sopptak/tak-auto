@@ -1,8 +1,10 @@
 from pathlib import Path
+from dataclasses import replace
 import unittest
 
 from content_engine.generator import build_content_brief, generate_content_bundle, generate_from_approved
 from content_engine.models import ContentBundle
+from content_engine.rewrite import MockRewriteProvider, RewriteService
 from tak_brain import KnowledgeRecord, load_knowledge_records, select_approved
 
 
@@ -196,6 +198,155 @@ class ContentEngineTests(unittest.TestCase):
         before = self.KNOWLEDGE_PATH.read_bytes()
         generate_content_bundle(self.knowledge)
         self.assertEqual(self.KNOWLEDGE_PATH.read_bytes(), before)
+
+
+class RewriteLayerTests(unittest.TestCase):
+    KNOWLEDGE_PATH = Path(__file__).parents[1] / "data" / "tak_brain_knowledge.json"
+
+    def setUp(self) -> None:
+        records = load_knowledge_records(self.KNOWLEDGE_PATH)
+        self.knowledge = next(record for record in records if record.id == "knowledge-da6ddf5aa459")
+        self.draft = generate_content_bundle(self.knowledge).blog
+        self.service = RewriteService(MockRewriteProvider())
+
+    def test_only_approved_knowledge_can_be_rewritten(self):
+        pending = KnowledgeRecord(
+            **{**self.knowledge.to_dict(), "knowledge_review_status": "pending"}
+        )
+
+        with self.assertRaises(ValueError):
+            self.service.rewrite(pending, self.draft)
+
+    def test_mock_rewrite_preserves_original_draft_and_metadata(self):
+        result = self.service.rewrite(self.knowledge, self.draft)
+
+        self.assertEqual(result.original_draft, self.draft)
+        self.assertEqual(result.rewritten_draft, self.draft)
+        self.assertEqual(result.rewritten_draft.source_url, self.draft.source_url)
+        self.assertEqual(result.rewritten_draft.evidence, self.draft.evidence)
+        self.assertEqual(result.rewrite_status, "rewritten")
+        self.assertEqual(result.validation_status, "valid")
+        self.assertEqual(result.validation_errors, ())
+
+    def test_valid_rewritten_draft_is_returned_separately(self):
+        rewritten = replace(self.draft, title=f"콘텐츠 {self.draft.title}")
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+
+        self.assertEqual(result.original_draft, self.draft)
+        self.assertEqual(result.rewritten_draft, rewritten)
+        self.assertEqual(result.validation_status, "valid")
+
+    def test_new_factual_expression_fails_validation(self):
+        rewritten = replace(self.draft, body=f"새로운 성과를 냈다.\n\n{self.draft.body}")
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+
+        self.assertEqual(result.rewrite_status, "rejected")
+        self.assertEqual(result.validation_status, "invalid")
+        self.assertTrue(any("사실 범위를 넓히는 표현" in error for error in result.validation_errors))
+
+    def test_new_number_fails_validation(self):
+        rewritten = replace(self.draft, body=f"999개의 성과.\n\n{self.draft.body}")
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+
+        self.assertEqual(result.validation_status, "invalid")
+        self.assertTrue(any("없는 숫자" in error for error in result.validation_errors))
+
+    def test_source_url_and_evidence_changes_fail_validation(self):
+        rewritten = replace(
+            self.draft,
+            source_url="https://example.test/changed",
+            evidence=("변경된 근거",),
+        )
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+
+        self.assertEqual(result.validation_status, "invalid")
+        self.assertIn("source_url이 원본 Draft와 다릅니다.", result.validation_errors)
+        self.assertIn("evidence가 원본 Draft와 다릅니다.", result.validation_errors)
+
+    def test_finance_rewrite_preserves_official_criteria_boundary(self):
+        records = load_knowledge_records(self.KNOWLEDGE_PATH)
+        finance = next(record for record in records if record.id == "knowledge-e1cc05264953")
+        finance_draft = generate_content_bundle(finance).blog
+        rewritten = replace(
+            finance_draft,
+            body=finance_draft.body.replace(
+                "이 글의 금융 관련 내용은 원문 작성자의 설명이며, 금융기관의 공식 심사 기준으로 해석하지 않습니다.",
+                "",
+            ),
+        )
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(finance, finance_draft)
+
+        self.assertEqual(result.validation_status, "invalid")
+        self.assertTrue(any("공식 기준 비해석 경계" in error for error in result.validation_errors))
+
+    def test_natural_korean_rewrite_with_new_connectives_is_allowed(self):
+        rewritten = replace(
+            self.draft,
+            title="아이디어를 현실로 옮긴 시작",
+            body="그리고 코딩을 몰라도 시작할 수 있다는 이야기를 자연스럽게 풀어냅니다.",
+        )
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+
+        self.assertEqual(result.validation_status, "valid")
+
+    def test_particle_ending_and_sentence_order_changes_are_allowed(self):
+        rewritten = replace(
+            self.draft,
+            body="문제가 생기면 수정하고 다시 테스트했다. 코딩을 몰라도 만들며 배울 수 있다는 교훈을 얻었다.",
+        )
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+
+        self.assertEqual(result.validation_status, "valid")
+
+    def test_hook_improvement_is_allowed(self):
+        rewritten = replace(self.draft, title="왜 지금 시작해야 할까")
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+
+        self.assertEqual(result.validation_status, "valid")
+
+    def test_known_fact_can_be_expressed_in_different_order(self):
+        rewritten = replace(self.draft, body="테스터 12명이 비공개 테스트에 참여했다.")
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+
+        self.assertEqual(result.validation_status, "valid")
+
+    def test_new_person_or_institution_fails_validation(self):
+        rewritten = replace(self.draft, body="김민수님과 한국은행이 함께했다.")
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+
+        self.assertEqual(result.validation_status, "invalid")
+        self.assertTrue(any("사람·기관·상품명" in error for error in result.validation_errors))
+
+    def test_new_product_name_fails_validation(self):
+        rewritten = replace(self.draft, body="TAK상품을 새로 출시했다.")
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+
+        self.assertEqual(result.validation_status, "invalid")
+        self.assertTrue(any("사람·기관·상품명" in error for error in result.validation_errors))
+
+    def test_new_experience_fails_validation(self):
+        rewritten = replace(self.draft, body="해외에서 창업한 경험이 있다.")
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+
+        self.assertEqual(result.validation_status, "invalid")
+        self.assertTrue(any("사실 범위를 넓히는 표현" in error for error in result.validation_errors))
+
+    def test_finance_official_criteria_claim_fails_validation(self):
+        records = load_knowledge_records(self.KNOWLEDGE_PATH)
+        finance = next(record for record in records if record.id == "knowledge-e1cc05264953")
+        finance_draft = generate_content_bundle(finance).blog
+        rewritten = replace(finance_draft, body=f"{finance_draft.body}\n\n이는 금융기관의 공식 심사 기준입니다.")
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(finance, finance_draft)
+
+        self.assertEqual(result.validation_status, "invalid")
+        self.assertTrue(any("공식 심사 기준" in error for error in result.validation_errors))
+
+    def test_new_legal_or_regulatory_claim_fails_validation(self):
+        rewritten = replace(self.draft, body="대출 관련 법률은 이 방식을 요구한다.")
+        result = RewriteService(MockRewriteProvider(rewritten)).rewrite(self.knowledge, self.draft)
+
+        self.assertEqual(result.validation_status, "invalid")
+        self.assertTrue(any("사실 범위를 넓히는 표현" in error for error in result.validation_errors))
 
 
 if __name__ == "__main__":
