@@ -1,0 +1,14 @@
+{
+  "sources": [
+    {
+      "name": "BBC Business",
+      "url": "https://feeds.bbci.co.uk/news/business/rss.xml",
+      "category": "finance"
+    },
+    {
+      "name": "Hacker News",
+      "url": "https://news.ycombinator.com/rss",
+      "category": "tech"
+    }
+  ]
+}

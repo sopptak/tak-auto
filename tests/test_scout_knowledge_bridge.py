@@ -1,0 +1,188 @@
+"""tak_scout.knowledge_bridge 검증.
+
+외부 자료의 사실(SOURCE FACT/SOURCE URL)과 티몽의 의견(USER ANGLE/USER ORIGINAL
+THOUGHT)이 KNOWLEDGE evidence에 명확히 구분되어 남는지, 답변하지 않은 후보는
+KNOWLEDGE로 넘어가지 않는지를 검증한다.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+from tak_brain import KnowledgeRecord
+from tak_scout.answers import InterviewAnswer
+from tak_scout.collector import save_daily_pack_json
+from tak_scout.knowledge_bridge import append_scout_knowledge, build_knowledge_from_interview
+from tak_scout.models import ScoutCandidate
+
+
+CANDIDATE = ScoutCandidate(
+    scout_id="scout-abc123",
+    title="기준금리 동결 소식",
+    summary="중앙은행이 이번 달 기준금리를 동결했다.",
+    source_url="https://example.test/news/1",
+    published_at="2026-09-10T00:00:00+00:00",
+    source_name="테스트 뉴스",
+    category="finance",
+)
+
+
+class BuildKnowledgeFromInterviewTests(unittest.TestCase):
+    def test_abc_answer_produces_user_angle_evidence(self):
+        answer = InterviewAnswer.create(CANDIDATE.scout_id, "A")
+
+        knowledge = build_knowledge_from_interview(CANDIDATE, answer)
+
+        self.assertIsInstance(knowledge, KnowledgeRecord)
+        self.assertEqual(knowledge.knowledge_review_status, "pending")
+        self.assertEqual(knowledge.source_url, CANDIDATE.source_url)
+        self.assertEqual(knowledge.source_raw_id, CANDIDATE.scout_id)
+        self.assertTrue(any(item.startswith("SOURCE FACT:") for item in knowledge.evidence))
+        self.assertTrue(any(item.startswith("SOURCE URL:") for item in knowledge.evidence))
+        self.assertTrue(any(item.startswith("USER ANGLE:") for item in knowledge.evidence))
+        self.assertFalse(any(item.startswith("USER ORIGINAL THOUGHT:") for item in knowledge.evidence))
+        self.assertIsNone(knowledge.confidence)
+        self.assertEqual(knowledge.inference_method, "rule_based_template")
+
+    def test_option_d_produces_user_original_thought_evidence(self):
+        answer = InterviewAnswer.create(CANDIDATE.scout_id, "D", "나는 이 정책이 시기상조라고 본다")
+
+        knowledge = build_knowledge_from_interview(CANDIDATE, answer)
+
+        evidence_text = " ".join(knowledge.evidence)
+        self.assertIn("USER ORIGINAL THOUGHT: 나는 이 정책이 시기상조라고 본다", evidence_text)
+        self.assertNotIn("USER ANGLE:", evidence_text)
+        self.assertEqual(knowledge.opinion, "나는 이 정책이 시기상조라고 본다")
+
+    def test_source_fact_and_user_angle_are_kept_separate_fields(self):
+        answer = InterviewAnswer.create(CANDIDATE.scout_id, "B")
+        knowledge = build_knowledge_from_interview(CANDIDATE, answer)
+
+        self.assertEqual(knowledge.factual_information, CANDIDATE.summary)
+        self.assertNotEqual(knowledge.opinion, knowledge.factual_information)
+
+    def test_mismatched_scout_id_raises(self):
+        other_answer = InterviewAnswer.create("scout-other", "A")
+        with self.assertRaises(ValueError):
+            build_knowledge_from_interview(CANDIDATE, other_answer)
+
+    def test_finance_category_maps_to_finance_article_type(self):
+        answer = InterviewAnswer.create(CANDIDATE.scout_id, "C")
+        knowledge = build_knowledge_from_interview(CANDIDATE, answer)
+        self.assertEqual(knowledge.article_type, "finance")
+
+    def test_knowledge_id_is_deterministic_for_same_answer(self):
+        answer1 = InterviewAnswer.create(CANDIDATE.scout_id, "A")
+        answer2 = InterviewAnswer.create(CANDIDATE.scout_id, "A")  # answered_at 값만 다름
+        knowledge1 = build_knowledge_from_interview(CANDIDATE, answer1)
+        knowledge2 = build_knowledge_from_interview(CANDIDATE, answer2)
+        self.assertEqual(knowledge1.id, knowledge2.id)
+
+
+class AppendScoutKnowledgeTests(unittest.TestCase):
+    def _write_daily_pack(self, directory: Path, candidates: list[ScoutCandidate]) -> Path:
+        path = Path(directory) / "daily.json"
+        save_daily_pack_json(candidates, path)
+        return path
+
+    def test_unanswered_candidate_is_not_added_to_knowledge(self):
+        with tempfile.TemporaryDirectory() as directory:
+            daily_pack_path = self._write_daily_pack(directory, [CANDIDATE])
+            answers_path = Path(directory) / "answers.json"  # 답변 없음
+            knowledge_path = Path(directory) / "knowledge.json"
+
+            created, skipped_unanswered, duplicates = append_scout_knowledge(
+                daily_pack_path, answers_path, knowledge_path
+            )
+
+            self.assertEqual((created, skipped_unanswered, duplicates), (0, 1, 0))
+            self.assertFalse(knowledge_path.exists() and json.loads(knowledge_path.read_text(encoding="utf-8")))
+
+    def test_answered_candidate_is_added_as_pending_knowledge(self):
+        with tempfile.TemporaryDirectory() as directory:
+            daily_pack_path = self._write_daily_pack(directory, [CANDIDATE])
+            answers_path = Path(directory) / "answers.json"
+            answers_path.write_text(
+                json.dumps([InterviewAnswer.create(CANDIDATE.scout_id, "A").to_dict()], ensure_ascii=False),
+                encoding="utf-8",
+            )
+            knowledge_path = Path(directory) / "knowledge.json"
+
+            created, skipped_unanswered, duplicates = append_scout_knowledge(
+                daily_pack_path, answers_path, knowledge_path
+            )
+
+            self.assertEqual((created, skipped_unanswered, duplicates), (1, 0, 0))
+            saved = json.loads(knowledge_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(saved), 1)
+            self.assertEqual(saved[0]["knowledge_review_status"], "pending")
+
+    def test_running_twice_does_not_duplicate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            daily_pack_path = self._write_daily_pack(directory, [CANDIDATE])
+            answers_path = Path(directory) / "answers.json"
+            answers_path.write_text(
+                json.dumps([InterviewAnswer.create(CANDIDATE.scout_id, "A").to_dict()], ensure_ascii=False),
+                encoding="utf-8",
+            )
+            knowledge_path = Path(directory) / "knowledge.json"
+
+            append_scout_knowledge(daily_pack_path, answers_path, knowledge_path)
+            created, skipped_unanswered, duplicates = append_scout_knowledge(
+                daily_pack_path, answers_path, knowledge_path
+            )
+
+            self.assertEqual((created, skipped_unanswered, duplicates), (0, 0, 1))
+            saved = json.loads(knowledge_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(saved), 1)
+
+    def test_existing_knowledge_from_other_pipeline_is_preserved(self):
+        with tempfile.TemporaryDirectory() as directory:
+            daily_pack_path = self._write_daily_pack(directory, [CANDIDATE])
+            answers_path = Path(directory) / "answers.json"
+            answers_path.write_text(
+                json.dumps([InterviewAnswer.create(CANDIDATE.scout_id, "A").to_dict()], ensure_ascii=False),
+                encoding="utf-8",
+            )
+            knowledge_path = Path(directory) / "knowledge.json"
+            existing_record = {"id": "knowledge-existing", "source_raw_id": "raw-1", "source_url": "https://x"}
+            knowledge_path.write_text(json.dumps([existing_record], ensure_ascii=False), encoding="utf-8")
+
+            append_scout_knowledge(daily_pack_path, answers_path, knowledge_path)
+
+            saved = json.loads(knowledge_path.read_text(encoding="utf-8"))
+            ids = {item["id"] for item in saved}
+            self.assertIn("knowledge-existing", ids)
+            self.assertEqual(len(saved), 2)
+
+    def test_only_answered_subset_is_added_when_multiple_candidates(self):
+        second_candidate = ScoutCandidate(
+            scout_id="scout-def456",
+            title="다른 소식",
+            summary="다른 요약",
+            source_url="https://example.test/news/2",
+            published_at="",
+            source_name="테스트 뉴스",
+            category="기타",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            daily_pack_path = self._write_daily_pack(directory, [CANDIDATE, second_candidate])
+            answers_path = Path(directory) / "answers.json"
+            answers_path.write_text(
+                json.dumps([InterviewAnswer.create(CANDIDATE.scout_id, "A").to_dict()], ensure_ascii=False),
+                encoding="utf-8",
+            )
+            knowledge_path = Path(directory) / "knowledge.json"
+
+            created, skipped_unanswered, duplicates = append_scout_knowledge(
+                daily_pack_path, answers_path, knowledge_path
+            )
+
+            self.assertEqual((created, skipped_unanswered, duplicates), (1, 1, 0))
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -7,3 +7,9 @@ data/*.json
 !data/tak_brain_knowledge.json
 !data/tak_media_batch_e2e_test.json
 !data/threads_publish_log.json
+!data/scout_sources.json
+
+# TAK SCOUT/INTERVIEW 산출물도 매 실행마다 새로 생성/덮어쓰는 휘발성 파일이다.
+# data/scout_sources.json(설정)만 추적 대상이고, 나머지는 로컬 산출물이다.
+data/tak_scout_daily.md
+data/tak_interview_questions.md
