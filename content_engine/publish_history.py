@@ -114,25 +114,60 @@ class PublishHistory:
         temp_path.replace(self.path)
 
 
+def _used_knowledge_ids(history: PublishHistory) -> set[str]:
+    """게시 이력에 한 번이라도 등장한 knowledge_id 집합을 반환한다.
+
+    "최근 N일" 같은 시간 기반 쿨다운이 아니라, history 전체를 대상으로
+    "이 KNOWLEDGE가 예전에 한 번이라도 게시된 적이 있는가"만 본다
+    (5-10 Phase 4-4 rotation 정책의 기준).
+    """
+    return {
+        str(record.get("knowledge_id") or "")
+        for record in history.load()
+        if isinstance(record.get("knowledge_id"), str) and record.get("knowledge_id")
+    }
+
+
 def select_unpublished_threads_item(
     items: Sequence[Mapping[str, Any]],
     history: PublishHistory,
 ) -> tuple[Mapping[str, Any], str] | None:
-    """검증 통과(valid)한 Threads 콘텐츠 중 아직 게시하지 않은 첫 항목을 선택한다.
+    """검증 통과(valid)한 Threads 콘텐츠 중 아직 게시하지 않은 항목 하나를 선택한다.
 
     - platform == "threads"
     - status == "valid"
     - 게시 이력에 없는 content_id
 
-    위 조건을 모두 만족하는 항목 중, 입력 순서(배치 결과의 기존 순서) 기준으로 가장 앞선
-    항목 하나를 선택한다. 후보가 없으면 ``None``을 반환한다.
+    위 조건을 모두 만족하는 후보들을 입력 순서(배치 결과의 기존 순서) 그대로 모은 뒤,
+    같은 KNOWLEDGE가 연속으로 반복 게시되지 않도록 다음 우선순위로 하나를 고른다
+    (5-10 Phase 4-4 - KNOWLEDGE 간 순환/rotation):
+
+    1순위: knowledge_id가 게시 이력에 **한 번도 등장한 적 없는** 후보를, 후보 목록의
+           원래 순서대로 가장 먼저 찾아 선택한다 - 아직 소개하지 않은 다른 KNOWLEDGE를
+           우선한다.
+    2순위(폴백): 그런 후보가 하나도 없다면(=순환할 새 KNOWLEDGE가 남아있지 않다면)
+           기존과 동일하게, 후보 목록에서 가장 앞선 항목을 그대로 선택한다.
+
+    이력에 없는 content_id만 후보가 된다는 기존 중복 방지 규칙, "최근 N일" 같은
+    시간 기반 쿨다운, history 저장 방식은 전혀 바뀌지 않는다. 후보가 없으면
+    ``None``을 반환한다.
     """
     published_ids = history.published_content_ids()
+    candidates: list[tuple[Mapping[str, Any], str]] = []
     for item in items:
         if item.get("platform") != "threads" or item.get("status") != "valid":
             continue
         content_id = compute_content_id(item)
         if content_id in published_ids:
             continue
-        return item, content_id
-    return None
+        candidates.append((item, content_id))
+
+    if not candidates:
+        return None
+
+    used_knowledge_ids = _used_knowledge_ids(history)
+    for item, content_id in candidates:
+        if str(item.get("knowledge_id") or "") not in used_knowledge_ids:
+            return item, content_id
+
+    return candidates[0]

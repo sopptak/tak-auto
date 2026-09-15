@@ -267,6 +267,27 @@ class PublishThreadsAutoSelectTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertFalse(self.history_path.exists())
 
+    # --- 5-10 Phase 4-4: --auto 전체 CLI 경로에서도 KNOWLEDGE rotation이 적용되는지 ----
+
+    def test_auto_cli_rotates_across_knowledge_before_repeating(self):
+        items = [
+            _threads_item(knowledge_id="k-001", evidence_unit_ids=["a:1"]),
+            _threads_item(knowledge_id="k-001", evidence_unit_ids=["a:2"]),
+            _threads_item(knowledge_id="k-002", evidence_unit_ids=["b:1"]),
+        ]
+        self._write_batch(items)
+        fake_client = ThreadsClient(access_token="fake-token", transport=_success_transport("th_post_x"))
+
+        selected_knowledge_ids = []
+        for _ in range(3):
+            with mock.patch.object(ThreadsClient, "from_environment", return_value=fake_client):
+                exit_code = self._run(["--auto"])
+            self.assertEqual(exit_code, 0)
+            selected_knowledge_ids.append(PublishHistory(self.history_path).load()[-1]["knowledge_id"])
+
+        # 1회차 k-001(첫 항목) -> 2회차 아직 등장하지 않은 k-002 우선 -> 3회차 다시 k-001(남은 항목)
+        self.assertEqual(selected_knowledge_ids, ["k-001", "k-002", "k-001"])
+
 
 if __name__ == "__main__":
     unittest.main()
