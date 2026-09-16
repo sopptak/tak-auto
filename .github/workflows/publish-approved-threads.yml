@@ -1,0 +1,148 @@
+name: TAK Threads Publish Approved (Phase 4-1, manual only)
+
+# 5-11 Phase 4-1: Dashboard(scripts/run_scout_dashboard.py)에서 승인(approved)된
+# Threads 초안을 scripts/publish_approved_threads.py(5-11 Phase 3, 무수정)로
+# 실제 Threads에 발행하는 workflow다.
+#
+# 이 Phase의 트리거는 오직 workflow_dispatch(사람이 직접 GitHub Actions 탭에서
+# 실행 버튼을 누르는 것)뿐이다. schedule(cron)과 push 트리거는 의도적으로
+# 아직 넣지 않는다 - Phase 4-1의 목표는 "사람이 완전히 통제하는 상태"에서
+# workflow YAML 자체(트리거/조건/권한/시크릿 배선)가 올바르게 동작하는지부터
+# 안전하게 검증하는 것이다(docs/5-11_phase4_github_actions_design.md 9장
+# Phase 4-1). cron 추가는 Phase 4-3 이후, 기존 daily-threads-post.yml의
+# cron 비활성화와 정확히 같은 시점에만 검토한다.
+#
+# 기존 daily-threads-post.yml은 이 workflow와 완전히 독립적이며, 이 파일은
+# 그 workflow를 전혀 참조하거나 수정하지 않는다.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "실제 Threads 발행 없이 발행 대상과 내용만 미리 봅니다 (true = 미리보기, false = 실제 발행)"
+        required: true
+        default: true
+        type: boolean
+      content_id:
+        description: "특정 content_id 1건만 발행 대상으로 제한합니다. 비워두면 승인된(approved) 전체를 대상으로 합니다."
+        required: false
+        default: ""
+        type: string
+
+# data/tak_threads_pending.json, data/threads_publish_log.json을 이 workflow가
+# 직접 commit/push해야 하므로 저장소 쓰기 권한이 필요하다. 그 외 권한은 기본값
+# (read)으로 최소화한다 - 기존 daily-threads-post.yml과 동일한 최소 권한 원칙.
+permissions:
+  contents: write
+
+# 같은 workflow가 동시에 두 번 실행되면 같은 approved content_id를 동시에
+# 대상으로 삼아 이론적으로 중복 API 호출/커밋 경합이 생길 수 있다.
+# cancel-in-progress를 false로 두어 "취소" 대신 "대기(큐)"시킨다 - 실행 중인
+# 발행을 취소하면 Threads API 호출은 끝났지만 커밋/푸시는 못한 채 잘릴 수
+# 있어, 다음 실행이 그 상태를 못 보고 같은 draft를 다시 처리하려 들 위험이
+# 더 크다(기존 daily-threads-post.yml과 동일한 근거).
+concurrency:
+  group: publish-approved-threads
+  cancel-in-progress: false
+
+jobs:
+  publish-approved:
+    name: Publish approved Threads drafts (workflow_dispatch only)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 프로젝트가 실제로 사용 중인 Python 버전에 맞춘다(기존 daily-threads-post.yml과 동일).
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Show Python version
+        run: python3 --version
+
+      # 테스트가 실패하면 이후 단계(발행 스텝, commit 스텝)로 진행하지 않는다.
+      # GitHub Actions는 이 스텝이 실패하면, 아래 발행 스텝들의 if 조건이
+      # always()/failure() 등을 쓰지 않는 한 자동으로 건너뛴다.
+      - name: Run existing test suite
+        run: python3 -m unittest discover -s tests -p 'test*.py'
+
+      # 안전장치(설계 문서 3장): 이 workflow는 workflow_dispatch로만 트리거되므로
+      # (schedule 없음), dry_run 입력값이 정확히 'true'/'false' 중 하나다. 두
+      # 스텝은 서로 배타적인 if 조건을 가지며, 정확히 하나만 실행된다 - 동시
+      # 실행은 YAML 구조상 불가능하다.
+      #
+      # dry-run 스텝: --execute를 절대 붙이지 않는다. scripts/publish_approved_threads.py는
+      # --execute가 없으면 ThreadsClient.from_environment() 호출 지점 자체에
+      # 도달하지 않으므로(5-11 Phase 3 self-review 1번, PASS 확인됨), 이
+      # 스텝에는 THREADS_ACCESS_TOKEN을 아예 넘기지 않는다 - 토큰이 필요 없는
+      # 경로라는 사실을 env 배선으로도 드러낸다.
+      - name: Publish approved Threads drafts (dry-run, no actual Threads post)
+        id: publish_dry_run
+        if: github.event.inputs.dry_run == 'true'
+        env:
+          CONTENT_ID: ${{ github.event.inputs.content_id }}
+        run: |
+          if [ -n "$CONTENT_ID" ]; then
+            python3 scripts/publish_approved_threads.py --dry-run --id "$CONTENT_ID"
+          else
+            python3 scripts/publish_approved_threads.py --dry-run
+          fi
+
+      # live 스텝: dry_run 입력값이 'false'일 때만 실행되며, 이때만 --execute를
+      # 붙이고 THREADS_ACCESS_TOKEN을 넘긴다. 토큰 값은 어떤 run 스텝에서도
+      # echo/print하지 않는다(scripts/publish_approved_threads.py와
+      # content_engine/threads_publisher.py도 이미 토큰을 로그에 남기지 않도록
+      # 되어 있다 - 5-11 Phase 4 설계 문서 3장 10번).
+      - name: Publish approved Threads drafts (live, actual Threads post)
+        id: publish_live
+        if: github.event.inputs.dry_run == 'false'
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          CONTENT_ID: ${{ github.event.inputs.content_id }}
+        run: |
+          if [ -n "$CONTENT_ID" ]; then
+            python3 scripts/publish_approved_threads.py --execute --id "$CONTENT_ID"
+          else
+            python3 scripts/publish_approved_threads.py --execute
+          fi
+
+      # 승인된 항목이 여러 건이면 scripts/publish_approved_threads.py는 전부
+      # 순회 처리하며, 일부가 Threads API 실패로 exit code 1을 반환할 수 있다
+      # (설계 문서 7장 "approved 여러 건" 시나리오). 이 경우에도 성공한 항목의
+      # published 상태/PublishHistory 기록과 실패한 항목의 failed 상태는 전부
+      # 파일에 이미 반영되어 있으므로 반드시 커밋되어야 한다.
+      #
+      # 따라서 이 스텝은 always()로 두 발행 스텝의 "성공(success)" 또는
+      # "실패(failure)" 결과를 모두 받아들이되, 두 스텝 모두 "건너뜀(skipped)"
+      # 이었던 경우(= 테스트 스위트 실패 등으로 발행 자체가 시도조차 안 된 경우)는
+      # 제외한다 - "발행이 실행됐는지"만을 커밋 여부의 기준으로 삼는다.
+      - name: Check for pending/history changes
+        id: publish_diff
+        if: |
+          always() &&
+          (steps.publish_dry_run.outcome == 'success' || steps.publish_dry_run.outcome == 'failure' ||
+           steps.publish_live.outcome == 'success' || steps.publish_live.outcome == 'failure')
+        run: |
+          if [ -f data/tak_threads_pending.json ]; then
+            git add data/tak_threads_pending.json
+          fi
+          if [ -f data/threads_publish_log.json ]; then
+            git add data/threads_publish_log.json
+          fi
+          if git diff --cached --quiet -- data/tak_threads_pending.json data/threads_publish_log.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 커밋 대상은 정확히 이 두 파일뿐이다. dry-run이었거나(파일 변경 자체가
+      # 없음, 5-11 Phase 3 self-review 2번), 발행 대상이 애초에 없었던 경우
+      # (approved 0건)에는 diff가 없으므로 이 스텝은 자연스럽게 건너뛰어진다.
+      - name: Commit and push publish results
+        if: steps.publish_diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: update Threads pending/publish history (publish-approved-threads workflow_dispatch)"
+          git push

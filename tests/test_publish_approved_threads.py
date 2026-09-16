@@ -57,13 +57,27 @@ def _approved_draft(**overrides) -> ThreadsPendingDraft:
 class FakeThreadsClient:
     """실제 네트워크를 전혀 만들지 않는 가짜 클라이언트. publish_text 호출 여부/인자를 기록한다."""
 
-    def __init__(self, result: ThreadsPublishResult | None = None, error: Exception | None = None):
+    def __init__(
+        self,
+        result: ThreadsPublishResult | None = None,
+        error: Exception | None = None,
+        outcomes: list[ThreadsPublishResult | Exception] | None = None,
+    ):
+        """``outcomes``가 주어지면 ``publish_text`` 호출마다 순서대로 하나씩 소비한다
+        (여러 draft를 순회하며 각기 다른 결과를 내야 하는 시나리오용). 주어지지 않으면
+        기존처럼 매 호출마다 동일한 ``result``/``error``를 반환/발생시킨다."""
         self.result = result or ThreadsPublishResult(id="th_fake_1")
         self.error = error
+        self.outcomes = list(outcomes) if outcomes is not None else None
         self.publish_text_calls: list[str] = []
 
     def publish_text(self, text: str, reply_control: str | None = None, topic_tag: str | None = None):
         self.publish_text_calls.append(text)
+        if self.outcomes is not None:
+            outcome = self.outcomes.pop(0)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
         if self.error is not None:
             raise self.error
         return self.result
@@ -360,6 +374,107 @@ class PublishApprovedThreadsTests(unittest.TestCase):
     def test_no_pending_file_exits_zero(self) -> None:
         exit_code = self._assert_from_environment_not_called(["--execute"])
         self.assertEqual(exit_code, 0)
+
+    # --- (Phase 4 설계 문서 10장 갭 보강) approved 여러 건 부분 실패 ----------------
+
+    def test_multiple_approved_partial_failure_reports_correctly(self) -> None:
+        """approved 2건을 --id 없이 처리: 첫 번째는 API 실패, 두 번째는 성공.
+
+        - 첫 번째는 failed, 두 번째는 published가 되어야 한다.
+        - 성공한 두 번째만 PublishHistory에 기록되고, 실패한 첫 번째는 기록되지
+          않아야 한다.
+        - 전체 실행 결과(exit code)는 부분 실패를 정확히 반영해 0이 아니어야 한다.
+        """
+        draft_first = _approved_draft(content_id="content-first", final_body="첫 번째 본문")
+        draft_second = _approved_draft(content_id="content-second", final_body="두 번째 본문")
+        self._seed(draft_first, draft_second)
+
+        fake_client = FakeThreadsClient(
+            outcomes=[
+                ThreadsAPIError("Threads HTTP 500: message=first item failed"),
+                ThreadsPublishResult(id="th_second_success"),
+            ]
+        )
+
+        with mock.patch.object(ThreadsClient, "from_environment", return_value=fake_client):
+            exit_code = self._run(["--execute"])
+
+        # 전체 결과는 부분 실패를 정확히 보고해야 한다(하나라도 실패하면 0이 아님).
+        self.assertEqual(exit_code, 1)
+
+        by_id = {d.content_id: d for d in load_pending(self.pending_path)}
+        self.assertEqual(by_id["content-first"].status, "failed")
+        self.assertIn("500", by_id["content-first"].failure_reason)
+        self.assertEqual(by_id["content-second"].status, "published")
+        self.assertEqual(by_id["content-second"].threads_post_id, "th_second_success")
+
+        # PublishHistory에는 성공한 두 번째 건만 기록되고, 실패한 첫 번째는 없어야 한다.
+        history = PublishHistory(self.history_path)
+        self.assertFalse(history.is_published("content-first"))
+        self.assertTrue(history.is_published("content-second"))
+        records = history.load()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["content_id"], "content-second")
+
+        # 두 draft 모두 실제로 API 호출을 받았어야 한다(하나가 실패해도 나머지는 계속 처리).
+        self.assertEqual(fake_client.publish_text_calls, ["첫 번째 본문", "두 번째 본문"])
+
+    # --- (Phase 4 설계 문서 10장 갭 보강) 실패 → 재승인 → 재실행 → 성공 -----------
+
+    def test_failed_then_reapproved_then_reexecuted_succeeds(self) -> None:
+        """실패한 draft를 사람이 다시 approved로 되돌린 뒤 재실행하면 정상 발행되는지
+        end-to-end로 검증한다(자동 재시도가 아니라, 재승인이라는 명시적 사람의 조치를
+        거쳐야만 다시 대상이 된다는 계약도 함께 확인)."""
+        draft = _approved_draft(content_id="content-retry", final_body="재시도 대상 본문")
+        self._seed(draft)
+
+        # 1차 시도: 실패 -> failed 상태 + failure_reason 저장, PublishHistory 불변.
+        failing_client = FakeThreadsClient(error=ThreadsAPIError("Threads HTTP 500: message=temporary outage"))
+        with mock.patch.object(ThreadsClient, "from_environment", return_value=failing_client):
+            first_exit_code = self._run(["--execute"])
+
+        self.assertEqual(first_exit_code, 1)
+        failed_draft = load_pending(self.pending_path)[0]
+        self.assertEqual(failed_draft.status, "failed")
+        self.assertIn("500", failed_draft.failure_reason)
+        self.assertIsNotNone(failed_draft.failed_at)
+        self.assertFalse(PublishHistory(self.history_path).is_published("content-retry"))
+        self.assertEqual(PublishHistory(self.history_path).load(), [])
+
+        # 재승인되기 전까지는 자동으로 다시 대상이 되지 않는다(failed는 approved 필터에서 제외).
+        with mock.patch.object(
+            ThreadsClient, "from_environment", side_effect=AssertionError("재승인 전에는 API가 호출되면 안 됩니다")
+        ):
+            still_failed_exit_code = self._run(["--execute"])
+        self.assertEqual(still_failed_exit_code, 0)  # 발행 대상 없음(정상 종료)
+        self.assertEqual(load_pending(self.pending_path)[0].status, "failed")  # 상태 불변
+
+        # 사람이 재승인: failed -> approved (재시도 텍스트를 그대로 다시 확정한다고 가정).
+        reapproved = mark_approved(
+            failed_draft,
+            final_title=failed_draft.final_title,
+            final_body=failed_draft.final_body,
+            approved_at="2026-09-17T00:00:00+00:00",
+        )
+        upsert_pending(self.pending_path, reapproved)
+        self.assertEqual(load_pending(self.pending_path)[0].status, "approved")
+
+        # 2차 시도: 재실행하면 API가 호출되고 성공 -> published + PublishHistory 기록.
+        succeeding_client = FakeThreadsClient(result=ThreadsPublishResult(id="th_retry_success"))
+        with mock.patch.object(ThreadsClient, "from_environment", return_value=succeeding_client):
+            second_exit_code = self._run(["--execute"])
+
+        self.assertEqual(second_exit_code, 0)
+        self.assertEqual(succeeding_client.publish_text_calls, ["재시도 대상 본문"])
+        final_draft = load_pending(self.pending_path)[0]
+        self.assertEqual(final_draft.status, "published")
+        self.assertEqual(final_draft.threads_post_id, "th_retry_success")
+
+        history = PublishHistory(self.history_path)
+        self.assertTrue(history.is_published("content-retry"))
+        records = history.load()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["threads_post_id"], "th_retry_success")
 
 
 if __name__ == "__main__":
