@@ -4,9 +4,28 @@ name: TAK Threads Daily Post
 # TAK BRAIN -> TAK MEDIA -> Threads 자동 게시 파이프라인을 수행한다.
 # GitHub Actions의 schedule cron은 항상 UTC 기준이므로,
 # KST 08:00 = UTC 전날 23:00 = "0 23 * * *"로 지정한다.
+#
+# [5-19] 2026-09-18부로 schedule(cron) 자동 실행을 비활성화했다(아래 주석 처리된
+# `schedule:` 블록 참고). 이유: 이 workflow(scripts/run_daily.py ->
+# scripts/publish_threads.py --auto)는 사람의 승인 없이 실제 Threads API에
+# 자동 게시하는 구(舊) 경로다. 5-11에서 만든 새 경로
+# (scripts/generate_threads_draft.py -> Dashboard "/threads" 승인 ->
+# scripts/publish_approved_threads.py, publish-approved-threads.yml)는 게시 전
+# 사람의 승인을 반드시 거치는데, 이 cron이 계속 살아있으면 두 경로가 동시에
+# 실제 Threads에 게시할 수 있어 5-19("Daily Tmong Content Pipeline") 운영 원칙
+# ("처음에는 자동 공개하지 않는다", "최종 공개 전 티몽의 승인 단계를 유지한다")과
+# 정면으로 충돌한다(상세 분석: docs/5-19_daily_pipeline_investigation.md 3-a).
+# publish-approved-threads.yml 자체의 기존 주석에도 "cron 추가는 daily-threads-post.yml의
+# cron 비활성화와 정확히 같은 시점에만 검토한다"고 이미 적혀 있어, 이번 비활성화는 그
+# 계획을 그대로 실행한 것이다.
+#
+# workflow 파일 자체는 삭제하지 않았고, 아래 로직(테스트 실행 -> dry-run/live 분기 ->
+# publish history commit)도 전혀 수정하지 않았다 - workflow_dispatch로 수동 실행하는
+# 기존 기능은 그대로 유지된다(예: 특정 상황에서 사람이 직접 이 경로로 실행하고 싶을 때).
+# 자동(schedule) 실행만 막았다.
 on:
-  schedule:
-    - cron: '0 23 * * *'
+  # schedule:
+  #   - cron: '0 23 * * *'
   # 수동 실행 시 실수로 실제 Threads 게시가 발생하지 않도록, dry_run 입력값의 기본값을
   # true로 둔다. 즉 workflow_dispatch 화면에서 아무 값도 바꾸지 않고 그대로 실행 버튼을
   # 누르면 항상 안전한(게시 없는) 경로로 실행된다. schedule 트리거에는 이 입력값 자체가

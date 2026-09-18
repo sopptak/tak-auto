@@ -1,0 +1,89 @@
+name: TAK SCOUT Daily Collect (5-19, collection + scoring only)
+
+# 5-19 "Daily Tmong Content Pipeline"의 자동화 가능한 부분만 담당한다:
+# SCOUT 수집 -> SCOUT SCORE 기준 오늘의 후보 선정 -> 결과 파일 저장.
+#
+# 이 workflow는 다음을 절대 하지 않는다(docs/5-19_daily_pipeline_investigation.md
+# 4장 그대로):
+#   - TAK INTERVIEW(사람이 직접 답해야 하므로 자동화 대상이 아니다)
+#   - KNOWLEDGE 생성/승인
+#   - TAK MEDIA 실행
+#   - Threads 게시, Blog 게시, YouTube 업로드
+# scripts/run_scout.py는 RSS 수집과 SCOUT SCORE 계산만 하며 LLM/외부 게시 API를
+# 전혀 호출하지 않으므로, 이 workflow는 Threads/YouTube/LLM 관련 Secrets을 하나도
+# 쓰지 않는다.
+#
+# 한국시간(KST, UTC+9) 매일 오전 8시에 실행한다. GitHub Actions의 schedule cron은
+# 항상 UTC 기준이므로, KST 08:00 = UTC 전날 23:00 = "0 23 * * *"로 지정한다
+# (기존 daily-threads-post.yml과 동일한 cron 표현식을 그대로 재사용).
+on:
+  schedule:
+    - cron: '0 23 * * *'
+  workflow_dispatch:
+    inputs:
+      max_candidates:
+        description: "오늘의 후보로 선정할 최대 개수(SCOUT SCORE 상위 기준)"
+        required: true
+        default: "5"
+        type: string
+
+# data/tak_scout_daily.json, data/tak_scout_daily.md를 이 workflow가 직접
+# commit/push해야 하므로 저장소 쓰기 권한이 필요하다. 그 외 권한은 기본값(read)으로
+# 최소화한다(기존 daily-threads-post.yml과 동일한 원칙).
+permissions:
+  contents: write
+
+# 동일 workflow가 동시에 두 번 실행되면 결과 파일 commit이 경합할 수 있으므로,
+# 기존 daily-threads-post.yml/publish-approved-threads.yml과 동일하게 취소 대신
+# 대기(큐)시킨다.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  collect-and-score:
+    name: Collect SCOUT candidates and select top N by score
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Show Python version
+        run: python3 --version
+
+      # 테스트가 실패하면 이후 단계(실제 RSS 수집/결과 commit)로 진행하지 않는다.
+      - name: Run existing test suite
+        run: python3 -m unittest discover -s tests -p 'test*.py'
+
+      # 실제 공개 RSS만 읽는다(로그인/크롤링 없음, scripts/run_scout.py docstring
+      # 그대로). LLM/게시 API Secrets은 필요 없다 - 여기서 쓰지 않는다.
+      - name: Run TAK SCOUT collection + scoring
+        run: |
+          python3 scripts/run_scout.py \
+            --max "${{ github.event.inputs.max_candidates || '5' }}"
+
+      - name: Check for SCOUT result changes
+        id: scout_diff
+        run: |
+          git add data/tak_scout_daily.json data/tak_scout_daily.md
+          if git diff --cached --quiet -- data/tak_scout_daily.json data/tak_scout_daily.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 결과 파일에 실제 변경이 있을 때만 commit/push한다. commit 대상은
+      # data/tak_scout_daily.json, data/tak_scout_daily.md 두 파일로 한정한다 -
+      # Threads/YouTube/Blog 관련 파일은 이 workflow가 절대 건드리지 않는다.
+      - name: Commit and push today's SCOUT candidates
+        if: steps.scout_diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: update today's TAK SCOUT candidates"
+          git push

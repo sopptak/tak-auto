@@ -21,11 +21,13 @@ if str(ROOT) not in sys.path:
 
 from tak_scout.collector import (
     DEFAULT_MAX_CANDIDATES,
-    build_daily_pack,
+    collect_all,
+    dedupe_candidates,
     load_sources,
     save_daily_pack_json,
     save_daily_pack_markdown,
 )
+from tak_scout.scoring import top_candidates
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -68,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(f"TAK SCOUT: 등록된 source {len(sources)}개에서 수집 시작...")
-    candidates, results = build_daily_pack(sources, max_count=args.max, timeout=args.timeout)
+    raw_candidates, results = collect_all(sources, timeout=args.timeout)
 
     for result in results:
         if result.error:
@@ -76,10 +78,19 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"  성공: {result.name} - {result.candidate_count}건 수집")
 
+    # 5-19: 수집 순서(도착 순)가 아니라 TAK SCOUT SCORE(tak_scout.scoring, LLM 없는
+    # rule-based 점수) 기준 상위 --max건을 "오늘의 후보"로 선정한다. 점수 계산
+    # 로직 자체(scoring.py)는 전혀 수정하지 않았고, 기존에도 Dashboard "/" 화면이
+    # 같은 함수(rank_candidates)로 정렬해서 보여주던 것과 동일한 기준이다 - 여기서는
+    # "보여주는 순서"가 아니라 "선정되는 후보 자체"에 그 기준을 연결했을 뿐이다.
+    deduped = dedupe_candidates(raw_candidates)
+    ranked = top_candidates(deduped, n=args.max)
+    candidates = [candidate for candidate, _score in ranked]
+
     save_daily_pack_json(candidates, args.output_json)
     save_daily_pack_markdown(candidates, args.output_md)
 
-    print(f"오늘의 후보 {len(candidates)}건 선정 완료 (최대 {args.max}건, 중복 제거 후)")
+    print(f"오늘의 후보 {len(candidates)}건 선정 완료 (최대 {args.max}건, 중복 제거 후 SCOUT SCORE 상위)")
     print(f"JSON 저장: {args.output_json}")
     print(f"MD 저장: {args.output_md}")
     print("다음 단계: python3 scripts/run_interview.py 로 티몽에게 질문을 만드세요.")

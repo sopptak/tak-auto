@@ -40,6 +40,7 @@ from .threads_publisher import (
     ThreadsConfigurationError,
     ThreadsPublishResult,
 )
+from .shorts_adapter import ShortsAdapterError, short_draft_to_shorts_script
 
 __all__ = [
     "BLOG_COUNT",
@@ -74,4 +75,6 @@ __all__ = [
     "ThreadsConfigurationError",
     "ThreadsAPIError",
     "ThreadsPublishResult",
+    "ShortsAdapterError",
+    "short_draft_to_shorts_script",
 ]
