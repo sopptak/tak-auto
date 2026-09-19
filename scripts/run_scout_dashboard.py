@@ -97,8 +97,9 @@ from tak_scout.interview_session import (
     upsert_session,
 )
 from tak_scout.title_translation import TitleTranslation, translations_by_scout_id, upsert_translation
+from tak_brain import KnowledgeRecord, load_knowledge_records
 from content_engine import LLMConfigurationError
-from content_engine.media_archive import MediaArchiveRecord, load_archive
+from content_engine.media_archive import MediaArchiveRecord, load_archive, upsert_archive
 from content_engine.threads_review import (
     UNRESOLVED_STATUSES,
     ThreadsPendingDraft,
@@ -237,6 +238,19 @@ _PAGE_STYLE = """
   .qa-question { font-weight: 600; margin-bottom: 4px; }
   .qa-answer { color: #1a5c3a; }
   .qa-answer.direct { white-space: pre-wrap; }
+  .nav-links { font-size: 0.82rem; margin-bottom: 10px; }
+  .nav-links a { margin-right: 10px; }
+  h2 { font-size: 1rem; margin: 18px 0 6px; }
+  .body-block { white-space: pre-wrap; font-size: 0.92rem; max-width: 700px; }
+  .body-preview { font-size: 0.88rem; color: #444; margin: 4px 0 8px; white-space: pre-wrap; }
+  .group-header { font-weight: 700; margin: 18px 0 6px; font-size: 0.95rem; color: #33415c; }
+  .filters { margin-bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
+  .filter-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-link {
+    font-size: 0.78rem; padding: 4px 10px; border-radius: 999px; background: #eee;
+    color: #333; text-decoration: none; white-space: nowrap;
+  }
+  .filter-link.active { background: #1a5c3a; color: #fff; }
   @media (max-width: 480px) {
     body { padding: 10px; }
     .card { padding: 12px; }
@@ -334,6 +348,7 @@ def render_candidate_list_html(
 
     body = f"""
 <h1>TAK SCOUT Dashboard</h1>
+<div class="nav-links"><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a></div>
 <div class="sub">오늘의 소재 {len(ranked)}건 · 점수 내림차순 (SCOUT SCORE MVP, LLM 미사용)</div>
 {"".join(cards) if cards else "<p>오늘 표시할 소재가 없습니다.</p>"}
 """
@@ -544,63 +559,322 @@ def render_threads_list_html(drafts: list[ThreadsPendingDraft]) -> str:
     return body
 
 
-# --- TAK MEDIA 아카이브 읽기 전용 화면 (5-27) ---------------------------------
+# --- TAK MEDIA Human Review Dashboard (5-28) ---------------------------------
 #
-# 이 화면은 읽기 전용이다: data/tak_media_archive.json에 이미 쌓인
-# valid/rejected/error 결과를 그대로 보여줄 뿐, 승인/발행 같은 상태 변경 액션은
-# 이번 작업 범위에 포함하지 않는다(기존 Threads 검수 화면/발행 로직은 전혀
-# 건드리지 않는다).
+# KNOWLEDGE -> TAK MEDIA 9개 생성 -> ARCHIVE(5-27, data/tak_media_archive.json)
+# 까지는 이미 구현되어 있다. 이 화면은 그 archive를 사람이 휴대폰에서 확인하고
+# VALID 콘텐츠만 승인(review_status: unreviewed -> approved)할 수 있게 한다.
+#
+# 이 화면이 절대 하지 않는 것:
+#   - 실제 Threads/YouTube/Naver 발행 (ThreadsClient/YouTubeClient/Naver 게시
+#     코드를 이 화면에서 전혀 import/호출하지 않는다)
+#   - Threads 이외 채널의 새 "발행 대기열" 파일 생성 (Blog/Shorts는 archive의
+#     review_status만 approved로 바꾸는 것으로 끝난다 - 기존에 Blog/Shorts
+#     전용 pending 저장소 자체가 없으므로 새로 만들지 않는다)
+#   - Shorts MP4 렌더링 실행 (content_engine.shorts_renderer를 호출하지 않는다)
+#
+# platform == "threads"이면서 승인된 경우에만, 기존
+# content_engine.threads_review.upsert_pending()을 그대로 재사용해 (새 저장
+# 구조를 만들지 않고) status="pending"인 ThreadsPendingDraft를
+# data/tak_threads_pending.json에 추가한다 - 이미 그 파일에 같은 content_id가
+# 있으면(예: generate_threads_draft.py의 rotation이 먼저 만들었거나 이미
+# 승인/발행까지 진행된 경우) 절대 덮어쓰지 않는다("기존 승인 상태를 임의로
+# 바꾸지 않는다"). 이렇게 넘어간 draft는 기존 "/threads" 검수 화면에서 사람이
+# 다시 한번 확인 후 최종 승인해야 실제 발행 후보(approved)가 된다 - 이 MEDIA
+# 화면의 승인 버튼이 Threads 발행 승인을 대신하지 않는다.
 
-_GENERATION_STATUS_LABELS: dict[str, str] = {
-    "valid": "검증 통과",
-    "rejected": "검증 실패(반려)",
-    "error": "오류",
+_MEDIA_PLATFORM_LABELS: dict[str, str] = {"blog": "BLOG", "shorts": "SHORTS", "threads": "THREADS"}
+_MEDIA_GENERATION_STATUS_LABELS: dict[str, str] = {
+    "valid": "VALID",
+    "rejected": "REJECTED",
+    "error": "ERROR",
+}
+_MEDIA_REVIEW_STATUS_LABELS: dict[str, str] = {
+    "unreviewed": "검수대기",
+    "approved": "승인",
+    "dismissed": "보류",
 }
 
-_REVIEW_STATUS_LABELS: dict[str, str] = {
-    "unreviewed": "미검토",
-    "approved": "승인됨",
-    "dismissed": "기각됨",
-}
+_MEDIA_PLATFORM_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("all", "전체"), ("blog", "Blog"), ("shorts", "Shorts"), ("threads", "Threads"),
+)
+_MEDIA_GENERATION_STATUS_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("all", "전체"), ("valid", "Valid"), ("rejected", "Rejected"), ("error", "Error"),
+)
+_MEDIA_REVIEW_STATUS_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("all", "전체"), ("unreviewed", "검수대기"), ("approved", "승인"), ("dismissed", "보류"),
+)
+
+_MEDIA_BODY_PREVIEW_LENGTH = 120
 
 
-def render_media_archive_list_html(records: list[MediaArchiveRecord]) -> str:
-    """GET /media-archive - TAK MEDIA가 생성한 모든 Draft(valid/rejected/error)를
-    읽기 전용으로 나열한다. 최근 생성분이 위로 오도록 created_at 내림차순 정렬한다."""
-    if not records:
-        return """
-<h1>TAK MEDIA 아카이브</h1>
-<div class="sub">아직 저장된 TAK MEDIA 생성 결과가 없습니다.</div>
-<p>scripts/run_media_batch.py --execute 등으로 TAK MEDIA를 실행하면 여기에 쌓입니다.</p>
-"""
+def filter_media_archive_records(
+    records: list[MediaArchiveRecord],
+    platform: str = "all",
+    generation_status: str = "all",
+    review_status: str = "all",
+) -> list[MediaArchiveRecord]:
+    """세 필터(platform/generation_status/review_status)를 모두 만족하는 항목만 남긴다.
+    각 값이 "all"이면 그 축은 걸러내지 않는다. 기능은 단순한 AND 필터 하나뿐이다."""
+    result = records
+    if platform != "all":
+        result = [record for record in result if record.platform == platform]
+    if generation_status != "all":
+        result = [record for record in result if record.generation_status == generation_status]
+    if review_status != "all":
+        result = [record for record in result if record.review_status == review_status]
+    return result
 
+
+def group_media_archive_records_by_knowledge(
+    records: list[MediaArchiveRecord],
+) -> list[tuple[str, list[MediaArchiveRecord]]]:
+    """created_at 내림차순으로 정렬한 뒤 knowledge_id별로 묶는다.
+
+    "KNOWLEDGE 1건당 9개 Draft가 한꺼번에 생성됐다"는 사실이 한눈에 보이도록 하기
+    위한 그룹핑일 뿐, 정렬 기준 자체를 바꾸지 않는다 - 그룹의 순서는 그 그룹에서
+    가장 최근인 항목(정렬 후 그룹의 첫 항목) 기준을 그대로 따른다.
+    """
     ordered = sorted(records, key=lambda record: record.created_at, reverse=True)
-
-    rows = []
+    groups: dict[str, list[MediaArchiveRecord]] = {}
+    order: list[str] = []
     for record in ordered:
-        generation_label = _GENERATION_STATUS_LABELS.get(record.generation_status, record.generation_status)
-        review_label = _REVIEW_STATUS_LABELS.get(record.review_status, record.review_status)
-        title = record.rewritten_title or record.original_title
-        reasons = "; ".join(record.validation_errors) or (record.error_message or "")
-        rows.append(
-            f"""
+        if record.knowledge_id not in groups:
+            groups[record.knowledge_id] = []
+            order.append(record.knowledge_id)
+        groups[record.knowledge_id].append(record)
+    return [(knowledge_id, groups[knowledge_id]) for knowledge_id in order]
+
+
+def find_media_archive_record(archive_path: Path, content_id: str) -> MediaArchiveRecord | None:
+    for record in load_archive(archive_path):
+        if record.content_id == content_id:
+            return record
+    return None
+
+
+def handle_media_approve_submission(
+    archive_path: Path,
+    knowledge_path: Path,
+    threads_pending_path: Path,
+    content_id: str,
+) -> tuple[MediaArchiveRecord | None, str | None]:
+    """POST /media/{content_id}/approve 처리(순수 로직, 서버 없이 테스트 가능).
+
+    (갱신된 레코드 또는 None, 오류 메시지 또는 None)을 반환한다. 레코드가 아예
+    없으면 (None, None)을 반환해 호출부가 404로 처리하게 한다.
+
+    이미 approved인 레코드를 다시 승인 요청하면 그 레코드를 그대로(수정 없이)
+    반환한다 - 에러도 아니고 중복 저장도 하지 않는 idempotent 동작이다("이미
+    approved인 콘텐츠에는 중복 승인 버튼을 보여주지 않는다"는 UI 규칙의 방어적
+    백업).
+    """
+    record = find_media_archive_record(archive_path, content_id)
+    if record is None:
+        return None, None
+
+    if record.review_status == "approved":
+        return record, None
+
+    if record.generation_status != "valid":
+        return None, "VALID 상태의 콘텐츠만 승인할 수 있습니다."
+
+    updated = replace(record, review_status="approved")
+    upsert_archive(archive_path, [updated])
+
+    if updated.platform == "threads" and find_pending_draft(threads_pending_path, content_id) is None:
+        # 이미 같은 content_id의 pending/approved/published/failed draft가 있으면
+        # (예: generate_threads_draft.py의 rotation이 먼저 만든 경우) 절대
+        # 건드리지 않는다 - upsert_pending()은 무조건 덮어쓰므로, 새로 만들
+        # 때만 호출한다.
+        knowledge_by_id = {record.id: record for record in load_knowledge_records(knowledge_path)}
+        knowledge = knowledge_by_id.get(updated.knowledge_id)
+        new_draft = ThreadsPendingDraft(
+            content_id=updated.content_id,
+            knowledge_id=updated.knowledge_id,
+            source_url=updated.source_url,
+            evidence_unit_ids=updated.evidence_unit_ids,
+            article_type=knowledge.article_type if knowledge else None,
+            knowledge_type=knowledge.knowledge_type if knowledge else None,
+            original_title=updated.original_title,
+            original_body=updated.original_body,
+            ai_rewritten_title=updated.rewritten_title or updated.original_title,
+            ai_rewritten_body=updated.rewritten_body or updated.original_body,
+            status="pending",
+            created_at=utc_now(),
+        )
+        upsert_pending(threads_pending_path, new_draft)
+
+    return updated, None
+
+
+def _media_filter_query(overrides: dict[str, str]) -> str:
+    return "&".join(f"{key}={value}" for key, value in overrides.items())
+
+
+def _media_filter_row(
+    param_name: str,
+    options: tuple[tuple[str, str], ...],
+    current: str,
+    other_params: dict[str, str],
+) -> str:
+    links = []
+    for value, label in options:
+        params = {**other_params, param_name: value}
+        active = " active" if value == current else ""
+        links.append(
+            f'<a class="filter-link{active}" href="/media?{_media_filter_query(params)}">{escape(label)}</a>'
+        )
+    return f'<div class="filter-row">{"".join(links)}</div>'
+
+
+def render_media_filters_html(platform: str, generation_status: str, review_status: str) -> str:
+    platform_row = _media_filter_row(
+        "platform", _MEDIA_PLATFORM_OPTIONS, platform,
+        {"generation_status": generation_status, "review_status": review_status},
+    )
+    generation_row = _media_filter_row(
+        "generation_status", _MEDIA_GENERATION_STATUS_OPTIONS, generation_status,
+        {"platform": platform, "review_status": review_status},
+    )
+    review_row = _media_filter_row(
+        "review_status", _MEDIA_REVIEW_STATUS_OPTIONS, review_status,
+        {"platform": platform, "generation_status": generation_status},
+    )
+    return f'<div class="filters">{platform_row}{generation_row}{review_row}</div>'
+
+
+def _media_card_html(record: MediaArchiveRecord) -> str:
+    platform_label = _MEDIA_PLATFORM_LABELS.get(record.platform, record.platform.upper())
+    generation_label = _MEDIA_GENERATION_STATUS_LABELS.get(record.generation_status, record.generation_status.upper())
+    review_label = _MEDIA_REVIEW_STATUS_LABELS.get(record.review_status, record.review_status)
+    title = record.rewritten_title or record.original_title
+    body_text = record.rewritten_body or record.original_body or ""
+    preview = body_text[:_MEDIA_BODY_PREVIEW_LENGTH]
+    if len(body_text) > _MEDIA_BODY_PREVIEW_LENGTH:
+        preview += "…"
+
+    return f"""
 <div class="card">
   <div class="card-top">
-    <span class="status">{escape(record.platform)}</span>
+    <span class="status">{escape(platform_label)}</span>
     <span class="status">{escape(generation_label)}</span>
     <span class="status">{escape(review_label)}</span>
   </div>
   <div class="title">{escape(title)}</div>
-  <div class="sub">KNOWLEDGE: {escape(record.knowledge_id)} · 생성 시각: {escape(record.created_at)}</div>
-  {f'<div class="sub">사유: {escape(reasons)}</div>' if reasons else ""}
+  <p class="body-preview">{escape(preview)}</p>
+  <div class="actions">
+    <a class="btn primary" href="/media/{escape(record.content_id)}">상세보기</a>
+  </div>
 </div>
+"""
+
+
+def render_media_list_html(
+    records: list[MediaArchiveRecord],
+    platform: str = "all",
+    generation_status: str = "all",
+    review_status: str = "all",
+    approved: bool = False,
+) -> str:
+    """GET /media - TAK MEDIA archive 전체를 KNOWLEDGE별로 묶어 카드로 보여준다."""
+    banner = '<div class="banner">승인되었습니다.</div>' if approved else ""
+    filters_html = render_media_filters_html(platform, generation_status, review_status)
+
+    if not records:
+        return f"""
+<h1>TAK MEDIA</h1>
+{banner}
+{filters_html}
+<div class="sub">조건에 맞는 Draft가 없습니다.</div>
+"""
+
+    groups = group_media_archive_records_by_knowledge(records)
+    groups_html = []
+    for knowledge_id, group_records in groups:
+        cards = "".join(_media_card_html(record) for record in group_records)
+        groups_html.append(
+            f"""
+<div class="group-header">KNOWLEDGE: {escape(knowledge_id)} <span class="sub">({len(group_records)}건)</span></div>
+{cards}
 """
         )
 
     body = f"""
-<h1>TAK MEDIA 아카이브</h1>
-<div class="sub">저장된 Draft {len(ordered)}건 (읽기 전용 - 승인/발행 액션은 아직 없음)</div>
-{"".join(rows)}
+<h1>TAK MEDIA</h1>
+<div class="sub">총 {len(records)}건 · KNOWLEDGE {len(groups)}건</div>
+{banner}
+{filters_html}
+{"".join(groups_html)}
+"""
+    return body
+
+
+def render_media_detail_html(
+    record: MediaArchiveRecord,
+    knowledge: KnowledgeRecord | None,
+    approved: bool = False,
+) -> str:
+    """GET /media/{content_id} - Draft 1건의 전체 정보 + (VALID/미승인일 때만) 승인 버튼."""
+    platform_label = _MEDIA_PLATFORM_LABELS.get(record.platform, record.platform.upper())
+    generation_label = _MEDIA_GENERATION_STATUS_LABELS.get(record.generation_status, record.generation_status.upper())
+    review_label = _MEDIA_REVIEW_STATUS_LABELS.get(record.review_status, record.review_status)
+
+    banner = '<div class="banner">승인되었습니다.</div>' if approved else ""
+
+    approve_button = ""
+    if record.generation_status == "valid" and record.review_status != "approved":
+        approve_button = f"""
+<form method="post" action="/media/{escape(record.content_id)}/approve">
+  <button class="btn primary" type="submit">승인</button>
+</form>
+"""
+
+    if record.validation_errors:
+        validation_html = "<ul>" + "".join(f"<li>{escape(reason)}</li>" for reason in record.validation_errors) + "</ul>"
+    elif record.error_message:
+        validation_html = f"<p>{escape(record.error_message)}</p>"
+    else:
+        validation_html = "<p>(없음)</p>"
+
+    source_title = knowledge.title if knowledge is not None else "(KNOWLEDGE를 찾을 수 없습니다)"
+    source_url = knowledge.source_url if knowledge is not None else record.source_url
+
+    body = f"""
+<a class="back" href="/media">&larr; 목록으로</a>
+<h1>TAK MEDIA 상세</h1>
+<div class="card-top">
+  <span class="status">{escape(platform_label)}</span>
+  <span class="status">{escape(generation_label)}</span>
+  <span class="status">{escape(review_label)}</span>
+</div>
+{banner}
+
+<h2>① KNOWLEDGE</h2>
+<div class="meta">knowledge_id: {escape(record.knowledge_id)}</div>
+<div class="meta">source title: {escape(source_title)}</div>
+<div class="meta">source URL: <a href="{escape(source_url)}" target="_blank" rel="noopener">{escape(source_url)}</a></div>
+
+<h2>② 원본 Draft</h2>
+<div class="title">{escape(record.original_title)}</div>
+<p class="body-block">{escape(record.original_body)}</p>
+
+<h2>③ AI 생성 결과</h2>
+<div class="title">{escape(record.rewritten_title or "(없음)")}</div>
+<p class="body-block">{escape(record.rewritten_body or "(없음)")}</p>
+
+<h2>④ 검증 결과</h2>
+<div class="meta">generation_status: {escape(generation_label)}</div>
+{validation_html}
+
+<h2>⑤ 생성 정보</h2>
+<div class="meta">created_at: {escape(record.created_at)}</div>
+<div class="meta">platform: {escape(platform_label)}</div>
+<div class="meta">content_id: {escape(record.content_id)}</div>
+
+<h2>⑥ 사람 검수 상태</h2>
+<div class="meta">review_status: {escape(review_label)}</div>
+{approve_button}
 """
     return body
 
@@ -1205,12 +1479,44 @@ def make_handler_class(
                 self._send_html(_page("Threads 초안 검수", body))
                 return
 
-            # --- TAK MEDIA 아카이브 (5-27, 읽기 전용) ------------------------
+            # --- TAK MEDIA Human Review Dashboard (5-28) ---------------------
 
-            if path == "/media-archive":
+            if path == "/media":
+                platform = query.get("platform", ["all"])[0]
+                generation_status = query.get("generation_status", ["all"])[0]
+                review_status = query.get("review_status", ["all"])[0]
+                approved_flag = query.get("approved", ["0"])[0] == "1"
+
                 records = load_archive(config.media_archive_path)
-                body = render_media_archive_list_html(records)
-                self._send_html(_page("TAK MEDIA 아카이브", body))
+                filtered = filter_media_archive_records(records, platform, generation_status, review_status)
+                body = render_media_list_html(
+                    filtered,
+                    platform=platform,
+                    generation_status=generation_status,
+                    review_status=review_status,
+                    approved=approved_flag,
+                )
+                self._send_html(_page("TAK MEDIA", body))
+                return
+
+            if path.startswith("/media/"):
+                content_id = unquote(path[len("/media/") :])
+                record = find_media_archive_record(config.media_archive_path, content_id)
+                if record is None:
+                    body = (
+                        '<a class="back" href="/media">&larr; 목록으로</a>'
+                        f'<div class="error">Draft를 찾을 수 없습니다: {escape(content_id)}</div>'
+                    )
+                    self._send_html(_page("MEDIA Draft 없음", body), status=404)
+                    return
+
+                knowledge_by_id = {
+                    knowledge.id: knowledge for knowledge in load_knowledge_records(config.knowledge_path)
+                }
+                knowledge = knowledge_by_id.get(record.knowledge_id)
+                approved_flag = query.get("approved", ["0"])[0] == "1"
+                body = render_media_detail_html(record, knowledge, approved=approved_flag)
+                self._send_html(_page("TAK MEDIA 상세", body))
                 return
 
             self._send_html(_page("페이지 없음", "<p>페이지를 찾을 수 없습니다.</p>"), status=404)
@@ -1326,6 +1632,42 @@ def make_handler_class(
                     return
 
                 self._redirect(f"/threads/{content_id}")
+                return
+
+            # --- TAK MEDIA 승인 (5-28) ----------------------------------------
+            #
+            # 이 핸들러는 review_status만 바꾸고(+ platform=="threads"일 때만
+            # 기존 threads_review.upsert_pending()으로 pending draft 하나를 새로
+            # 만드는 것까지만 한다). ThreadsClient/YouTubeClient/Naver 게시
+            # 코드는 이 파일 어디에서도 import하지 않는다 - 실제 발행은 이
+            # 핸들러가 절대 할 수 없다.
+
+            if path.startswith("/media/") and path.endswith("/approve"):
+                content_id = unquote(path[len("/media/") : -len("/approve")])
+                updated, error = handle_media_approve_submission(
+                    config.media_archive_path, config.knowledge_path, config.pending_path, content_id
+                )
+
+                if updated is None and error is None:
+                    body = (
+                        '<a class="back" href="/media">&larr; 목록으로</a>'
+                        f'<div class="error">Draft를 찾을 수 없습니다: {escape(content_id)}</div>'
+                    )
+                    self._send_html(_page("MEDIA Draft 없음", body), status=404)
+                    return
+
+                if error:
+                    self._send_html(
+                        _page(
+                            "승인 실패",
+                            '<a class="back" href="/media">&larr; 목록으로</a>'
+                            f'<div class="error">{escape(error)}</div>',
+                        ),
+                        status=400,
+                    )
+                    return
+
+                self._redirect(f"/media/{content_id}?approved=1")
                 return
 
             self._send_html(_page("페이지 없음", "<p>페이지를 찾을 수 없습니다.</p>"), status=404)
