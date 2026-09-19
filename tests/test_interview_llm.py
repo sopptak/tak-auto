@@ -377,6 +377,118 @@ class DecideNextTurnTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
 
 
+class TranslateTitlesTests(unittest.TestCase):
+    """5-20: InterviewLLMProvider.translate_titles() - SCOUT 후보 제목의 한국어
+    표시용 번역(Dashboard 표시 전용, SCOUT SCORE/후보 선정 로직과는 무관)."""
+
+    JP_MORGAN_TITLE = (
+        "We simply don't know - JP Morgan struggling to forecast oil prices due to Trump's war with Iran"
+    )
+    JP_MORGAN_TITLE_KO = "정말 알 수 없다 — JP모건, 이란 전쟁으로 유가 전망에 어려움"
+
+    def _provider(self, **transport_kwargs) -> tuple[InterviewLLMProvider, list]:
+        calls: list = []
+        transport = _fake_transport(calls=calls, **transport_kwargs)
+        provider = InterviewLLMProvider(
+            endpoint="https://example.invalid/v1/chat/completions",
+            api_key="TEST_SECRET_KEY_123",
+            model="test-model",
+            transport=transport,
+        )
+        return provider, calls
+
+    def test_success_translates_real_sample_title(self):
+        content = {"translations": {"scout-jpmorgan-1": self.JP_MORGAN_TITLE_KO}}
+        provider, _ = self._provider(response=_chat_response(content))
+
+        result = provider.translate_titles((("scout-jpmorgan-1", self.JP_MORGAN_TITLE),))
+
+        self.assertEqual(result, {"scout-jpmorgan-1": self.JP_MORGAN_TITLE_KO})
+
+    def test_empty_titles_returns_empty_dict_without_calling_llm(self):
+        provider, calls = self._provider(response={})
+        result = provider.translate_titles(())
+        self.assertEqual(result, {})
+        self.assertEqual(calls, [])
+
+    def test_batch_of_multiple_titles_in_one_call(self):
+        content = {
+            "translations": {
+                "scout-a": "한국어 제목 A",
+                "scout-b": "한국어 제목 B",
+            }
+        }
+        provider, calls = self._provider(response=_chat_response(content))
+
+        result = provider.translate_titles((("scout-a", "Title A"), ("scout-b", "Title B")))
+
+        self.assertEqual(result, {"scout-a": "한국어 제목 A", "scout-b": "한국어 제목 B"})
+        self.assertEqual(len(calls), 1)  # 후보 2건이어도 HTTP 호출은 1번뿐.
+
+    def test_missing_scout_id_in_response_is_simply_absent(self):
+        """일부 scout_id의 번역이 응답에 없으면 그 항목만 결과에서 빠진다(부분 실패)."""
+        content = {"translations": {"scout-a": "한국어 제목 A"}}
+        provider, _ = self._provider(response=_chat_response(content))
+
+        result = provider.translate_titles((("scout-a", "Title A"), ("scout-b", "Title B")))
+
+        self.assertEqual(result, {"scout-a": "한국어 제목 A"})
+        self.assertNotIn("scout-b", result)
+
+    def test_unrequested_scout_id_in_response_is_ignored(self):
+        content = {"translations": {"scout-a": "한국어 제목 A", "scout-not-requested": "엉뚱한 항목"}}
+        provider, _ = self._provider(response=_chat_response(content))
+
+        result = provider.translate_titles((("scout-a", "Title A"),))
+
+        self.assertEqual(result, {"scout-a": "한국어 제목 A"})
+
+    def test_empty_translation_value_is_skipped(self):
+        content = {"translations": {"scout-a": "   "}}
+        provider, _ = self._provider(response=_chat_response(content))
+        result = provider.translate_titles((("scout-a", "Title A"),))
+        self.assertEqual(result, {})
+
+    def test_translation_too_long_is_skipped(self):
+        content = {"translations": {"scout-a": "가" * 121}}
+        provider, _ = self._provider(response=_chat_response(content))
+        result = provider.translate_titles((("scout-a", "Title A"),))
+        self.assertEqual(result, {})
+
+    def test_malformed_json_returns_none(self):
+        response = {"choices": [{"message": {"content": "not json"}}]}
+        provider, _ = self._provider(response=response)
+        self.assertIsNone(provider.translate_titles((("scout-a", "Title A"),)))
+
+    def test_translations_wrong_type_returns_none(self):
+        content = {"translations": "not a dict"}
+        provider, _ = self._provider(response=_chat_response(content))
+        self.assertIsNone(provider.translate_titles((("scout-a", "Title A"),)))
+
+    def test_http_error_returns_none(self):
+        provider, _ = self._provider(error=RuntimeError("HTTP 500 Internal Server Error"))
+        self.assertIsNone(provider.translate_titles((("scout-a", "Title A"),)))
+
+    def test_timeout_returns_none(self):
+        provider, _ = self._provider(error=TimeoutError("timed out"))
+        self.assertIsNone(provider.translate_titles((("scout-a", "Title A"),)))
+
+    def test_source_titles_sent_unmodified_in_request(self):
+        content = {"translations": {"scout-jpmorgan-1": self.JP_MORGAN_TITLE_KO}}
+        provider, calls = self._provider(response=_chat_response(content))
+
+        provider.translate_titles((("scout-jpmorgan-1", self.JP_MORGAN_TITLE),))
+
+        sent_body = json.loads(calls[0]["payload"]["messages"][1]["content"])
+        self.assertEqual(sent_body["titles"], [{"scout_id": "scout-jpmorgan-1", "title": self.JP_MORGAN_TITLE}])
+
+    def test_exactly_one_http_call_no_retry(self):
+        content = {"translations": {"scout-a": "한국어 제목"}}
+        provider, calls = self._provider(response=_chat_response(content))
+        provider.translate_titles((("scout-a", "Title A"),))
+        self.assertEqual(len(calls), 1)
+
+
 class DefaultHttpTransportTests(unittest.TestCase):
     """production 기본 transport(_http_transport) 자체를 검증한다.
 

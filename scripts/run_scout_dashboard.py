@@ -96,6 +96,7 @@ from tak_scout.interview_session import (
     load_sessions,
     upsert_session,
 )
+from tak_scout.title_translation import TitleTranslation, translations_by_scout_id, upsert_translation
 from content_engine import LLMConfigurationError
 from content_engine.threads_review import (
     UNRESOLVED_STATUSES,
@@ -154,6 +155,9 @@ class DashboardConfig:
     # 5-11 Phase 2 - 기본값을 둬서 기존 호출부(테스트 포함)가 이 필드를 넘기지
     # 않아도 그대로 동작한다(SCOUT 관련 기존 테스트는 이 경로를 전혀 쓰지 않는다).
     pending_path: Path = ROOT / "data" / "tak_threads_pending.json"
+    # 5-20 - 한국어 표시용 제목 번역 캐시. 기본값을 둬서 기존 호출부(테스트 포함)가
+    # 이 필드를 넘기지 않아도 그대로 동작한다.
+    title_translations_path: Path = ROOT / "data" / "tak_scout_title_translations.json"
 
 
 # Threads 500자 제한은 새로 만드는 규칙이 아니다 - ThreadsClient.publish_text
@@ -194,6 +198,8 @@ _PAGE_STYLE = """
   .status.skipped { background: #f1e6e6; color: #8a3b3b; }
   .status.unanswered { background: #eef0f7; color: #33415c; }
   .title { font-size: 1.05rem; font-weight: 600; margin: 6px 0 4px; }
+  .title-ko { font-size: 1.05rem; font-weight: 600; margin: 6px 0 2px; }
+  .title-en { font-size: 0.78rem; color: #8a8a86; margin-bottom: 4px; }
   .meta { font-size: 0.82rem; color: #6b6b6b; margin-bottom: 6px; }
   .breakdown { font-size: 0.78rem; color: #555; margin-bottom: 6px; }
   .summary { font-size: 0.88rem; color: #333; margin-bottom: 6px; }
@@ -272,8 +278,16 @@ def render_candidate_list_html(
     ranked: list[tuple[ScoutCandidate, ScoutScore]],
     answered_ids: frozenset[str],
     skipped_ids: frozenset[str],
+    display_titles: dict[str, str] | None = None,
 ) -> str:
-    """오늘의 소재 화면(화면 1) - 점수 내림차순 카드 목록. (5-9와 동일, 변경 없음)"""
+    """오늘의 소재 화면(화면 1) - 점수 내림차순 카드 목록.
+
+    5-20: 카드에는 한국어 표시용 제목(display_titles)을 가장 크게 보여주고, 영어
+    원문 제목은 그 아래 작게 보조 표시한다. display_titles를 안 넘기면(기존
+    호출부 호환) 원문 제목만 표시했던 이전 동작과 같아진다 - 번역이 없는 scout_id는
+    원문을 그대로 쓴다.
+    """
+    display_titles = display_titles or {}
     cards: list[str] = []
     for index, (candidate, score) in enumerate(ranked, start=1):
         status_class, status_label = _status_for(candidate.scout_id, answered_ids, skipped_ids)
@@ -281,6 +295,10 @@ def render_candidate_list_html(
             f"{label} {score.breakdown[key]}" for key, label, _max in _BREAKDOWN_LABELS
         )
         candidate_url = f"/candidate/{escape(candidate.scout_id)}"
+        display_title = display_titles.get(candidate.scout_id, candidate.title)
+        title_block = f'<div class="title-ko">{escape(display_title)}</div>'
+        if display_title != candidate.title:
+            title_block += f'<div class="title-en">원문: {escape(candidate.title)}</div>'
         cards.append(
             f"""
 <div class="card">
@@ -289,7 +307,7 @@ def render_candidate_list_html(
     <span class="score">{score.total}점</span>
     <span class="status {status_class}">{escape(status_label)}</span>
   </div>
-  <div class="title">{escape(candidate.title)}</div>
+  {title_block}
   <div class="meta">
     출처: {escape(candidate.source_name or "알 수 없음")} ·
     발행: {escape(_format_published_at(candidate.published_at))} ·
@@ -327,8 +345,14 @@ def render_turn_html(
     turn: InterviewTurnRecord,
     saved: bool = False,
     error: str | None = None,
+    display_title: str | None = None,
 ) -> str:
-    """멀티턴 인터뷰 중 현재 턴의 질문 화면(화면 2, Phase 2)."""
+    """멀티턴 인터뷰 중 현재 턴의 질문 화면(화면 2, Phase 2).
+
+    5-20: display_title(한국어 표시용 제목)을 먼저 보여주고, 원문(candidate.title)은
+    작은 글씨로 함께 보여준다. display_title을 안 넘기면(기존 호출부 호환) 원문만
+    표시한다.
+    """
     banner = ""
     if saved:
         banner = '<div class="banner">저장되었습니다. 다음 질문으로 이동합니다.</div>'
@@ -337,9 +361,15 @@ def render_turn_html(
 
     action = f"/candidate/{escape(candidate.scout_id)}/answer"
 
+    heading = escape(display_title or candidate.title)
+    original_line = ""
+    if display_title and display_title != candidate.title:
+        original_line = f'<div class="title-en">원문: {escape(candidate.title)}</div>'
+
     body = f"""
 <a class="back" href="/">&larr; 오늘의 소재로 돌아가기</a>
-<h1>{escape(candidate.title)}</h1>
+<h1>{heading}</h1>
+{original_line}
 <div class="meta">출처: {escape(candidate.source_name or "알 수 없음")} ({escape(candidate.source_url)})</div>
 <div class="progress">질문 {turn.turn} / {MAX_TURNS}</div>
 {banner}
@@ -381,8 +411,13 @@ def render_review_html(
     session: InterviewSession,
     saved: bool = False,
     error: str | None = None,
+    display_title: str | None = None,
 ) -> str:
-    """STEP 8: 인터뷰 결과 확인 화면(화면, Phase 2 + Phase 3-2 perspective_summary 표시)."""
+    """STEP 8: 인터뷰 결과 확인 화면(화면, Phase 2 + Phase 3-2 perspective_summary 표시).
+
+    5-20: display_title(한국어 표시용 제목)을 먼저 보여주고, 원문(candidate.title)은
+    작은 글씨로 함께 보여준다.
+    """
     banner = ""
     if saved:
         banner = '<div class="banner">저장되었습니다. TAK BRAIN KNOWLEDGE(pending)로 연결했습니다.</div>'
@@ -424,9 +459,14 @@ def render_review_html(
 """
 
     scout_id = escape(candidate.scout_id)
+    heading = escape(display_title or candidate.title)
+    original_line = ""
+    if display_title and display_title != candidate.title:
+        original_line = f'<div class="title-en">원문: {escape(candidate.title)}</div>'
     body = f"""
 <a class="back" href="/">&larr; 오늘의 소재로 돌아가기</a>
-<h1>{escape(candidate.title)}</h1>
+<h1>{heading}</h1>
+{original_line}
 <div class="meta">
   출처: {escape(candidate.source_name or "알 수 없음")} ·
   <a href="{escape(candidate.source_url)}" target="_blank" rel="noopener">원문 보기</a>
@@ -630,6 +670,70 @@ def _log_unexpected_llm_error(context: str, error: Exception) -> None:
     피한다(tak_scout/interview_llm.py의 _log_error와 동일한 원칙).
     """
     sys.stderr.write(f"[dashboard] {context}에서 예상치 못한 LLM 오류: {type(error).__name__}\n")
+
+
+def get_display_titles(
+    candidates: list[ScoutCandidate],
+    llm_provider: InterviewLLMProvider | None,
+    translations_path: Path,
+) -> dict[str, str]:
+    """소재 목록의 scout_id -> 한국어 표시용 제목 매핑을 만든다(5-20).
+
+    원문 title(candidate.title)은 이 함수가 절대 바꾸지 않는다 - 반환하는 dict는
+    화면 렌더링에서만 쓰는 별도 값이다.
+
+    1) 이미 캐시(tak_scout_title_translations.json)에 있는 scout_id는 LLM을 다시
+       부르지 않고 캐시된 번역을 그대로 쓴다(같은 후보를 새로고침해도 반복 호출
+       없음 - 5-20 지시 7번).
+    2) 캐시에 없는 후보만 모아 InterviewLLMProvider.translate_titles()를 "한 번의
+       배치 호출"로 처리한다(후보마다 개별 호출하지 않음 - 5-20 지시 8번, 비용/응답
+       속도 억제).
+    3) provider가 없거나 호출이 실패(None)했거나, 일부 scout_id만 번역되지 않은
+       경우 - 그 scout_id는 원문 title을 그대로 fallback으로 쓴다(5-20 지시 6번).
+       실패한 항목은 캐시에 저장하지 않는다 - 다음에 LLM이 복구되면 다시 시도할 수
+       있게 한다(기존 interview_llm.py의 "실패는 영구 상태로 남기지 않는다" 철학과
+       동일).
+    """
+    cached = translations_by_scout_id(translations_path)
+    display_titles: dict[str, str] = {}
+    uncached: list[tuple[str, str]] = []
+
+    for candidate in candidates:
+        cached_entry = cached.get(candidate.scout_id)
+        if cached_entry is not None:
+            display_titles[candidate.scout_id] = cached_entry.display_title
+        else:
+            uncached.append((candidate.scout_id, candidate.title))
+
+    if uncached and llm_provider is not None:
+        try:
+            translated = llm_provider.translate_titles(tuple(uncached))
+        except Exception as error:  # noqa: BLE001 - LLM 실패를 절대 Dashboard 오류로 노출하지 않는다.
+            _log_unexpected_llm_error("translate_titles", error)
+            translated = None
+
+        if translated:
+            now = utc_now()
+            candidates_by_id = {candidate.scout_id: candidate for candidate in candidates}
+            for scout_id, display_title in translated.items():
+                candidate = candidates_by_id.get(scout_id)
+                if candidate is None:
+                    continue
+                upsert_translation(
+                    translations_path,
+                    TitleTranslation(
+                        scout_id=scout_id,
+                        source_title=candidate.title,
+                        display_title=display_title,
+                        translated_at=now,
+                    ),
+                )
+                display_titles[scout_id] = display_title
+
+    for scout_id, title in uncached:
+        display_titles.setdefault(scout_id, title)
+
+    return display_titles
 
 
 def _build_turn_one(candidate: ScoutCandidate, llm_provider: InterviewLLMProvider | None) -> InterviewTurnRecord:
@@ -969,7 +1073,8 @@ def make_handler_class(
                 ranked = rank_candidates(candidates)
                 answered_ids = frozenset(a.scout_id for a in load_answers(config.answers_path))
                 skipped_ids = skipped_scout_ids(config.skipped_path)
-                body = render_candidate_list_html(ranked, answered_ids, skipped_ids)
+                display_titles = get_display_titles(candidates, llm_provider, config.title_translations_path)
+                body = render_candidate_list_html(ranked, answered_ids, skipped_ids, display_titles)
                 self._send_html(_page("TAK SCOUT Dashboard", body))
                 return
 
@@ -983,7 +1088,8 @@ def make_handler_class(
                     # 아직 다 답하지 않았으면 review 대신 다시 인터뷰 화면으로.
                     self._redirect(f"/candidate/{scout_id}")
                     return
-                body = render_review_html(candidate, session, saved=saved)
+                display_title = get_display_titles([candidate], llm_provider, config.title_translations_path)[scout_id]
+                body = render_review_html(candidate, session, saved=saved, display_title=display_title)
                 self._send_html(_page(candidate.title, body))
                 return
 
@@ -997,7 +1103,8 @@ def make_handler_class(
                     self._redirect(f"/candidate/{scout_id}/review")
                     return
                 current_turn = session.turns[-1]
-                body = render_turn_html(candidate, session, current_turn, saved=saved)
+                display_title = get_display_titles([candidate], llm_provider, config.title_translations_path)[scout_id]
+                body = render_turn_html(candidate, session, current_turn, saved=saved, display_title=display_title)
                 self._send_html(_page(candidate.title, body))
                 return
 
@@ -1055,7 +1162,12 @@ def make_handler_class(
                 )
                 if error:
                     current_turn = session.turns[-1]
-                    body = render_turn_html(candidate, session, current_turn, error=error)
+                    display_title = get_display_titles(
+                        [candidate], llm_provider, config.title_translations_path
+                    )[scout_id]
+                    body = render_turn_html(
+                        candidate, session, current_turn, error=error, display_title=display_title
+                    )
                     self._send_html(_page(candidate.title, body), status=400)
                     return
                 if updated_session.status == "completed":
@@ -1075,7 +1187,10 @@ def make_handler_class(
                     return
                 _answer, _counts, error = handle_finalize(candidate, session, config)
                 if error:
-                    body = render_review_html(candidate, session, error=error)
+                    display_title = get_display_titles(
+                        [candidate], llm_provider, config.title_translations_path
+                    )[scout_id]
+                    body = render_review_html(candidate, session, error=error, display_title=display_title)
                     self._send_html(_page(candidate.title, body), status=400)
                     return
                 self._redirect(f"/candidate/{scout_id}/review?saved=1")
@@ -1174,6 +1289,10 @@ def main(argv: list[str] | None = None) -> int:
         "--pending", type=Path, default=ROOT / "data" / "tak_threads_pending.json",
         help="Threads 검수 대기 draft 경로 (기본값: data/tak_threads_pending.json, 5-11 Phase 2)",
     )
+    parser.add_argument(
+        "--title-translations", type=Path, default=ROOT / "data" / "tak_scout_title_translations.json",
+        help="한국어 표시용 제목 번역 캐시 경로 (기본값: data/tak_scout_title_translations.json, 5-20)",
+    )
     args = parser.parse_args(argv)
 
     if not args.daily_pack.exists():
@@ -1190,6 +1309,7 @@ def main(argv: list[str] | None = None) -> int:
         skipped_path=args.skipped,
         sessions_path=args.sessions,
         pending_path=args.pending,
+        title_translations_path=args.title_translations,
     )
 
     # scripts/run_media_batch.py, scripts/run_daily.py, scripts/tak_auto.py와 동일한

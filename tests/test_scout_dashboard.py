@@ -16,6 +16,7 @@ FakeInterviewLLMProvider만 주입한다(실제 InterviewLLMProvider/환경변�
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from html import escape as html_escape
 from http.server import ThreadingHTTPServer
 import json
 from pathlib import Path
@@ -34,10 +35,12 @@ from tak_scout.interview_llm import FollowUpDecision
 from tak_scout.interview_session import InterviewTurnRecord, load_sessions
 from tak_scout.models import ScoutCandidate
 from tak_scout.scoring import rank_candidates
+from tak_scout.title_translation import load_translations
 
 from scripts.run_scout_dashboard import (
     DashboardConfig,
     find_candidate,
+    get_display_titles,
     handle_skip_submission,
     make_handler_class,
     render_candidate_list_html,
@@ -473,6 +476,8 @@ class FakeInterviewLLMProvider:
     decide_results: list = field(default_factory=list)
     first_question_calls: list = field(default_factory=list)
     decide_calls: list = field(default_factory=list)
+    translate_titles_results: list = field(default_factory=list)
+    translate_titles_calls: list = field(default_factory=list)
 
     def generate_first_question(self, candidate, source_fact):
         self.first_question_calls.append((candidate, source_fact))
@@ -488,6 +493,15 @@ class FakeInterviewLLMProvider:
         if not self.decide_results:
             return None
         result = self.decide_results.pop(0)
+        if _is_exception_class(result):
+            raise result("fake llm failure")
+        return result
+
+    def translate_titles(self, titles):
+        self.translate_titles_calls.append(titles)
+        if not self.translate_titles_results:
+            return None
+        result = self.translate_titles_results.pop(0)
         if _is_exception_class(result):
             raise result("fake llm failure")
         return result
@@ -820,6 +834,253 @@ class DashboardLLMIntegrationTests(unittest.TestCase):
         # 섞여 들어가지 않는다 - KNOWLEDGE는 여전히 사용자가 실제로 입력한 원문만 담는다.
         self.assertNotIn("최종 요약", evidence_text)
         self.assertNotIn("1턴 후 요약", evidence_text)
+
+
+class TitleTranslationTests(unittest.TestCase):
+    """5-20: SCOUT 후보 제목의 한국어 표시용 번역(캐시 + LLM fallback)을 검증한다.
+
+    실제 네트워크는 호출하지 않는다 - FakeInterviewLLMProvider만 주입한다.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        self.translations_path = self.directory / "tak_scout_title_translations.json"
+
+        self.candidate = ScoutCandidate(
+            scout_id="scout-jpmorgan-1",
+            title="We simply don't know - JP Morgan struggling to forecast oil prices due to Trump's war with Iran",
+            summary="JP Morgan says it cannot reliably forecast oil prices given the conflict.",
+            source_url="https://example.test/jpmorgan-oil",
+            published_at="2026-09-18T17:57:30+00:00",
+            source_name="BBC Business",
+            category="finance",
+        )
+        self.display_title = "정말 알 수 없다 — JP모건, 이란 전쟁으로 유가 전망에 어려움"
+
+    def test_english_title_gets_korean_display_title(self):
+        fake = FakeInterviewLLMProvider(
+            translate_titles_results=[{self.candidate.scout_id: self.display_title}]
+        )
+        display_titles = get_display_titles([self.candidate], fake, self.translations_path)
+
+        self.assertEqual(display_titles[self.candidate.scout_id], self.display_title)
+
+    def test_source_title_is_never_modified(self):
+        fake = FakeInterviewLLMProvider(
+            translate_titles_results=[{self.candidate.scout_id: self.display_title}]
+        )
+        original_title = self.candidate.title
+        get_display_titles([self.candidate], fake, self.translations_path)
+
+        self.assertEqual(self.candidate.title, original_title)
+        self.assertNotEqual(self.candidate.title, self.display_title)
+
+    def test_llm_missing_falls_back_to_source_title(self):
+        display_titles = get_display_titles([self.candidate], None, self.translations_path)
+        self.assertEqual(display_titles[self.candidate.scout_id], self.candidate.title)
+
+    def test_llm_failure_falls_back_to_source_title(self):
+        fake = FakeInterviewLLMProvider(translate_titles_results=[RuntimeError])
+        display_titles = get_display_titles([self.candidate], fake, self.translations_path)
+        self.assertEqual(display_titles[self.candidate.scout_id], self.candidate.title)
+
+    def test_llm_returning_none_falls_back_to_source_title(self):
+        fake = FakeInterviewLLMProvider(translate_titles_results=[None])
+        display_titles = get_display_titles([self.candidate], fake, self.translations_path)
+        self.assertEqual(display_titles[self.candidate.scout_id], self.candidate.title)
+
+    def test_cached_translation_is_not_requested_again(self):
+        fake = FakeInterviewLLMProvider(
+            translate_titles_results=[{self.candidate.scout_id: self.display_title}]
+        )
+        first = get_display_titles([self.candidate], fake, self.translations_path)
+        second = get_display_titles([self.candidate], fake, self.translations_path)
+
+        self.assertEqual(first[self.candidate.scout_id], self.display_title)
+        self.assertEqual(second[self.candidate.scout_id], self.display_title)
+        # 두 번째 호출에서는 캐시에 이미 있으므로 LLM이 다시 호출되지 않아야 한다.
+        self.assertEqual(len(fake.translate_titles_calls), 1)
+
+    def test_translation_cached_to_disk_survives_process_boundary(self):
+        fake = FakeInterviewLLMProvider(
+            translate_titles_results=[{self.candidate.scout_id: self.display_title}]
+        )
+        get_display_titles([self.candidate], fake, self.translations_path)
+
+        cached = load_translations(self.translations_path)
+        self.assertEqual(len(cached), 1)
+        self.assertEqual(cached[0].scout_id, self.candidate.scout_id)
+        self.assertEqual(cached[0].display_title, self.display_title)
+        self.assertEqual(cached[0].source_title, self.candidate.title)
+
+        # 새 provider 인스턴스(호출 기록이 비어 있음)로도 캐시만으로 번역이 나온다.
+        fresh_fake = FakeInterviewLLMProvider()
+        display_titles = get_display_titles([self.candidate], fresh_fake, self.translations_path)
+        self.assertEqual(display_titles[self.candidate.scout_id], self.display_title)
+        self.assertEqual(fresh_fake.translate_titles_calls, [])
+
+    def test_batch_call_covers_multiple_uncached_candidates_in_one_call(self):
+        other = _lifestyle_candidate("scout-other-1")
+        fake = FakeInterviewLLMProvider(
+            translate_titles_results=[
+                {
+                    self.candidate.scout_id: self.display_title,
+                    other.scout_id: "신입생을 위한 자전거 도난 방지 팁",
+                }
+            ]
+        )
+        display_titles = get_display_titles([self.candidate, other], fake, self.translations_path)
+
+        self.assertEqual(display_titles[self.candidate.scout_id], self.display_title)
+        self.assertEqual(display_titles[other.scout_id], "신입생을 위한 자전거 도난 방지 팁")
+        # 후보 2건이었지만 배치 호출은 정확히 1번만 일어나야 한다(개별 호출 금지).
+        self.assertEqual(len(fake.translate_titles_calls), 1)
+        self.assertEqual(len(fake.translate_titles_calls[0]), 2)
+
+    def test_partial_translation_falls_back_only_for_missing_candidate(self):
+        other = _lifestyle_candidate("scout-other-2")
+        fake = FakeInterviewLLMProvider(
+            # other의 번역은 응답에서 빠짐(부분 실패) - other만 원문 fallback이어야 한다.
+            translate_titles_results=[{self.candidate.scout_id: self.display_title}]
+        )
+        display_titles = get_display_titles([self.candidate, other], fake, self.translations_path)
+
+        self.assertEqual(display_titles[self.candidate.scout_id], self.display_title)
+        self.assertEqual(display_titles[other.scout_id], other.title)
+
+    def test_score_and_ranking_unaffected_by_translation(self):
+        """5번 요구사항: 한국어 표시 제목 추가가 기존 TOP N 정렬/점수 계산에 영향을 주지 않는다."""
+        candidates = [self.candidate, _lifestyle_candidate("scout-other-3")]
+        ranked_before = rank_candidates(candidates)
+
+        fake = FakeInterviewLLMProvider(
+            translate_titles_results=[{self.candidate.scout_id: self.display_title}]
+        )
+        get_display_titles(candidates, fake, self.translations_path)
+        ranked_after = rank_candidates(candidates)
+
+        self.assertEqual(
+            [(c.scout_id, s.total) for c, s in ranked_before],
+            [(c.scout_id, s.total) for c, s in ranked_after],
+        )
+
+    def test_list_html_shows_korean_title_first_and_english_original_small(self):
+        display_titles = {self.candidate.scout_id: self.display_title}
+        ranked = rank_candidates([self.candidate])
+        html = render_candidate_list_html(ranked, frozenset(), frozenset(), display_titles)
+
+        ko_pos = html.index(self.display_title)
+        en_pos = html.index(html_escape(self.candidate.title))
+        self.assertLess(ko_pos, en_pos)
+        self.assertIn('class="title-ko"', html)
+        self.assertIn('class="title-en"', html)
+
+    def test_list_html_without_translation_shows_only_original_title(self):
+        """번역이 없는(fallback) 후보는 영어 원문 보조 표시를 중복해서 보여주지 않는다."""
+        ranked = rank_candidates([self.candidate])
+        html = render_candidate_list_html(ranked, frozenset(), frozenset(), {})
+
+        self.assertIn(html_escape(self.candidate.title), html)
+        self.assertNotIn('class="title-en"', html)
+
+
+class TitleTranslationOverHttpTests(unittest.TestCase):
+    """실제 소켓을 여는 HTTP 통합 테스트로 목록/인터뷰 화면의 한국어 제목 표시를 확인한다."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+
+        self.candidate = ScoutCandidate(
+            scout_id="scout-jpmorgan-http-1",
+            title="We simply don't know - JP Morgan struggling to forecast oil prices due to Trump's war with Iran",
+            summary="JP Morgan says it cannot reliably forecast oil prices given the conflict.",
+            source_url="https://example.test/jpmorgan-oil",
+            published_at="2026-09-18T17:57:30+00:00",
+            source_name="BBC Business",
+            category="finance",
+        )
+        self.display_title = "정말 알 수 없다 — JP모건, 이란 전쟁으로 유가 전망에 어려움"
+
+        self.daily_pack_path = self.directory / "tak_scout_daily.json"
+        save_daily_pack_json([self.candidate], self.daily_pack_path)
+
+        self.config = DashboardConfig(
+            daily_pack_path=self.daily_pack_path,
+            answers_path=self.directory / "tak_interview_answers.json",
+            knowledge_path=self.directory / "tak_brain_knowledge.json",
+            skipped_path=self.directory / "tak_scout_dashboard_skipped.json",
+            sessions_path=self.directory / "tak_interview_sessions.json",
+            title_translations_path=self.directory / "tak_scout_title_translations.json",
+        )
+
+    def _start_server(self, llm_provider) -> None:
+        handler_class = make_handler_class(self.config, llm_provider=llm_provider)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler_class)
+        self.port = self.server.server_address[1]
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.addCleanup(self._shutdown)
+
+    def _shutdown(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=5)
+
+    def _url(self, path: str) -> str:
+        return f"http://127.0.0.1:{self.port}{path}"
+
+    def _get(self, path: str) -> tuple[int, str]:
+        with urllib.request.urlopen(self._url(path), timeout=5) as response:
+            return response.status, response.read().decode("utf-8")
+
+    def test_candidate_list_page_shows_korean_title(self):
+        fake = FakeInterviewLLMProvider(
+            translate_titles_results=[{self.candidate.scout_id: self.display_title}]
+        )
+        self._start_server(fake)
+
+        status, body = self._get("/")
+
+        self.assertEqual(status, 200)
+        self.assertIn(self.display_title, body)
+        self.assertIn(html_escape(self.candidate.title), body)  # 원문도 작게 함께 표시
+
+    def test_interview_turn_page_shows_korean_title_first(self):
+        fake = FakeInterviewLLMProvider(
+            translate_titles_results=[{self.candidate.scout_id: self.display_title}]
+        )
+        self._start_server(fake)
+
+        status, body = self._get(f"/candidate/{self.candidate.scout_id}")
+
+        self.assertEqual(status, 200)
+        heading_pos = body.index(f"<h1>{self.display_title}</h1>")
+        original_pos = body.index(html_escape(self.candidate.title), heading_pos)
+        self.assertLess(heading_pos, original_pos)
+
+    def test_second_page_load_reuses_cached_translation(self):
+        fake = FakeInterviewLLMProvider(
+            translate_titles_results=[{self.candidate.scout_id: self.display_title}]
+        )
+        self._start_server(fake)
+
+        self._get("/")
+        self._get("/")  # 새로고침
+
+        self.assertEqual(len(fake.translate_titles_calls), 1)
+
+    def test_llm_unset_shows_original_title_only(self):
+        self._start_server(None)
+
+        status, body = self._get("/")
+
+        self.assertEqual(status, 200)
+        self.assertIn(html_escape(self.candidate.title), body)
+        self.assertNotIn('class="title-en"', body)
 
 
 if __name__ == "__main__":

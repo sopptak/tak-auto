@@ -48,6 +48,10 @@ FORCED_OPTION_D = "직접 입력"
 MAX_QUESTION_LENGTH = 200
 MAX_OPTION_LENGTH = 80
 
+# Dashboard 표시용 한국어 제목 번역(5-20)에 쓰는 상한. 카드 제목이 너무 길어지지
+# 않도록 인터뷰 질문/선택지와 비슷한 수준으로 제한한다.
+MAX_TITLE_LENGTH = 120
+
 InterviewLLMTransport = Callable[[str, Mapping[str, str], Mapping[str, object], float], Mapping[str, object]]
 
 
@@ -405,3 +409,62 @@ class InterviewLLMProvider:
         except Exception as error:  # noqa: BLE001 - 의도적으로 모든 실패를 None으로 흡수한다.
             _log_error("decide_next_turn", error)
             return None
+
+    # --- Dashboard 표시용 한국어 제목 번역(5-20) --------------------------------
+
+    @staticmethod
+    def _title_translation_system_prompt() -> str:
+        return (
+            "당신은 뉴스 제목을 한국어로 옮기는 번역가입니다. 아래 titles 배열의 영어(또는 "
+            "다른 외국어) 제목들을 자연스러운 한국어 제목으로 번역하세요. 원문의 의미를 "
+            "바꾸거나 새로운 사실을 추가하지 마세요. 이미 한국어인 제목은 그대로 반환하세요. "
+            "각 번역은 120자 이내로 간결하게 작성하세요.\n\n"
+            "다음 JSON 형식으로만 응답하세요. 다른 텍스트는 포함하지 마세요:\n"
+            '{"translations": {"<scout_id>": "<한국어 제목>", ...}}\n\n'
+            "요청받은 모든 scout_id에 대해 번역을 반환하세요."
+        )
+
+    @staticmethod
+    def _title_translation_user_message(titles: tuple[tuple[str, str], ...]) -> str:
+        payload = {
+            "contract_version": CONTRACT_VERSION,
+            "titles": [{"scout_id": scout_id, "title": title} for scout_id, title in titles],
+        }
+        return json.dumps(payload, ensure_ascii=False)
+
+    def translate_titles(self, titles: tuple[tuple[str, str], ...]) -> dict[str, str] | None:
+        """(scout_id, 원문 제목) 목록을 한 번의 LLM 호출로 한국어 제목으로 번역한다.
+
+        여러 후보를 개별 호출이 아니라 배치 1회로 처리해 비용/응답 시간을 아낀다
+        (5-20 지시 8번). 호출 자체가 실패하면(설정 오류, 네트워크, JSON 파싱 등)
+        None을 반환한다 - 호출부는 모든 후보에 원문 제목을 fallback으로 쓰면 된다.
+
+        호출은 성공했지만 일부 scout_id의 번역만 비어있거나 형식이 잘못된 경우에는
+        그 항목만 결과 dict에서 빠진다(부분 실패를 전체 실패로 취급하지 않는다) -
+        호출부는 dict에 없는 scout_id에 대해서만 원문 제목으로 fallback하면 된다.
+        """
+        if not titles:
+            return {}
+        try:
+            data = self._call(
+                self._title_translation_system_prompt(),
+                self._title_translation_user_message(titles),
+            )
+            translations = data.get("translations")
+            if not isinstance(translations, dict):
+                raise LLMResponseError("translations는 객체여야 합니다.")
+        except Exception as error:  # noqa: BLE001 - 의도적으로 모든 실패를 None으로 흡수한다.
+            _log_error("translate_titles", error)
+            return None
+
+        result: dict[str, str] = {}
+        requested_ids = {scout_id for scout_id, _title in titles}
+        for scout_id, display_title in translations.items():
+            if scout_id not in requested_ids:
+                continue
+            if not isinstance(display_title, str) or not display_title.strip():
+                continue
+            if len(display_title) > MAX_TITLE_LENGTH:
+                continue
+            result[scout_id] = display_title.strip()
+        return result
