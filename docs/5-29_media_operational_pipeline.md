@@ -449,11 +449,13 @@ A~R 전부 대응 완료(6장 표 참고). 신규 5건(`test_prepare_approved_me
 
 ## 15. commit
 
-(아래 실행 후 기록)
+`0780305` — "feat: complete approved media operational handoff"
+(9 files changed, 1343 insertions(+), 4 deletions(-))
 
 ## 16. push
 
-(아래 실행 후 기록)
+`origin/main`에 반영 완료 (`0e6778d..0780305`). push 후 `git fetch` +
+`git log origin/main..HEAD`로 반영 여부 확인 완료(차이 없음).
 
 ## 17. 남은 작업
 
