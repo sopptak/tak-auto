@@ -74,6 +74,13 @@ class MediaArchiveRecord:
     validation_errors: tuple[str, ...] = ()
     error_message: str | None = None
     review_status: str = "unreviewed"
+    # 5-29: 사람이 MEDIA Dashboard에서 직접 고친 최종 제목/본문. original_*(생성 전
+    # 원본 draft)과 rewritten_*(AI 생성 결과)는 사람이 무엇을 하든 절대 덮어쓰지
+    # 않는다 - edited_*는 이 두 값과 별도로 존재하는 "사람이 만든 세 번째 버전"이다.
+    # 사람이 아직 수정하지 않았으면 None으로 남는다(빈 문자열이 아니라 None - "수정한
+    # 적 없음"과 "빈 문자열로 수정함"을 구분하기 위함).
+    edited_title: str | None = None
+    edited_body: str | None = None
 
     def __post_init__(self) -> None:
         if not self.content_id:
@@ -88,6 +95,25 @@ class MediaArchiveRecord:
             raise MediaArchiveError(
                 f"review_status는 {REVIEW_STATUSES} 중 하나여야 합니다: {self.review_status!r}"
             )
+
+    @property
+    def final_title(self) -> str:
+        """downstream(Blog Pack/Shorts 변환/Threads pending)에 넘길 최종 제목.
+
+        우선순위: 사람이 수정한 edited_title -> AI 생성 rewritten_title ->
+        원본 original_title. edited_title/rewritten_title 자체는 이 프로퍼티가
+        수정하지 않고 그대로 보존된다 - 여기서는 "무엇을 쓸지" 고르기만 한다.
+        """
+        if self.edited_title:
+            return self.edited_title
+        return self.rewritten_title or self.original_title
+
+    @property
+    def final_body(self) -> str:
+        """final_title과 동일한 우선순위 규칙을 본문에 적용한다."""
+        if self.edited_body:
+            return self.edited_body
+        return self.rewritten_body or self.original_body
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -106,6 +132,8 @@ class MediaArchiveRecord:
             "validation_errors": list(self.validation_errors),
             "error_message": self.error_message,
             "review_status": self.review_status,
+            "edited_title": self.edited_title,
+            "edited_body": self.edited_body,
         }
 
     @classmethod
@@ -141,13 +169,26 @@ class MediaArchiveRecord:
             validation_errors=tuple(str(value) for value in validation_errors),
             error_message=_optional_str(data.get("error_message")),
             review_status=str(data.get("review_status") or "unreviewed"),
+            edited_title=_optional_str(data.get("edited_title")),
+            edited_body=_optional_str(data.get("edited_body")),
         )
 
     @classmethod
-    def from_item(cls, item: MediaBatchItem, review_status: str = "unreviewed") -> "MediaArchiveRecord":
+    def from_item(
+        cls,
+        item: MediaBatchItem,
+        review_status: str = "unreviewed",
+        edited_title: str | None = None,
+        edited_body: str | None = None,
+    ) -> "MediaArchiveRecord":
         """``MediaBatchItem`` 1건에서 아카이브 레코드를 만든다. content_id는 이 함수가
         ``compute_content_id()``로 직접 계산한다(같은 KNOWLEDGE/플랫폼/원본 텍스트를
-        재실행해도 값이 바뀌지 않는다 - rewritten 텍스트는 지문 계산에 쓰이지 않는다)."""
+        재실행해도 값이 바뀌지 않는다 - rewritten 텍스트는 지문 계산에 쓰이지 않는다).
+
+        ``edited_title``/``edited_body``는 이 함수가 스스로 채우지 않는다 - 재실행
+        시 사람이 이미 남긴 수정 내용을 그대로 이어가고 싶다면 호출부(archive_report)가
+        기존 레코드에서 읽어와 명시적으로 넘겨야 한다.
+        """
         return cls(
             content_id=compute_content_id(item.to_dict()),
             knowledge_id=item.knowledge_id,
@@ -164,6 +205,8 @@ class MediaArchiveRecord:
             validation_errors=tuple(item.rejection_reasons),
             error_message=item.error_message,
             review_status=review_status,
+            edited_title=edited_title,
+            edited_body=edited_body,
         )
 
 
@@ -213,9 +256,10 @@ def upsert_archive(path: Path | str, records: list[MediaArchiveRecord]) -> list[
 def archive_report(report: MediaBatchReport, path: Path | str) -> list[MediaArchiveRecord]:
     """``MediaBatchReport``의 모든 항목(valid + rejected + error)을 아카이브에 upsert한다.
 
-    이미 아카이브에 있던 content_id라면, 사람이 이미 매긴 ``review_status``를
-    그대로 보존한 채 생성/검증 결과(rewritten_*, validation_errors 등)만 최신값으로
-    갱신한다 - 재실행이 사람의 검토 상태를 되돌리지 않는다.
+    이미 아카이브에 있던 content_id라면, 사람이 이미 매긴 ``review_status``와
+    사람이 이미 남긴 ``edited_title``/``edited_body``를 그대로 보존한 채
+    생성/검증 결과(rewritten_*, validation_errors 등)만 최신값으로 갱신한다 -
+    재실행이 사람의 검토 상태나 수정 내용을 되돌리지 않는다.
     """
     existing_by_content_id = {existing.content_id: existing for existing in load_archive(path)}
 
@@ -224,6 +268,12 @@ def archive_report(report: MediaBatchReport, path: Path | str) -> list[MediaArch
         content_id = compute_content_id(item.to_dict())
         prior = existing_by_content_id.get(content_id)
         review_status = prior.review_status if prior is not None else "unreviewed"
-        new_records.append(MediaArchiveRecord.from_item(item, review_status=review_status))
+        edited_title = prior.edited_title if prior is not None else None
+        edited_body = prior.edited_body if prior is not None else None
+        new_records.append(
+            MediaArchiveRecord.from_item(
+                item, review_status=review_status, edited_title=edited_title, edited_body=edited_body
+            )
+        )
 
     return upsert_archive(path, new_records)

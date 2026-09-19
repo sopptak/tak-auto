@@ -28,13 +28,42 @@ if str(ROOT) not in sys.path:
 from content_engine.blog_publish_pack import (
     DEFAULT_MAX_CANDIDATES,
     build_blog_publish_pack,
+    build_blog_publish_pack_from_archive,
     save_markdown,
 )
 from content_engine.llm_provider import LLMConfigurationError, OpenAICompatibleRewriteProvider
-from content_engine.media_archive import archive_report
+from content_engine.media_archive import archive_report, load_archive
 from content_engine.pipeline import run_media_batch
 from content_engine.publish_history import PublishHistory
 from tak_brain import load_knowledge_records, select_approved
+
+
+def _run_from_archive(args: argparse.Namespace, knowledge_records: list) -> int:
+    """--from-archive 모드: LLM을 호출하지 않고, 이미 MEDIA Dashboard에서 승인된
+    archive 항목만으로 Publishing Pack을 만든다. run_media_batch/archive_report/
+    --output 저장은 이 모드에서 전혀 실행하지 않는다(새로 생성할 것이 없으므로)."""
+    archive_records = load_archive(args.archive)
+    if args.id:
+        knowledge_ids = {record.id for record in knowledge_records}
+        archive_records = [record for record in archive_records if record.knowledge_id in knowledge_ids]
+
+    history = PublishHistory(args.history)
+    items = build_blog_publish_pack_from_archive(archive_records, knowledge_records, history, max_count=args.max)
+
+    try:
+        save_markdown(items, args.pack_output)
+    except OSError as err:
+        print(f"오류: Blog Publishing Pack 저장에 실패했습니다: {err}", file=sys.stderr)
+        return 1
+
+    review_count = sum(1 for item in items if item.review_required)
+    print(
+        f"[--from-archive] Blog Publishing Pack 생성 완료: {len(items)}건 "
+        f"(사람 확인 필요 {review_count}건) → {args.pack_output}"
+    )
+    print("안내: 네이버 블로그 게시는 자동으로 수행되지 않습니다. 사람이 내용을 검토한 뒤")
+    print("네이버 블로그에 직접 복사/붙여넣기하고 예약 발행해야 합니다.")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -102,6 +131,15 @@ def main(argv: list[str] | None = None) -> int:
             "scripts/run_media_batch.py --id와 동일한 관례 - 다른 KNOWLEDGE는 LLM 호출 대상이 되지 않는다."
         ),
     )
+    parser.add_argument(
+        "--from-archive",
+        action="store_true",
+        help=(
+            "TAK MEDIA를 다시 실행(LLM 호출)하지 않고, 이미 MEDIA Dashboard에서 사람이 "
+            "승인(review_status == approved)한 --archive의 Blog 항목만으로 Publishing "
+            "Pack을 만든다(5-29). 이 모드에서는 --output/--limit이 쓰이지 않는다."
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -115,6 +153,9 @@ def main(argv: list[str] | None = None) -> int:
         if not records:
             print(f"오류: KNOWLEDGE ID를 찾을 수 없습니다: {args.id}", file=sys.stderr)
             return 1
+
+    if args.from_archive:
+        return _run_from_archive(args, records)
 
     approved = list(select_approved(records))
     if args.limit is not None and args.limit > 0:

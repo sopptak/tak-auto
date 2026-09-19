@@ -17,12 +17,15 @@ from content_engine.blog_publish_pack import (
     DEFAULT_MAX_CANDIDATES,
     BlogPublishItem,
     build_blog_publish_pack,
+    build_blog_publish_pack_from_archive,
     is_review_required,
     render_markdown,
     save_markdown,
+    select_approved_blog_candidates_from_archive,
     select_blog_publish_candidates,
     suggest_category,
 )
+from content_engine.media_archive import MediaArchiveRecord
 from content_engine.models import ContentDraft
 from content_engine.pipeline import run_media_batch
 from content_engine.publish_history import PublishHistory, PublishRecord, compute_content_id
@@ -407,6 +410,222 @@ class GenerateBlogPublishPackIdFilterTests(unittest.TestCase):
         self.assertEqual(exit_code, 1)
         self.assertFalse(output.exists())
         self.assertEqual(provider.call_count, 0)
+
+
+def _archive_record(**overrides) -> MediaArchiveRecord:
+    fields = {
+        "content_id": "content-blog-archive-1",
+        "knowledge_id": "knowledge-blog-archive-1",
+        "platform": "blog",
+        "generation_status": "valid",
+        "original_title": "원본 제목",
+        "original_body": "원본 본문",
+        "rewritten_title": "AI 재작성 제목",
+        "rewritten_body": "AI가 재작성한 본문입니다.",
+        "source_url": "https://blog.example.test/original-post",
+        "evidence": ("SOURCE FACT: 예시",),
+        "evidence_unit_ids": ("lesson:1",),
+        "created_at": "2026-09-19T00:00:00+00:00",
+        "validation_errors": (),
+        "error_message": None,
+        "review_status": "approved",
+    }
+    fields.update(overrides)
+    return MediaArchiveRecord(**fields)
+
+
+def _knowledge_record(**overrides) -> KnowledgeRecord:
+    fields = {
+        "id": "knowledge-blog-archive-1",
+        "source_url": "https://blog.example.test/original-post",
+        "title": "원문 기사 제목",
+        "article_type": "experience",
+        "domain": "자기계발",
+        "knowledge_type": "경험",
+        "knowledge_review_status": "approved",
+    }
+    fields.update(overrides)
+    return KnowledgeRecord(**fields)
+
+
+class BlogPublishPackFromArchiveTests(unittest.TestCase):
+    """5-29: MEDIA archive에서 승인된 Blog만 Publishing Pack 후보로 연결(N),
+    중복 생성 방지(Q)를 검증한다. 기존 build_blog_publish_pack()/
+    select_blog_publish_candidates()는 여기서 전혀 쓰지 않는다 - 완전히 별도인
+    build_blog_publish_pack_from_archive() 경로만 검증한다.
+    """
+
+    def setUp(self) -> None:
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp_dir.cleanup)
+        self.history_path = Path(self.tmp_dir.name) / "blog_publish_log.json"
+        self.history = PublishHistory(self.history_path)
+
+    # --- N. 승인된 Blog만 Publishing Pack 후보로 연결되는가 -------------------------
+
+    def test_only_approved_blog_records_become_candidates(self):
+        records = [
+            _archive_record(content_id="c-approved", knowledge_id="k1", review_status="approved"),
+            _archive_record(content_id="c-unreviewed", knowledge_id="k2", review_status="unreviewed"),
+            _archive_record(content_id="c-dismissed", knowledge_id="k3", review_status="dismissed"),
+        ]
+        candidates = select_approved_blog_candidates_from_archive(records, self.history)
+        self.assertEqual([c.content_id for c in candidates], ["c-approved"])
+
+    def test_only_valid_generation_status_becomes_candidate_even_if_approved(self):
+        # generation_status가 rejected/error인데 review_status만 approved인 것은
+        # (정상적으로는 승인 버튼 자체가 안 보이므로 발생하지 않지만) 방어적으로도
+        # 후보에서 제외되어야 한다.
+        records = [
+            _archive_record(content_id="c-rejected", knowledge_id="k1", generation_status="rejected"),
+        ]
+        candidates = select_approved_blog_candidates_from_archive(records, self.history)
+        self.assertEqual(candidates, [])
+
+    def test_only_blog_platform_becomes_candidate(self):
+        records = [
+            _archive_record(content_id="c-threads", knowledge_id="k1", platform="threads"),
+            _archive_record(content_id="c-shorts", knowledge_id="k2", platform="shorts"),
+        ]
+        candidates = select_approved_blog_candidates_from_archive(records, self.history)
+        self.assertEqual(candidates, [])
+
+    def test_build_pack_from_archive_uses_final_title_and_body(self):
+        records = [_archive_record(edited_title="사람이 고친 제목", edited_body="사람이 고친 본문")]
+        knowledge = [_knowledge_record()]
+
+        items = build_blog_publish_pack_from_archive(records, knowledge, self.history)
+
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].title, "사람이 고친 제목")
+        self.assertEqual(items[0].body, "사람이 고친 본문")
+
+    def test_build_pack_from_archive_uses_generated_content_when_not_edited(self):
+        records = [_archive_record()]
+        knowledge = [_knowledge_record()]
+
+        items = build_blog_publish_pack_from_archive(records, knowledge, self.history)
+
+        self.assertEqual(items[0].title, "AI 재작성 제목")
+        self.assertEqual(items[0].body, "AI가 재작성한 본문입니다.")
+
+    def test_build_pack_from_archive_preserves_review_required_safety_rule(self):
+        """기존 is_review_required()의 금융 안전장치가 archive 경로에서도 그대로
+        적용되는지 - 새로 판단 로직을 만들지 않았다는 증거."""
+        records = [_archive_record()]
+        finance_knowledge = [_knowledge_record(article_type="finance")]
+
+        items = build_blog_publish_pack_from_archive(records, finance_knowledge, self.history)
+
+        self.assertTrue(items[0].review_required)
+
+    # --- Q. 동일 content_id 중복 생성 방지(승인 -> Pack 생성 -> 다시 승인 -> 다시 생성) --
+
+    def test_repeated_pack_generation_does_not_duplicate_unpublished_candidate(self):
+        """아직 실제로 게시(mark_blog_published)하지 않았다면, 같은 승인 항목을 Pack을
+        여러 번 생성해도 매번 동일한 후보 1건만 나온다(누적되지 않는다) - Pack 자체가
+        상태를 갖지 않는 순수 함수이므로 자연히 성립하지만, 이 성질을 명시적으로
+        고정한다."""
+        records = [_archive_record()]
+        knowledge = [_knowledge_record()]
+
+        first_items = build_blog_publish_pack_from_archive(records, knowledge, self.history)
+        second_items = build_blog_publish_pack_from_archive(records, knowledge, self.history)
+
+        self.assertEqual(len(first_items), 1)
+        self.assertEqual(len(second_items), 1)
+        self.assertEqual(first_items[0].content_id, second_items[0].content_id)
+
+    def test_candidate_excluded_after_marked_published(self):
+        """실제로 게시된 뒤(PublishHistory에 기록됨)에는 같은 content_id가 더 이상
+        후보로 나오지 않는다 - Threads/기존 Blog 경로와 동일한 중복 방지 규칙."""
+        records = [_archive_record()]
+        self.history.append(
+            PublishRecord(
+                content_id="content-blog-archive-1",
+                published_at="2026-09-19T01:00:00+00:00",
+                threads_post_id="",
+                knowledge_id="knowledge-blog-archive-1",
+                platform="blog",
+                source_url="https://blog.example.test/original-post",
+            )
+        )
+
+        candidates = select_approved_blog_candidates_from_archive(records, self.history)
+        self.assertEqual(candidates, [])
+
+    def test_max_count_and_distinct_knowledge_priority_preserved(self):
+        """기존 select_blog_publish_candidates()의 선정 규칙(서로 다른 KNOWLEDGE
+        우선, max_count 제한)이 archive 경로에서도 동일하게 적용되는지."""
+        records = [
+            _archive_record(content_id="c1", knowledge_id="k1"),
+            _archive_record(content_id="c2", knowledge_id="k1"),  # 같은 KNOWLEDGE 2번째 -> 후순위
+            _archive_record(content_id="c3", knowledge_id="k2"),
+        ]
+        candidates = select_approved_blog_candidates_from_archive(records, self.history, max_count=2)
+
+        self.assertEqual(len(candidates), 2)
+        self.assertEqual({c.content_id for c in candidates}, {"c1", "c3"})  # c2(같은 KNOWLEDGE)는 밀림
+
+
+class GenerateBlogPublishPackFromArchiveCliTests(unittest.TestCase):
+    """scripts/generate_blog_publish_pack.py --from-archive 모드 검증. 이 모드는
+    LLM을 전혀 호출하지 않는다(run_media_batch/OpenAICompatibleRewriteProvider를
+    거치지 않는 완전히 다른 코드 경로이므로, provider mock조차 필요 없다)."""
+
+    def setUp(self) -> None:
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp_dir.cleanup)
+        self.tmp_path = Path(self.tmp_dir.name)
+
+        self.knowledge_path = self.tmp_path / "knowledge.json"
+        self.knowledge_path.write_text(
+            json.dumps([_knowledge_record().to_dict()], ensure_ascii=False), encoding="utf-8"
+        )
+
+        self.archive_path = self.tmp_path / "archive.json"
+        self.history_path = self.tmp_path / "history.json"
+        self.pack_output = self.tmp_path / "pack.md"
+
+    def _seed_archive(self, *records: MediaArchiveRecord) -> None:
+        from content_engine.media_archive import upsert_archive
+
+        upsert_archive(self.archive_path, list(records))
+
+    def _run(self, extra_args: list[str] | None = None) -> int:
+        args = [
+            "--knowledge", str(self.knowledge_path),
+            "--archive", str(self.archive_path),
+            "--history", str(self.history_path),
+            "--pack-output", str(self.pack_output),
+            "--from-archive",
+        ]
+        if extra_args:
+            args.extend(extra_args)
+        return generate_blog_publish_pack_main(args)
+
+    def test_from_archive_builds_pack_without_calling_llm(self):
+        self._seed_archive(_archive_record())
+
+        with mock.patch(
+            "scripts.generate_blog_publish_pack.OpenAICompatibleRewriteProvider.from_environment"
+        ) as mocked_from_env:
+            exit_code = self._run()
+
+        self.assertEqual(exit_code, 0)
+        mocked_from_env.assert_not_called()
+
+        markdown = self.pack_output.read_text(encoding="utf-8")
+        self.assertIn("AI 재작성 제목", markdown)
+
+    def test_from_archive_ignores_unapproved_records(self):
+        self._seed_archive(_archive_record(review_status="unreviewed"))
+
+        exit_code = self._run()
+
+        self.assertEqual(exit_code, 0)
+        markdown = self.pack_output.read_text(encoding="utf-8")
+        self.assertNotIn("AI 재작성 제목", markdown)
 
 
 if __name__ == "__main__":

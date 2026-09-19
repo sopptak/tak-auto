@@ -698,13 +698,75 @@ def handle_media_approve_submission(
             knowledge_type=knowledge.knowledge_type if knowledge else None,
             original_title=updated.original_title,
             original_body=updated.original_body,
-            ai_rewritten_title=updated.rewritten_title or updated.original_title,
-            ai_rewritten_body=updated.rewritten_body or updated.original_body,
+            ai_rewritten_title=updated.final_title,
+            ai_rewritten_body=updated.final_body,
             status="pending",
             created_at=utc_now(),
         )
         upsert_pending(threads_pending_path, new_draft)
 
+    return updated, None
+
+
+def _can_review_media_record(record: MediaArchiveRecord) -> bool:
+    """수정/승인/보류가 모두 가능한 상태인지: generation_status가 VALID여야 하고
+    (REJECTED/ERROR는 애초에 검증을 통과하지 못했으므로 사람이 텍스트만 고쳐서
+    검증을 우회하게 두지 않는다), 아직 approved가 아니어야 한다(승인은 이
+    화면에서 되돌릴 수 없는 종결 상태 - 승인 이후에는 이미 downstream으로
+    넘어갔을 수 있으므로 그 뒤의 수정은 이 archive 레코드에 반영해도 의미가
+    없다). dismissed는 unreviewed와 동일하게 "다시 검토 가능"으로 취급한다."""
+    return record.generation_status == "valid" and record.review_status != "approved"
+
+
+def handle_media_edit_submission(
+    archive_path: Path, content_id: str, title: str, body: str
+) -> tuple[MediaArchiveRecord | None, str | None]:
+    """POST /media/{content_id}/edit 처리(순수 로직, 서버 없이 테스트 가능).
+
+    original_title/original_body(생성 전 원본), rewritten_title/rewritten_body
+    (AI 생성 결과)는 이 함수가 절대 건드리지 않는다 - edited_title/edited_body만
+    갱신한다. 저장 후에는 review_status를 항상 "unreviewed"로 되돌려, 수정된
+    내용이 다시 검토·승인 대상이 되게 한다(수정만으로 승인되지 않는다).
+    """
+    record = find_media_archive_record(archive_path, content_id)
+    if record is None:
+        return None, None
+
+    if not _can_review_media_record(record):
+        if record.review_status == "approved":
+            return None, "이미 승인된 콘텐츠는 수정할 수 없습니다."
+        return None, "VALID 상태의 콘텐츠만 수정할 수 있습니다."
+
+    if not title.strip():
+        return None, "제목을 입력해주세요."
+    if not body.strip():
+        return None, "본문을 입력해주세요."
+
+    updated = replace(record, edited_title=title, edited_body=body, review_status="unreviewed")
+    upsert_archive(archive_path, [updated])
+    return updated, None
+
+
+def handle_media_dismiss_submission(
+    archive_path: Path, content_id: str
+) -> tuple[MediaArchiveRecord | None, str | None]:
+    """POST /media/{content_id}/dismiss 처리(순수 로직, 서버 없이 테스트 가능).
+
+    데이터를 삭제하지 않는다 - review_status만 "dismissed"로 바꿔 저장한다.
+    dismissed 상태에서도 _can_review_media_record()가 True를 반환하므로,
+    나중에 다시 수정하거나 승인할 수 있다(완전히 되돌릴 수 있는 상태).
+    """
+    record = find_media_archive_record(archive_path, content_id)
+    if record is None:
+        return None, None
+
+    if record.review_status == "approved":
+        return None, "이미 승인된 콘텐츠는 보류할 수 없습니다."
+    if record.generation_status != "valid":
+        return None, "VALID 상태의 콘텐츠만 보류할 수 있습니다."
+
+    updated = replace(record, review_status="dismissed")
+    upsert_archive(archive_path, [updated])
     return updated, None
 
 
@@ -810,25 +872,33 @@ def render_media_list_html(
     return body
 
 
+_MEDIA_NOTICE_MESSAGES: dict[str, str] = {
+    "approved": "승인되었습니다.",
+    "saved": "수정 내용이 저장되었습니다.",
+    "dismissed": "보류되었습니다.",
+}
+
+
 def render_media_detail_html(
     record: MediaArchiveRecord,
     knowledge: KnowledgeRecord | None,
-    approved: bool = False,
+    notice: str | None = None,
 ) -> str:
-    """GET /media/{content_id} - Draft 1건의 전체 정보 + (VALID/미승인일 때만) 승인 버튼."""
+    """GET /media/{content_id} - Draft 1건의 전체 정보.
+
+    VALID이고 아직 approved가 아닌 동안(``_can_review_media_record``)에만 제목/본문
+    수정 폼과 [승인]/[보류] 버튼을 보여준다 - REJECTED/ERROR는 애초에 검증을 통과하지
+    못했으므로 텍스트만 고쳐서 승인으로 우회할 수 없고, 이미 approved인 것은
+    downstream으로 넘어간 종결 상태라 더 이상 이 화면에서 바꿀 수 없다.
+    """
     platform_label = _MEDIA_PLATFORM_LABELS.get(record.platform, record.platform.upper())
     generation_label = _MEDIA_GENERATION_STATUS_LABELS.get(record.generation_status, record.generation_status.upper())
     review_label = _MEDIA_REVIEW_STATUS_LABELS.get(record.review_status, record.review_status)
 
-    banner = '<div class="banner">승인되었습니다.</div>' if approved else ""
+    message = _MEDIA_NOTICE_MESSAGES.get(notice or "")
+    banner = f'<div class="banner">{escape(message)}</div>' if message else ""
 
-    approve_button = ""
-    if record.generation_status == "valid" and record.review_status != "approved":
-        approve_button = f"""
-<form method="post" action="/media/{escape(record.content_id)}/approve">
-  <button class="btn primary" type="submit">승인</button>
-</form>
-"""
+    can_review = _can_review_media_record(record)
 
     if record.validation_errors:
         validation_html = "<ul>" + "".join(f"<li>{escape(reason)}</li>" for reason in record.validation_errors) + "</ul>"
@@ -839,6 +909,44 @@ def render_media_detail_html(
 
     source_title = knowledge.title if knowledge is not None else "(KNOWLEDGE를 찾을 수 없습니다)"
     source_url = knowledge.source_url if knowledge is not None else record.source_url
+
+    edited_notice = ""
+    if record.edited_title is not None or record.edited_body is not None:
+        edited_notice = (
+            '<div class="banner">사람이 수정한 내용이 있습니다. '
+            "승인 시 아래 ⑥ 수정 영역의 내용이 최종 콘텐츠로 사용됩니다.</div>"
+        )
+
+    review_section = ""
+    if can_review:
+        title_value = record.edited_title if record.edited_title is not None else (record.rewritten_title or "")
+        body_value = record.edited_body if record.edited_body is not None else (record.rewritten_body or "")
+        review_section = f"""
+<form method="post" action="/media/{escape(record.content_id)}/edit">
+  <p><strong>제목 수정</strong></p>
+  <input type="text" name="title" value="{escape(title_value)}"
+    style="width:100%; max-width:560px; padding:10px; border-radius:8px; border:1px solid #ccc; font-size:0.95rem;">
+  <p style="margin-top:12px;"><strong>본문 수정</strong></p>
+  <textarea name="body" style="min-height:220px;">{escape(body_value)}</textarea>
+  <div class="actions" style="margin-top:14px;">
+    <button class="btn primary" type="submit">저장</button>
+  </div>
+</form>
+<div class="actions" style="margin-top:14px;">
+  <form method="post" action="/media/{escape(record.content_id)}/approve">
+    <button class="btn primary" type="submit">승인</button>
+  </form>
+  <form method="post" action="/media/{escape(record.content_id)}/dismiss">
+    <button class="btn ghost" type="submit">보류</button>
+  </form>
+</div>
+"""
+    elif record.review_status == "approved":
+        review_section = (
+            "<p>이미 승인되어 다음 단계로 이동했습니다 - 이 화면에서는 더 이상 수정할 수 없습니다.</p>"
+            f'<p class="body-block">최종 확정 제목: {escape(record.final_title)}</p>'
+            f'<p class="body-block">최종 확정 본문: {escape(record.final_body)}</p>'
+        )
 
     body = f"""
 <a class="back" href="/media">&larr; 목록으로</a>
@@ -862,6 +970,7 @@ def render_media_detail_html(
 <h2>③ AI 생성 결과</h2>
 <div class="title">{escape(record.rewritten_title or "(없음)")}</div>
 <p class="body-block">{escape(record.rewritten_body or "(없음)")}</p>
+{edited_notice}
 
 <h2>④ 검증 결과</h2>
 <div class="meta">generation_status: {escape(generation_label)}</div>
@@ -874,7 +983,7 @@ def render_media_detail_html(
 
 <h2>⑥ 사람 검수 상태</h2>
 <div class="meta">review_status: {escape(review_label)}</div>
-{approve_button}
+{review_section}
 """
     return body
 
@@ -1514,8 +1623,8 @@ def make_handler_class(
                     knowledge.id: knowledge for knowledge in load_knowledge_records(config.knowledge_path)
                 }
                 knowledge = knowledge_by_id.get(record.knowledge_id)
-                approved_flag = query.get("approved", ["0"])[0] == "1"
-                body = render_media_detail_html(record, knowledge, approved=approved_flag)
+                notice = query.get("notice", [None])[0]
+                body = render_media_detail_html(record, knowledge, notice=notice)
                 self._send_html(_page("TAK MEDIA 상세", body))
                 return
 
@@ -1667,7 +1776,73 @@ def make_handler_class(
                     )
                     return
 
-                self._redirect(f"/media/{content_id}?approved=1")
+                self._redirect(f"/media/{content_id}?notice=approved")
+                return
+
+            # --- TAK MEDIA 수정 (5-29) -----------------------------------------
+            #
+            # original_title/original_body(원본), rewritten_title/rewritten_body
+            # (AI 생성 결과)는 그대로 두고 edited_title/edited_body만 바꾼다.
+            # 저장해도 승인되지 않는다 - review_status는 항상 "unreviewed"로
+            # 되돌아가 사람이 다시 [승인]을 눌러야 한다.
+
+            if path.startswith("/media/") and path.endswith("/edit"):
+                content_id = unquote(path[len("/media/") : -len("/edit")])
+                title = form.get("title", [""])[0] or ""
+                body_text = form.get("body", [""])[0] or ""
+                updated, error = handle_media_edit_submission(config.media_archive_path, content_id, title, body_text)
+
+                if updated is None and error is None:
+                    body = (
+                        '<a class="back" href="/media">&larr; 목록으로</a>'
+                        f'<div class="error">Draft를 찾을 수 없습니다: {escape(content_id)}</div>'
+                    )
+                    self._send_html(_page("MEDIA Draft 없음", body), status=404)
+                    return
+
+                if error:
+                    self._send_html(
+                        _page(
+                            "수정 실패",
+                            '<a class="back" href="/media">&larr; 목록으로</a>'
+                            f'<div class="error">{escape(error)}</div>',
+                        ),
+                        status=400,
+                    )
+                    return
+
+                self._redirect(f"/media/{content_id}?notice=saved")
+                return
+
+            # --- TAK MEDIA 보류 (5-29) -------------------------------------------
+            #
+            # 데이터를 삭제하지 않는다 - review_status를 "dismissed"로 바꿔
+            # 저장할 뿐이며, dismissed 상태에서도 나중에 다시 수정/승인할 수 있다.
+
+            if path.startswith("/media/") and path.endswith("/dismiss"):
+                content_id = unquote(path[len("/media/") : -len("/dismiss")])
+                updated, error = handle_media_dismiss_submission(config.media_archive_path, content_id)
+
+                if updated is None and error is None:
+                    body = (
+                        '<a class="back" href="/media">&larr; 목록으로</a>'
+                        f'<div class="error">Draft를 찾을 수 없습니다: {escape(content_id)}</div>'
+                    )
+                    self._send_html(_page("MEDIA Draft 없음", body), status=404)
+                    return
+
+                if error:
+                    self._send_html(
+                        _page(
+                            "보류 실패",
+                            '<a class="back" href="/media">&larr; 목록으로</a>'
+                            f'<div class="error">{escape(error)}</div>',
+                        ),
+                        status=400,
+                    )
+                    return
+
+                self._redirect(f"/media/{content_id}?notice=dismissed")
                 return
 
             self._send_html(_page("페이지 없음", "<p>페이지를 찾을 수 없습니다.</p>"), status=404)

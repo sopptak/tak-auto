@@ -427,5 +427,243 @@ class MediaDashboardHttpTests(unittest.TestCase):
         self.assertTrue(all(r.review_status == "approved" for r in records.values()))
 
 
+class MediaEditAndDismissHttpTests(unittest.TestCase):
+    """5-29: MEDIA 상세 화면의 사람 수정(edit) + 보류(dismiss) + 최종 콘텐츠
+    선택 규칙(edited가 있으면 edited, 없으면 generated) 검증.
+
+    A~M은 사용자가 지정한 회귀 테스트 항목 번호와 그대로 대응한다.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+
+        self.knowledge_path = self.directory / "tak_brain_knowledge.json"
+        self.pending_path = self.directory / "tak_threads_pending.json"
+        self.archive_path = self.directory / "tak_media_archive.json"
+
+        self.knowledge_path.write_text(
+            json.dumps([_KNOWLEDGE_RECORD], ensure_ascii=False), encoding="utf-8"
+        )
+
+        self.config = DashboardConfig(
+            daily_pack_path=self.directory / "tak_scout_daily.json",
+            answers_path=self.directory / "tak_interview_answers.json",
+            knowledge_path=self.knowledge_path,
+            skipped_path=self.directory / "tak_scout_dashboard_skipped.json",
+            sessions_path=self.directory / "tak_interview_sessions.json",
+            pending_path=self.pending_path,
+            media_archive_path=self.archive_path,
+        )
+        handler_class = make_handler_class(self.config)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler_class)
+        self.port = self.server.server_address[1]
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.addCleanup(self._shutdown)
+
+    def _shutdown(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=5)
+
+    def _url(self, path: str) -> str:
+        return f"http://127.0.0.1:{self.port}{path}"
+
+    def _get(self, path: str) -> tuple[int, str]:
+        with urllib.request.urlopen(self._url(path), timeout=5) as response:
+            return response.status, response.read().decode("utf-8")
+
+    def _post(self, path: str, data: dict[str, str] | None = None) -> tuple[int, str]:
+        body = urlencode(data or {}).encode()
+        request = urllib.request.Request(self._url(path), data=body, method="POST")
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return response.status, response.read().decode("utf-8")
+
+    def _seed(self, *records: MediaArchiveRecord) -> None:
+        upsert_archive(self.archive_path, list(records))
+
+    # --- A. 기존 AI 생성본이 수정 화면에 기본값으로 표시되는가 -----------------------
+
+    def test_edit_form_prefilled_with_generated_content_by_default(self):
+        self._seed(_record(platform="blog"))
+
+        status, body = self._get("/media/content-media-test-1")
+
+        self.assertEqual(status, 200)
+        self.assertIn('value="AI 재작성 제목"', body)
+        self.assertIn("AI가 재작성한 본문입니다.", body)
+
+    # --- B/C/F. 제목/본문 수정이 저장되고 edited_*로 남는가 --------------------------
+
+    def test_edit_saves_title_and_body_into_edited_fields(self):
+        self._seed(_record(platform="blog"))
+
+        status, body = self._post(
+            "/media/content-media-test-1/edit", {"title": "사람이 고친 제목", "body": "사람이 고친 본문입니다."}
+        )
+
+        self.assertEqual(status, 200)
+        self.assertIn("수정 내용이 저장되었습니다", body)
+
+        record = load_archive(self.archive_path)[0]
+        self.assertEqual(record.edited_title, "사람이 고친 제목")
+        self.assertEqual(record.edited_body, "사람이 고친 본문입니다.")
+
+    # --- D. original_title/original_body가 보존되는가 ------------------------------
+
+    def test_edit_does_not_touch_original_fields(self):
+        self._seed(_record(platform="blog"))
+
+        self._post("/media/content-media-test-1/edit", {"title": "새 제목", "body": "새 본문"})
+
+        record = load_archive(self.archive_path)[0]
+        self.assertEqual(record.original_title, "원본 제목")
+        self.assertEqual(record.original_body, "원본 본문입니다.")
+
+    # --- E. generated(rewritten)_title/body가 보존되는가 ---------------------------
+
+    def test_edit_does_not_touch_rewritten_fields(self):
+        self._seed(_record(platform="blog"))
+
+        self._post("/media/content-media-test-1/edit", {"title": "새 제목", "body": "새 본문"})
+
+        record = load_archive(self.archive_path)[0]
+        self.assertEqual(record.rewritten_title, "AI 재작성 제목")
+        self.assertEqual(record.rewritten_body, "AI가 재작성한 본문입니다.")
+
+    # --- G. 수정만 하고 승인하지 않으면 approved가 되지 않는가 ------------------------
+
+    def test_edit_alone_does_not_approve(self):
+        self._seed(_record(platform="blog"))
+
+        self._post("/media/content-media-test-1/edit", {"title": "새 제목", "body": "새 본문"})
+
+        record = load_archive(self.archive_path)[0]
+        self.assertEqual(record.review_status, "unreviewed")
+
+    def test_editing_dismissed_content_resets_it_to_unreviewed(self):
+        self._seed(_record(platform="blog", review_status="dismissed"))
+
+        self._post("/media/content-media-test-1/edit", {"title": "새 제목", "body": "새 본문"})
+
+        record = load_archive(self.archive_path)[0]
+        self.assertEqual(record.review_status, "unreviewed")
+
+    # --- H. 수정 후 승인하면 edited 내용이 최종 콘텐츠로 사용되는가(Threads 예시) -----
+
+    def test_edited_then_approved_threads_content_uses_edited_text_in_pending_queue(self):
+        self._seed(_record(platform="threads"))
+
+        self._post(
+            "/media/content-media-test-1/edit",
+            {"title": "사람이 고친 최종 제목", "body": "사람이 고친 최종 본문"},
+        )
+        status, _ = self._post("/media/content-media-test-1/approve")
+        self.assertEqual(status, 200)
+
+        draft = load_pending(self.pending_path)[0]
+        self.assertEqual(draft.ai_rewritten_title, "사람이 고친 최종 제목")
+        self.assertEqual(draft.ai_rewritten_body, "사람이 고친 최종 본문")
+
+        record = load_archive(self.archive_path)[0]
+        self.assertEqual(record.final_title, "사람이 고친 최종 제목")
+        self.assertEqual(record.final_body, "사람이 고친 최종 본문")
+
+    # --- I/P. 수정하지 않고 승인하면 generated 내용이 그대로 pending queue로 넘어가는가 --
+
+    def test_unedited_approved_threads_content_uses_generated_text_in_pending_queue(self):
+        self._seed(_record(platform="threads"))
+
+        status, _ = self._post("/media/content-media-test-1/approve")
+        self.assertEqual(status, 200)
+
+        draft = load_pending(self.pending_path)[0]
+        self.assertEqual(draft.ai_rewritten_title, "AI 재작성 제목")
+        self.assertEqual(draft.ai_rewritten_body, "AI가 재작성한 본문입니다.")
+
+    # --- 이미 승인된 콘텐츠는 수정할 수 없는가(수정 폼/버튼도 사라지는가) -------------
+
+    def test_approved_content_cannot_be_edited(self):
+        self._seed(_record(platform="blog", review_status="approved"))
+
+        status, body = self._get("/media/content-media-test-1")
+        self.assertEqual(status, 200)
+        self.assertNotIn('action="/media/content-media-test-1/edit"', body)
+
+        with self.assertRaises(HTTPError) as ctx:
+            self._post("/media/content-media-test-1/edit", {"title": "몰래 수정", "body": "몰래 수정"})
+        self.assertEqual(ctx.exception.code, 400)
+
+        record = load_archive(self.archive_path)[0]
+        self.assertEqual(record.edited_title, None)
+
+    def test_rejected_content_cannot_be_edited(self):
+        self._seed(_record(platform="blog", generation_status="rejected"))
+
+        with self.assertRaises(HTTPError) as ctx:
+            self._post("/media/content-media-test-1/edit", {"title": "몰래 수정", "body": "몰래 수정"})
+        self.assertEqual(ctx.exception.code, 400)
+
+    # --- L. dismissed 저장 가능 -----------------------------------------------------
+
+    def test_dismiss_sets_review_status_to_dismissed(self):
+        self._seed(_record(platform="blog"))
+
+        status, body = self._post("/media/content-media-test-1/dismiss")
+
+        self.assertEqual(status, 200)
+        self.assertIn("보류되었습니다", body)
+        record = load_archive(self.archive_path)[0]
+        self.assertEqual(record.review_status, "dismissed")
+
+    def test_dismiss_does_not_delete_the_record(self):
+        self._seed(_record(platform="blog"))
+
+        self._post("/media/content-media-test-1/dismiss")
+
+        records = load_archive(self.archive_path)
+        self.assertEqual(len(records), 1, "보류는 데이터를 삭제하면 안 됩니다.")
+
+    def test_approved_content_cannot_be_dismissed(self):
+        self._seed(_record(platform="blog", review_status="approved"))
+
+        with self.assertRaises(HTTPError) as ctx:
+            self._post("/media/content-media-test-1/dismiss")
+        self.assertEqual(ctx.exception.code, 400)
+
+        record = load_archive(self.archive_path)[0]
+        self.assertEqual(record.review_status, "approved")
+
+    # --- M. dismissed에서 다시 검토(수정/승인) 가능 ----------------------------------
+
+    def test_dismissed_content_can_be_reviewed_again(self):
+        self._seed(_record(platform="blog", review_status="dismissed"))
+
+        status, body = self._get("/media/content-media-test-1")
+        self.assertEqual(status, 200)
+        self.assertIn('action="/media/content-media-test-1/approve"', body)
+        self.assertIn('action="/media/content-media-test-1/edit"', body)
+
+        status, _ = self._post("/media/content-media-test-1/approve")
+        self.assertEqual(status, 200)
+
+        record = load_archive(self.archive_path)[0]
+        self.assertEqual(record.review_status, "approved")
+
+    def test_edit_saves_are_preserved_across_reload(self):
+        """저장된 edited_*가 파일에서 다시 읽어도 그대로 남아있는지(round-trip)."""
+        self._seed(_record(platform="blog"))
+        self._post(
+            "/media/content-media-test-1/edit",
+            {"title": "재로드 확인용 제목", "body": "재로드 확인용 본문"},
+        )
+
+        reloaded = load_archive(self.archive_path)[0]
+        self.assertEqual(reloaded.edited_title, "재로드 확인용 제목")
+        self.assertEqual(reloaded.edited_body, "재로드 확인용 본문")
+
+
 if __name__ == "__main__":
     unittest.main()

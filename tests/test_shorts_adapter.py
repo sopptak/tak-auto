@@ -10,8 +10,13 @@ from __future__ import annotations
 
 import unittest
 
+from content_engine.media_archive import MediaArchiveRecord
 from content_engine.models import ShortDraft
-from content_engine.shorts_adapter import ShortsAdapterError, short_draft_to_shorts_script
+from content_engine.shorts_adapter import (
+    ShortsAdapterError,
+    approved_media_archive_record_to_shorts_script,
+    short_draft_to_shorts_script,
+)
 from content_engine.shorts_script import MAX_CARDS, DEFAULT_BRAND
 
 
@@ -117,6 +122,65 @@ class EmptyBodyTests(unittest.TestCase):
         draft = _draft("   \n\n   ")
         with self.assertRaises(ShortsAdapterError):
             short_draft_to_shorts_script(draft)
+
+
+def _archive_record(**overrides) -> MediaArchiveRecord:
+    fields = {
+        "content_id": "content-shorts-test-1",
+        "knowledge_id": "knowledge-shorts-1",
+        "platform": "shorts",
+        "generation_status": "valid",
+        "original_title": "원본 제목",
+        "original_body": "원본 문단 1\n\n원본 문단 2",
+        "rewritten_title": "AI 생성 제목",
+        "rewritten_body": "AI 생성 문단 1\n\nAI 생성 문단 2",
+        "source_url": "https://example.test/article",
+        "evidence": ("SOURCE FACT: 예시",),
+        "evidence_unit_ids": ("unit-1",),
+        "created_at": "2026-09-19T00:00:00+00:00",
+        "validation_errors": (),
+        "error_message": None,
+        "review_status": "approved",
+    }
+    fields.update(overrides)
+    return MediaArchiveRecord(**fields)
+
+
+class ApprovedMediaArchiveRecordConversionTests(unittest.TestCase):
+    """content_engine.media_archive.MediaArchiveRecord -> ShortsScript 연결(5-29)."""
+
+    def test_approved_record_converts_using_generated_content_when_not_edited(self):
+        record = _archive_record()
+
+        script = approved_media_archive_record_to_shorts_script(record)
+
+        self.assertEqual(script.title, "AI 생성 제목")
+        self.assertEqual(script.cards, ("AI 생성 문단 1",))
+        self.assertEqual(script.takeaway, "AI 생성 문단 2")
+
+    def test_approved_record_uses_edited_content_when_present(self):
+        record = _archive_record(edited_title="사람이 고친 제목", edited_body="사람이 고친 문단")
+
+        script = approved_media_archive_record_to_shorts_script(record)
+
+        self.assertEqual(script.title, "사람이 고친 제목")
+        self.assertEqual(script.cards, ("사람이 고친 문단",))
+        self.assertEqual(script.takeaway, "사람이 고친 문단")
+
+    def test_non_shorts_platform_raises(self):
+        record = _archive_record(platform="blog")
+        with self.assertRaises(ShortsAdapterError):
+            approved_media_archive_record_to_shorts_script(record)
+
+    def test_non_valid_generation_status_raises(self):
+        record = _archive_record(generation_status="rejected", review_status="unreviewed")
+        with self.assertRaises(ShortsAdapterError):
+            approved_media_archive_record_to_shorts_script(record)
+
+    def test_not_yet_approved_raises(self):
+        record = _archive_record(review_status="unreviewed")
+        with self.assertRaises(ShortsAdapterError):
+            approved_media_archive_record_to_shorts_script(record)
 
 
 if __name__ == "__main__":
