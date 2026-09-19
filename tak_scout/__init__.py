@@ -38,6 +38,7 @@ from .answers import (
     upsert_answer,
 )
 from .knowledge_bridge import append_scout_knowledge, build_knowledge_from_interview
+from .scoring import ScoutScore, rank_candidates, score_candidate, top_candidates
 
 __all__ = [
     "ScoutCandidate",
@@ -72,4 +73,8 @@ __all__ = [
     "upsert_answer",
     "append_scout_knowledge",
     "build_knowledge_from_interview",
+    "ScoutScore",
+    "rank_candidates",
+    "score_candidate",
+    "top_candidates",
 ]
