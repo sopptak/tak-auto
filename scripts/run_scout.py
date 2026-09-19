@@ -91,6 +91,24 @@ def main(argv: list[str] | None = None) -> int:
     save_daily_pack_markdown(candidates, args.output_md)
 
     print(f"오늘의 후보 {len(candidates)}건 선정 완료 (최대 {args.max}건, 중복 제거 후 SCOUT SCORE 상위)")
+    print()
+    print(f"=== TAK SCOUT TOP {len(candidates)} ===")
+    print()
+    for index, (candidate, score) in enumerate(ranked, start=1):
+        breakdown = score.breakdown
+        print(f"{index}. [총점 {score.total}] {candidate.title}")
+        print(f"   Source: {candidate.source_name}")
+        print(f"   URL: {candidate.source_url}")
+        print(
+            f"   A: {breakdown['content_interest']} / "
+            f"B: {breakdown['expertise_relevance']} / "
+            f"C: {breakdown['opinion_potential']} / "
+            f"D: {breakdown['monetization_relevance']} / "
+            f"E: {breakdown['recency']}"
+        )
+        print()
+    print(f"=== END TOP {len(candidates)} ===")
+    print()
     print(f"JSON 저장: {args.output_json}")
     print(f"MD 저장: {args.output_md}")
     print("다음 단계: python3 scripts/run_interview.py 로 티몽에게 질문을 만드세요.")
