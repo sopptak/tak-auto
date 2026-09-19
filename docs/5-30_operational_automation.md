@@ -357,11 +357,13 @@ secrets/ 디렉터리 등 - 전부 내가 추가한 게 아니라 이미 있던 
 
 ## 16. Commit
 
-(아래 실행 후 기록)
+`c677d8c` — "feat: automate approved media preparation"
+(4 files changed, 856 insertions(+))
 
 ## 17. Push
 
-(아래 실행 후 기록)
+`origin/main`에 반영 완료 (`b96c2ab..c677d8c`). push 후 `git fetch` +
+`git log origin/main..HEAD` 결과가 비어 있음을 확인(반영 완료 재검증).
 
 ## 18. 남은 작업
 
