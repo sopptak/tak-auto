@@ -155,6 +155,8 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     if args.from_archive:
+        if args.limit is not None:
+            print("안내: --from-archive 모드에서는 --limit이 사용되지 않습니다(무시됨).")
         return _run_from_archive(args, records)
 
     approved = list(select_approved(records))

@@ -83,6 +83,8 @@ class MediaDashboardHttpTests(unittest.TestCase):
         self.sessions_path = self.directory / "tak_interview_sessions.json"
         self.pending_path = self.directory / "tak_threads_pending.json"
         self.archive_path = self.directory / "tak_media_archive.json"
+        self.shorts_scripts_path = self.directory / "shorts_scripts"
+        self.blog_history_path = self.directory / "blog_publish_log.json"
 
         self.knowledge_path.write_text(
             json.dumps([_KNOWLEDGE_RECORD], ensure_ascii=False), encoding="utf-8"
@@ -96,6 +98,8 @@ class MediaDashboardHttpTests(unittest.TestCase):
             sessions_path=self.sessions_path,
             pending_path=self.pending_path,
             media_archive_path=self.archive_path,
+            shorts_scripts_path=self.shorts_scripts_path,
+            blog_history_path=self.blog_history_path,
         )
         self._start_server()
 
@@ -442,6 +446,8 @@ class MediaEditAndDismissHttpTests(unittest.TestCase):
         self.knowledge_path = self.directory / "tak_brain_knowledge.json"
         self.pending_path = self.directory / "tak_threads_pending.json"
         self.archive_path = self.directory / "tak_media_archive.json"
+        self.shorts_scripts_path = self.directory / "shorts_scripts"
+        self.blog_history_path = self.directory / "blog_publish_log.json"
 
         self.knowledge_path.write_text(
             json.dumps([_KNOWLEDGE_RECORD], ensure_ascii=False), encoding="utf-8"
@@ -455,6 +461,8 @@ class MediaEditAndDismissHttpTests(unittest.TestCase):
             sessions_path=self.directory / "tak_interview_sessions.json",
             pending_path=self.pending_path,
             media_archive_path=self.archive_path,
+            shorts_scripts_path=self.shorts_scripts_path,
+            blog_history_path=self.blog_history_path,
         )
         handler_class = make_handler_class(self.config)
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler_class)
@@ -663,6 +671,186 @@ class MediaEditAndDismissHttpTests(unittest.TestCase):
         reloaded = load_archive(self.archive_path)[0]
         self.assertEqual(reloaded.edited_title, "재로드 확인용 제목")
         self.assertEqual(reloaded.edited_body, "재로드 확인용 본문")
+
+
+class MediaDownstreamStatusHttpTests(unittest.TestCase):
+    """5-29: /media 목록·상세 화면의 downstream 상태 표시(J, K) + 승인 후
+    다음 단계 안내(L) 검증. 새 저장소를 만들지 않고 기존 파일(tak_threads_
+    pending.json, blog_publish_log.json, data/shorts_scripts/<id>.json 존재
+    여부)만 읽어서 계산한다는 설계를 그대로 검증한다."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+
+        self.knowledge_path = self.directory / "tak_brain_knowledge.json"
+        self.knowledge_path.write_text(
+            json.dumps([_KNOWLEDGE_RECORD], ensure_ascii=False), encoding="utf-8"
+        )
+        self.pending_path = self.directory / "tak_threads_pending.json"
+        self.archive_path = self.directory / "tak_media_archive.json"
+        self.shorts_scripts_path = self.directory / "shorts_scripts"
+        self.blog_history_path = self.directory / "blog_publish_log.json"
+
+        self.config = DashboardConfig(
+            daily_pack_path=self.directory / "tak_scout_daily.json",
+            answers_path=self.directory / "tak_interview_answers.json",
+            knowledge_path=self.knowledge_path,
+            skipped_path=self.directory / "tak_scout_dashboard_skipped.json",
+            sessions_path=self.directory / "tak_interview_sessions.json",
+            pending_path=self.pending_path,
+            media_archive_path=self.archive_path,
+            shorts_scripts_path=self.shorts_scripts_path,
+            blog_history_path=self.blog_history_path,
+        )
+        handler_class = make_handler_class(self.config)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler_class)
+        self.port = self.server.server_address[1]
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.addCleanup(self._shutdown)
+
+    def _shutdown(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=5)
+
+    def _url(self, path: str) -> str:
+        return f"http://127.0.0.1:{self.port}{path}"
+
+    def _get(self, path: str) -> tuple[int, str]:
+        with urllib.request.urlopen(self._url(path), timeout=5) as response:
+            return response.status, response.read().decode("utf-8")
+
+    def _post(self, path: str, data: dict[str, str] | None = None) -> tuple[int, str]:
+        body = urlencode(data or {}).encode()
+        request = urllib.request.Request(self._url(path), data=body, method="POST")
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return response.status, response.read().decode("utf-8")
+
+    def _seed(self, *records: MediaArchiveRecord) -> None:
+        upsert_archive(self.archive_path, list(records))
+
+    # --- J. Threads pending 상태 표시 -----------------------------------------
+
+    def test_threads_downstream_status_reflects_pending_file_status(self):
+        self._seed(_record(platform="threads", review_status="approved"))
+        upsert_pending(
+            self.pending_path,
+            ThreadsPendingDraft(
+                content_id="content-media-test-1",
+                knowledge_id="knowledge-media-1",
+                source_url="https://blog.example.test/original-post",
+                evidence_unit_ids=("lesson:1",),
+                article_type="experience",
+                knowledge_type="경험",
+                original_title="원본",
+                original_body="원본 본문",
+                ai_rewritten_title="AI 재작성 제목",
+                ai_rewritten_body="AI가 재작성한 본문입니다.",
+                status="published",
+                created_at="2026-09-19T00:00:00+00:00",
+                final_title="최종",
+                final_body="최종 본문",
+                published_at="2026-09-19T01:00:00+00:00",
+                threads_post_id="th_1",
+            ),
+        )
+
+        status, body = self._get("/media/content-media-test-1")
+
+        self.assertEqual(status, 200)
+        self.assertIn("발행됨", body)  # _THREADS_STATUS_LABELS["published"]
+
+    def test_threads_downstream_status_before_approval(self):
+        self._seed(_record(platform="threads", review_status="unreviewed"))
+
+        status, body = self._get("/media/content-media-test-1")
+
+        self.assertEqual(status, 200)
+        self.assertIn("승인 전", body)
+
+    # --- K. Dashboard downstream 상태 표시(목록 + 상세) -----------------------------
+
+    def test_list_shows_blog_ready_for_pack_before_publish(self):
+        self._seed(_record(platform="blog", review_status="approved"))
+
+        status, body = self._get("/media")
+
+        self.assertEqual(status, 200)
+        self.assertIn("Pack 생성 가능", body)
+        self.assertNotIn("게시 기록됨", body)
+
+    def test_blog_downstream_status_shows_published_once_history_recorded(self):
+        from content_engine.publish_history import PublishHistory, PublishRecord
+
+        self._seed(_record(platform="blog", review_status="approved"))
+        PublishHistory(self.blog_history_path).append(
+            PublishRecord(
+                content_id="content-media-test-1",
+                published_at="2026-09-19T01:00:00+00:00",
+                threads_post_id="",
+                knowledge_id="knowledge-media-1",
+                platform="blog",
+                source_url="https://blog.example.test/original-post",
+            )
+        )
+
+        status, body = self._get("/media/content-media-test-1")
+
+        self.assertEqual(status, 200)
+        self.assertIn("게시 기록됨", body)
+
+    def test_shorts_downstream_status_shows_script_ready_after_approval(self):
+        self._seed(_record(platform="shorts", review_status="unreviewed"))
+
+        status, _ = self._post("/media/content-media-test-1/approve")
+        self.assertEqual(status, 200)
+
+        status, body = self._get("/media/content-media-test-1")
+        self.assertEqual(status, 200)
+        self.assertIn("Script 생성됨", body)
+
+        # 실제 파일도 만들어졌는지(자동 연결 기능 자체의 재확인).
+        self.assertTrue((self.shorts_scripts_path / "content-media-test-1.json").exists())
+
+    # --- L. 승인 후 다음 단계 안내 표시 ----------------------------------------------
+
+    def test_next_step_hint_shown_after_blog_approval(self):
+        self._seed(_record(platform="blog", review_status="unreviewed"))
+
+        self._post("/media/content-media-test-1/approve")
+        status, body = self._get("/media/content-media-test-1")
+
+        self.assertEqual(status, 200)
+        self.assertIn("Blog Publishing Pack을 생성할 수 있습니다", body)
+
+    def test_next_step_hint_shown_after_shorts_approval(self):
+        self._seed(_record(platform="shorts", review_status="unreviewed"))
+
+        self._post("/media/content-media-test-1/approve")
+        status, body = self._get("/media/content-media-test-1")
+
+        self.assertEqual(status, 200)
+        self.assertIn("MP4 렌더링 여부는 사람이 별도로 결정합니다", body)
+
+    def test_next_step_hint_shown_after_threads_approval(self):
+        self._seed(_record(platform="threads", review_status="unreviewed"))
+
+        self._post("/media/content-media-test-1/approve")
+        status, body = self._get("/media/content-media-test-1")
+
+        self.assertEqual(status, 200)
+        self.assertIn("최종 승인해야 실제 발행 후보가 됩니다", body)
+
+    def test_no_next_step_hint_before_approval(self):
+        self._seed(_record(platform="blog", review_status="unreviewed"))
+
+        status, body = self._get("/media/content-media-test-1")
+
+        self.assertEqual(status, 200)
+        self.assertNotIn("다음 단계:", body)
 
 
 if __name__ == "__main__":

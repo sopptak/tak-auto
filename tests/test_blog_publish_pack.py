@@ -627,6 +627,19 @@ class GenerateBlogPublishPackFromArchiveCliTests(unittest.TestCase):
         markdown = self.pack_output.read_text(encoding="utf-8")
         self.assertNotIn("AI 재작성 제목", markdown)
 
+    def test_from_archive_warns_when_limit_is_ignored(self):
+        import contextlib
+        import io
+
+        self._seed_archive(_archive_record())
+
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            exit_code = self._run(["--limit", "2"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("--limit이 사용되지 않습니다", captured.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

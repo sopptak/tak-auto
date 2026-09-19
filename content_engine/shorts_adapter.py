@@ -23,9 +23,21 @@ content_engine/shorts_script.py 자체가 스스로 명시하듯, 렌더러는 "
 content_engine/generator.py를 전혀 수정하지 않는다. Finance/사실성/원문 검증
 로직도 새로 만들지 않는다 - 그런 검증은 이미 content_engine/rewrite.py의
 책임이며 이 어댑터가 받는 ShortDraft는 이미 그 검증을 통과한 콘텐츠다.
+
+5-29: ``save_approved_shorts_script()``가 승인된 Shorts를 실제 JSON 파일로
+저장한다(MP4 렌더링은 여전히 하지 않는다 - content_engine/shorts_renderer는
+이 모듈이 전혀 import하지 않는다). 저장 스키마는 ``ShortsScript.from_dict()``가
+읽는 5개 키(title/subtitle/cards/takeaway/brand)를 그대로 포함하므로,
+``scripts/render_youtube_short.py --input``에 이 파일을 바로 넘길 수 있다.
 """
 
 from __future__ import annotations
+
+import json
+from pathlib import Path
+import tempfile
+
+from blog_importer.models import utc_now
 
 from .media_archive import MediaArchiveRecord
 from .models import ShortDraft
@@ -117,3 +129,61 @@ def approved_media_archive_record_to_shorts_script(
         evidence_unit_ids=record.evidence_unit_ids,
     )
     return short_draft_to_shorts_script(draft, brand=brand)
+
+
+def shorts_script_output_path(output_dir: Path | str, content_id: str) -> Path:
+    """content_id로부터 결정적인 저장 경로를 계산한다(파일 존재 여부 확인,
+    승인 POST의 자동 연결, CLI가 전부 이 함수 하나로 같은 경로 계산 규칙을
+    공유한다)."""
+    return Path(output_dir) / f"{content_id}.json"
+
+
+def save_approved_shorts_script(
+    record: MediaArchiveRecord,
+    output_dir: Path | str,
+    brand: str = DEFAULT_BRAND,
+    created_at: str | None = None,
+) -> Path:
+    """승인된 Shorts archive 레코드를 ``<output_dir>/<content_id>.json``으로
+    원자적으로(tempfile + replace) 저장한다.
+
+    이미 같은 content_id 파일이 있으면 다시 쓰지 않고 그 경로만 반환한다
+    (5-29 설계: "이미 생성된 경우에는 중복 생성하지 않는다" - 한 번 저장된
+    Script는 스냅샷으로 고정되며, 다시 만들려면 사람이 파일을 직접 지워야
+    한다. Blog의 "게시 완료는 사람이 명시적으로 기록해야 한다"는 원칙과
+    같은 성격이다).
+
+    저장 스키마는 ``ShortsScript.from_dict()``가 읽는 5개 키(title/subtitle/
+    cards/takeaway/brand)를 그대로 포함하고, content_id/knowledge_id/
+    platform/created_at은 추적용으로 추가한 필드다 - ``ShortsScript.from_dict()``
+    는 이 추가 필드를 그냥 무시하므로 ``scripts/render_youtube_short.py
+    --input``에 이 파일을 그대로 넘길 수 있다(스키마 호환 유지).
+
+    변환 자체가 실패하면(``approved_media_archive_record_to_shorts_script()``가
+    던지는 ``ShortsAdapterError``) 파일을 쓰지 않고 그대로 예외를 전파한다.
+    """
+    output_path = shorts_script_output_path(output_dir, record.content_id)
+    if output_path.exists():
+        return output_path
+
+    script = approved_media_archive_record_to_shorts_script(record, brand=brand)
+
+    payload = {
+        "content_id": record.content_id,
+        "knowledge_id": record.knowledge_id,
+        "platform": record.platform,
+        "title": script.title,
+        "subtitle": script.subtitle,
+        "cards": list(script.cards),
+        "takeaway": script.takeaway,
+        "brand": script.brand,
+        "created_at": created_at or utc_now(),
+    }
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=output_path.parent, delete=False) as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+        temp_path = Path(handle.name)
+    temp_path.replace(output_path)
+    return output_path

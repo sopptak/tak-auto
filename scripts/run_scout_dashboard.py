@@ -100,6 +100,12 @@ from tak_scout.title_translation import TitleTranslation, translations_by_scout_
 from tak_brain import KnowledgeRecord, load_knowledge_records
 from content_engine import LLMConfigurationError
 from content_engine.media_archive import MediaArchiveRecord, load_archive, upsert_archive
+from content_engine.publish_history import PublishHistory
+from content_engine.shorts_adapter import (
+    ShortsAdapterError,
+    save_approved_shorts_script,
+    shorts_script_output_path,
+)
 from content_engine.threads_review import (
     UNRESOLVED_STATUSES,
     ThreadsPendingDraft,
@@ -164,6 +170,15 @@ class DashboardConfig:
     # 기존 호출부(테스트 포함)가 이 필드를 넘기지 않아도 그대로 동작한다. 이 Dashboard는
     # 이 경로를 읽기만 한다 - 승인/발행 액션은 이번 작업 범위에 포함하지 않는다.
     media_archive_path: Path = ROOT / "data" / "tak_media_archive.json"
+    # 5-29 - 승인된 Shorts를 저장하는 ShortsScript JSON 디렉터리. MEDIA 승인 시
+    # 자동으로 이 경로에 생성된다(content_engine.shorts_adapter.
+    # save_approved_shorts_script). 기본값을 둬서 기존 호출부가 이 필드를
+    # 넘기지 않아도 그대로 동작한다.
+    shorts_scripts_path: Path = ROOT / "data" / "shorts_scripts"
+    # 5-29 - Blog 게시 이력(PublishHistory). Dashboard는 이 경로를 읽기만 해서
+    # "게시 기록됨" downstream 상태를 판정한다 - 새로 쓰지 않는다(실제 게시
+    # 기록은 여전히 사람이 scripts/mark_blog_published.py로 한다).
+    blog_history_path: Path = ROOT / "data" / "blog_publish_log.json"
 
 
 # Threads 500자 제한은 새로 만드는 규칙이 아니다 - ThreadsClient.publish_text
@@ -653,11 +668,59 @@ def find_media_archive_record(archive_path: Path, content_id: str) -> MediaArchi
     return None
 
 
+# --- Downstream 상태 표시 (5-29) ----------------------------------------------
+#
+# 새 저장소를 만들지 않는다(docs/5-29_media_operational_pipeline.md 2장 C).
+# 셋 다 기존 파일을 "읽기"만 해서 상태를 계산한다:
+#   - Threads: data/tak_threads_pending.json의 ThreadsPendingDraft.status
+#   - Blog:    data/blog_publish_log.json(PublishHistory)에 기록됐는지 여부
+#   - Shorts:  data/shorts_scripts/<content_id>.json 파일 존재 여부(+ 참고용으로
+#              data/shorts/<content_id>.mp4 존재 여부도 함께 읽는다 - 이 파일이
+#              생기게 만드는 렌더링은 이 Dashboard가 절대 실행하지 않는다)
+
+_MEDIA_NEXT_STEP_HINTS: dict[str, str] = {
+    "blog": "Blog Publishing Pack을 생성할 수 있습니다 (scripts/generate_blog_publish_pack.py --from-archive).",
+    "shorts": "ShortsScript가 자동 생성되었습니다. 실제 MP4 렌더링 여부는 사람이 별도로 결정합니다.",
+    "threads": "Threads 검수 대기열로 이동되었습니다. /threads 화면에서 최종 승인해야 실제 발행 후보가 됩니다.",
+}
+
+
+def compute_media_downstream_status(record: MediaArchiveRecord, config: DashboardConfig) -> str:
+    """승인 이후 이 레코드가 각 채널에서 실제로 어디까지 진행됐는지 읽기 전용으로
+    계산한다. 이 함수는 어떤 파일도 쓰지 않는다."""
+    if record.review_status != "approved":
+        return "승인 전"
+
+    if record.platform == "threads":
+        draft = find_pending_draft(config.pending_path, record.content_id)
+        if draft is None:
+            return "승인됨 (대기열 생성 예정)"
+        return _THREADS_STATUS_LABELS.get(draft.status, draft.status)
+
+    if record.platform == "blog":
+        history = PublishHistory(config.blog_history_path)
+        if history.is_published(record.content_id):
+            return "게시 기록됨"
+        return "승인됨 (Pack 생성 가능)"
+
+    if record.platform == "shorts":
+        script_path = shorts_script_output_path(config.shorts_scripts_path, record.content_id)
+        if not script_path.exists():
+            return "승인됨 (Script 생성 가능)"
+        mp4_path = ROOT / "data" / "shorts" / f"{record.content_id}.mp4"
+        if mp4_path.exists():
+            return "Script 생성됨 (MP4 생성됨)"
+        return "Script 생성됨 (MP4 미생성)"
+
+    return ""
+
+
 def handle_media_approve_submission(
     archive_path: Path,
     knowledge_path: Path,
     threads_pending_path: Path,
     content_id: str,
+    shorts_scripts_path: Path | None = None,
 ) -> tuple[MediaArchiveRecord | None, str | None]:
     """POST /media/{content_id}/approve 처리(순수 로직, 서버 없이 테스트 가능).
 
@@ -668,6 +731,16 @@ def handle_media_approve_submission(
     반환한다 - 에러도 아니고 중복 저장도 하지 않는 idempotent 동작이다("이미
     approved인 콘텐츠에는 중복 승인 버튼을 보여주지 않는다"는 UI 규칙의 방어적
     백업).
+
+    5-29: platform=="threads"뿐 아니라 platform=="shorts"도 승인 시점에
+    자동으로 downstream 파일(ShortsScript JSON)을 만든다 - 둘 다 "레코드
+    1건 -> 파생 파일 1건"의 순수하고 멱등한 변환이라 승인 POST 안에서
+    안전하게 실행할 수 있다(docs/5-29_media_operational_pipeline.md 4장
+    "결정 1" 참고). Blog는 여러 레코드를 모아 매번 다시 선정하는 배치
+    결과물이라 성격이 달라 이 함수에서 자동 연결하지 않는다 - 별도
+    CLI(scripts/generate_blog_publish_pack.py --from-archive)로 남겨둔다.
+    ``shorts_scripts_path``를 생략하면(``None``) Shorts 자동 생성 자체를
+    건너뛴다 - 기존 호출부(있다면)와의 하위 호환을 위한 안전한 기본값이다.
     """
     record = find_media_archive_record(archive_path, content_id)
     if record is None:
@@ -704,6 +777,16 @@ def handle_media_approve_submission(
             created_at=utc_now(),
         )
         upsert_pending(threads_pending_path, new_draft)
+
+    if updated.platform == "shorts" and shorts_scripts_path is not None:
+        try:
+            save_approved_shorts_script(updated, shorts_scripts_path)
+        except ShortsAdapterError:
+            # 조건(valid+approved)은 이미 위에서 확인했으므로 정상 경로에서는
+            # 발생하지 않는다 - 혹시 모를 방어적 처리로, 승인 자체(review_status
+            # 갱신)는 이미 저장이 끝났으므로 여기서 실패해도 승인을 되돌리지
+            # 않는다(Script 생성은 사람이 CLI로 나중에 다시 시도할 수 있다).
+            pass
 
     return updated, None
 
@@ -806,10 +889,11 @@ def render_media_filters_html(platform: str, generation_status: str, review_stat
     return f'<div class="filters">{platform_row}{generation_row}{review_row}</div>'
 
 
-def _media_card_html(record: MediaArchiveRecord) -> str:
+def _media_card_html(record: MediaArchiveRecord, config: DashboardConfig) -> str:
     platform_label = _MEDIA_PLATFORM_LABELS.get(record.platform, record.platform.upper())
     generation_label = _MEDIA_GENERATION_STATUS_LABELS.get(record.generation_status, record.generation_status.upper())
     review_label = _MEDIA_REVIEW_STATUS_LABELS.get(record.review_status, record.review_status)
+    downstream_label = compute_media_downstream_status(record, config)
     title = record.rewritten_title or record.original_title
     body_text = record.rewritten_body or record.original_body or ""
     preview = body_text[:_MEDIA_BODY_PREVIEW_LENGTH]
@@ -823,6 +907,7 @@ def _media_card_html(record: MediaArchiveRecord) -> str:
     <span class="status">{escape(generation_label)}</span>
     <span class="status">{escape(review_label)}</span>
   </div>
+  <div class="sub">{escape(downstream_label)}</div>
   <div class="title">{escape(title)}</div>
   <p class="body-preview">{escape(preview)}</p>
   <div class="actions">
@@ -834,6 +919,7 @@ def _media_card_html(record: MediaArchiveRecord) -> str:
 
 def render_media_list_html(
     records: list[MediaArchiveRecord],
+    config: DashboardConfig,
     platform: str = "all",
     generation_status: str = "all",
     review_status: str = "all",
@@ -854,7 +940,7 @@ def render_media_list_html(
     groups = group_media_archive_records_by_knowledge(records)
     groups_html = []
     for knowledge_id, group_records in groups:
-        cards = "".join(_media_card_html(record) for record in group_records)
+        cards = "".join(_media_card_html(record, config) for record in group_records)
         groups_html.append(
             f"""
 <div class="group-header">KNOWLEDGE: {escape(knowledge_id)} <span class="sub">({len(group_records)}건)</span></div>
@@ -882,6 +968,7 @@ _MEDIA_NOTICE_MESSAGES: dict[str, str] = {
 def render_media_detail_html(
     record: MediaArchiveRecord,
     knowledge: KnowledgeRecord | None,
+    config: DashboardConfig,
     notice: str | None = None,
 ) -> str:
     """GET /media/{content_id} - Draft 1건의 전체 정보.
@@ -984,6 +1071,10 @@ def render_media_detail_html(
 <h2>⑥ 사람 검수 상태</h2>
 <div class="meta">review_status: {escape(review_label)}</div>
 {review_section}
+
+<h2>⑦ Downstream 상태</h2>
+<div class="meta">현재 상태: {escape(compute_media_downstream_status(record, config))}</div>
+{f'<div class="sub">다음 단계: {escape(_MEDIA_NEXT_STEP_HINTS.get(record.platform, ""))}</div>' if record.review_status == "approved" and record.platform in _MEDIA_NEXT_STEP_HINTS else ""}
 """
     return body
 
@@ -1600,6 +1691,7 @@ def make_handler_class(
                 filtered = filter_media_archive_records(records, platform, generation_status, review_status)
                 body = render_media_list_html(
                     filtered,
+                    config,
                     platform=platform,
                     generation_status=generation_status,
                     review_status=review_status,
@@ -1624,7 +1716,7 @@ def make_handler_class(
                 }
                 knowledge = knowledge_by_id.get(record.knowledge_id)
                 notice = query.get("notice", [None])[0]
-                body = render_media_detail_html(record, knowledge, notice=notice)
+                body = render_media_detail_html(record, knowledge, config, notice=notice)
                 self._send_html(_page("TAK MEDIA 상세", body))
                 return
 
@@ -1754,7 +1846,11 @@ def make_handler_class(
             if path.startswith("/media/") and path.endswith("/approve"):
                 content_id = unquote(path[len("/media/") : -len("/approve")])
                 updated, error = handle_media_approve_submission(
-                    config.media_archive_path, config.knowledge_path, config.pending_path, content_id
+                    config.media_archive_path,
+                    config.knowledge_path,
+                    config.pending_path,
+                    content_id,
+                    shorts_scripts_path=config.shorts_scripts_path,
                 )
 
                 if updated is None and error is None:
@@ -1888,6 +1984,14 @@ def main(argv: list[str] | None = None) -> int:
         "--media-archive", type=Path, default=ROOT / "data" / "tak_media_archive.json",
         help="TAK MEDIA 배치 결과 아카이브 경로, 읽기 전용 (기본값: data/tak_media_archive.json, 5-27)",
     )
+    parser.add_argument(
+        "--shorts-scripts", type=Path, default=ROOT / "data" / "shorts_scripts",
+        help="승인된 Shorts ShortsScript JSON 저장 디렉터리 (기본값: data/shorts_scripts, 5-29)",
+    )
+    parser.add_argument(
+        "--blog-history", type=Path, default=ROOT / "data" / "blog_publish_log.json",
+        help="Blog 게시 이력 경로, 읽기 전용(downstream 상태 표시용) (기본값: data/blog_publish_log.json, 5-29)",
+    )
     args = parser.parse_args(argv)
 
     if not args.daily_pack.exists():
@@ -1906,6 +2010,8 @@ def main(argv: list[str] | None = None) -> int:
         pending_path=args.pending,
         title_translations_path=args.title_translations,
         media_archive_path=args.media_archive,
+        shorts_scripts_path=args.shorts_scripts,
+        blog_history_path=args.blog_history,
     )
 
     # scripts/run_media_batch.py, scripts/run_daily.py, scripts/tak_auto.py와 동일한
