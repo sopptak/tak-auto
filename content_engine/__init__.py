@@ -34,6 +34,16 @@ from .pipeline import (
     run_media_batch,
     run_media_batch_file,
 )
+from .media_archive import (
+    GENERATION_STATUSES as MEDIA_ARCHIVE_GENERATION_STATUSES,
+    REVIEW_STATUSES as MEDIA_ARCHIVE_REVIEW_STATUSES,
+    MediaArchiveError,
+    MediaArchiveRecord,
+    archive_report,
+    load_archive,
+    save_archive,
+    upsert_archive,
+)
 from .threads_publisher import (
     ThreadsAPIError,
     ThreadsClient,
@@ -71,6 +81,14 @@ __all__ = [
     "generate_media_batch_dry_run",
     "run_media_batch",
     "run_media_batch_file",
+    "MEDIA_ARCHIVE_GENERATION_STATUSES",
+    "MEDIA_ARCHIVE_REVIEW_STATUSES",
+    "MediaArchiveError",
+    "MediaArchiveRecord",
+    "archive_report",
+    "load_archive",
+    "save_archive",
+    "upsert_archive",
     "ThreadsClient",
     "ThreadsConfigurationError",
     "ThreadsAPIError",

@@ -25,6 +25,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from content_engine.llm_provider import LLMConfigurationError, OpenAICompatibleRewriteProvider
+from content_engine.media_archive import archive_report
 from content_engine.pipeline import run_media_batch
 from scripts.publish_threads import main as publish_threads_main
 from tak_brain import load_knowledge_records, select_approved
@@ -54,6 +55,17 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=ROOT / "data" / "threads_publish_log.json",
         help="게시 이력 JSON 경로 (기본값: data/threads_publish_log.json)",
+    )
+    parser.add_argument(
+        "--archive",
+        type=Path,
+        default=ROOT / "data" / "tak_media_archive.json",
+        help=(
+            "TAK MEDIA 배치 결과 전체(Blog/Shorts/Threads, valid/rejected/error 포함)를 "
+            "content_id 기준으로 누적 보존하는 아카이브 경로 "
+            "(기본값: data/tak_media_archive.json). --output(휘발성 스냅샷)과 달리 "
+            "매 실행마다 결과가 쌓인다."
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -132,7 +144,15 @@ def main(argv: list[str] | None = None) -> int:
         f"(valid {report.valid_count}, rejected {report.rejected_count}, error {report.error_count})"
     )
 
-    # 3단계: 배치 결과 저장 (휘발성 파일, git 비영속)
+    # 3단계: 배치 결과 저장 - 아카이브(누적, 전체 보존)를 먼저 남긴 뒤, 기존
+    # --output 스냅샷(휘발성)을 저장한다. 아카이브를 먼저 남기면, --output 저장이
+    # 실패하더라도 이번 실행 결과 자체는 이미 보존된 뒤다.
+    try:
+        archive_report(report, args.archive)
+    except OSError as err:
+        print(f"오류: 배치 결과 아카이브 저장에 실패했습니다: {err}", file=sys.stderr)
+        return 1
+
     try:
         report.save_json(args.output)
     except OSError as err:
@@ -140,6 +160,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(f"배치 결과 저장 완료: {args.output}")
+    print(f"아카이브 저장 완료: {args.archive}")
 
     # 4단계: Threads 게시 - 기존 publish_threads.py의 --auto 로직을 그대로 재사용한다.
     # 자동 선정/게시 이력 기록 로직은 여기서 다시 구현하지 않는다.

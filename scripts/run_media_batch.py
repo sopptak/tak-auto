@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
 
 from content_engine import (
     OpenAICompatibleRewriteProvider,
+    archive_report,
     generate_media_batch_dry_run,
     run_media_batch_file,
 )
@@ -32,7 +33,21 @@ def main(argv: list[str] | None = None) -> int:
         "--output",
         type=Path,
         default=None,
-        help="배치 결과 저장 JSON 경로 (선택)",
+        help=(
+            "배치 결과 저장 JSON 경로 (선택, 이번 실행만의 스냅샷). "
+            "지정하지 않아도 --execute 실행 결과는 --archive 경로에 항상 누적 보존된다."
+        ),
+    )
+    parser.add_argument(
+        "--archive",
+        type=Path,
+        default=ROOT / "data" / "tak_media_archive.json",
+        help=(
+            "--execute 실행 결과(Blog/Shorts/Threads 전체, valid/rejected/error 포함)를 "
+            "content_id 기준으로 누적 보존하는 아카이브 경로 "
+            "(기본값: data/tak_media_archive.json). --output과 달리 매 실행마다 결과가 "
+            "쌓이며, --output을 지정하지 않아도 이 경로에는 항상 저장된다."
+        ),
     )
     parser.add_argument(
         "--execute",
@@ -93,6 +108,10 @@ def main(argv: list[str] | None = None) -> int:
         knowledge_id=args.id,
     )
 
+    # --output 여부와 무관하게, --execute로 실제 생성된 결과는 항상 아카이브에
+    # 남긴다(5-27 설계 문서: "--output을 깜빡해도 결과 자체는 사라지지 않는다").
+    archive_report(report, args.archive)
+
     print("=== TAK MEDIA Batch Pipeline 실행 완료 ===")
     print(f"전체 KNOWLEDGE: {report.total_knowledge_count}건")
     print(f"승인 KNOWLEDGE 처리: {report.approved_knowledge_count}건 (건너뜀: {report.skipped_knowledge_count}건)")
@@ -103,6 +122,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.output:
         print(f"결과 저장 완료: {args.output}")
+    print(f"아카이브 저장 완료 (valid/rejected/error 전체 누적): {args.archive}")
 
     return 0
 

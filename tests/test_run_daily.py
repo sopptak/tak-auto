@@ -97,6 +97,7 @@ class RunDailyTests(unittest.TestCase):
         self.knowledge_path = self.tmp_path / "knowledge.json"
         self.output_path = self.tmp_path / "batch_daily.json"
         self.history_path = self.tmp_path / "threads_publish_log.json"
+        self.archive_path = self.tmp_path / "tak_media_archive.json"
 
     def _write_knowledge(self, records) -> None:
         self.knowledge_path.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
@@ -106,6 +107,7 @@ class RunDailyTests(unittest.TestCase):
             "--knowledge", str(self.knowledge_path),
             "--output", str(self.output_path),
             "--history", str(self.history_path),
+            "--archive", str(self.archive_path),
         ]
         if extra_args:
             args.extend(extra_args)
@@ -332,6 +334,7 @@ class RunDailyTests(unittest.TestCase):
         custom_knowledge = self.tmp_path / "custom_knowledge.json"
         custom_output = self.tmp_path / "nested" / "custom_batch.json"
         custom_history = self.tmp_path / "nested" / "custom_history.json"
+        custom_archive = self.tmp_path / "nested" / "custom_archive.json"
         custom_knowledge.write_text(json.dumps([APPROVED_EXPERIENCE_RECORD], ensure_ascii=False), encoding="utf-8")
 
         fake_client = ThreadsClient(access_token="fake-token", transport=_success_threads_transport("th_custom"))
@@ -341,12 +344,14 @@ class RunDailyTests(unittest.TestCase):
                     "--knowledge", str(custom_knowledge),
                     "--output", str(custom_output),
                     "--history", str(custom_history),
+                    "--archive", str(custom_archive),
                 ]
             )
 
         self.assertEqual(exit_code, 0)
         self.assertTrue(custom_output.exists())
         self.assertTrue(custom_history.exists())
+        self.assertTrue(custom_archive.exists())
 
     # --- --limit / --id 전달 확인 (기존 run_media_batch.py와 동일한 의미) -----------
 

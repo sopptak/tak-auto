@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from blog_importer.models import utc_now
 from tak_brain.models import KnowledgeRecord
 from tak_brain.knowledge import load_knowledge_records, select_approved
 
@@ -30,6 +31,7 @@ class MediaBatchItem:
     source_url: str
     evidence: tuple[str, ...]
     evidence_unit_ids: tuple[str, ...]
+    created_at: str
     rejection_reasons: tuple[str, ...] = ()
     error_message: str | None = None
 
@@ -45,6 +47,7 @@ class MediaBatchItem:
             "source_url": self.source_url,
             "evidence": list(self.evidence),
             "evidence_unit_ids": list(self.evidence_unit_ids),
+            "created_at": self.created_at,
             "rejection_reasons": list(self.rejection_reasons),
             "error_message": self.error_message,
         }
@@ -121,6 +124,11 @@ def run_media_batch(
 
     rewrite_service = service or RewriteService(provider or MockRewriteProvider())
 
+    # 이 배치 실행 1회에서 생성되는 모든 MediaBatchItem이 공유하는 생성 시각.
+    # 항목별로 미세하게 다른 시각을 기록해도 얻는 정보가 없고(같은 배치 실행이라는
+    # 사실 자체가 중요), 단일 값이 저장/비교를 더 단순하게 만든다.
+    created_at = utc_now()
+
     items: list[MediaBatchItem] = []
 
     for knowledge in approved_records:
@@ -139,6 +147,7 @@ def run_media_batch(
                     source_url=knowledge.source_url or "",
                     evidence=tuple(knowledge.evidence or ()),
                     evidence_unit_ids=(),
+                    created_at=created_at,
                     rejection_reasons=(),
                     error_message=f"Content bundle generation failed: {error}",
                 )
@@ -158,6 +167,7 @@ def run_media_batch(
                     source_url=knowledge.source_url or "",
                     evidence=tuple(knowledge.evidence or ()),
                     evidence_unit_ids=(),
+                    created_at=created_at,
                     rejection_reasons=tuple(bundle.unmet_requirement_ids),
                     error_message=f"Incomplete content bundle: {bundle.status}",
                 )
@@ -191,6 +201,7 @@ def run_media_batch(
                         source_url=draft.source_url,
                         evidence=draft.evidence,
                         evidence_unit_ids=draft.evidence_unit_ids,
+                        created_at=created_at,
                         rejection_reasons=result.validation_errors,
                         error_message=None,
                     )
@@ -208,6 +219,7 @@ def run_media_batch(
                         source_url=draft.source_url,
                         evidence=draft.evidence,
                         evidence_unit_ids=draft.evidence_unit_ids,
+                        created_at=created_at,
                         rejection_reasons=(),
                         error_message=str(error),
                     )

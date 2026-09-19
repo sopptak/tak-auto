@@ -98,6 +98,7 @@ from tak_scout.interview_session import (
 )
 from tak_scout.title_translation import TitleTranslation, translations_by_scout_id, upsert_translation
 from content_engine import LLMConfigurationError
+from content_engine.media_archive import MediaArchiveRecord, load_archive
 from content_engine.threads_review import (
     UNRESOLVED_STATUSES,
     ThreadsPendingDraft,
@@ -158,6 +159,10 @@ class DashboardConfig:
     # 5-20 - 한국어 표시용 제목 번역 캐시. 기본값을 둬서 기존 호출부(테스트 포함)가
     # 이 필드를 넘기지 않아도 그대로 동작한다.
     title_translations_path: Path = ROOT / "data" / "tak_scout_title_translations.json"
+    # 5-27 - TAK MEDIA 배치 결과 전체(valid/rejected/error) 아카이브. 기본값을 둬서
+    # 기존 호출부(테스트 포함)가 이 필드를 넘기지 않아도 그대로 동작한다. 이 Dashboard는
+    # 이 경로를 읽기만 한다 - 승인/발행 액션은 이번 작업 범위에 포함하지 않는다.
+    media_archive_path: Path = ROOT / "data" / "tak_media_archive.json"
 
 
 # Threads 500자 제한은 새로 만드는 규칙이 아니다 - ThreadsClient.publish_text
@@ -535,6 +540,67 @@ def render_threads_list_html(drafts: list[ThreadsPendingDraft]) -> str:
 <h1>Threads 검수</h1>
 <div class="sub">검수 대기 중인 초안 {len(drafts)}건</div>
 {"".join(cards)}
+"""
+    return body
+
+
+# --- TAK MEDIA 아카이브 읽기 전용 화면 (5-27) ---------------------------------
+#
+# 이 화면은 읽기 전용이다: data/tak_media_archive.json에 이미 쌓인
+# valid/rejected/error 결과를 그대로 보여줄 뿐, 승인/발행 같은 상태 변경 액션은
+# 이번 작업 범위에 포함하지 않는다(기존 Threads 검수 화면/발행 로직은 전혀
+# 건드리지 않는다).
+
+_GENERATION_STATUS_LABELS: dict[str, str] = {
+    "valid": "검증 통과",
+    "rejected": "검증 실패(반려)",
+    "error": "오류",
+}
+
+_REVIEW_STATUS_LABELS: dict[str, str] = {
+    "unreviewed": "미검토",
+    "approved": "승인됨",
+    "dismissed": "기각됨",
+}
+
+
+def render_media_archive_list_html(records: list[MediaArchiveRecord]) -> str:
+    """GET /media-archive - TAK MEDIA가 생성한 모든 Draft(valid/rejected/error)를
+    읽기 전용으로 나열한다. 최근 생성분이 위로 오도록 created_at 내림차순 정렬한다."""
+    if not records:
+        return """
+<h1>TAK MEDIA 아카이브</h1>
+<div class="sub">아직 저장된 TAK MEDIA 생성 결과가 없습니다.</div>
+<p>scripts/run_media_batch.py --execute 등으로 TAK MEDIA를 실행하면 여기에 쌓입니다.</p>
+"""
+
+    ordered = sorted(records, key=lambda record: record.created_at, reverse=True)
+
+    rows = []
+    for record in ordered:
+        generation_label = _GENERATION_STATUS_LABELS.get(record.generation_status, record.generation_status)
+        review_label = _REVIEW_STATUS_LABELS.get(record.review_status, record.review_status)
+        title = record.rewritten_title or record.original_title
+        reasons = "; ".join(record.validation_errors) or (record.error_message or "")
+        rows.append(
+            f"""
+<div class="card">
+  <div class="card-top">
+    <span class="status">{escape(record.platform)}</span>
+    <span class="status">{escape(generation_label)}</span>
+    <span class="status">{escape(review_label)}</span>
+  </div>
+  <div class="title">{escape(title)}</div>
+  <div class="sub">KNOWLEDGE: {escape(record.knowledge_id)} · 생성 시각: {escape(record.created_at)}</div>
+  {f'<div class="sub">사유: {escape(reasons)}</div>' if reasons else ""}
+</div>
+"""
+        )
+
+    body = f"""
+<h1>TAK MEDIA 아카이브</h1>
+<div class="sub">저장된 Draft {len(ordered)}건 (읽기 전용 - 승인/발행 액션은 아직 없음)</div>
+{"".join(rows)}
 """
     return body
 
@@ -1139,6 +1205,14 @@ def make_handler_class(
                 self._send_html(_page("Threads 초안 검수", body))
                 return
 
+            # --- TAK MEDIA 아카이브 (5-27, 읽기 전용) ------------------------
+
+            if path == "/media-archive":
+                records = load_archive(config.media_archive_path)
+                body = render_media_archive_list_html(records)
+                self._send_html(_page("TAK MEDIA 아카이브", body))
+                return
+
             self._send_html(_page("페이지 없음", "<p>페이지를 찾을 수 없습니다.</p>"), status=404)
 
         def do_POST(self) -> None:  # noqa: N802
@@ -1293,6 +1367,10 @@ def main(argv: list[str] | None = None) -> int:
         "--title-translations", type=Path, default=ROOT / "data" / "tak_scout_title_translations.json",
         help="한국어 표시용 제목 번역 캐시 경로 (기본값: data/tak_scout_title_translations.json, 5-20)",
     )
+    parser.add_argument(
+        "--media-archive", type=Path, default=ROOT / "data" / "tak_media_archive.json",
+        help="TAK MEDIA 배치 결과 아카이브 경로, 읽기 전용 (기본값: data/tak_media_archive.json, 5-27)",
+    )
     args = parser.parse_args(argv)
 
     if not args.daily_pack.exists():
@@ -1310,6 +1388,7 @@ def main(argv: list[str] | None = None) -> int:
         sessions_path=args.sessions,
         pending_path=args.pending,
         title_translations_path=args.title_translations,
+        media_archive_path=args.media_archive,
     )
 
     # scripts/run_media_batch.py, scripts/run_daily.py, scripts/tak_auto.py와 동일한
