@@ -1,6 +1,6 @@
 # 오늘의 TAK SCOUT
 
-생성 시각(UTC): 2026-09-19T03:04:29.499667+00:00
+생성 시각(UTC): 2026-09-19T03:24:35.372282+00:00
 오늘의 후보: 5건
 
 ## 1. Japan raises interest rate to new 31-year high to curb rising prices
