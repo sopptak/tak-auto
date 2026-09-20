@@ -440,11 +440,49 @@ data/tak_media_archive.json    (untracked, 읽기만 함)
 
 ## 17. Commit
 
+staged diff를 `git diff --cached --stat`/`git diff --cached | grep -iE
+"api_key|secret|token|password"`로 확인한 뒤(문서 안에서 환경변수 이름만
+언급될 뿐 실제 값은 없음을 확인) 커밋했다.
+
+```
+[main 76009c9] feat: add batch media generation promotion
+ 4 files changed, 1173 insertions(+), 26 deletions(-)
+ create mode 100644 docs/6-09_batch_promotion_and_production_readiness.md
+ create mode 100644 tests/test_batch_promotion.py
+```
+
 ## 18. Push
+
+```
+$ git push
+To https://github.com/sopptak/tak-auto
+   8f7086a..76009c9  main -> main
+
+$ git fetch origin   # (출력 없음)
+$ git log origin/main..HEAD --oneline   # (출력 없음 — 비어 있음, origin과 완전히 동기화)
+```
 
 ## 19. 최종 git status
 
-(15~17장의 실제 커밋/푸시/최종 상태는 아래에 기록한다.)
+```
+$ git status --short
+ M .gitignore
+ M content_engine/__init__.py
+ M content_engine/generator.py
+ M content_engine/llm_provider.py
+ M content_engine/rewrite.py
+ M data/tak_brain_knowledge.json
+ M tests/test_content_engine.py
+ M tests/test_media_batch.py
+?? (기존 untracked 문서/스크립트 — 2장과 동일한 목록, 변경 없음)
+?? data/tak_media_archive.json
+```
+
+작업 시작 시점(2장)과 비교해, 이번 세션이 만든 변경(4개 파일)만 정확히
+커밋에 반영되어 목록에서 빠졌고(`scripts/promote_media_generation.py`,
+`scripts/run_scout_dashboard.py`가 더 이상 `M`으로 나타나지 않음 - HEAD와
+일치하게 됐기 때문), 기존 미커밋 변경은 단 한 글자도 건드리지 않은 채
+그대로 남아 있음을 확인했다.
 
 ## 20. 보안 검증
 
