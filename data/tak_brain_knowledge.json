@@ -384,5 +384,43 @@
     "verification_required": true,
     "privacy_risk": false,
     "internal_information_risk": false
+  },
+  {
+    "id": "knowledge-scout-b28b782b2a33",
+    "source_raw_id": "scout-0db222f63dd1",
+    "source_url": "https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "title": "Anthropic boss Dario Amodei calls for AI development to slow down",
+    "article_type": null,
+    "domain": "금융",
+    "knowledge_type": "의견",
+    "experience": null,
+    "problem": null,
+    "action": null,
+    "decision": null,
+    "result": null,
+    "lesson": "The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide.",
+    "reusable_principle": "신기술은 두려워 말고 부딪혀서 느껴봐야 한다.",
+    "evidence": [
+      "SOURCE FACT: The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide.",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: 신기술은 두려워 말고 부딪혀서 느껴봐야 한다."
+    ],
+    "derived_insight": null,
+    "inference_method": "rule_based_template",
+    "confidence": null,
+    "created_at": "2026-09-14T04:41:43.518627+00:00",
+    "knowledge_review_status": "approved",
+    "reviewed_at": "2026-09-14T04:49:39.326693+00:00",
+    "review_note": null,
+    "category": "금융",
+    "key_points": [],
+    "case": null,
+    "judgment_rule": null,
+    "opinion": "신기술은 두려워 말고 부딪혀서 느껴봐야 한다.",
+    "factual_information": "The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide.",
+    "current_validity": "확인 필요",
+    "verification_required": true,
+    "privacy_risk": false,
+    "internal_information_risk": false
   }
 ]

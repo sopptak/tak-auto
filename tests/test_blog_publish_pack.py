@@ -46,8 +46,13 @@ class BlogPublishPackFixtureMixin:
 
         records = load_knowledge_records(KNOWLEDGE_PATH)
         self.approved_records = tuple(r for r in records if r.knowledge_review_status == "approved")
-        self.finance_records = tuple(r for r in self.approved_records if r.article_type == "finance")
-        self.non_finance_records = tuple(r for r in self.approved_records if r.article_type != "finance")
+        # is_review_required()는 article_type == "finance"뿐 아니라 category/domain의
+        # 금융 관련 키워드로도 True가 된다(6-05: knowledge-scout-b28b782b2a33처럼
+        # article_type은 null로 정정됐지만 category="금융"은 그대로인 레코드가 존재).
+        # 이 fixture는 실제 안전 판단 함수와 동일한 기준으로 분류해야 두 그룹이
+        # is_review_required()의 실제 동작과 어긋나지 않는다.
+        self.finance_records = tuple(r for r in self.approved_records if is_review_required(r))
+        self.non_finance_records = tuple(r for r in self.approved_records if not is_review_required(r))
 
 
 class BuildBlogPublishPackTests(BlogPublishPackFixtureMixin, unittest.TestCase):
