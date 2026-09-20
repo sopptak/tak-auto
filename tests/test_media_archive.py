@@ -234,5 +234,131 @@ class MediaArchiveTests(unittest.TestCase):
         self.assertEqual(restored.review_status, "unreviewed")
 
 
+class MediaArchiveToDashboardIntegrationTests(unittest.TestCase):
+    """6-03: KNOWLEDGE -> MEDIA generation -> archive -> /media Dashboard 렌더링까지
+    전체 사슬이 실제로 연결되어 있는지 확인한다.
+
+    6-03 조사에서 확인한 사실: production data/tak_brain_knowledge.json에는 실제로
+    approved KNOWLEDGE가 6건 있는데도 실제 Dashboard의 /media 화면에는 "조건에 맞는
+    Draft가 없습니다"만 보인다 - 그 이유는 코드 결함이 아니라, 실제 production
+    data/tak_media_archive.json이 (실제 LLM 자격증명으로) 한 번도 생성된 적이
+    없기 때문이다(운영 실행 누락, docs/6-03_*.md 6장 참고). 이 테스트는 "만약
+    누군가 실제로 --execute를 실행했다면 이 코드가 정말 작동하는가"를, 실제
+    production KNOWLEDGE를 읽기 전용 입력으로 쓰고 MockRewriteProvider(네트워크
+    없음)로 증명한다 - production data/tak_media_archive.json은 이 테스트 어디에서도
+    생성/수정하지 않는다(tmp_path에만 저장).
+
+    기존 MediaArchiveTests와 같은 fixture(KNOWLEDGE_PATH, self.approved_records)를
+    재사용한다 - 새 fixture를 만들지 않는다(11장 지시: 기존 테스트 인프라 재사용).
+    """
+
+    def setUp(self) -> None:
+        self.records = load_knowledge_records(KNOWLEDGE_PATH)
+        self.approved_records = tuple(
+            r for r in self.records if r.knowledge_review_status == "approved"
+        )
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp_dir.cleanup)
+        self.tmp_path = Path(self.tmp_dir.name)
+
+    def _start_dashboard(self, archive_path: Path):
+        from http.server import ThreadingHTTPServer
+        import threading
+
+        from scripts.run_scout_dashboard import DashboardConfig, make_handler_class
+
+        config = DashboardConfig(
+            daily_pack_path=self.tmp_path / "tak_scout_daily.json",
+            answers_path=self.tmp_path / "tak_interview_answers.json",
+            # KNOWLEDGE는 실제 production 파일을 읽기 전용으로 그대로 쓴다(fixture를
+            # 새로 만들지 않는다) - 이 Dashboard 인스턴스가 그 파일에 쓰기를 시도하는
+            # 라우트는 /media 관련 라우트 중 없다(승인 POST는 이 테스트에서 호출하지 않는다).
+            knowledge_path=KNOWLEDGE_PATH,
+            skipped_path=self.tmp_path / "tak_scout_dashboard_skipped.json",
+            sessions_path=self.tmp_path / "tak_interview_sessions.json",
+            pending_path=self.tmp_path / "tak_threads_pending.json",
+            media_archive_path=archive_path,
+            shorts_scripts_path=self.tmp_path / "shorts_scripts",
+            blog_history_path=self.tmp_path / "blog_publish_log.json",
+            performance_path=self.tmp_path / "tak_performance.json",
+        )
+        handler_class = make_handler_class(config)
+        server = ThreadingHTTPServer(("127.0.0.1", 0), handler_class)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.shutdown)
+        self.addCleanup(server.server_close)
+        return server
+
+    def test_real_approved_knowledge_generates_drafts_the_dashboard_can_render(self):
+        import urllib.request
+
+        self.assertGreater(
+            len(self.approved_records), 0,
+            "production KNOWLEDGE에 approved 레코드가 없습니다 - 이 테스트가 검증하려는 "
+            "전제(approved KNOWLEDGE가 존재한다) 자체가 깨졌다는 뜻이므로 명확히 실패시킨다.",
+        )
+
+        report = run_media_batch(self.approved_records, provider=MockRewriteProvider())
+        # 설계대로 KNOWLEDGE 1건당 9개(Blog 1 + Shorts 3 + Threads 5)가 나와야 한다.
+        self.assertEqual(report.total_draft_count, len(self.approved_records) * 9)
+        self.assertEqual(report.error_count, 0)
+
+        archive_path = self.tmp_path / "tak_media_archive.json"
+        archive_report(report, archive_path)
+        archived = load_archive(archive_path)
+        self.assertEqual(len(archived), report.total_draft_count)
+        self.assertTrue(all(record.review_status == "unreviewed" for record in archived))
+
+        server = self._start_dashboard(archive_path)
+        port = server.server_address[1]
+
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/media", timeout=5) as response:
+            status = response.status
+            body = response.read().decode("utf-8")
+
+        self.assertEqual(status, 200)
+        self.assertNotIn("조건에 맞는 Draft가 없습니다", body)
+        # 목록 화면(/media)은 카드마다 상세보기 링크만 보여준다(승인 폼은 상세 페이지
+        # 전용 - _media_card_html/render_media_detail_html 구조, 아래에서 확인).
+        valid_record = next(r for r in archived if r.generation_status == "valid")
+        self.assertIn(f"/media/{valid_record.content_id}", body)
+        self.assertIn(valid_record.knowledge_id, body)
+
+        # 상세 페이지도 실제로 200을 반환하고 승인 폼을 보여주는지 확인한다(13장 지시).
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/media/{valid_record.content_id}", timeout=5
+        ) as detail_response:
+            detail_status = detail_response.status
+            detail_body = detail_response.read().decode("utf-8")
+        self.assertEqual(detail_status, 200)
+        self.assertIn(f"/media/{valid_record.content_id}/approve", detail_body)
+
+        # production 파일은 이 테스트 어디에서도 생성/수정되지 않아야 한다.
+        production_archive = KNOWLEDGE_PATH.parent / "tak_media_archive.json"
+        self.assertFalse(
+            production_archive.exists(),
+            "이 테스트가 실수로 production archive를 생성했습니다 - 절대 발생하면 안 됩니다.",
+        )
+
+    def test_pending_and_rejected_knowledge_never_reach_the_archive(self):
+        """승인되지 않은 KNOWLEDGE(pending/rejected)가 섞여 들어와도 archive에
+        나타나지 않아야 한다 - select_approved()가 이미 이를 보장하지만(기존
+        test_pipeline_selects_only_approved_knowledge), 여기서는 archive/Dashboard
+        연결까지 포함해 한 번 더 확인한다(11장 지시 9번)."""
+        from tak_brain import select_approved
+
+        not_approved_ids = {
+            record.id for record in self.records if record.knowledge_review_status != "approved"
+        }
+        self.assertGreater(len(not_approved_ids), 0, "pending/rejected KNOWLEDGE가 하나도 없습니다.")
+
+        approved_via_selector = tuple(select_approved(self.records))
+        report = run_media_batch(approved_via_selector, provider=MockRewriteProvider())
+
+        archived_knowledge_ids = {item.knowledge_id for item in report.items}
+        self.assertTrue(archived_knowledge_ids.isdisjoint(not_approved_ids))
+
+
 if __name__ == "__main__":
     unittest.main()
