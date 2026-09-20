@@ -1177,7 +1177,7 @@ def _generation_pool_card_html(record: MediaArchiveRecord) -> str:
   <div class="sub">content_id: {escape(record.content_id)}</div>
   <div class="sub">generation_id: {escape(record.generation_id or "(legacy, 없음)")}</div>
   <div class="sub">created_at: {escape(record.created_at)}</div>
-  <div class="sub">source: <a href="{escape(record.source_url)}" target="_blank" rel="noopener">{escape(record.source_url)}</a></div>
+  <div class="sub">출처: <a href="{escape(record.source_url)}" target="_blank" rel="noopener">{escape(record.source_url)}</a></div>
   <div class="title">{escape(title)}</div>
   <p class="body-block">{escape(body_text)}</p>
   {validation_html}
@@ -1223,10 +1223,41 @@ def _generation_summary_html(records: list[MediaArchiveRecord]) -> str:
 """
 
 
-def _generation_group_html(knowledge_id: str, generation_id: str | None, group_records: list[MediaArchiveRecord]) -> str:
+def load_knowledge_titles(knowledge_path: Path) -> dict[str, str]:
+    """generation pool 화면(6-11 8장)에서 "이 MEDIA가 어떤 KNOWLEDGE에서
+    나왔는가"를 사람이 바로 알 수 있게, knowledge_id -> title 매핑만 읽기
+    전용으로 만든다. ``data/tak_brain_knowledge.json``을 이 함수가 쓰지
+    않는다 - ``load_knowledge_records()``(기존 함수, 5-28부터 이미
+    render_media_detail_html이 같은 목적으로 써왔다)를 그대로 재사용한다."""
+    return {record.id: record.title for record in load_knowledge_records(knowledge_path)}
+
+
+def _generation_group_header_label(knowledge_id: str, knowledge_titles: dict[str, str] | None) -> str:
+    """generation 그룹 헤더에 보여줄 "KNOWLEDGE: ..." 라벨(6-11 8장).
+
+    사람이 이 MEDIA가 어떤 KNOWLEDGE에서 생성됐는지 knowledge_id만 보고는
+    바로 알기 어렵다는 문제를 최소한으로 보완한다 - ``knowledge_titles``
+    (knowledge_id -> title 매핑)에 제목이 있으면 "제목 (knowledge_id)" 형태로,
+    없으면(캐시를 안 넘겼거나 그 KNOWLEDGE를 찾지 못했으면) 기존처럼
+    knowledge_id만 그대로 보여준다 - 이 함수를 호출하지 않는 기존 코드/테스트와
+    100% 하위 호환.
+    """
+    title = (knowledge_titles or {}).get(knowledge_id)
+    if title:
+        return f"{title} ({knowledge_id})"
+    return knowledge_id
+
+
+def _generation_group_html(
+    knowledge_id: str,
+    generation_id: str | None,
+    group_records: list[MediaArchiveRecord],
+    knowledge_titles: dict[str, str] | None = None,
+) -> str:
     generation_segment = _generation_url_segment(generation_id)
     reviewable_count = sum(1 for record in group_records if _can_review_generation_record(record))
     summary_html = _generation_summary_html(group_records)
+    knowledge_label = _generation_group_header_label(knowledge_id, knowledge_titles)
 
     approve_all_html = ""
     if reviewable_count > 0:
@@ -1250,7 +1281,7 @@ def _generation_group_html(knowledge_id: str, generation_id: str | None, group_r
         )
 
     return f"""
-<div class="group-header">KNOWLEDGE: {escape(knowledge_id)}
+<div class="group-header">KNOWLEDGE: {escape(knowledge_label)}
   <span class="sub">generation: {escape(generation_id or "(legacy, generation_id 없음)")} ({len(group_records)}건)</span>
   {summary_html}
   {approve_all_html}
@@ -1263,6 +1294,7 @@ def render_generation_pool_html(
     records: list[MediaArchiveRecord],
     knowledge_id_filter: str | None = None,
     notice: str | None = None,
+    knowledge_titles: dict[str, str] | None = None,
 ) -> str:
     """GET /media/generations 또는 /media/generations/<knowledge_id> 본문.
 
@@ -1270,6 +1302,12 @@ def render_generation_pool_html(
     액션은 이 레코드가 들어있는 generation pool 파일만 갱신한다. promotion
     버튼/링크는 여기 없다 - scripts/promote_media_generation.py를 CLI로
     직접 실행해야 한다.
+
+    ``knowledge_titles``(6-11 8장, knowledge_id -> title 매핑)를 넘기면 각
+    그룹 헤더에 "KNOWLEDGE: <제목> (<knowledge_id>)"를 보여준다 - 넘기지
+    않으면(기존 호출부/테스트 호환) 이전처럼 knowledge_id만 보여준다. 이
+    매핑은 읽기 전용으로만 쓰인다 - data/tak_brain_knowledge.json을 이 함수가
+    직접 쓰지 않는다(호출부가 이미 읽어서 넘겨준 dict일 뿐이다).
     """
     if knowledge_id_filter:
         records = [record for record in records if record.knowledge_id == knowledge_id_filter]
@@ -1308,7 +1346,7 @@ def render_generation_pool_html(
 
     generation_groups = group_generation_records_by_knowledge_and_generation(records)
     groups_html = "".join(
-        _generation_group_html(knowledge_id, generation_id, group_records)
+        _generation_group_html(knowledge_id, generation_id, group_records, knowledge_titles)
         for (knowledge_id, generation_id), group_records in generation_groups
     )
 
@@ -2322,7 +2360,8 @@ def make_handler_class(
             if path == "/media/generations":
                 notice = query.get("notice", [None])[0]
                 records = load_generation_pool_records(config.generation_archive_paths)
-                body = render_generation_pool_html(records, notice=notice)
+                knowledge_titles = load_knowledge_titles(config.knowledge_path)
+                body = render_generation_pool_html(records, notice=notice, knowledge_titles=knowledge_titles)
                 self._send_html(_page("TAK MEDIA Generation Pool", body))
                 return
 
@@ -2355,7 +2394,10 @@ def make_handler_class(
                 knowledge_id = unquote(path[len("/media/generations/") :])
                 notice = query.get("notice", [None])[0]
                 records = load_generation_pool_records(config.generation_archive_paths)
-                body = render_generation_pool_html(records, knowledge_id_filter=knowledge_id, notice=notice)
+                knowledge_titles = load_knowledge_titles(config.knowledge_path)
+                body = render_generation_pool_html(
+                    records, knowledge_id_filter=knowledge_id, notice=notice, knowledge_titles=knowledge_titles
+                )
                 self._send_html(_page("TAK MEDIA Generation Pool", body))
                 return
 

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+import hashlib
 import json
 import tempfile
 import threading
@@ -31,8 +32,12 @@ from content_engine.generator import generate_content_bundle
 from content_engine.media_archive import MediaArchiveRecord, load_archive, upsert_generation_archive
 from content_engine.pipeline import run_media_batch
 from content_engine.rewrite import MockRewriteProvider
-from scripts.run_scout_dashboard import DashboardConfig, make_handler_class
+from scripts.run_scout_dashboard import DashboardConfig, load_knowledge_titles, make_handler_class
 from tak_brain import load_knowledge_records
+
+
+def _file_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 KNOWLEDGE_PATH = Path(__file__).parents[1] / "data" / "tak_brain_knowledge.json"
 PRODUCTION_ARCHIVE_PATH = Path(__file__).parents[1] / "data" / "tak_media_archive.json"
@@ -177,6 +182,39 @@ class RealGenerationPoolResultTests(unittest.TestCase):
         self.assertEqual({record.content_id for record in production_records}, expected_content_ids)
         for record in production_records:
             self.assertIsNone(record.generation_id)
+
+    # --- 6-11 3/10/12(G)장: 이 세션(6-11)이 실제 9건/production archive를 --
+    # 절대 쓰지 않는다는 것을 파일 해시로 재확인한다. 이 클래스의 다른 모든
+    # 테스트도 load_archive()만 호출하고 어떤 저장 함수도 부르지 않는다
+    # (upsert_generation_archive/save_archive/upsert_archive를 이 클래스
+    # 전체에서 import조차 하지 않는다) - 이 두 테스트는 그 사실을 실제
+    # 파일 해시 비교로 다시 한번 못박는다.
+
+    def test_real_generation_pool_file_hash_unchanged_by_this_test_run(self):
+        before = _file_hash(GENERATION_POOL_PATH)
+        # 같은 클래스의 다른 테스트들과 동일하게 읽기만 한다.
+        load_archive(GENERATION_POOL_PATH)
+        after = _file_hash(GENERATION_POOL_PATH)
+        self.assertEqual(before, after)
+
+    def test_real_production_archive_file_hash_unchanged_by_this_test_run(self):
+        before = _file_hash(PRODUCTION_ARCHIVE_PATH)
+        load_archive(PRODUCTION_ARCHIVE_PATH)
+        after = _file_hash(PRODUCTION_ARCHIVE_PATH)
+        self.assertEqual(before, after)
+
+    # --- 6-11 8장: 실제 knowledge_id에 대해 KNOWLEDGE 제목 조회가 정상 동작 --
+
+    def test_knowledge_title_lookup_resolves_for_the_real_target_knowledge(self):
+        """실제 9건이 전부 참조하는 knowledge_id(TARGET_KNOWLEDGE_ID)에 대해
+        load_knowledge_titles()가 올바른 제목을 돌려주는지 확인한다(6-11 8장:
+        Generation Pool 화면에서 "KNOWLEDGE: <제목>"을 보여주기 위한 조회) -
+        데이터를 전혀 쓰지 않는다."""
+        titles = load_knowledge_titles(KNOWLEDGE_PATH)
+        self.assertEqual(
+            titles.get(TARGET_KNOWLEDGE_ID),
+            "Uncontrolled AI could lead to 'silicon species' rivalling humans, warns Microsoft",
+        )
 
 
 def _generation_record(**overrides) -> MediaArchiveRecord:

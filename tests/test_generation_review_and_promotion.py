@@ -23,6 +23,13 @@ docs/6-08_generation_review_and_promotion.md 참고. 실제 LLM은 호출하지 
     - Edit -> Approve -> Batch Promotion 통합 흐름(승인된 레코드를 수정하면 다시
       unreviewed가 되어 promotion이 막히고, 재승인해야 batch promotion 대상이
       되는지)
+
+6-11에서 추가한 범위(docs/6-11_human_review_readiness.md 5~8장):
+    - Generation Pool 화면이 정상 렌더링되는지, edit 링크가 수정 가능한
+      record에만 보이는지(reviewable/approved 대비)
+    - 출처(source_url) 링크 표시, KNOWLEDGE 제목 표시(``load_knowledge_titles``)가
+      깨지지 않는지
+    - 이 화면의 GET 요청이 production archive를 전혀 건드리지 않는지
 """
 
 from __future__ import annotations
@@ -33,6 +40,7 @@ from pathlib import Path
 import hashlib
 import io
 import contextlib
+import json
 import tempfile
 import threading
 import unittest
@@ -51,6 +59,7 @@ from scripts.run_scout_dashboard import (
     discover_generation_pool_paths,
     group_generation_records_by_knowledge_and_generation,
     group_records_by_platform,
+    load_knowledge_titles,
     make_handler_class,
     resolve_generation_archive_paths,
 )
@@ -615,6 +624,193 @@ class GenerationGroupingTests(unittest.TestCase):
         grouped = group_records_by_platform(records)
 
         self.assertEqual([platform for platform, _ in grouped], ["blog", "shorts", "threads"])
+
+
+# --- 6-11 5/6/7/8/12장: Human Review 화면 정보 충분성 점검 -------------------
+#
+# 이번 작업(6-11)은 대규모 UI를 새로 만들지 않는다 - KNOWLEDGE 제목 표시
+# (load_knowledge_titles)와 출처(source_url) 라벨을 "출처:"로 통일한 것만
+# 반영한다(8/7장). 아래 테스트는 6-11 12장 A~F 체크리스트에 정확히 대응한다.
+
+
+class GenerationPoolReviewContextTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+
+        self.knowledge_path = self.directory / "tak_brain_knowledge.json"
+        self.knowledge_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "id": "knowledge-6-08-test",
+                        "source_raw_id": "https://example.test/6-11",
+                        "source_url": "https://example.test/6-11",
+                        "title": "6-11 검토 컨텍스트 테스트용 KNOWLEDGE 제목",
+                        "domain": "금융",
+                        "knowledge_type": "의견",
+                        "lesson": "교훈",
+                        "created_at": "2026-09-20T00:00:00+00:00",
+                        "knowledge_review_status": "approved",
+                    }
+                ],
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        self.archive_path = self.directory / "tak_media_archive.json"
+        save_archive(
+            [
+                MediaArchiveRecord(
+                    content_id="content-existing-production",
+                    knowledge_id="knowledge-existing",
+                    platform="blog",
+                    generation_status="valid",
+                    original_title="기존 production 제목",
+                    original_body="기존 production 본문",
+                    rewritten_title="기존 production 재작성 제목",
+                    rewritten_body="기존 production 재작성 본문",
+                    source_url="https://example.test/production",
+                    evidence=(),
+                    evidence_unit_ids=(),
+                    created_at="2026-09-01T00:00:00+00:00",
+                    review_status="approved",
+                )
+            ],
+            self.archive_path,
+        )
+
+        self.pool_path = self.directory / "tak_media_generation_context_test.json"
+        upsert_generation_archive(
+            self.pool_path,
+            [
+                _record(
+                    content_id="content-context-reviewable",
+                    generation_id="gen-context",
+                    source_url="https://example.test/article-1",
+                ),
+                _record(
+                    content_id="content-context-approved",
+                    generation_id="gen-context",
+                    review_status="approved",
+                ),
+            ],
+        )
+
+        self.config = DashboardConfig(
+            daily_pack_path=self.directory / "tak_scout_daily.json",
+            answers_path=self.directory / "tak_interview_answers.json",
+            knowledge_path=self.knowledge_path,
+            skipped_path=self.directory / "tak_scout_dashboard_skipped.json",
+            sessions_path=self.directory / "tak_interview_sessions.json",
+            pending_path=self.directory / "tak_threads_pending.json",
+            media_archive_path=self.archive_path,
+            shorts_scripts_path=self.directory / "shorts_scripts",
+            blog_history_path=self.directory / "blog_publish_log.json",
+            generation_archive_paths=(self.pool_path,),
+        )
+        handler_class = make_handler_class(self.config)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler_class)
+        self.port = self.server.server_address[1]
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.addCleanup(self._shutdown)
+
+    def _shutdown(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=5)
+
+    def _get(self, path: str) -> tuple[int, str]:
+        with urllib.request.urlopen(f"http://127.0.0.1:{self.port}{path}", timeout=5) as response:
+            return response.status, response.read().decode("utf-8")
+
+    # --- A. Generation Pool 페이지가 정상 렌더링 --------------------------------
+
+    def test_a_generation_pool_page_renders_successfully(self):
+        status, body = self._get("/media/generations")
+
+        self.assertEqual(status, 200)
+        self.assertIn("content-context-reviewable", body)
+        self.assertIn("content-context-approved", body)
+
+    # --- B. edit link가 reviewable record에 표시 --------------------------------
+
+    def test_b_edit_link_shown_for_reviewable_record(self):
+        status, body = self._get("/media/generations")
+
+        self.assertEqual(status, 200)
+        self.assertIn(
+            'href="/media/generations/record/content-context-reviewable/gen-context/edit"', body
+        )
+
+    # --- C. approved record에는 edit link 없음 ----------------------------------
+
+    def test_c_no_edit_link_for_approved_record(self):
+        status, body = self._get("/media/generations")
+
+        self.assertEqual(status, 200)
+        self.assertNotIn(
+            'href="/media/generations/record/content-context-approved/gen-context/edit"', body
+        )
+
+    # --- D. source URL 표시이 깨지지 않음 ----------------------------------------
+
+    def test_d_source_url_rendered_as_clickable_link(self):
+        status, body = self._get("/media/generations")
+
+        self.assertEqual(status, 200)
+        self.assertIn("출처:", body)
+        self.assertIn(
+            '<a href="https://example.test/article-1" target="_blank" rel="noopener">'
+            "https://example.test/article-1</a>",
+            body,
+        )
+
+    # --- E. knowledge title 표시가 깨지지 않음 -----------------------------------
+
+    def test_e_knowledge_title_shown_in_group_header(self):
+        status, body = self._get("/media/generations")
+
+        self.assertEqual(status, 200)
+        self.assertIn("6-11 검토 컨텍스트 테스트용 KNOWLEDGE 제목", body)
+        self.assertIn("knowledge-6-08-test", body)
+
+    def test_e_knowledge_title_falls_back_to_id_when_not_found(self):
+        """load_knowledge_titles()가 넘어오지 않거나(knowledge_path에 없는
+        knowledge_id) 매핑에 없으면 기존처럼 knowledge_id 그대로 표시한다 -
+        새 KeyError나 빈 화면이 생기면 안 된다."""
+        upsert_generation_archive(
+            self.pool_path,
+            [_record(content_id="content-unknown-knowledge", knowledge_id="knowledge-does-not-exist")],
+        )
+
+        status, body = self._get("/media/generations")
+
+        self.assertEqual(status, 200)
+        self.assertIn("knowledge-does-not-exist", body)
+
+    def test_e_load_knowledge_titles_reads_only_and_matches_by_id(self):
+        titles = load_knowledge_titles(self.knowledge_path)
+
+        self.assertEqual(titles, {"knowledge-6-08-test": "6-11 검토 컨텍스트 테스트용 KNOWLEDGE 제목"})
+
+    # --- F. Production Archive를 건드리지 않음 ----------------------------------
+
+    def test_f_generation_pool_get_requests_never_touch_production_archive(self):
+        before_hash = _file_hash(self.archive_path)
+
+        self._get("/media/generations")
+        self._get("/media/generations/knowledge-6-08-test")
+        self._get("/media/generations/record/content-context-reviewable/gen-context/edit")
+
+        after_hash = _file_hash(self.archive_path)
+        self.assertEqual(before_hash, after_hash)
+        production_records = load_archive(self.archive_path)
+        self.assertEqual(len(production_records), 1)
+        self.assertEqual(production_records[0].content_id, "content-existing-production")
 
 
 # --- F/G/H/I/N: Promotion 안전성 검증 (임시 archive만 사용) ----------------
