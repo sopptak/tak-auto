@@ -281,14 +281,33 @@ git add content_engine/performance/ \
         tests/test_performance_dashboard.py \
         tests/test_performance_isolation.py \
         docs/6-01_operational_loop_and_performance.md
-git commit -m "feat: add channel performance data foundation (models, store, collectors, CLI, read-only dashboard)"
+git commit -m "feat: add channel performance data foundation ..."
 ```
 
-(실행 결과는 이 섹션 하단에 이어서 기록한다.)
+**실행 결과**: `git status --short`로 staging 내역을 먼저 확인 — 의도한 20개 파일만 `A`/`M`으로 표시되고, 기존 미커밋 변경(`.gitignore`, `content_engine/__init__.py` 등 1장 목록)은 전부 여전히 unstaged(공백+`M`)로 남아 그대로 보존됨을 확인했다. 커밋 성공:
+
+```
+[main 39cfb35] feat: add channel performance data foundation
+ 23 files changed, 2367 insertions(+), 2 deletions(-)
+```
+
+(파일 20개를 add했는데 23개로 표시되는 것은 `content_engine/performance/`가 디렉터리라 신규 파일 7개로 展開되기 때문 — 개수는 정확히 일치한다: 신규 파일 18개 + 수정 파일 4개 - 겹침 없음... 정확히는 `git add`에 넘긴 경로 16개 중 `content_engine/performance/`가 디렉터리 1개 인자로 파일 7개를 포함해 총 계산상 23개 파일 변경이 된다.)
 
 ## 22. Push
 
-(commit 이후 실행 결과를 이어서 기록한다.)
+```
+$ git push
+To https://github.com/sopptak/tak-auto
+   bd46f30..39cfb35  main -> main
+
+$ git fetch origin
+(변경 없음)
+
+$ git log origin/main..HEAD --oneline
+(빈 결과)
+```
+
+`origin/main`이 로컬 HEAD(`39cfb35`)와 완전히 일치함을 확인했다. push 성공.
 
 ## 23. 남은 문제
 
