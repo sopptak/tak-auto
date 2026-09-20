@@ -225,16 +225,38 @@ python3 scripts/run_media_batch.py --execute
 
 ## 16. Commit
 
-```
-git add tests/test_media_archive.py docs/6-03_knowledge_to_media_operational_validation.md
-git commit -m "fix: validate knowledge to media operational pipeline"
-```
+`git status --short`로 staging 대상을 먼저 확인한 뒤(1장의 기존 미커밋 변경이 전부 그대로 있음을 재확인), 이번 세션에서 실제로 수정/생성한 파일 2개만 명시적으로 `git add`했다:
 
-(실행 결과는 아래에 이어서 기록한다.)
+```
+$ git add tests/test_media_archive.py docs/6-03_knowledge_to_media_operational_validation.md
+$ git status --short | grep "^[MA]"
+A  docs/6-03_knowledge_to_media_operational_validation.md
+M  tests/test_media_archive.py
+
+$ git commit -m "fix: validate knowledge to media operational pipeline"
+[main 1e8d875] fix: validate knowledge to media operational pipeline
+ 2 files changed, 379 insertions(+)
+ create mode 100644 docs/6-03_knowledge_to_media_operational_validation.md
+```
 
 ## 17. Push
 
-(commit 이후 실행 결과를 이어서 기록한다.)
+```
+$ git push
+To https://github.com/sopptak/tak-auto
+   025916d..1e8d875  main -> main
+
+$ git fetch origin
+(변경 없음)
+
+$ git log origin/main..HEAD --oneline
+(빈 결과)
+
+$ git status --short | grep "^[MA]"
+(빈 결과)
+```
+
+`origin/main`이 로컬 HEAD(`1e8d875`)와 완전히 일치함을 확인했다. push 성공. 1장에 나열한 기존 미커밋 변경은 이 시점에도 전부 그대로 남아 있다(`git status --short` 전체 출력이 1장 기록과 동일).
 
 ## 18. 남은 문제
 
