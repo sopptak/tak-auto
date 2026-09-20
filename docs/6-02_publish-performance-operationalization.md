@@ -208,15 +208,41 @@
 
 ## 13. 기존 미커밋 변경 보존 확인
 
-작업 종료 시점 `git status --short`를 시작 시점과 비교했다 — 1장에 나열한 기존 미커밋 변경(`.gitignore`, `content_engine/__init__.py`, `content_engine/generator.py`, `content_engine/llm_provider.py`, `content_engine/rewrite.py`, `data/tak_brain_knowledge.json`, `tests/test_content_engine.py`, `tests/test_media_batch.py`, 그 외 모든 untracked 파일)가 **글자 하나 바뀌지 않고 그대로** 남아 있음을 확인했다(20장에서 실제 diff 결과 첨부).
+작업 종료 시점 `git status --short`를 시작 시점과 비교했다 — 1장에 나열한 기존 미커밋 변경(`.gitignore`, `content_engine/__init__.py`, `content_engine/generator.py`, `content_engine/llm_provider.py`, `content_engine/rewrite.py`, `data/tak_brain_knowledge.json`, `tests/test_content_engine.py`, `tests/test_media_batch.py`, 그 외 모든 untracked 파일)가 **글자 하나 바뀌지 않고 그대로** 남아 있음을 확인했다 — commit 직전 `git status --short` 전체 출력에서 이 파일들의 상태(`M`/`??`)가 1장 기록과 정확히 동일했고, `git add`에 이 파일들을 하나도 넘기지 않았으므로 staging에도 포함되지 않았다(14장 commit 결과 참고).
 
 ## 14. Commit
 
-(20장에서 실행 결과 기록)
+`git status --short`로 staging 대상을 먼저 확인한 뒤, 이번 작업에서 실제로 만들거나 수정한 파일 16개만 파일명을 하나씩 나열해 `git add`했다(`git add .`/`git add -A` 사용하지 않음). staging 결과를 다시 `git status --short`로 확인해 의도한 파일만 `A`/`M`으로 표시되고 1장에 나열한 기존 미커밋 변경은 전부 여전히 공백+`M`(unstaged)로 남아 있음을 확인한 뒤 커밋했다:
+
+```
+[main 9e99a47] feat: operationalize publish performance tracking
+ 16 files changed, 1475 insertions(+), 45 deletions(-)
+ create mode 100644 content_engine/performance/summary.py
+ create mode 100644 docs/6-02_publish-performance-operationalization.md
+ create mode 100644 docs/performance_operations.md
+ create mode 100644 tests/test_collect_performance_live_gate.py
+ create mode 100644 tests/test_performance_summary.py
+ create mode 100644 tests/test_youtube_upload_history_content_id.py
+```
 
 ## 15. Push
 
-(20장에서 실행 결과 기록)
+```
+$ git push
+To https://github.com/sopptak/tak-auto
+   f2988da..9e99a47  main -> main
+
+$ git fetch origin
+(변경 없음)
+
+$ git log origin/main..HEAD --oneline
+(빈 결과)
+
+$ git status --short | grep "^[MA]"
+(빈 결과 - 커밋 대상이었던 파일 중 unstaged/staged로 남은 것 없음)
+```
+
+`origin/main`이 로컬 HEAD(`9e99a47`)와 완전히 일치함을 확인했다. push 성공.
 
 ## 16. 남은 문제
 
