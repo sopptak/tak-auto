@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
 
 from content_engine import (
     OpenAICompatibleRewriteProvider,
+    archive_generation_report,
     archive_report,
     generate_media_batch_dry_run,
     run_media_batch_file,
@@ -66,6 +67,19 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="특정 KNOWLEDGE ID 1건만 대상으로 실행",
     )
+    parser.add_argument(
+        "--as-generation",
+        action="store_true",
+        help=(
+            "6-06: --archive를 production archive(content_id 단독 키, 슬롯당 활성 레코드 1개)가 "
+            "아니라 'generation pool'로 취급합니다. 같은 content_id라도 매 실행마다 새 "
+            "generation_id를 부여해 이전 결과를 덮어쓰지 않고 나란히 보존합니다(같은 KNOWLEDGE를 "
+            "다시 생성해도 content_id가 우연히 겹치는 슬롯이 있을 수 있음 - "
+            "docs/6-06_media_versioning_and_safe_promotion.md 3~4장). production archive에 "
+            "반영하려면 사람이 검토/승인한 뒤 scripts/promote_media_generation.py로 명시적으로 "
+            "승격해야 합니다 - 이 플래그만으로는 production archive가 전혀 바뀌지 않습니다."
+        ),
+    )
     args = parser.parse_args(argv)
 
     if not args.input.exists():
@@ -110,7 +124,12 @@ def main(argv: list[str] | None = None) -> int:
 
     # --output 여부와 무관하게, --execute로 실제 생성된 결과는 항상 아카이브에
     # 남긴다(5-27 설계 문서: "--output을 깜빡해도 결과 자체는 사라지지 않는다").
-    archive_report(report, args.archive)
+    if args.as_generation:
+        archived = archive_generation_report(report, args.archive)
+        generation_ids = sorted({record.generation_id for record in archived if record.generation_id})
+    else:
+        archive_report(report, args.archive)
+        generation_ids = []
 
     print("=== TAK MEDIA Batch Pipeline 실행 완료 ===")
     print(f"전체 KNOWLEDGE: {report.total_knowledge_count}건")
@@ -122,7 +141,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.output:
         print(f"결과 저장 완료: {args.output}")
-    print(f"아카이브 저장 완료 (valid/rejected/error 전체 누적): {args.archive}")
+    if args.as_generation:
+        print(f"generation pool 저장 완료 (valid/rejected/error 전체 누적): {args.archive}")
+        print(f"이번 실행의 generation_id: {', '.join(generation_ids) if generation_ids else '(없음)'}")
+        print(
+            "production archive는 전혀 바뀌지 않았습니다. 사람이 검토/승인한 뒤 "
+            "scripts/promote_media_generation.py로 명시적으로 승격하세요."
+        )
+    else:
+        print(f"아카이브 저장 완료 (valid/rejected/error 전체 누적): {args.archive}")
 
     return 0
 

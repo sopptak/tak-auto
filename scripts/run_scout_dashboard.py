@@ -901,6 +901,16 @@ def render_media_filters_html(platform: str, generation_status: str, review_stat
     return f'<div class="filters">{platform_row}{generation_row}{review_row}</div>'
 
 
+def _generation_label(record: MediaArchiveRecord) -> str:
+    """6-06: production archive(콘텐츠 슬롯당 활성 레코드 1개)에 표시된 레코드는
+    정의상 그 content_id의 "현재 활성/승격된" generation이다. generation_id가
+    없으면(5-27 시절 레코드) legacy generation으로 표시한다 - KeyError 없이
+    항상 문자열을 반환한다."""
+    if record.generation_id:
+        return f"세대 {record.generation_id} (활성)"
+    return "레거시 생성 (generation_id 없음)"
+
+
 def _media_card_html(record: MediaArchiveRecord, config: DashboardConfig) -> str:
     platform_label = _MEDIA_PLATFORM_LABELS.get(record.platform, record.platform.upper())
     generation_label = _MEDIA_GENERATION_STATUS_LABELS.get(record.generation_status, record.generation_status.upper())
@@ -920,6 +930,7 @@ def _media_card_html(record: MediaArchiveRecord, config: DashboardConfig) -> str
     <span class="status">{escape(review_label)}</span>
   </div>
   <div class="sub">{escape(downstream_label)}</div>
+  <div class="sub">{escape(_generation_label(record))}</div>
   <div class="title">{escape(title)}</div>
   <p class="body-preview">{escape(preview)}</p>
   <div class="actions">
@@ -1079,6 +1090,7 @@ def render_media_detail_html(
 <div class="meta">created_at: {escape(record.created_at)}</div>
 <div class="meta">platform: {escape(platform_label)}</div>
 <div class="meta">content_id: {escape(record.content_id)}</div>
+<div class="meta">generation: {escape(_generation_label(record))}</div>
 
 <h2>⑥ 사람 검수 상태</h2>
 <div class="meta">review_status: {escape(review_label)}</div>
