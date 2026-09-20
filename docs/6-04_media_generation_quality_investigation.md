@@ -213,11 +213,43 @@ article_type = None  # (기존: "finance" if category in _FINANCE_CATEGORIES els
 
 ## 13. Commit
 
-(실행 결과는 아래에 이어서 기록한다.)
+`git status --short`로 staging 대상을 먼저 확인한 뒤(기존 미커밋 변경은 전부 그대로 있음을 재확인 - `.gitignore`, `content_engine/__init__.py`, `content_engine/generator.py`, `content_engine/llm_provider.py`, `content_engine/rewrite.py`, `data/tak_brain_knowledge.json`, `tests/test_content_engine.py`, `tests/test_media_batch.py` 등), 이번 세션에서 실제로 수정/생성한 파일 5개만 명시적으로 `git add`했다. **`data/tak_media_archive.json`(production, 이번 대화 앞부분에서 사람이 직접 실행한 실제 LLM 결과)은 이번 커밋에 포함하지 않았다** - 아직 사람이 Dashboard에서 검토/승인하지 않은 상태이므로, 이 세션은 코드 수정 + 테스트 + 보고서만 커밋한다:
+
+```
+$ git add tak_scout/knowledge_bridge.py tests/test_media_archive.py \
+    tests/test_scout_knowledge_bridge.py tests/test_scout_pipeline_e2e.py \
+    docs/6-04_media_generation_quality_investigation.md
+$ git status --short | grep "^[MA]"
+A  docs/6-04_media_generation_quality_investigation.md
+M  tak_scout/knowledge_bridge.py
+M  tests/test_media_archive.py
+M  tests/test_scout_knowledge_bridge.py
+M  tests/test_scout_pipeline_e2e.py
+
+$ git commit -m "fix: prevent cross-domain media template leakage" (전체 메시지는 실제 커밋 참고)
+[main 31488ee] fix: prevent cross-domain media template leakage
+ 5 files changed, 375 insertions(+), 11 deletions(-)
+ create mode 100644 docs/6-04_media_generation_quality_investigation.md
+```
 
 ## 14. Push
 
-(commit 이후 실행 결과를 이어서 기록한다.)
+```
+$ git push
+To https://github.com/sopptak/tak-auto
+   8cb4923..31488ee  main -> main
+
+$ git fetch origin
+(변경 없음)
+
+$ git log origin/main..HEAD --oneline
+(빈 결과)
+
+$ git status --short | grep "^[MA]"
+(빈 결과)
+```
+
+`origin/main`이 로컬 HEAD(`31488ee`)와 완전히 일치함을 확인했다. push 성공. 기존 미커밋 변경은 이 시점에도 전부 그대로 남아 있고, `data/tak_media_archive.json`도 여전히 untracked 상태로 사람의 검토를 기다리고 있다.
 
 ## 15. 남은 문제
 
