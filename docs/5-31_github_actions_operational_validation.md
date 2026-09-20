@@ -200,7 +200,19 @@ git commit -m "docs: record 5-31 GitHub Actions operational validation report"
 
 ## 19. Push
 
-`git push` 실행 후 `git fetch && git log origin/main..HEAD`가 비어 있는지로 확인한다(본문 마지막에 실제 명령 실행 결과를 덧붙인다).
+```
+$ git push
+To https://github.com/sopptak/tak-auto
+   ed9571f..70ba70b  main -> main
+
+$ git fetch origin
+(변경 없음)
+
+$ git log origin/main..HEAD --oneline
+(빈 결과)
+```
+
+`origin/main`이 로컬 HEAD(`70ba70b`)와 완전히 일치함을 확인했다. push 성공.
 
 ## 20. 남은 문제
 
