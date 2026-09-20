@@ -14,11 +14,19 @@ PromotionSafetyTests와 중복되지 않는 것만):
     - 기존 단건(``--content-id``) CLI 동작이 이번 변경으로 깨지지 않았는지 regression
     - Dashboard의 generation별 검수 현황 요약(총/valid/approved/unreviewed/dismissed,
       platform별 승인 현황)
+
+6-10에서 추가한 범위(docs/6-10_generation_edit_and_final_review.md 15/17장):
+    - 혼합(mixed) idempotency: 여러 record가 서로 다른 시점에 approved가 되는
+      상황에서 batch execute를 반복 실행해도 이미 승격된 record는 다시 쓰지 않고,
+      새로 approved된 record만 추가로 승격되는지(실제 파일 I/O로 검증)
+    - edited_title/edited_body가 있는 record가 batch promotion을 거쳐 production
+      archive에 들어갈 때, 최종 final_title/final_body가 edited 값을 쓰는지
 """
 
 from __future__ import annotations
 
 import contextlib
+from dataclasses import replace
 import io
 from pathlib import Path
 import tempfile
@@ -409,6 +417,159 @@ class DashboardReviewSummaryTests(unittest.TestCase):
             params = inspect.signature(func).parameters
             self.assertNotIn("production", " ".join(params).lower())
             self.assertEqual(list(params), ["records"])
+
+
+# --- 6-10 15장: Batch Promotion 혼합(mixed) idempotency ---------------------
+
+
+class MixedIdempotencyBatchPromotionTests(unittest.TestCase):
+    """여러 record가 서로 다른 시점에 approved가 되는 실제 운영 시나리오를 실제
+    파일 I/O(임시 파일)로 검증한다 - 6-09에서 남겨둔 테스트 공백(6-09 15장)."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        self.pool_path = self.directory / "pool.json"
+        self.production_path = self.directory / "prod.json"
+
+    def _execute(self) -> tuple[int, str]:
+        return _run_cli(
+            [
+                "--archive", str(self.pool_path),
+                "--production-archive", str(self.production_path),
+                "--generation-id", "gen-mixed",
+                "--execute",
+            ]
+        )
+
+    def test_scenario_1_two_approved_one_unreviewed_repeat_execute_is_idempotent(self):
+        """A=approved, B=approved, C=unreviewed. 첫 execute는 A+B를 승격한다.
+        두 번째 execute는 아무 상태 변화 없이 다시 실행해도 A/B는
+        already_promoted로만 보고되고 production에는 A/B만 (각 1건씩) 남는다 -
+        C는 계속 skip이고 production에는 절대 들어가지 않는다."""
+        save_archive(
+            [
+                _record(content_id="a", generation_id="gen-mixed", review_status="approved"),
+                _record(content_id="b", generation_id="gen-mixed", review_status="approved"),
+                _record(content_id="c", generation_id="gen-mixed", review_status="unreviewed"),
+            ],
+            self.pool_path,
+        )
+
+        first_exit, first_stdout = self._execute()
+        self.assertEqual(first_exit, 0)
+        self.assertIn("승격 완료: 2건", first_stdout)
+        first_ids = {r.content_id for r in load_archive(self.production_path)}
+        self.assertEqual(first_ids, {"a", "b"})
+
+        second_exit, second_stdout = self._execute()
+        self.assertEqual(second_exit, 0)
+        self.assertIn("ALREADY PROMOTED", second_stdout)
+        self.assertIn("promotion 대상이 없습니다", second_stdout)
+
+        final_records = load_archive(self.production_path)
+        self.assertEqual({r.content_id for r in final_records}, {"a", "b"})
+        self.assertEqual(len(final_records), 2, "중복 승격으로 레코드가 늘어나면 안 된다.")
+
+        # 계획 단계에서도 정확한 action으로 분류되는지 재확인한다(9장 표기와 동일).
+        items = plan_batch_promotion(self.pool_path, self.production_path, "gen-mixed")
+        by_id = {item.record.content_id: item.action for item in items}
+        self.assertEqual(by_id, {"a": "already_promoted", "b": "already_promoted", "c": "skip"})
+
+    def test_scenario_2_approval_happens_between_two_executes(self):
+        """1차 실행 시점에는 A만 approved(B/C는 unreviewed)라 A만 승격된다. 1차
+        실행과 2차 실행 사이에 사람이 B를 승인한다(Dashboard가 하는 것과 동일하게
+        generation pool 파일만 직접 갱신). 2차 실행에서는 A=already_promoted,
+        B=promote, C=skip으로 정확히 나뉘고, production에는 A/B만 남는다(C는
+        끝까지 0건)."""
+        save_archive(
+            [
+                _record(content_id="a", generation_id="gen-mixed", review_status="approved"),
+                _record(content_id="b", generation_id="gen-mixed", review_status="unreviewed"),
+                _record(content_id="c", generation_id="gen-mixed", review_status="unreviewed"),
+            ],
+            self.pool_path,
+        )
+
+        first_exit, first_stdout = self._execute()
+        self.assertEqual(first_exit, 0)
+        self.assertIn("승격 완료: 1건", first_stdout)
+        self.assertEqual({r.content_id for r in load_archive(self.production_path)}, {"a"})
+
+        # 사람이 이제 B를 승인한다(Dashboard 승인 액션과 동일한 파일 갱신).
+        pool_records = load_archive(self.pool_path)
+        updated_pool = [
+            replace(record, review_status="approved") if record.content_id == "b" else record
+            for record in pool_records
+        ]
+        save_archive(updated_pool, self.pool_path)
+
+        items_before_second_execute = plan_batch_promotion(self.pool_path, self.production_path, "gen-mixed")
+        by_id_before = {item.record.content_id: item.action for item in items_before_second_execute}
+        self.assertEqual(by_id_before, {"a": "already_promoted", "b": "promote", "c": "skip"})
+
+        second_exit, second_stdout = self._execute()
+        self.assertEqual(second_exit, 0)
+        self.assertIn("승격 완료: 1건", second_stdout)
+
+        final_records = load_archive(self.production_path)
+        self.assertEqual({r.content_id for r in final_records}, {"a", "b"})
+        # a는 여전히 정확히 1건뿐이어야 한다(재승격으로 중복되지 않음).
+        self.assertEqual(len([r for r in final_records if r.content_id == "a"]), 1)
+        self.assertEqual(len([r for r in final_records if r.content_id == "c"]), 0)
+
+
+# --- 6-10 17장: edited content가 batch promotion을 거쳐도 유지되는지 --------
+
+
+class EditedContentPromotionTests(unittest.TestCase):
+    """사람이 수정한(edited_title/edited_body) generation record가 batch
+    promotion을 거쳐 production archive에 들어갈 때, final_title/final_body가
+    rewritten이 아니라 edited 값을 쓰는지 확인한다(우선순위:
+    edited -> rewritten -> original, content_engine/media_archive.py 참고)."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        self.pool_path = self.directory / "pool.json"
+        self.production_path = self.directory / "prod.json"
+
+    def test_edited_title_and_body_win_over_rewritten_after_batch_promotion(self):
+        save_archive(
+            [
+                _record(
+                    content_id="c-edited",
+                    generation_id="gen-mixed",
+                    review_status="approved",
+                    rewritten_title="원래 제목",
+                    rewritten_body="원래 본문",
+                    edited_title="사람이 수정한 제목",
+                    edited_body="사람이 수정한 본문",
+                )
+            ],
+            self.pool_path,
+        )
+
+        exit_code, stdout = _run_cli(
+            [
+                "--archive", str(self.pool_path),
+                "--production-archive", str(self.production_path),
+                "--generation-id", "gen-mixed",
+                "--execute",
+            ]
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("승격 완료: 1건", stdout)
+
+        promoted = load_archive(self.production_path)[0]
+        # rewritten_*은 그대로 보존된다 - final_*만 edited 값을 고른다.
+        self.assertEqual(promoted.rewritten_title, "원래 제목")
+        self.assertEqual(promoted.rewritten_body, "원래 본문")
+        self.assertEqual(promoted.final_title, "사람이 수정한 제목")
+        self.assertEqual(promoted.final_body, "사람이 수정한 본문")
 
 
 if __name__ == "__main__":

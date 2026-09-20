@@ -1157,6 +1157,7 @@ def _generation_pool_card_html(record: MediaArchiveRecord) -> str:
     if _can_review_generation_record(record):
         actions_html = f"""
   <div class="actions">
+    <a class="btn" href="/media/generations/record/{escape(record.content_id)}/{escape(generation_segment)}/edit">수정</a>
     <form method="post" action="/media/generations/record/{escape(record.content_id)}/{escape(generation_segment)}/approve" style="display:inline;">
       <button class="btn primary" type="submit">승인</button>
     </form>
@@ -1284,6 +1285,11 @@ def render_generation_pool_html(
         notice_html = '<div class="banner">보류되었습니다.</div>'
     elif notice == "approved-all":
         notice_html = '<div class="banner">generation 전체를 승인했습니다(generation pool에만 반영 - production archive는 변경되지 않았습니다).</div>'
+    elif notice == "saved":
+        notice_html = (
+            '<div class="banner">수정 내용이 저장되었습니다 - 검토 상태가 "검토대기(unreviewed)"로 '
+            "돌아갔습니다. production archive는 변경되지 않았습니다.</div>"
+        )
 
     disclaimer = (
         '<div class="sub">승인/보류는 이 generation pool 파일에만 반영됩니다 - production archive'
@@ -1330,6 +1336,59 @@ def find_generation_pool_record(
     return None, None
 
 
+def render_generation_edit_html(record: MediaArchiveRecord, error: str | None = None) -> str:
+    """GET /media/generations/record/{content_id}/{generation_id}/edit - 제목/본문
+    수정 화면(6-10).
+
+    production ``/media`` 상세 화면의 편집 폼(render_media_detail_html의 ⑥ 사람
+    검수 상태 섹션)과 정확히 같은 값 우선순위(edited -> rewritten -> original)와
+    같은 가시성 규칙(``_can_review_generation_record`` - VALID이고 아직 approved가
+    아닐 때만 폼을 보여준다)을 그대로 재사용한다. 다만 이 화면은 generation pool
+    레코드 1건의 편집 폼만 보여준다 - production ``/media`` 상세의 나머지 섹션
+    (①~⑤/⑦)은 이미 ``/media/generations`` 목록 카드에 표시되므로 새로 만들지
+    않는다(11장: 대규모 UI 개편 금지).
+    """
+    error_banner = f'<div class="error">{escape(error)}</div>' if error else ""
+    generation_segment = _generation_url_segment(record.generation_id)
+    platform_label = _MEDIA_PLATFORM_LABELS.get(record.platform, record.platform.upper())
+    review_label = _MEDIA_REVIEW_STATUS_LABELS.get(record.review_status, record.review_status)
+
+    if _can_review_generation_record(record):
+        title_value = record.edited_title if record.edited_title is not None else (record.rewritten_title or record.original_title)
+        body_value = record.edited_body if record.edited_body is not None else (record.rewritten_body or record.original_body or "")
+        action = f"/media/generations/record/{escape(record.content_id)}/{escape(generation_segment)}/edit"
+        form_html = f"""
+<form method="post" action="{action}">
+  <p><strong>제목 수정</strong></p>
+  <input type="text" name="title" value="{escape(title_value)}"
+    style="width:100%; max-width:560px; padding:10px; border-radius:8px; border:1px solid #ccc; font-size:0.95rem;">
+  <p style="margin-top:12px;"><strong>본문 수정</strong></p>
+  <textarea name="body" style="min-height:220px;">{escape(body_value)}</textarea>
+  <div class="actions" style="margin-top:14px;">
+    <button class="btn primary" type="submit">저장</button>
+  </div>
+</form>
+<p class="sub" style="margin-top:10px;">저장하면 검토 상태가 "검토대기(unreviewed)"로 돌아갑니다 - production archive는 변경되지 않습니다.</p>
+"""
+    elif record.review_status == "approved":
+        form_html = "<p>이미 승인된 generation은 이 화면에서 더 이상 수정할 수 없습니다.</p>"
+    else:
+        form_html = "<p>VALID 상태의 generation만 수정할 수 있습니다.</p>"
+
+    return f"""
+<a class="back" href="/media/generations">&larr; 목록으로</a>
+<h1>Generation 수정</h1>
+<div class="card-top">
+  <span class="status">{escape(platform_label)}</span>
+  <span class="status">{escape(review_label)}</span>
+</div>
+<div class="sub">content_id: {escape(record.content_id)}</div>
+<div class="sub">generation_id: {escape(record.generation_id or "(legacy, 없음)")}</div>
+{error_banner}
+{form_html}
+"""
+
+
 def handle_generation_review_submission(
     paths: tuple[Path, ...], content_id: str, generation_id: str | None, new_review_status: str
 ) -> tuple[MediaArchiveRecord | None, str | None]:
@@ -1349,6 +1408,47 @@ def handle_generation_review_submission(
         return record, None  # 이미 승인됨 - idempotent, 에러 아님(기존 /media 승인과 동일한 관례)
 
     updated = replace(record, review_status=new_review_status)
+    upsert_generation_archive(path, [updated])
+    return updated, None
+
+
+def handle_generation_edit_submission(
+    paths: tuple[Path, ...], content_id: str, generation_id: str | None, title: str, body: str
+) -> tuple[MediaArchiveRecord | None, str | None]:
+    """POST /media/generations/record/{content_id}/{generation_id}/edit 처리(6-10,
+    순수 로직, 서버 없이 테스트 가능).
+
+    production ``/media``의 ``handle_media_edit_submission()``과 정확히 같은 정책을
+    ``(content_id, generation_id)`` 복합 키 위에서 적용한다(4장: "기존 /media의 편집
+    의미를 그대로 따른다"): original_*/rewritten_*는 절대 건드리지 않고
+    edited_title/edited_body만 갱신하며, 저장 후에는 review_status를 항상
+    "unreviewed"로 되돌린다 - 사람이 승인했거나(approved) 보류했던(dismissed)
+    콘텐츠를 수정하면 다시 검토 대상이 되어야 하기 때문이다.
+
+    ``_can_review_generation_record()``를 그대로 재사용하므로(10장: "기존 정책과
+    다르면 임의로 바꾸지 않는다"), 이미 approved인 레코드는 - production ``/media``와
+    동일하게 - 수정이 아예 차단된다(승인은 이 화면에서 되돌릴 수 없는 종결 상태).
+    REJECTED/ERROR도 검증을 통과하지 못했으므로 텍스트만 고쳐 승인을 우회할 수 없다.
+
+    이 함수는 production archive 경로를 아예 인자로 받지 않으므로 구조적으로
+    production archive를 건드릴 수 없다 - 오직 이 (content_id, generation_id)가
+    들어있던 그 generation pool 파일만 ``upsert_generation_archive()``로 갱신한다.
+    """
+    record, path = find_generation_pool_record(paths, content_id, generation_id)
+    if record is None or path is None:
+        return None, None
+
+    if not _can_review_generation_record(record):
+        if record.review_status == "approved":
+            return None, "이미 승인된 콘텐츠는 수정할 수 없습니다."
+        return None, "VALID 상태의 콘텐츠만 수정할 수 있습니다."
+
+    if not title.strip():
+        return None, "제목을 입력해주세요."
+    if not body.strip():
+        return None, "본문을 입력해주세요."
+
+    updated = replace(record, edited_title=title, edited_body=body, review_status="unreviewed")
     upsert_generation_archive(path, [updated])
     return updated, None
 
@@ -2226,6 +2326,31 @@ def make_handler_class(
                 self._send_html(_page("TAK MEDIA Generation Pool", body))
                 return
 
+            # 6-10: generation pool 레코드 1건의 수정 화면 - "/media/generations/"로
+            # 시작하는 knowledge_id 필터 라우트보다 반드시 먼저 검사해야
+            # "/media/generations/record/.../edit"가 knowledge_id로 잘못 해석되지
+            # 않는다("/media/generations/record/.../approve|dismiss" POST 라우트가
+            # 이미 같은 이유로 일반 knowledge_id 필터보다 먼저 검사되는 것과 동일한
+            # 순서 원칙, 6-08 주석 참고).
+            if path.startswith("/media/generations/record/") and path.endswith("/edit"):
+                segment = path[len("/media/generations/record/") : -len("/edit")]
+                content_id, _, generation_segment = segment.rpartition("/")
+                content_id = unquote(content_id)
+                generation_id = _generation_id_from_url_segment(unquote(generation_segment))
+                record, _pool_path = find_generation_pool_record(
+                    config.generation_archive_paths, content_id, generation_id
+                )
+                if record is None:
+                    body = (
+                        '<a class="back" href="/media/generations">&larr; 목록으로</a>'
+                        f'<div class="error">generation을 찾을 수 없습니다: {escape(content_id)}</div>'
+                    )
+                    self._send_html(_page("Generation 없음", body), status=404)
+                    return
+                body = render_generation_edit_html(record)
+                self._send_html(_page("Generation 수정", body))
+                return
+
             if path.startswith("/media/generations/"):
                 knowledge_id = unquote(path[len("/media/generations/") :])
                 notice = query.get("notice", [None])[0]
@@ -2457,6 +2582,45 @@ def make_handler_class(
                     )
                     return
                 self._redirect("/media/generations?notice=dismissed")
+                return
+
+            # 6-10: generation pool 레코드 1건의 제목/본문 수정. 다른 generation
+            # 승인/보류 라우트와 동일한 이유로 "/media/"로 시작하는 일반 수정
+            # 라우트보다 반드시 먼저 검사한다. production archive 경로를 인자로
+            # 받지 않는 handle_generation_edit_submission()만 호출하므로 구조적으로
+            # production archive를 쓸 수 없다.
+
+            if path.startswith("/media/generations/record/") and path.endswith("/edit"):
+                segment = path[len("/media/generations/record/") : -len("/edit")]
+                content_id, _, generation_segment = segment.rpartition("/")
+                content_id = unquote(content_id)
+                generation_id = _generation_id_from_url_segment(unquote(generation_segment))
+                title = form.get("title", [""])[0] or ""
+                body_text = form.get("body", [""])[0] or ""
+                updated, error = handle_generation_edit_submission(
+                    config.generation_archive_paths, content_id, generation_id, title, body_text
+                )
+                if updated is None and error is None:
+                    self._send_html(
+                        _page(
+                            "Generation 없음",
+                            '<a class="back" href="/media/generations">&larr; 목록으로</a>'
+                            f'<div class="error">generation을 찾을 수 없습니다: {escape(content_id)}</div>',
+                        ),
+                        status=404,
+                    )
+                    return
+                if error:
+                    self._send_html(
+                        _page(
+                            "수정 실패",
+                            '<a class="back" href="/media/generations">&larr; 목록으로</a>'
+                            f'<div class="error">{escape(error)}</div>',
+                        ),
+                        status=400,
+                    )
+                    return
+                self._redirect("/media/generations?notice=saved")
                 return
 
             if path.startswith("/media/generations/generation/") and path.endswith("/approve-all"):
