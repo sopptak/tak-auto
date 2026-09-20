@@ -100,6 +100,7 @@ from tak_scout.title_translation import TitleTranslation, translations_by_scout_
 from tak_brain import KnowledgeRecord, load_knowledge_records
 from content_engine import LLMConfigurationError
 from content_engine.media_archive import MediaArchiveRecord, load_archive, upsert_archive
+from content_engine.performance import PerformanceRecord, latest_snapshot_per_content
 from content_engine.publish_history import PublishHistory
 from content_engine.shorts_adapter import (
     ShortsAdapterError,
@@ -179,6 +180,11 @@ class DashboardConfig:
     # "게시 기록됨" downstream 상태를 판정한다 - 새로 쓰지 않는다(실제 게시
     # 기록은 여전히 사람이 scripts/mark_blog_published.py로 한다).
     blog_history_path: Path = ROOT / "data" / "blog_publish_log.json"
+    # 6-01 - 성과(Performance) 스냅샷 저장소. 이 Dashboard는 /performance에서
+    # 읽기만 한다 - 실제 수집(API 호출/수동 입력 저장)은 scripts/collect_performance.py의
+    # 책임이다(MEDIA archive를 이 Dashboard가 승인만 하고 발행은 다른 스크립트가
+    # 하는 것과 동일한 책임 분리).
+    performance_path: Path = ROOT / "data" / "tak_performance.json"
 
 
 # Threads 500자 제한은 새로 만드는 규칙이 아니다 - ThreadsClient.publish_text
@@ -363,7 +369,7 @@ def render_candidate_list_html(
 
     body = f"""
 <h1>TAK SCOUT Dashboard</h1>
-<div class="nav-links"><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a></div>
+<div class="nav-links"><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/performance">📈 Performance</a></div>
 <div class="sub">오늘의 소재 {len(ranked)}건 · 점수 내림차순 (SCOUT SCORE MVP, LLM 미사용)</div>
 {"".join(cards) if cards else "<p>오늘 표시할 소재가 없습니다.</p>"}
 """
@@ -1079,6 +1085,56 @@ def render_media_detail_html(
     return body
 
 
+# --- Performance Dashboard (6-01, 읽기 전용 MVP) -------------------------------
+#
+# /media가 승인/수정 액션을 갖는 것과 달리 이 화면은 순수 읽기 전용이다 - 어떤
+# POST 라우트도 없고, 이 함수는 어떤 파일도 쓰지 않는다. 실제 성과 수집(API
+# 호출/수동 입력 저장)은 scripts/collect_performance.py가 별도로 담당한다.
+# content_engine.performance.latest_snapshot_per_content()로 content_id별
+# "가장 최근 스냅샷"만 보여준다 - 시계열 전체 그래프/추이는 이번 MVP 범위 밖이다
+# (14장 지시: "완성도가 낮으면 다음 단계로 넘긴다").
+
+
+def _performance_row_html(record: PerformanceRecord, archive_by_content_id: dict[str, MediaArchiveRecord]) -> str:
+    archived = archive_by_content_id.get(record.content_id)
+    title = record.title or (archived.final_title if archived is not None else "") or "(제목 없음)"
+    metrics_text = (
+        " · ".join(f"{name} {value:,}" for name, value in sorted(record.metrics.items())) or "(수집된 지표 없음)"
+    )
+    return f"""
+<div class="card">
+  <div class="card-top">
+    <span class="status">{escape(record.platform)}</span>
+    <span class="sub">source: {escape(record.source)}</span>
+  </div>
+  <div class="title">{escape(title)}</div>
+  <div class="meta">content_id: {escape(record.content_id)} · knowledge_id: {escape(record.knowledge_id)}</div>
+  <div class="meta">발행: {escape(_format_published_at(record.published_at))} · 최근 수집: {escape(_format_published_at(record.metric_collected_at))}</div>
+  <div class="body-preview">{escape(metrics_text)}</div>
+</div>
+"""
+
+
+def render_performance_list_html(
+    latest_by_content: dict[str, PerformanceRecord],
+    archive_by_content_id: dict[str, MediaArchiveRecord],
+) -> str:
+    """GET /performance - content_id별 가장 최근 성과 스냅샷을 읽기 전용으로 보여준다."""
+    if not latest_by_content:
+        return """
+<h1>Performance</h1>
+<div class="sub">아직 수집된 성과 데이터가 없습니다. scripts/collect_performance.py로 수집해야 여기에 표시됩니다.</div>
+"""
+
+    records = sorted(latest_by_content.values(), key=lambda r: r.metric_collected_at, reverse=True)
+    rows = "".join(_performance_row_html(record, archive_by_content_id) for record in records)
+    return f"""
+<h1>Performance</h1>
+<div class="sub">총 {len(records)}건 (content_id별 가장 최근 스냅샷만 표시)</div>
+{rows}
+"""
+
+
 def render_threads_review_html(
     draft: ThreadsPendingDraft,
     error: str | None = None,
@@ -1720,6 +1776,17 @@ def make_handler_class(
                 self._send_html(_page("TAK MEDIA 상세", body))
                 return
 
+            # --- Performance Dashboard (6-01, 읽기 전용) ----------------------
+
+            if path == "/performance":
+                latest_by_content = latest_snapshot_per_content(config.performance_path)
+                archive_by_content_id = {
+                    record.content_id: record for record in load_archive(config.media_archive_path)
+                }
+                body = render_performance_list_html(latest_by_content, archive_by_content_id)
+                self._send_html(_page("Performance", body))
+                return
+
             self._send_html(_page("페이지 없음", "<p>페이지를 찾을 수 없습니다.</p>"), status=404)
 
         def do_POST(self) -> None:  # noqa: N802
@@ -1992,6 +2059,10 @@ def main(argv: list[str] | None = None) -> int:
         "--blog-history", type=Path, default=ROOT / "data" / "blog_publish_log.json",
         help="Blog 게시 이력 경로, 읽기 전용(downstream 상태 표시용) (기본값: data/blog_publish_log.json, 5-29)",
     )
+    parser.add_argument(
+        "--performance", type=Path, default=ROOT / "data" / "tak_performance.json",
+        help="성과 스냅샷 저장소 경로, 읽기 전용(/performance 화면용) (기본값: data/tak_performance.json, 6-01)",
+    )
     args = parser.parse_args(argv)
 
     if not args.daily_pack.exists():
@@ -2012,6 +2083,7 @@ def main(argv: list[str] | None = None) -> int:
         media_archive_path=args.media_archive,
         shorts_scripts_path=args.shorts_scripts,
         blog_history_path=args.blog_history,
+        performance_path=args.performance,
     )
 
     # scripts/run_media_batch.py, scripts/run_daily.py, scripts/tak_auto.py와 동일한

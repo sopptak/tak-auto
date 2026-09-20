@@ -24,6 +24,7 @@ from urllib.request import Request, urlopen
 
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos"
+VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
 
 # YouTube Shorts 카드뉴스/정보형 콘텐츠 기본 카테고리: "People & Blogs"
 DEFAULT_CATEGORY_ID = "22"
@@ -172,8 +173,40 @@ def _default_upload_transport(
     return data
 
 
+def _default_stats_transport(
+    access_token: str,
+    video_ids: Sequence[str],
+    timeout_seconds: float,
+) -> Mapping[str, object]:
+    """YouTube Data API v3 videos.list(part=statistics)를 호출한다(6-01, 성과 수집).
+
+    공식 문서(https://developers.google.com/youtube/v3/docs/videos/list) 기준
+    statistics.viewCount/likeCount/commentCount를 응답한다(웹 검색으로 확인, 임의
+    추정 아님). 한 번에 최대 50개 id를 조회할 수 있다 - 이 함수는 그 제한을
+    강제하지 않는다(호출부 YouTubeClient.get_video_statistics()가 미리 검증한다).
+    """
+    query = urlencode({"part": "statistics", "id": ",".join(video_ids)})
+    request = Request(
+        f"{VIDEOS_URL}?{query}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        method="GET",
+    )
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        raise YouTubeAPIError(_safe_http_error_message("YouTube Statistics", error)) from None
+    except Exception as error:
+        raise YouTubeAPIError(f"YouTube 통계 조회 통신 실패: {type(error).__name__}") from None
+
+    if not isinstance(data, dict):
+        raise YouTubeAPIError("YouTube 통계 응답 형식이 올바르지 않습니다.")
+    return data
+
+
 YouTubeTokenTransport = Callable[[str, str, str, float], Mapping[str, object]]
 YouTubeUploadTransport = Callable[[str, Mapping[str, object], Path, float], Mapping[str, object]]
+YouTubeStatsTransport = Callable[[str, Sequence[str], float], Mapping[str, object]]
 
 
 @dataclass(frozen=True)
@@ -186,6 +219,7 @@ class YouTubeClient:
     timeout_seconds: float = 120.0
     token_transport: YouTubeTokenTransport = _default_token_transport
     upload_transport: YouTubeUploadTransport = _default_upload_transport
+    stats_transport: YouTubeStatsTransport = _default_stats_transport
 
     @classmethod
     def from_environment(
@@ -193,6 +227,7 @@ class YouTubeClient:
         environ: Mapping[str, str] | None = None,
         token_transport: YouTubeTokenTransport = _default_token_transport,
         upload_transport: YouTubeUploadTransport = _default_upload_transport,
+        stats_transport: YouTubeStatsTransport = _default_stats_transport,
     ) -> "YouTubeClient":
         values = os.environ if environ is None else environ
         client_id = values.get("YOUTUBE_CLIENT_ID", "").strip()
@@ -219,6 +254,7 @@ class YouTubeClient:
             refresh_token=refresh_token,
             token_transport=token_transport,
             upload_transport=upload_transport,
+            stats_transport=stats_transport,
         )
 
     def _get_access_token(self) -> str:
@@ -226,6 +262,20 @@ class YouTubeClient:
             self.client_id, self.client_secret, self.refresh_token, self.timeout_seconds
         )
         return str(data["access_token"])
+
+    def get_video_statistics(self, video_ids: Sequence[str]) -> Mapping[str, object]:
+        """videos.list(part=statistics)로 영상 조회수/좋아요/댓글 수를 조회한다(6-01).
+
+        최대 50개 id를 한 번에 조회할 수 있다(YouTube Data API 공식 제한). access_token은
+        업로드와 동일하게 refresh_token으로 매번 새로 발급받는다. 원본 응답을 그대로
+        반환하고 정규화하지 않는다 - 정규화는 content_engine.performance.youtube의 책임이다.
+        """
+        if not video_ids:
+            raise ValueError("video_ids가 비어 있습니다.")
+        if len(video_ids) > 50:
+            raise ValueError(f"video_ids는 최대 50개까지 가능합니다: {len(video_ids)}개 전달됨")
+        access_token = self._get_access_token()
+        return self.stats_transport(access_token, list(video_ids), self.timeout_seconds)
 
     def upload_short(
         self,

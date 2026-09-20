@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 import json
 import os
@@ -18,6 +18,11 @@ class ThreadsConfigurationError(ValueError):
 
 class ThreadsAPIError(ValueError):
     """Threads Graph API 호출이 실패하거나 비정상 응답을 반환할 때 발생한다."""
+
+
+# 6-01: 공식 문서(https://developers.facebook.com/documentation/threads/insights)의
+# media insights 엔드포인트가 지원하는 metric 전체(웹 검색으로 확인, 임의 추정 아님).
+DEFAULT_INSIGHTS_METRICS: tuple[str, ...] = ("views", "likes", "replies", "reposts", "quotes", "shares")
 
 
 @dataclass(frozen=True)
@@ -159,3 +164,21 @@ class ThreadsClient:
         if not thread_id:
             raise ThreadsAPIError("Threads 게시 응답에 게시물 id가 누락되었습니다.")
         return ThreadsPublishResult(id=str(thread_id))
+
+    def get_media_insights(
+        self, media_id: str, metrics: Sequence[str] = DEFAULT_INSIGHTS_METRICS
+    ) -> Mapping[str, object]:
+        """GET /{media_id}/insights?metric=... 호출로 게시물 성과 지표를 조회한다(6-01).
+
+        공식 문서(https://developers.facebook.com/documentation/threads/insights) 기준
+        media insights 엔드포인트가 지원하는 metric은 views/likes/replies/reposts/
+        quotes/shares다(threads_manage_insights 권한 필요). 이 메서드는 원본 응답을
+        그대로 반환하고 정규화하지 않는다 - 정규화는 content_engine.performance.threads의
+        책임이다(publish_text가 게시만 하고 검증을 RewriteValidator에 맡기는 것과 동일한
+        책임 분리).
+        """
+        if not media_id:
+            raise ValueError("media_id가 필요합니다.")
+        query = urlencode({"metric": ",".join(metrics)})
+        url = f"{self.api_base}/{media_id}/insights?{query}"
+        return self.transport("GET", url, self._headers(), None, self.timeout_seconds)

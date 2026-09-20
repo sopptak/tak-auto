@@ -9,6 +9,7 @@ from unittest import mock
 from urllib.error import HTTPError
 
 from content_engine.threads_publisher import (
+    DEFAULT_INSIGHTS_METRICS,
     ThreadsAPIError,
     ThreadsClient,
     ThreadsConfigurationError,
@@ -252,6 +253,53 @@ class ThreadsPublisherTests(unittest.TestCase):
             self.assertIn("Threads text exceeds 500 characters: 501", result.stderr)
         finally:
             Path(tmp_path).unlink(missing_ok=True)
+
+
+class ThreadsMediaInsightsTests(unittest.TestCase):
+    """6-01: ThreadsClient.get_media_insights() - 성과 수집용 신규 메서드.
+    기존 publish_text()/get_profile()과 동일한 transport 주입 패턴이라 실제
+    네트워크를 전혀 호출하지 않고 검증한다."""
+
+    def test_get_media_insights_sends_correct_request(self):
+        captured = []
+
+        def transport(method, url, headers, payload, timeout):
+            captured.append((method, url, headers, payload, timeout))
+            return {
+                "data": [
+                    {"name": "views", "values": [{"value": 120}]},
+                    {"name": "likes", "values": [{"value": 8}]},
+                ]
+            }
+
+        client = ThreadsClient(access_token="test-token", transport=transport)
+        response = client.get_media_insights("media-123")
+
+        self.assertEqual(len(captured), 1)
+        method, url, headers, payload, _timeout = captured[0]
+        self.assertEqual(method, "GET")
+        self.assertIn("media-123/insights", url)
+        self.assertIn("metric=" + "%2C".join(DEFAULT_INSIGHTS_METRICS), url)
+        self.assertIsNone(payload)
+        self.assertEqual(headers["Authorization"], "Bearer test-token")
+        self.assertEqual(response["data"][0]["name"], "views")
+
+    def test_get_media_insights_accepts_custom_metrics(self):
+        captured = []
+
+        def transport(method, url, headers, payload, timeout):
+            captured.append(url)
+            return {"data": []}
+
+        client = ThreadsClient(access_token="test-token", transport=transport)
+        client.get_media_insights("media-123", metrics=("views", "likes"))
+
+        self.assertIn("metric=views%2Clikes", captured[0])
+
+    def test_get_media_insights_requires_media_id(self):
+        client = ThreadsClient(access_token="test-token", transport=lambda *a: {"data": []})
+        with self.assertRaises(ValueError):
+            client.get_media_insights("")
 
 
 if __name__ == "__main__":
