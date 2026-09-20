@@ -191,6 +191,13 @@ class DashboardConfig:
     # 책임이다(MEDIA archive를 이 Dashboard가 승인만 하고 발행은 다른 스크립트가
     # 하는 것과 동일한 책임 분리).
     performance_path: Path = ROOT / "data" / "tak_performance.json"
+    # 6-07 - MEDIA generation pool(6-06 설계) 파일 목록, 읽기 전용. production
+    # archive(media_archive_path)와 달리 generation pool은 고정된 경로 하나가
+    # 아니라 "이번에 재생성한 KNOWLEDGE 1건"마다 별도 파일로 생긴다
+    # (docs/6-07_second_knowledge_regeneration.md 참고) - 기본값은 빈 튜플이라
+    # 이 인자를 넘기지 않는 기존 호출부(테스트 포함)는 /media/generations가
+    # "설정된 generation pool 없음"으로 안전하게 동작한다.
+    generation_archive_paths: tuple[Path, ...] = ()
 
 
 # Threads 500자 제한은 새로 만드는 규칙이 아니다 - ThreadsClient.publish_text
@@ -979,6 +986,119 @@ def render_media_list_html(
 {"".join(groups_html)}
 """
     return body
+
+
+# --- MEDIA Generation Pool 조회 (6-07, 읽기 전용) -----------------------------
+#
+# 6-06이 만든 generation pool(같은 content_id의 여러 generation을 동시에 보존하는
+# 별도 archive 파일)을 사람이 눈으로 확인할 수 있게 하는 최소한의 읽기 전용
+# 화면이다. production archive(`/media`)와는 완전히 분리된 화면이며:
+#   - 승인/보류/수정 폼이 없다 (POST 라우트를 아예 추가하지 않았다)
+#   - promotion을 실행하는 버튼/링크가 없다 (scripts/promote_media_generation.py는
+#     여전히 CLI로만 실행한다)
+#   - production archive를 전혀 읽거나 쓰지 않는다
+# 즉 이 화면에서 사람이 할 수 있는 것은 "본다"뿐이다 - 승인/승격은 기존 CLI
+# (Dashboard의 /media 승인 폼, scripts/promote_media_generation.py)로 별도로
+# 수행해야 한다.
+
+
+def load_generation_pool_records(paths: tuple[Path, ...]) -> list[MediaArchiveRecord]:
+    """설정된 generation pool 파일들(config.generation_archive_paths)을 전부 읽어
+    하나의 목록으로 합친다. 파일이 없거나 목록이 비어 있으면 빈 목록을 반환한다
+    (load_archive() 자체가 이미 "파일 없으면 빈 목록"이므로 이 함수는 그 위에
+    여러 경로를 합치는 역할만 한다)."""
+    records: list[MediaArchiveRecord] = []
+    for path in paths:
+        records.extend(load_archive(path))
+    return records
+
+
+def group_generation_records_by_content_id(
+    records: list[MediaArchiveRecord],
+) -> list[tuple[str, list[MediaArchiveRecord]]]:
+    """같은 content_id의 여러 generation을 나란히 비교할 수 있도록 content_id로
+    묶는다(created_at 오름차순 - 오래된 generation부터 최신 순으로 보여준다)."""
+    ordered = sorted(records, key=lambda record: record.created_at)
+    groups: dict[str, list[MediaArchiveRecord]] = {}
+    order: list[str] = []
+    for record in ordered:
+        if record.content_id not in groups:
+            groups[record.content_id] = []
+            order.append(record.content_id)
+        groups[record.content_id].append(record)
+    return [(content_id, groups[content_id]) for content_id in order]
+
+
+def _generation_pool_card_html(record: MediaArchiveRecord) -> str:
+    platform_label = _MEDIA_PLATFORM_LABELS.get(record.platform, record.platform.upper())
+    generation_label = _MEDIA_GENERATION_STATUS_LABELS.get(record.generation_status, record.generation_status.upper())
+    review_label = _MEDIA_REVIEW_STATUS_LABELS.get(record.review_status, record.review_status)
+    title = record.rewritten_title or record.original_title
+    body_text = record.rewritten_body or record.original_body or ""
+    preview = body_text[:_MEDIA_BODY_PREVIEW_LENGTH]
+    if len(body_text) > _MEDIA_BODY_PREVIEW_LENGTH:
+        preview += "…"
+
+    return f"""
+<div class="card">
+  <div class="card-top">
+    <span class="status">{escape(platform_label)}</span>
+    <span class="status">{escape(generation_label)}</span>
+    <span class="status">{escape(review_label)}</span>
+  </div>
+  <div class="sub">generation_id: {escape(record.generation_id or "(legacy, 없음)")}</div>
+  <div class="sub">created_at: {escape(record.created_at)}</div>
+  <div class="title">{escape(title)}</div>
+  <p class="body-preview">{escape(preview)}</p>
+</div>
+"""
+
+
+def render_generation_pool_html(
+    records: list[MediaArchiveRecord],
+    knowledge_id_filter: str | None = None,
+) -> str:
+    """GET /media/generations 또는 /media/generations/<knowledge_id> 본문.
+
+    이 화면은 읽기 전용이다 - 승인/보류/수정/promotion 액션이 전혀 없다.
+    """
+    if knowledge_id_filter:
+        records = [record for record in records if record.knowledge_id == knowledge_id_filter]
+
+    heading = "TAK MEDIA Generation Pool"
+    if knowledge_id_filter:
+        heading += f" — {knowledge_id_filter}"
+
+    if not records:
+        return f"""
+<a class="back" href="/media">&larr; TAK MEDIA로</a>
+<h1>{escape(heading)}</h1>
+<div class="sub">이 화면은 읽기 전용입니다. 승인/승격은 이 화면에서 할 수 없습니다.</div>
+<div class="sub">표시할 generation이 없습니다(설정된 generation pool 파일이 없거나 비어 있음).</div>
+"""
+
+    content_groups = group_generation_records_by_content_id(records)
+    groups_html = []
+    for content_id, group_records in content_groups:
+        knowledge_id = group_records[0].knowledge_id
+        cards = "".join(_generation_pool_card_html(record) for record in group_records)
+        groups_html.append(
+            f"""
+<div class="group-header">content_id: {escape(content_id)}
+  <span class="sub">(KNOWLEDGE: {escape(knowledge_id)}, generation {len(group_records)}건)</span>
+</div>
+{cards}
+"""
+        )
+
+    return f"""
+<a class="back" href="/media">&larr; TAK MEDIA로</a>
+<h1>{escape(heading)}</h1>
+<div class="sub">이 화면은 읽기 전용입니다. 승인/승격은 이 화면에서 할 수 없습니다 - Dashboard의
+기존 /media 승인 화면이나 scripts/promote_media_generation.py를 사용하세요.</div>
+<div class="sub">총 generation {len(records)}건 · content_id {len(content_groups)}개</div>
+{"".join(groups_html)}
+"""
 
 
 _MEDIA_NOTICE_MESSAGES: dict[str, str] = {
@@ -1808,6 +1928,22 @@ def make_handler_class(
                 self._send_html(_page("TAK MEDIA", body))
                 return
 
+            # 6-07: generation pool 조회(읽기 전용) - "/media/{content_id}" 상세
+            # 라우트보다 먼저 검사해야 "/media/generations"가 content_id로
+            # 잘못 해석되지 않는다.
+            if path == "/media/generations":
+                records = load_generation_pool_records(config.generation_archive_paths)
+                body = render_generation_pool_html(records)
+                self._send_html(_page("TAK MEDIA Generation Pool", body))
+                return
+
+            if path.startswith("/media/generations/"):
+                knowledge_id = unquote(path[len("/media/generations/") :])
+                records = load_generation_pool_records(config.generation_archive_paths)
+                body = render_generation_pool_html(records, knowledge_id_filter=knowledge_id)
+                self._send_html(_page("TAK MEDIA Generation Pool", body))
+                return
+
             if path.startswith("/media/"):
                 content_id = unquote(path[len("/media/") :])
                 record = find_media_archive_record(config.media_archive_path, content_id)
@@ -2124,6 +2260,15 @@ def main(argv: list[str] | None = None) -> int:
         "--performance", type=Path, default=ROOT / "data" / "tak_performance.json",
         help="성과 스냅샷 저장소 경로, 읽기 전용(/performance 화면용) (기본값: data/tak_performance.json, 6-01)",
     )
+    parser.add_argument(
+        "--generation-archive", type=Path, action="append", default=[],
+        help=(
+            "MEDIA generation pool 경로, 읽기 전용(/media/generations 화면용, 6-07). "
+            "여러 번 줄 수 있다(예: --generation-archive a.json --generation-archive b.json). "
+            "생략하면 /media/generations는 빈 목록을 보여준다 - production archive(--media-archive)와는 "
+            "별개이며, 이 인자로 준 파일은 승인/promotion 액션 없이 조회만 된다."
+        ),
+    )
     args = parser.parse_args(argv)
 
     if not args.daily_pack.exists():
@@ -2145,6 +2290,7 @@ def main(argv: list[str] | None = None) -> int:
         shorts_scripts_path=args.shorts_scripts,
         blog_history_path=args.blog_history,
         performance_path=args.performance,
+        generation_archive_paths=tuple(args.generation_archive),
     )
 
     # scripts/run_media_batch.py, scripts/run_daily.py, scripts/tak_auto.py와 동일한
