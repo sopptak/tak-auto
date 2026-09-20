@@ -323,28 +323,49 @@ any edited_title set: False
 ## 17. Commit
 
 ```
-$ git add scripts/run_scout_dashboard.py tests/test_generation_review_and_promotion.py tests/test_batch_promotion.py
-$ git diff --cached --stat   # 위 16장과 동일한 3개 파일만 표시됨을 확인
-$ git commit -m "feat: add generation pool content editing"
+$ git add scripts/run_scout_dashboard.py tests/test_generation_review_and_promotion.py \
+    tests/test_batch_promotion.py docs/6-10_generation_edit_and_final_review.md
+$ git diff --cached --stat
+ docs/6-10_generation_edit_and_final_review.md | 382 +++++++++++++++++++++++
+ scripts/run_scout_dashboard.py                | 164 ++++++++++
+ tests/test_batch_promotion.py                 | 161 ++++++++++
+ tests/test_generation_review_and_promotion.py | 424 +++++++++++++++++++++++++-
+ 4 files changed, 1130 insertions(+), 1 deletion(-)
+
+$ git commit -m "feat: add generation pool content editing" (+본문)
+[main 6d8bdbb] feat: add generation pool content editing
+ 4 files changed, 1130 insertions(+), 1 deletion(-)
+ create mode 100644 docs/6-10_generation_edit_and_final_review.md
 ```
 
-커밋 해시는 18장에 기록한다.
+**커밋 해시: `6d8bdbb`**
 
 ## 18. Push
 
 ```
 $ git push
+To https://github.com/sopptak/tak-auto
+   370e2ce..6d8bdbb  main -> main
+
 $ git fetch origin
-$ git log origin/main..HEAD --oneline   # (비어 있어야 함)
+$ git log origin/main..HEAD --oneline
+(출력 없음 - origin/main과 완전히 동기화됨)
 ```
 
-결과는 19장에 기록한다.
+**Push 완료. origin/main과 동기화 확인됨.**
 
 ## 19. 최종 git status
 
-커밋 직후 `git status --short`가 작업 시작 시점(2장)과 정확히 같은 기존
-미커밋/untracked 목록만 남고, 이번에 수정한 3개 파일은 더 이상 나타나지
-않는지 확인한다(아래 실행 로그 참고).
+커밋 직후 `git status --short`를 실행한 결과, 2장의 시작 시점 목록과
+정확히 같은 기존 미커밋(`M .gitignore`, `M content_engine/*`,
+`M data/tak_brain_knowledge.json`, `M tests/test_content_engine.py`,
+`M tests/test_media_batch.py`)과 untracked 문서/스크립트만 남았고, 이번에
+커밋한 4개 파일(`scripts/run_scout_dashboard.py`,
+`tests/test_generation_review_and_promotion.py`,
+`tests/test_batch_promotion.py`,
+`docs/6-10_generation_edit_and_final_review.md`)은 더 이상 목록에
+나타나지 않는다 - 이번 작업에서 만든 파일만 정확히 commit됐고, 기존
+미커밋 변경은 작업 시작 때와 동일하게 그대로 보존됐다.
 
 ## 20. 보안 검증
 
