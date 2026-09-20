@@ -99,7 +99,13 @@ from tak_scout.interview_session import (
 from tak_scout.title_translation import TitleTranslation, translations_by_scout_id, upsert_translation
 from tak_brain import KnowledgeRecord, load_knowledge_records
 from content_engine import LLMConfigurationError
-from content_engine.media_archive import MediaArchiveRecord, load_archive, upsert_archive
+from content_engine.media_archive import (
+    MediaArchiveRecord,
+    find_generation_record,
+    load_archive,
+    upsert_archive,
+    upsert_generation_archive,
+)
 from content_engine.performance import (
     ContentPerformanceSummary,
     load_snapshots as load_performance_snapshots,
@@ -191,12 +197,15 @@ class DashboardConfig:
     # 책임이다(MEDIA archive를 이 Dashboard가 승인만 하고 발행은 다른 스크립트가
     # 하는 것과 동일한 책임 분리).
     performance_path: Path = ROOT / "data" / "tak_performance.json"
-    # 6-07 - MEDIA generation pool(6-06 설계) 파일 목록, 읽기 전용. production
-    # archive(media_archive_path)와 달리 generation pool은 고정된 경로 하나가
-    # 아니라 "이번에 재생성한 KNOWLEDGE 1건"마다 별도 파일로 생긴다
+    # 6-07 - MEDIA generation pool(6-06 설계) 파일 목록. 6-07에서는 읽기 전용
+    # 조회만 가능했고, 6-08에서 승인/보류(review_status 변경) 액션이 추가됐다.
+    # production archive(media_archive_path)와 달리 generation pool은 고정된
+    # 경로 하나가 아니라 "이번에 재생성한 KNOWLEDGE 1건"마다 별도 파일로 생긴다
     # (docs/6-07_second_knowledge_regeneration.md 참고) - 기본값은 빈 튜플이라
     # 이 인자를 넘기지 않는 기존 호출부(테스트 포함)는 /media/generations가
-    # "설정된 generation pool 없음"으로 안전하게 동작한다.
+    # "설정된 generation pool 없음"으로 안전하게 동작한다. 이 화면의 승인/보류
+    # 액션은 generation pool 파일만 갱신하고 production archive는 절대 건드리지
+    # 않는다(docs/6-08_generation_review_and_promotion.md 참고).
     generation_archive_paths: tuple[Path, ...] = ()
 
 
@@ -988,18 +997,63 @@ def render_media_list_html(
     return body
 
 
-# --- MEDIA Generation Pool 조회 (6-07, 읽기 전용) -----------------------------
+# --- MEDIA Generation Pool 검수 (6-07 읽기 전용 조회 -> 6-08 승인 기능 추가) ---
 #
 # 6-06이 만든 generation pool(같은 content_id의 여러 generation을 동시에 보존하는
-# 별도 archive 파일)을 사람이 눈으로 확인할 수 있게 하는 최소한의 읽기 전용
-# 화면이다. production archive(`/media`)와는 완전히 분리된 화면이며:
-#   - 승인/보류/수정 폼이 없다 (POST 라우트를 아예 추가하지 않았다)
-#   - promotion을 실행하는 버튼/링크가 없다 (scripts/promote_media_generation.py는
-#     여전히 CLI로만 실행한다)
-#   - production archive를 전혀 읽거나 쓰지 않는다
-# 즉 이 화면에서 사람이 할 수 있는 것은 "본다"뿐이다 - 승인/승격은 기존 CLI
-# (Dashboard의 /media 승인 폼, scripts/promote_media_generation.py)로 별도로
-# 수행해야 한다.
+# 별도 archive 파일)을 사람이 실제로 검수(승인/보류)할 수 있게 하는 화면이다.
+# production archive(`/media`)와는 여전히 완전히 분리돼 있다:
+#   - 이 화면의 승인/보류 액션은 generation pool 파일(record가 들어있는 그
+#     파일)만 upsert_generation_archive()로 갱신한다 - production archive
+#     경로를 아예 인자로 받지 않는 함수만 쓰므로 구조적으로 production archive를
+#     건드릴 수 없다.
+#   - promotion을 실행하는 버튼/링크는 여전히 없다
+#     (scripts/promote_media_generation.py는 CLI 전용으로 남긴다 - 10장/6-08
+#     보고서 참고. "승인"과 "production 반영"을 같은 클릭으로 묶지 않는다).
+# 역할 구분(6-08 13장): `/media`는 이미 production archive에 들어온 MEDIA의
+# 최종 검수, `/media/generations`는 production에 들어가기 전 generation
+# 후보 검수. Generation Pool -> (사람 승인) -> Promotion(CLI) -> Production
+# Archive -> 기존 `/media`라는 순서는 그대로 유지한다.
+
+
+_GENERATION_POOL_GLOB = "tak_media_generation_*.json"
+
+
+def discover_generation_pool_paths(data_dir: Path) -> tuple[Path, ...]:
+    """``data_dir``에서 ``tak_media_generation_*.json`` 이름 규칙(6-05/6-06/6-07이
+    이미 만든 관례, 12장)을 따르는 파일을 전부 찾아 정렬해 반환한다(6-08 11장:
+    Dashboard를 실행할 때마다 --generation-archive를 일일이 지정하지 않아도
+    되게 하기 위한 auto-discovery).
+
+    production archive(``data/tak_media_archive.json``)는 이 패턴에 절대
+    맞지 않는다 - 파일명이 ``tak_media_archive``로 시작하고 ``tak_media_generation``으로
+    시작하지 않기 때문에 glob 패턴 자체가 구조적으로 그 파일을 제외한다(이
+    함수는 그 사실에 의존할 뿐, 별도로 production archive 경로를 하드코딩해
+    걸러내지 않는다 - 이름 규칙만 지키면 자동으로 안전하다).
+
+    ``data_dir``가 없으면 빈 튜플을 반환한다(오류를 던지지 않는다 - Dashboard
+    최초 실행 시 아직 어떤 generation도 만들어지지 않았을 수 있다).
+    """
+    if not data_dir.exists():
+        return ()
+    return tuple(sorted(data_dir.glob(_GENERATION_POOL_GLOB)))
+
+
+def resolve_generation_archive_paths(
+    explicit_paths: tuple[Path, ...], data_dir: Path
+) -> tuple[Path, ...]:
+    """CLI가 실제 사용할 generation pool 경로 목록을 결정한다.
+
+    ``--generation-archive``를 하나 이상 명시했다면(``explicit_paths``가
+    비어 있지 않으면) 그 목록을 그대로 쓴다(6-05 회귀 테스트 픽스처처럼 이름
+    규칙을 따르지 않는 legacy 파일도 사람이 명시하면 볼 수 있어야 하므로).
+    아무것도 지정하지 않았다면 ``discover_generation_pool_paths()``로 자동
+    탐색한 결과를 쓴다. ``DashboardConfig``를 직접 생성하는 기존 테스트/호출부는
+    이 함수를 거치지 않으므로(CLI 진입점인 main()에서만 호출) 전혀 영향받지
+    않는다.
+    """
+    if explicit_paths:
+        return explicit_paths
+    return discover_generation_pool_paths(data_dir)
 
 
 def load_generation_pool_records(paths: tuple[Path, ...]) -> list[MediaArchiveRecord]:
@@ -1029,15 +1083,88 @@ def group_generation_records_by_content_id(
     return [(content_id, groups[content_id]) for content_id in order]
 
 
+_LEGACY_GENERATION_LABEL = "legacy"
+
+
+def _generation_url_segment(generation_id: str | None) -> str:
+    """URL 경로에 쓸 generation_id 세그먼트. generation_id가 없는(5-27/6-05
+    시절) legacy 레코드는 "legacy"라는 고정 문자열로 표현한다 - 빈 문자열은
+    URL 경로 세그먼트로 쓸 수 없기 때문이다. 실제 매칭은
+    _generation_id_from_url_segment()가 다시 None으로 되돌려 수행한다."""
+    return generation_id or _LEGACY_GENERATION_LABEL
+
+
+def _generation_id_from_url_segment(segment: str) -> str | None:
+    return None if segment == _LEGACY_GENERATION_LABEL else segment
+
+
+def group_generation_records_by_knowledge_and_generation(
+    records: list[MediaArchiveRecord],
+) -> list[tuple[tuple[str, str | None], list[MediaArchiveRecord]]]:
+    """(knowledge_id, generation_id) 쌍으로 묶는다 - "이 KNOWLEDGE의 이번 생성
+    시도"가 검수·전체 승인의 기준 단위가 되도록 하기 위함이다(6-08 7장 "generation
+    단위 전체 승인"). 서로 다른 generation은 이 키가 다르므로 절대 섞이지 않는다
+    (같은 knowledge_id라도 generation_id가 다르면 별도 그룹)."""
+    ordered = sorted(records, key=lambda record: record.created_at)
+    groups: dict[tuple[str, str | None], list[MediaArchiveRecord]] = {}
+    order: list[tuple[str, str | None]] = []
+    for record in ordered:
+        key = (record.knowledge_id, record.generation_id)
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(record)
+    return [(key, groups[key]) for key in order]
+
+
+_GENERATION_PLATFORM_ORDER = ("blog", "shorts", "threads")
+
+
+def group_records_by_platform(records: list[MediaArchiveRecord]) -> list[tuple[str, list[MediaArchiveRecord]]]:
+    """platform별로 접어서 볼 수 있도록 묶는다(6-08 4장). blog/shorts/threads
+    순서를 우선하고, 그 외 platform 값이 있다면 알파벳 순으로 뒤에 붙인다."""
+    by_platform: dict[str, list[MediaArchiveRecord]] = {}
+    for record in records:
+        by_platform.setdefault(record.platform, []).append(record)
+    ordered_platforms = [p for p in _GENERATION_PLATFORM_ORDER if p in by_platform]
+    ordered_platforms += sorted(p for p in by_platform if p not in _GENERATION_PLATFORM_ORDER)
+    return [(platform, by_platform[platform]) for platform in ordered_platforms]
+
+
+def _can_review_generation_record(record: MediaArchiveRecord) -> bool:
+    """generation pool 레코드가 승인/보류 대상인지 - production `/media`의
+    ``_can_review_media_record()``와 정확히 같은 기준(REJECTED/ERROR는 애초에
+    검증 실패이므로 승인 대상이 아니고, 이미 approved인 것은 다시 누를 필요가
+    없다). 새 상태값을 만들지 않고 기존 review_status enum
+    (unreviewed/approved/dismissed)만 그대로 재사용한다(6-08 14장)."""
+    return record.generation_status == "valid" and record.review_status != "approved"
+
+
 def _generation_pool_card_html(record: MediaArchiveRecord) -> str:
     platform_label = _MEDIA_PLATFORM_LABELS.get(record.platform, record.platform.upper())
     generation_label = _MEDIA_GENERATION_STATUS_LABELS.get(record.generation_status, record.generation_status.upper())
     review_label = _MEDIA_REVIEW_STATUS_LABELS.get(record.review_status, record.review_status)
     title = record.rewritten_title or record.original_title
     body_text = record.rewritten_body or record.original_body or ""
-    preview = body_text[:_MEDIA_BODY_PREVIEW_LENGTH]
-    if len(body_text) > _MEDIA_BODY_PREVIEW_LENGTH:
-        preview += "…"
+    generation_segment = _generation_url_segment(record.generation_id)
+
+    validation_html = ""
+    if record.validation_errors:
+        items = "".join(f"<li>{escape(reason)}</li>" for reason in record.validation_errors)
+        validation_html = f'<div class="sub">validation_errors:</div><ul class="sub">{items}</ul>'
+
+    actions_html = ""
+    if _can_review_generation_record(record):
+        actions_html = f"""
+  <div class="actions">
+    <form method="post" action="/media/generations/record/{escape(record.content_id)}/{escape(generation_segment)}/approve" style="display:inline;">
+      <button class="btn primary" type="submit">승인</button>
+    </form>
+    <form method="post" action="/media/generations/record/{escape(record.content_id)}/{escape(generation_segment)}/dismiss" style="display:inline;">
+      <button class="btn ghost" type="submit">보류</button>
+    </form>
+  </div>
+"""
 
     return f"""
 <div class="card">
@@ -1046,21 +1173,63 @@ def _generation_pool_card_html(record: MediaArchiveRecord) -> str:
     <span class="status">{escape(generation_label)}</span>
     <span class="status">{escape(review_label)}</span>
   </div>
+  <div class="sub">content_id: {escape(record.content_id)}</div>
   <div class="sub">generation_id: {escape(record.generation_id or "(legacy, 없음)")}</div>
   <div class="sub">created_at: {escape(record.created_at)}</div>
+  <div class="sub">source: <a href="{escape(record.source_url)}" target="_blank" rel="noopener">{escape(record.source_url)}</a></div>
   <div class="title">{escape(title)}</div>
-  <p class="body-preview">{escape(preview)}</p>
+  <p class="body-block">{escape(body_text)}</p>
+  {validation_html}
+  {actions_html}
 </div>
+"""
+
+
+def _generation_group_html(knowledge_id: str, generation_id: str | None, group_records: list[MediaArchiveRecord]) -> str:
+    generation_segment = _generation_url_segment(generation_id)
+    reviewable_count = sum(1 for record in group_records if _can_review_generation_record(record))
+
+    approve_all_html = ""
+    if reviewable_count > 0:
+        approve_all_html = f"""
+  <form method="post" action="/media/generations/generation/{escape(generation_segment)}/approve-all" style="margin-top:8px;">
+    <button class="btn primary" type="submit">이 generation 전체 승인 ({reviewable_count}건)</button>
+  </form>
+"""
+
+    platform_sections = []
+    for platform, platform_records in group_records_by_platform(group_records):
+        platform_label = _MEDIA_PLATFORM_LABELS.get(platform, platform.upper())
+        cards = "".join(_generation_pool_card_html(record) for record in platform_records)
+        platform_sections.append(
+            f"""
+<details open>
+  <summary>{escape(platform_label)} ({len(platform_records)}건)</summary>
+  {cards}
+</details>
+"""
+        )
+
+    return f"""
+<div class="group-header">KNOWLEDGE: {escape(knowledge_id)}
+  <span class="sub">generation: {escape(generation_id or "(legacy, generation_id 없음)")} ({len(group_records)}건)</span>
+  {approve_all_html}
+</div>
+{"".join(platform_sections)}
 """
 
 
 def render_generation_pool_html(
     records: list[MediaArchiveRecord],
     knowledge_id_filter: str | None = None,
+    notice: str | None = None,
 ) -> str:
     """GET /media/generations 또는 /media/generations/<knowledge_id> 본문.
 
-    이 화면은 읽기 전용이다 - 승인/보류/수정/promotion 액션이 전혀 없다.
+    Production archive는 이 화면 어디에서도 읽거나 쓰지 않는다 - 승인/보류
+    액션은 이 레코드가 들어있는 generation pool 파일만 갱신한다. promotion
+    버튼/링크는 여기 없다 - scripts/promote_media_generation.py를 CLI로
+    직접 실행해야 한다.
     """
     if knowledge_id_filter:
         records = [record for record in records if record.knowledge_id == knowledge_id_filter]
@@ -1069,36 +1238,116 @@ def render_generation_pool_html(
     if knowledge_id_filter:
         heading += f" — {knowledge_id_filter}"
 
+    notice_html = ""
+    if notice == "approved":
+        notice_html = '<div class="banner">승인되었습니다(generation pool에만 반영 - production archive는 변경되지 않았습니다).</div>'
+    elif notice == "dismissed":
+        notice_html = '<div class="banner">보류되었습니다.</div>'
+    elif notice == "approved-all":
+        notice_html = '<div class="banner">generation 전체를 승인했습니다(generation pool에만 반영 - production archive는 변경되지 않았습니다).</div>'
+
+    disclaimer = (
+        '<div class="sub">승인/보류는 이 generation pool 파일에만 반영됩니다 - production archive'
+        "(data/tak_media_archive.json)는 이 화면에서 절대 바뀌지 않습니다. Production 반영은 "
+        "scripts/promote_media_generation.py를 사람이 CLI로 직접 실행해야 합니다.</div>"
+    )
+
     if not records:
         return f"""
 <a class="back" href="/media">&larr; TAK MEDIA로</a>
 <h1>{escape(heading)}</h1>
-<div class="sub">이 화면은 읽기 전용입니다. 승인/승격은 이 화면에서 할 수 없습니다.</div>
+{notice_html}
+{disclaimer}
 <div class="sub">표시할 generation이 없습니다(설정된 generation pool 파일이 없거나 비어 있음).</div>
 """
 
-    content_groups = group_generation_records_by_content_id(records)
-    groups_html = []
-    for content_id, group_records in content_groups:
-        knowledge_id = group_records[0].knowledge_id
-        cards = "".join(_generation_pool_card_html(record) for record in group_records)
-        groups_html.append(
-            f"""
-<div class="group-header">content_id: {escape(content_id)}
-  <span class="sub">(KNOWLEDGE: {escape(knowledge_id)}, generation {len(group_records)}건)</span>
-</div>
-{cards}
-"""
-        )
+    generation_groups = group_generation_records_by_knowledge_and_generation(records)
+    groups_html = "".join(
+        _generation_group_html(knowledge_id, generation_id, group_records)
+        for (knowledge_id, generation_id), group_records in generation_groups
+    )
 
     return f"""
 <a class="back" href="/media">&larr; TAK MEDIA로</a>
 <h1>{escape(heading)}</h1>
-<div class="sub">이 화면은 읽기 전용입니다. 승인/승격은 이 화면에서 할 수 없습니다 - Dashboard의
-기존 /media 승인 화면이나 scripts/promote_media_generation.py를 사용하세요.</div>
-<div class="sub">총 generation {len(records)}건 · content_id {len(content_groups)}개</div>
-{"".join(groups_html)}
+{notice_html}
+{disclaimer}
+<div class="sub">총 generation record {len(records)}건 · KNOWLEDGE×generation 조합 {len(generation_groups)}개</div>
+{groups_html}
 """
+
+
+def find_generation_pool_record(
+    paths: tuple[Path, ...], content_id: str, generation_id: str | None
+) -> tuple[MediaArchiveRecord | None, Path | None]:
+    """설정된 generation pool 파일들 중, 이 (content_id, generation_id) 쌍과
+    정확히 일치하는 레코드를 찾는다. 찾으면 (레코드, 그 레코드가 들어있던 파일
+    경로)를 반환한다 - 승인/보류 액션이 갱신을 정확히 그 파일에만 쓰기 위함이다.
+    """
+    for path in paths:
+        record = find_generation_record(path, content_id, generation_id)
+        if record is not None:
+            return record, path
+    return None, None
+
+
+def handle_generation_review_submission(
+    paths: tuple[Path, ...], content_id: str, generation_id: str | None, new_review_status: str
+) -> tuple[MediaArchiveRecord | None, str | None]:
+    """POST /media/generations/record/{content_id}/{generation_id}/approve|dismiss 처리.
+
+    review_status만 바꾼다. 이 함수는 production archive 경로를 인자로 받지
+    않으므로 구조적으로 production archive를 건드릴 수 없다 - 오직 이 레코드가
+    들어있던 그 generation pool 파일만 upsert_generation_archive()로 갱신한다.
+    """
+    record, path = find_generation_pool_record(paths, content_id, generation_id)
+    if record is None or path is None:
+        return None, None
+
+    if record.generation_status != "valid":
+        return None, "VALID 상태의 generation만 검토할 수 있습니다."
+    if record.review_status == "approved":
+        return record, None  # 이미 승인됨 - idempotent, 에러 아님(기존 /media 승인과 동일한 관례)
+
+    updated = replace(record, review_status=new_review_status)
+    upsert_generation_archive(path, [updated])
+    return updated, None
+
+
+def handle_generation_approve_all_submission(
+    paths: tuple[Path, ...], generation_id: str | None
+) -> tuple[list[MediaArchiveRecord], str | None]:
+    """POST /media/generations/generation/{generation_id}/approve-all 처리.
+
+    이 generation_id를 가진 모든 레코드 중 ``_can_review_generation_record()``가
+    True인 것(VALID 상태이고 아직 approved가 아닌 것)만 approved로 바꾼다.
+    REJECTED/ERROR 레코드는 "전체 승인"을 눌러도 승인되지 않는다 - 애초에
+    승인이 promotion 가능성과 무관한 무의미한 상태 전이이기 때문이다(REJECTED는
+    scripts/promote_media_generation.py가 어차피 다시 막는다).
+
+    generation_id가 여러 파일에 걸쳐 있어도(이론상으로만 가능 - 실제로는
+    archive_generation_report() 한 번의 실행이 만든 모든 레코드가 항상 같은
+    파일에 저장된다) 전부 처리한다. 이 함수도 production archive 경로를
+    전혀 받지 않는다.
+    """
+    updated_records: list[MediaArchiveRecord] = []
+    found_any = False
+    for path in paths:
+        records = load_archive(path)
+        matching = [record for record in records if record.generation_id == generation_id]
+        if not matching:
+            continue
+        found_any = True
+        to_write = [
+            replace(record, review_status="approved") for record in matching if _can_review_generation_record(record)
+        ]
+        updated_records.extend(to_write)
+        if to_write:
+            upsert_generation_archive(path, to_write)
+
+    if not found_any:
+        return [], "generation_id를 찾을 수 없습니다."
+    return updated_records, None
 
 
 _MEDIA_NOTICE_MESSAGES: dict[str, str] = {
@@ -1928,19 +2177,21 @@ def make_handler_class(
                 self._send_html(_page("TAK MEDIA", body))
                 return
 
-            # 6-07: generation pool 조회(읽기 전용) - "/media/{content_id}" 상세
-            # 라우트보다 먼저 검사해야 "/media/generations"가 content_id로
+            # 6-07: generation pool 조회 (6-08: 승인/보류 액션 추가) - "/media/{content_id}"
+            # 상세 라우트보다 먼저 검사해야 "/media/generations"가 content_id로
             # 잘못 해석되지 않는다.
             if path == "/media/generations":
+                notice = query.get("notice", [None])[0]
                 records = load_generation_pool_records(config.generation_archive_paths)
-                body = render_generation_pool_html(records)
+                body = render_generation_pool_html(records, notice=notice)
                 self._send_html(_page("TAK MEDIA Generation Pool", body))
                 return
 
             if path.startswith("/media/generations/"):
                 knowledge_id = unquote(path[len("/media/generations/") :])
+                notice = query.get("notice", [None])[0]
                 records = load_generation_pool_records(config.generation_archive_paths)
-                body = render_generation_pool_html(records, knowledge_id_filter=knowledge_id)
+                body = render_generation_pool_html(records, knowledge_id_filter=knowledge_id, notice=notice)
                 self._send_html(_page("TAK MEDIA Generation Pool", body))
                 return
 
@@ -2097,6 +2348,97 @@ def make_handler_class(
                     return
 
                 self._redirect(f"/threads/{content_id}")
+                return
+
+            # --- MEDIA Generation Pool 승인/보류 (6-08) -------------------------
+            #
+            # production archive 경로를 인자로 받지 않는 handle_generation_*
+            # 함수만 호출한다 - 구조적으로 production archive를 쓸 수 없다.
+            # "/media/"로 시작하는 일반 승인/보류 라우트보다 반드시 먼저 검사해야
+            # "/media/generations/record/.../approve"가 그 일반 라우트에
+            # content_id="generations/record/.../approve"처럼 잘못 먹히지 않는다.
+
+            if path.startswith("/media/generations/record/") and path.endswith("/approve"):
+                segment = path[len("/media/generations/record/") : -len("/approve")]
+                content_id, _, generation_segment = segment.rpartition("/")
+                content_id = unquote(content_id)
+                generation_id = _generation_id_from_url_segment(unquote(generation_segment))
+                updated, error = handle_generation_review_submission(
+                    config.generation_archive_paths, content_id, generation_id, "approved"
+                )
+                if updated is None and error is None:
+                    self._send_html(
+                        _page(
+                            "Generation 없음",
+                            '<a class="back" href="/media/generations">&larr; 목록으로</a>'
+                            f'<div class="error">generation을 찾을 수 없습니다: {escape(content_id)}</div>',
+                        ),
+                        status=404,
+                    )
+                    return
+                if error:
+                    self._send_html(
+                        _page(
+                            "승인 실패",
+                            '<a class="back" href="/media/generations">&larr; 목록으로</a>'
+                            f'<div class="error">{escape(error)}</div>',
+                        ),
+                        status=400,
+                    )
+                    return
+                self._redirect("/media/generations?notice=approved")
+                return
+
+            if path.startswith("/media/generations/record/") and path.endswith("/dismiss"):
+                segment = path[len("/media/generations/record/") : -len("/dismiss")]
+                content_id, _, generation_segment = segment.rpartition("/")
+                content_id = unquote(content_id)
+                generation_id = _generation_id_from_url_segment(unquote(generation_segment))
+                updated, error = handle_generation_review_submission(
+                    config.generation_archive_paths, content_id, generation_id, "dismissed"
+                )
+                if updated is None and error is None:
+                    self._send_html(
+                        _page(
+                            "Generation 없음",
+                            '<a class="back" href="/media/generations">&larr; 목록으로</a>'
+                            f'<div class="error">generation을 찾을 수 없습니다: {escape(content_id)}</div>',
+                        ),
+                        status=404,
+                    )
+                    return
+                if error:
+                    self._send_html(
+                        _page(
+                            "보류 실패",
+                            '<a class="back" href="/media/generations">&larr; 목록으로</a>'
+                            f'<div class="error">{escape(error)}</div>',
+                        ),
+                        status=400,
+                    )
+                    return
+                self._redirect("/media/generations?notice=dismissed")
+                return
+
+            if path.startswith("/media/generations/generation/") and path.endswith("/approve-all"):
+                generation_segment = unquote(
+                    path[len("/media/generations/generation/") : -len("/approve-all")]
+                )
+                generation_id = _generation_id_from_url_segment(generation_segment)
+                _updated_records, error = handle_generation_approve_all_submission(
+                    config.generation_archive_paths, generation_id
+                )
+                if error:
+                    self._send_html(
+                        _page(
+                            "전체 승인 실패",
+                            '<a class="back" href="/media/generations">&larr; 목록으로</a>'
+                            f'<div class="error">{escape(error)}</div>',
+                        ),
+                        status=400,
+                    )
+                    return
+                self._redirect("/media/generations?notice=approved-all")
                 return
 
             # --- TAK MEDIA 승인 (5-28) ----------------------------------------
@@ -2263,10 +2605,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--generation-archive", type=Path, action="append", default=[],
         help=(
-            "MEDIA generation pool 경로, 읽기 전용(/media/generations 화면용, 6-07). "
+            "MEDIA generation pool 경로(/media/generations 검수 화면용, 6-07/6-08). "
             "여러 번 줄 수 있다(예: --generation-archive a.json --generation-archive b.json). "
-            "생략하면 /media/generations는 빈 목록을 보여준다 - production archive(--media-archive)와는 "
-            "별개이며, 이 인자로 준 파일은 승인/promotion 액션 없이 조회만 된다."
+            "생략하면 data/tak_media_generation_*.json 이름 규칙에 맞는 파일을 자동으로 찾는다 "
+            "(6-08 auto-discovery). 하나 이상 명시하면 자동 탐색 대신 명시한 파일만 정확히 쓴다 - "
+            "이름 규칙을 따르지 않는 예전 파일(예: 6-05의 "
+            "tak_media_archive_6-05_..._regeneration.json)을 보고 싶을 때 이 옵션으로 직접 지정한다. "
+            "production archive(--media-archive)와는 완전히 별개다."
         ),
     )
     args = parser.parse_args(argv)
@@ -2277,6 +2622,17 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
+
+    generation_archive_paths = resolve_generation_archive_paths(
+        tuple(args.generation_archive), args.media_archive.parent
+    )
+    if args.generation_archive:
+        print(f"TAK MEDIA Generation Pool: 명시된 파일 {len(generation_archive_paths)}개 사용")
+    elif generation_archive_paths:
+        names = ", ".join(path.name for path in generation_archive_paths)
+        print(f"TAK MEDIA Generation Pool: 자동 탐색됨 ({len(generation_archive_paths)}개) - {names}")
+    else:
+        print("TAK MEDIA Generation Pool: 발견된 파일 없음 (data/tak_media_generation_*.json)")
 
     config = DashboardConfig(
         daily_pack_path=args.daily_pack,
@@ -2290,7 +2646,7 @@ def main(argv: list[str] | None = None) -> int:
         shorts_scripts_path=args.shorts_scripts,
         blog_history_path=args.blog_history,
         performance_path=args.performance,
-        generation_archive_paths=tuple(args.generation_archive),
+        generation_archive_paths=generation_archive_paths,
     )
 
     # scripts/run_media_batch.py, scripts/run_daily.py, scripts/tak_auto.py와 동일한

@@ -273,11 +273,28 @@ class GenerationPoolDashboardRouteTests(unittest.TestCase):
         self.assertIn("content-shared-slot", body)
         self.assertIn("content-other-slot", body)
 
-    def test_generations_page_has_no_action_forms(self):
-        """이 화면은 읽기 전용이어야 한다 - 승인/보류/promotion 폼이 전혀 없어야 한다."""
+    def test_generations_page_forms_only_target_generation_pool_routes(self):
+        """6-08: 이 화면은 이제 승인/보류 폼을 갖지만(6-08에서 추가), 그 폼들은
+        전부 /media/generations/ 하위 경로만 가리켜야 한다 - production archive를
+        갱신하는 기존 /media/{content_id}/approve 같은 경로를 가리키는 폼은
+        하나도 없어야 한다(6-08 절대 원칙: Generation Pool 승인 != Production
+        Promotion). promotion을 실행하는 폼/링크도 없어야 한다(promotion은
+        여전히 CLI 전용)."""
         _, body = self._get("/media/generations")
 
-        self.assertNotIn("<form", body)
+        self.assertIn("<form", body)
+        for line in body.splitlines():
+            if '<form method="post" action="' not in line:
+                continue
+            action = line.split('action="', 1)[1].split('"', 1)[0]
+            self.assertTrue(
+                action.startswith("/media/generations/"),
+                f"generation pool 화면의 폼이 production 경로를 가리킵니다: {action}",
+            )
+        # 설명 문구(예: "scripts/promote_media_generation.py를 CLI로 실행하세요")는
+        # 허용하되, promotion을 실행하는 폼/링크는 없어야 한다.
+        self.assertNotIn('action="/promote', body)
+        self.assertNotIn("/approve-all-and-promote", body)
 
     def test_generations_filtered_by_knowledge_id(self):
         status, body = self._get("/media/generations/knowledge-A")
