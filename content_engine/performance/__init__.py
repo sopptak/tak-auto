@@ -19,6 +19,12 @@ from .store import (
     load_snapshots,
     snapshots_for_content,
 )
+from .summary import (
+    ContentPerformanceSummary,
+    pick_headline_metric,
+    render_text_trend,
+    summarize_content_history,
+)
 
 __all__ = [
     "PerformanceRecord",
@@ -28,4 +34,8 @@ __all__ = [
     "latest_snapshot_per_content",
     "load_snapshots",
     "snapshots_for_content",
+    "ContentPerformanceSummary",
+    "pick_headline_metric",
+    "render_text_trend",
+    "summarize_content_history",
 ]

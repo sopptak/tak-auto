@@ -14,6 +14,11 @@ Threads 게시 로직은 전혀 import하거나 수정하지 않는다.
         --tags "인간관계,인생,명언,채근담,티몽의지혜" \\
         --privacy private
 
+--content-id/--knowledge-id(6-02, 선택)를 함께 주면 이 업로드가 나중에 성과
+데이터(content_engine/performance/)와 원본 KNOWLEDGE로 연결된다. 생략하면 기존과
+완전히 동일하게 동작한다(legacy 업로드 이력은 이 값 없이 저장되며, 이후에도
+억지로 채워지지 않는다).
+
 최초 1회 OAuth 인증은 scripts/youtube_oauth_setup.py로 진행한다 (docs 참고).
 """
 
@@ -76,6 +81,18 @@ def main(argv: list[str] | None = None) -> int:
         help="업로드 이력 JSON 경로 (기본값: data/youtube_publish_log.json)",
     )
     parser.add_argument(
+        "--content-id",
+        type=str,
+        default="",
+        help="MEDIA archive/성과 데이터와 연결할 content_id (6-02, 선택 - --knowledge-id와 함께 지정해야 함)",
+    )
+    parser.add_argument(
+        "--knowledge-id",
+        type=str,
+        default="",
+        help="원본 KNOWLEDGE ID (6-02, 선택 - --content-id와 함께 지정해야 함)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="실제 YouTube API를 호출하지 않고 업로드 예정 내용만 확인합니다.",
@@ -84,6 +101,21 @@ def main(argv: list[str] | None = None) -> int:
 
     tags = parse_tags(args.tags)
     video_path = args.video
+    content_id = args.content_id.strip()
+    knowledge_id = args.knowledge_id.strip()
+
+    # 6-02: 둘 중 하나만 주면 이후 성과 데이터가 절반만 연결된 채로 저장되어(예:
+    # content_id는 있는데 knowledge_id가 없어 어느 KNOWLEDGE에서 나왔는지 못 찾음)
+    # 조용히 잘못된 데이터가 쌓인다 - 이걸 막기 위해 "둘 다 주거나 둘 다 생략"만
+    # 허용한다(PerformanceRecord가 둘 다 필수로 요구하는 것과 동일한 규칙).
+    # 둘 다 생략하면(기존 사용자의 기존 명령) 이전과 완전히 동일하게 동작한다 -
+    # backward compatibility가 깨지지 않는다.
+    if bool(content_id) != bool(knowledge_id):
+        print(
+            "오류: --content-id와 --knowledge-id는 둘 다 지정하거나 둘 다 생략해야 합니다.",
+            file=sys.stderr,
+        )
+        return 1
 
     if not video_path.exists():
         print(f"오류: 영상 파일을 찾을 수 없습니다: {video_path}", file=sys.stderr)
@@ -108,6 +140,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"태그: {tags}")
         print(f"공개 상태: {args.privacy}")
         print(f"카테고리 ID: {args.category_id}")
+        print(f"content_id: {content_id or '(없음 - 성과 데이터와 연결되지 않음)'}")
+        print(f"knowledge_id: {knowledge_id or '(없음 - 성과 데이터와 연결되지 않음)'}")
         print("-" * 50)
         print("네트워크 호출 없음. 실제 업로드에는 --dry-run 없이 "
               "YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET / YOUTUBE_REFRESH_TOKEN 환경변수가 필요합니다.")
@@ -156,6 +190,8 @@ def main(argv: list[str] | None = None) -> int:
                 privacy_status=args.privacy,
                 video_path=str(video_path),
                 tags=tuple(tags),
+                content_id=content_id,
+                knowledge_id=knowledge_id,
             )
         )
     except (OSError, ValueError) as history_err:

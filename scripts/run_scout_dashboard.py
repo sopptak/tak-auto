@@ -100,7 +100,13 @@ from tak_scout.title_translation import TitleTranslation, translations_by_scout_
 from tak_brain import KnowledgeRecord, load_knowledge_records
 from content_engine import LLMConfigurationError
 from content_engine.media_archive import MediaArchiveRecord, load_archive, upsert_archive
-from content_engine.performance import PerformanceRecord, latest_snapshot_per_content
+from content_engine.performance import (
+    ContentPerformanceSummary,
+    load_snapshots as load_performance_snapshots,
+    pick_headline_metric,
+    render_text_trend,
+    summarize_content_history,
+)
 from content_engine.publish_history import PublishHistory
 from content_engine.shorts_adapter import (
     ShortsAdapterError,
@@ -1085,52 +1091,86 @@ def render_media_detail_html(
     return body
 
 
-# --- Performance Dashboard (6-01, 읽기 전용 MVP) -------------------------------
+# --- Performance Dashboard (6-01 MVP + 6-02 시계열 추이) -----------------------
 #
 # /media가 승인/수정 액션을 갖는 것과 달리 이 화면은 순수 읽기 전용이다 - 어떤
 # POST 라우트도 없고, 이 함수는 어떤 파일도 쓰지 않는다. 실제 성과 수집(API
 # 호출/수동 입력 저장)은 scripts/collect_performance.py가 별도로 담당한다.
-# content_engine.performance.latest_snapshot_per_content()로 content_id별
-# "가장 최근 스냅샷"만 보여준다 - 시계열 전체 그래프/추이는 이번 MVP 범위 밖이다
-# (14장 지시: "완성도가 낮으면 다음 단계로 넘긴다").
+#
+# 6-02: content_id별 "가장 최근 스냅샷"만 보여주던 6-01 MVP에, 이미 저장소에
+# 쌓여 있던 시계열 데이터를 활용한 추이를 추가했다. 대형 차트 라이브러리나 새
+# JS 프레임워크는 추가하지 않는다 - content_engine.performance.summary가 만든
+# 순수 텍스트(sparkline 형태 문자열 + 변화량 dict)를 그대로 HTML에 얹을 뿐이다.
 
 
-def _performance_row_html(record: PerformanceRecord, archive_by_content_id: dict[str, MediaArchiveRecord]) -> str:
-    archived = archive_by_content_id.get(record.content_id)
-    title = record.title or (archived.final_title if archived is not None else "") or "(제목 없음)"
-    metrics_text = (
-        " · ".join(f"{name} {value:,}" for name, value in sorted(record.metrics.items())) or "(수집된 지표 없음)"
-    )
+def _metrics_text(metrics: dict[str, int]) -> str:
+    return " · ".join(f"{name} {value:,}" for name, value in sorted(metrics.items())) or "(수집된 지표 없음)"
+
+
+def _delta_text(delta: dict[str, int]) -> str:
+    if not delta:
+        return "(비교할 이전 값 없음)"
+    return " · ".join(f"{name} {value:+,}" for name, value in delta.items())
+
+
+def _performance_row_html(
+    summary: ContentPerformanceSummary, archive_by_content_id: dict[str, MediaArchiveRecord]
+) -> str:
+    latest = summary.latest
+    archived = archive_by_content_id.get(summary.content_id)
+    title = latest.title or (archived.final_title if archived is not None else "") or "(제목 없음)"
+
+    baseline_warning = ""
+    if summary.baseline_is_migration:
+        baseline_warning = (
+            '<div class="sub">⚠️ 최초 값이 실제 성과가 아니라 기존 발행 이력에서 옮긴 baseline'
+            "(source=migration_baseline)입니다 - 아래 변화량을 실제 성과 비교의 기준점으로"
+            " 오해하지 마세요.</div>"
+        )
+
+    trend_html = ""
+    if summary.snapshot_count >= 2:
+        headline_metric = pick_headline_metric(summary.history)
+        if headline_metric:
+            trend_text = render_text_trend(list(summary.history), headline_metric)
+            if trend_text:
+                trend_html = f'<div class="meta">{escape(headline_metric)} 추이: {escape(trend_text)}</div>'
+
     return f"""
 <div class="card">
   <div class="card-top">
-    <span class="status">{escape(record.platform)}</span>
-    <span class="sub">source: {escape(record.source)}</span>
+    <span class="status">{escape(summary.platform)}</span>
+    <span class="sub">source: {escape(latest.source)}</span>
+    <span class="sub">snapshot {summary.snapshot_count}건</span>
   </div>
   <div class="title">{escape(title)}</div>
-  <div class="meta">content_id: {escape(record.content_id)} · knowledge_id: {escape(record.knowledge_id)}</div>
-  <div class="meta">발행: {escape(_format_published_at(record.published_at))} · 최근 수집: {escape(_format_published_at(record.metric_collected_at))}</div>
-  <div class="body-preview">{escape(metrics_text)}</div>
+  <div class="meta">content_id: {escape(summary.content_id)} · knowledge_id: {escape(latest.knowledge_id)}</div>
+  <div class="meta">발행: {escape(_format_published_at(latest.published_at))} · 최근 수집: {escape(_format_published_at(latest.metric_collected_at))}</div>
+  <div class="body-preview">최근 metrics: {escape(_metrics_text(latest.metrics))}</div>
+  {f'<div class="body-preview">이전 metrics: {escape(_metrics_text(summary.previous.metrics))}</div>' if summary.previous is not None else ''}
+  {trend_html}
+  <div class="meta">최초 대비 변화량: {escape(_delta_text(summary.metric_delta()))}</div>
+  {baseline_warning}
 </div>
 """
 
 
 def render_performance_list_html(
-    latest_by_content: dict[str, PerformanceRecord],
+    summaries: list[ContentPerformanceSummary],
     archive_by_content_id: dict[str, MediaArchiveRecord],
 ) -> str:
-    """GET /performance - content_id별 가장 최근 성과 스냅샷을 읽기 전용으로 보여준다."""
-    if not latest_by_content:
+    """GET /performance - content_id별 성과 시계열 요약을 읽기 전용으로 보여준다."""
+    if not summaries:
         return """
 <h1>Performance</h1>
 <div class="sub">아직 수집된 성과 데이터가 없습니다. scripts/collect_performance.py로 수집해야 여기에 표시됩니다.</div>
 """
 
-    records = sorted(latest_by_content.values(), key=lambda r: r.metric_collected_at, reverse=True)
-    rows = "".join(_performance_row_html(record, archive_by_content_id) for record in records)
+    ordered = sorted(summaries, key=lambda s: s.latest.metric_collected_at, reverse=True)
+    rows = "".join(_performance_row_html(summary, archive_by_content_id) for summary in ordered)
     return f"""
 <h1>Performance</h1>
-<div class="sub">총 {len(records)}건 (content_id별 가장 최근 스냅샷만 표시)</div>
+<div class="sub">총 {len(ordered)}건 (content_id별 시계열 요약 - 최근 수집 순)</div>
 {rows}
 """
 
@@ -1776,14 +1816,23 @@ def make_handler_class(
                 self._send_html(_page("TAK MEDIA 상세", body))
                 return
 
-            # --- Performance Dashboard (6-01, 읽기 전용) ----------------------
+            # --- Performance Dashboard (6-01 MVP + 6-02 시계열 추이, 읽기 전용) ---
 
             if path == "/performance":
-                latest_by_content = latest_snapshot_per_content(config.performance_path)
+                snapshots_by_content: dict[str, list] = {}
+                for snapshot in load_performance_snapshots(config.performance_path):
+                    snapshots_by_content.setdefault(snapshot.content_id, []).append(snapshot)
+                summaries = [
+                    summary
+                    for summary in (
+                        summarize_content_history(records) for records in snapshots_by_content.values()
+                    )
+                    if summary is not None
+                ]
                 archive_by_content_id = {
                     record.content_id: record for record in load_archive(config.media_archive_path)
                 }
-                body = render_performance_list_html(latest_by_content, archive_by_content_id)
+                body = render_performance_list_html(summaries, archive_by_content_id)
                 self._send_html(_page("Performance", body))
                 return
 

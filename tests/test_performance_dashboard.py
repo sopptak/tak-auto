@@ -119,18 +119,44 @@ class PerformanceDashboardHttpTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("아직 수집된 성과 데이터가 없습니다", body)
 
-    def test_performance_list_shows_latest_snapshot(self):
+    def test_performance_list_shows_latest_and_previous_snapshot(self):
         upsert_archive(self.archive_path, [_archive_record()])
         append_snapshot(self.performance_path, _perf_record(metric_collected_at="2026-09-15T00:00:00+00:00", metrics={"views": 100}))
         append_snapshot(self.performance_path, _perf_record(metric_collected_at="2026-09-17T00:00:00+00:00", metrics={"views": 850}))
 
         status, body = self._get("/performance")
         self.assertEqual(status, 200)
-        # 가장 최근 스냅샷(850)만 보여야 한다 - 오래된 스냅샷(100)은 화면에 없다.
-        self.assertIn("views 850", body)
-        self.assertNotIn("views 100", body)
+        # 6-02: 최근 값과 이전 값을 모두 보여준다(추이 확인용) - 6-01의 "최신만 표시"에서
+        # "최신 + 이전 + 변화량 + 추이"로 확장되었다.
+        self.assertIn("최근 metrics: views 850", body)
+        self.assertIn("이전 metrics: views 100", body)
+        self.assertIn("views 추이: 100 → 850", body)
+        self.assertIn("최초 대비 변화량: views +750", body)
         self.assertIn("content-perf-1", body)
         self.assertIn("AI 재작성 제목", body)  # archive의 final_title이 채워졌는지
+
+    def test_performance_list_single_snapshot_shows_no_delta_or_previous(self):
+        upsert_archive(self.archive_path, [_archive_record()])
+        append_snapshot(self.performance_path, _perf_record(metric_collected_at="2026-09-15T00:00:00+00:00", metrics={"views": 100}))
+
+        status, body = self._get("/performance")
+        self.assertEqual(status, 200)
+        self.assertIn("최근 metrics: views 100", body)
+        self.assertNotIn("이전 metrics", body)
+        self.assertIn("최초 대비 변화량: (비교할 이전 값 없음)", body)
+
+    def test_performance_list_warns_when_baseline_is_migration(self):
+        upsert_archive(self.archive_path, [_archive_record()])
+        append_snapshot(
+            self.performance_path,
+            _perf_record(metric_collected_at="2026-09-10T00:00:00+00:00", metrics={}, source="migration_baseline"),
+        )
+        append_snapshot(self.performance_path, _perf_record(metric_collected_at="2026-09-17T00:00:00+00:00", metrics={"views": 850}))
+
+        status, body = self._get("/performance")
+        self.assertEqual(status, 200)
+        self.assertIn("migration_baseline", body)
+        self.assertIn("실제 성과 비교의 기준점으로", body)
 
     def test_nav_link_present_on_home_page(self):
         # SCOUT Dashboard 메인 화면(load_daily_pack)은 {"candidates": [...]} 구조를 요구한다.

@@ -1,15 +1,18 @@
-"""scripts/collect_performance.py CLI 검증(6-01).
+"""scripts/collect_performance.py CLI 검증(6-01, 6-02).
 
 안전 원칙(이 파일 전체에 적용): 이 프로젝트 개발 환경에는 실제
 THREADS_ACCESS_TOKEN/YOUTUBE_CLIENT_ID/YOUTUBE_CLIENT_SECRET/YOUTUBE_REFRESH_TOKEN이
-이미 환경변수로 설정되어 있을 수 있다(6-01 조사에서 실제로 확인됨) - 이 CLI는
-scripts/publish_threads.py/scripts/upload_youtube_short.py와 동일한 관례로
-"--dry-run을 안 주면 진짜 호출"이 기본 동작이다. 그래서 이 테스트 파일은
-platform=threads/youtube를 검증할 때 **반드시 --dry-run을 함께 넘긴다** -
-실제 네트워크 호출을 유발하는 조합(threads/youtube + dry-run 없음)은 이 파일
-어디에도 없다(H. 외부 API 호출은 mock에서만 실행 - 이 CLI 레벨에서는 아예
-호출 자체를 하지 않는 것으로 그 원칙을 지킨다). platform=blog는 애초에
-네트워크 코드가 없어(content_engine/performance/blog.py 참고) 안전하다.
+이미 환경변수로 설정되어 있을 수 있다(6-01 조사에서 실제로 확인됨). 6-02에서
+platform=threads/youtube에 `--confirm-live` 게이트를 추가해, `--dry-run`도
+`--confirm-live`도 없는 "기본 실행"은 이제 threads/youtube 클라이언트를 아예
+생성하지 않는다(안전한 기본값으로 바뀌었다 - `tests/test_collect_performance_
+live_gate.py` 참고). 그래도 이 파일은 여전히 예방 차원에서 **--dry-run 없이
+threads/youtube를 실행하는 조합은 만들지 않는다** - `--confirm-live`가 필요한
+"성공 경로"는 `content_engine.threads_publisher.ThreadsClient.from_environment`/
+`content_engine.youtube_publisher.YouTubeClient.from_environment`를 항상 patch한
+채로만 검증한다(tests/test_upload_youtube_short_cli.py가 이미 증명한 안전한
+방법론과 동일 - 실제 네트워크를 만들지 않는다). platform=blog는 애초에 네트워크
+코드가 없어(content_engine/performance/blog.py 참고) 안전하다.
 """
 
 from __future__ import annotations

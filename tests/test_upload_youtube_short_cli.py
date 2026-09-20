@@ -177,6 +177,85 @@ class UploadYouTubeShortCLITests(unittest.TestCase):
         self.assertEqual(records[0]["video_id"], "fake_video_id")
         self.assertEqual(records[0]["title"], "실제 업로드 없이 기록되는 제목")
 
+    # --- 6-02: --content-id/--knowledge-id 연결 -----------------------------
+
+    def test_dry_run_shows_content_id_and_knowledge_id_when_given(self):
+        exit_code, stdout, _stderr = self._assert_from_environment_not_called(
+            [
+                "--video", str(self.video_path),
+                "--title", "제목",
+                "--content-id", "content-abc123",
+                "--knowledge-id", "knowledge-xyz",
+                "--dry-run",
+            ]
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertIn("content_id: content-abc123", stdout)
+        self.assertIn("knowledge_id: knowledge-xyz", stdout)
+
+    def test_dry_run_shows_placeholder_when_content_id_omitted(self):
+        exit_code, stdout, _stderr = self._assert_from_environment_not_called(
+            ["--video", str(self.video_path), "--title", "제목", "--dry-run"]
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertIn("content_id: (없음", stdout)
+        self.assertIn("knowledge_id: (없음", stdout)
+
+    def test_content_id_without_knowledge_id_is_rejected(self):
+        exit_code, _stdout, stderr = self._assert_from_environment_not_called(
+            [
+                "--video", str(self.video_path),
+                "--title", "제목",
+                "--content-id", "content-abc123",
+                "--dry-run",
+            ]
+        )
+        self.assertNotEqual(exit_code, 0)
+        self.assertIn("둘 다 지정하거나 둘 다 생략해야 합니다", stderr)
+
+    def test_knowledge_id_without_content_id_is_rejected(self):
+        exit_code, _stdout, stderr = self._assert_from_environment_not_called(
+            [
+                "--video", str(self.video_path),
+                "--title", "제목",
+                "--knowledge-id", "knowledge-xyz",
+                "--dry-run",
+            ]
+        )
+        self.assertNotEqual(exit_code, 0)
+        self.assertIn("둘 다 지정하거나 둘 다 생략해야 합니다", stderr)
+
+    def test_live_success_stores_content_id_and_knowledge_id_in_history(self):
+        fake_client = FakeYouTubeClient(result=YouTubeUploadResult(video_id="fake_video_id"))
+        with mock.patch.object(YouTubeClient, "from_environment", return_value=fake_client):
+            exit_code, _stdout, _stderr = self._run(
+                [
+                    "--video", str(self.video_path),
+                    "--title", "제목",
+                    "--content-id", "content-abc123",
+                    "--knowledge-id", "knowledge-xyz",
+                    "--history", str(self.history_path),
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        records = json.loads(self.history_path.read_text(encoding="utf-8"))
+        self.assertEqual(records[0]["content_id"], "content-abc123")
+        self.assertEqual(records[0]["knowledge_id"], "knowledge-xyz")
+
+    def test_live_success_without_ids_stores_empty_strings_backward_compatibly(self):
+        # 기존 사용자가 --content-id/--knowledge-id 없이 쓰던 명령이 그대로 동작해야 한다.
+        fake_client = FakeYouTubeClient(result=YouTubeUploadResult(video_id="fake_video_id"))
+        with mock.patch.object(YouTubeClient, "from_environment", return_value=fake_client):
+            exit_code, _stdout, _stderr = self._run(
+                ["--video", str(self.video_path), "--title", "제목", "--history", str(self.history_path)]
+            )
+
+        self.assertEqual(exit_code, 0)
+        records = json.loads(self.history_path.read_text(encoding="utf-8"))
+        self.assertEqual(records[0]["content_id"], "")
+        self.assertEqual(records[0]["knowledge_id"], "")
+
     def test_live_api_error_reported_without_recording_history(self):
         fake_client = FakeYouTubeClient(error=YouTubeAPIError("YouTube Upload HTTP 500: message=internal error"))
         with mock.patch.object(YouTubeClient, "from_environment", return_value=fake_client):

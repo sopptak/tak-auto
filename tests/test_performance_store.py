@@ -110,6 +110,62 @@ class PerformanceStoreTests(unittest.TestCase):
         with self.assertRaises(Exception):
             load_snapshots(self.path)
 
+    # --- 6-02: 중복 판정 키에 source를 포함하지 않는다는 설계 결정을 고정 -----------
+
+    def test_same_content_and_time_different_source_is_still_a_duplicate(self):
+        """의도된 동작이다(store.py의 _snapshot_key 문서 참고) - 버그가 아니다."""
+        append_snapshot(
+            self.path,
+            _record(collected_at="2026-09-15T00:00:00+00:00", views=100, source="threads_api"),
+        )
+        added = append_snapshot(
+            self.path,
+            _record(collected_at="2026-09-15T00:00:00+00:00", views=999, source="manual"),
+        )
+        self.assertFalse(added)
+        snapshots = load_snapshots(self.path)
+        self.assertEqual(len(snapshots), 1)
+        self.assertEqual(snapshots[0].metrics["views"], 100)  # 먼저 저장된 값이 유지된다.
+
+    # --- 6-02: timezone-naive/aware가 섞여도 시간 순서가 안정적이어야 한다 ----------
+
+    def test_naive_and_aware_timestamps_sort_by_actual_time_not_lexicographically(self):
+        # tz-naive("2026-09-16T12:00:00")는 UTC로 간주된다. 문자열만 비교하면
+        # "2026-09-16T12:00:00" < "2026-09-17T00:00:00+09:00"이지만, 후자는
+        # UTC로 2026-09-16T15:00:00이라 실제로는 naive 값보다 더 나중 시각이다 -
+        # 이 케이스는 문자열 비교와 실제 시간 비교가 같은 순서를 내므로, 아래
+        # test_timezone_offset_changes_actual_chronological_order가 실제
+        # 차이를 만드는 결정적 케이스다.
+        append_snapshot(self.path, _record(collected_at="2026-09-16T12:00:00", views=100))
+        append_snapshot(self.path, _record(collected_at="2026-09-17T00:00:00+09:00", views=200))
+
+        history = snapshots_for_content(self.path, "content-1")
+        self.assertEqual([r.metrics["views"] for r in history], [100, 200])
+
+    def test_timezone_offset_changes_actual_chronological_order(self):
+        # "2026-09-16T23:00:00+09:00"의 실제 UTC 시각은 2026-09-16T14:00:00 -
+        # "2026-09-17T00:00:00+00:00"(UTC 그대로)보다 이르다. 문자열 사전식
+        # 비교라면 "23:00:00+09:00" > "00:00:00+00:00"이라 거꾸로 정렬됐을 것이다.
+        append_snapshot(self.path, _record(collected_at="2026-09-17T00:00:00+00:00", views=200))
+        append_snapshot(self.path, _record(collected_at="2026-09-16T23:00:00+09:00", views=100))
+
+        history = snapshots_for_content(self.path, "content-1")
+        self.assertEqual([r.metrics["views"] for r in history], [100, 200])
+
+    def test_latest_snapshot_per_content_respects_actual_timezone_order(self):
+        append_snapshot(self.path, _record(collected_at="2026-09-17T00:00:00+00:00", views=200))
+        append_snapshot(self.path, _record(collected_at="2026-09-16T23:00:00+09:00", views=100))
+
+        latest = latest_snapshot_per_content(self.path)
+        self.assertEqual(latest["content-1"].metrics["views"], 200)
+
+    def test_unparseable_collected_at_does_not_crash_sorting(self):
+        append_snapshot(self.path, _record(collected_at="not-a-valid-timestamp", views=1))
+        append_snapshot(self.path, _record(collected_at="2026-09-17T00:00:00+00:00", views=2))
+
+        history = snapshots_for_content(self.path, "content-1")
+        self.assertEqual(len(history), 2)  # 예외 없이 둘 다 반환되면 충분하다.
+
 
 if __name__ == "__main__":
     unittest.main()
