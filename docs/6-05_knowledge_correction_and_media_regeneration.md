@@ -550,20 +550,40 @@ untracked 문서/스크립트는 **의도적으로 스테이징하지 않았다*
 fix: correct scout knowledge type before media regeneration
 ```
 
-(실제 커밋 해시와 `git status --short` 최종 결과는 이 문서의 마지막 커밋 직후
-추가 기록한다 — 아래 참고.)
+커밋 결과:
+
+```
+[main a473262] fix: correct scout knowledge type before media regeneration
+ 4 files changed, 843 insertions(+), 2 deletions(-)
+ create mode 100644 docs/6-05_knowledge_correction_and_media_regeneration.md
+ create mode 100644 tests/test_knowledge_correction_media_regeneration.py
+```
 
 ## 22. Push
 
 ```
-git push
-git fetch origin
-git log origin/main..HEAD --oneline   # 비어 있어야 함
-git status --short                    # 작업 시작 시점의 기존 미커밋 변경만 남아 있어야 함
+$ git push
+To https://github.com/sopptak/tak-auto
+   3d8556a..a473262  main -> main
+
+$ git fetch origin   # (출력 없음)
+$ git log origin/main..HEAD --oneline   # (출력 없음 — 비어 있음, origin과 완전히 동기화)
+
+$ git status --short
 ```
 
-결과는 이 문서의 커밋 직후 실행분을 그대로 기록한다(아래 "23-1. 실행 로그" 참고,
-커밋/푸시 이후 갱신).
+최종 `git status --short`는 **작업 시작 시점(1장)과 정확히 동일한 파일 목록**
+(`M .gitignore`, `M content_engine/__init__.py`, `M content_engine/generator.py`,
+`M content_engine/llm_provider.py`, `M content_engine/rewrite.py`,
+`M data/tak_brain_knowledge.json`, `M tests/test_content_engine.py`,
+`M tests/test_media_batch.py`, 그리고 동일한 untracked 문서/스크립트 목록)를
+그대로 출력했다 — 이번 작업이 만든 커밋(`tests/test_blog_publish_pack.py`,
+`tests/test_knowledge_correction_media_regeneration.py`,
+`docs/6-05_knowledge_correction_and_media_regeneration.md`, 그리고
+`data/tak_brain_knowledge.json`의 정정 1줄)만 깨끗이 빠지고, **작업 시작 전부터
+있던 기존 미커밋 변경은 단 한 글자도 건드리지 않은 채 그대로 남아 있음**을
+확인했다. 새로 만든 두 데이터 산출물(18-3장)은 `.gitignore` 규칙에 의해
+목록에 나타나지 않는다(의도된 상태).
 
 ## 23. 남은 문제
 
