@@ -1185,9 +1185,47 @@ def _generation_pool_card_html(record: MediaArchiveRecord) -> str:
 """
 
 
+def summarize_generation_reviews(records: list[MediaArchiveRecord]) -> dict[str, int]:
+    """generation 1건(또는 그룹)의 검수 현황 요약(6-09 14장) - production
+    archive는 전혀 읽지 않는다. 이 generation pool 레코드만 센다."""
+    return {
+        "total": len(records),
+        "valid": sum(1 for record in records if record.generation_status == "valid"),
+        "rejected": sum(1 for record in records if record.generation_status == "rejected"),
+        "error": sum(1 for record in records if record.generation_status == "error"),
+        "approved": sum(1 for record in records if record.review_status == "approved"),
+        "unreviewed": sum(1 for record in records if record.review_status == "unreviewed"),
+        "dismissed": sum(1 for record in records if record.review_status == "dismissed"),
+    }
+
+
+def summarize_platform_approval(records: list[MediaArchiveRecord]) -> list[tuple[str, int, int]]:
+    """platform별 (platform, approved_count, total_count) 목록(6-09 15장)."""
+    return [
+        (platform, sum(1 for record in platform_records if record.review_status == "approved"), len(platform_records))
+        for platform, platform_records in group_records_by_platform(records)
+    ]
+
+
+def _generation_summary_html(records: list[MediaArchiveRecord]) -> str:
+    summary = summarize_generation_reviews(records)
+    platform_line = " · ".join(
+        f"{escape(_MEDIA_PLATFORM_LABELS.get(platform, platform.upper()))} {approved}/{total}"
+        for platform, approved, total in summarize_platform_approval(records)
+    )
+    error_segment = ""
+    if summary["rejected"] or summary["error"]:
+        error_segment = f" · Rejected {summary['rejected']} · Error {summary['error']}"
+    return f"""
+  <div class="sub">총 {summary['total']} · Valid {summary['valid']} · Approved {summary['approved']} · Unreviewed {summary['unreviewed']} · Dismissed {summary['dismissed']}{error_segment}</div>
+  <div class="sub">{platform_line}</div>
+"""
+
+
 def _generation_group_html(knowledge_id: str, generation_id: str | None, group_records: list[MediaArchiveRecord]) -> str:
     generation_segment = _generation_url_segment(generation_id)
     reviewable_count = sum(1 for record in group_records if _can_review_generation_record(record))
+    summary_html = _generation_summary_html(group_records)
 
     approve_all_html = ""
     if reviewable_count > 0:
@@ -1213,6 +1251,7 @@ def _generation_group_html(knowledge_id: str, generation_id: str | None, group_r
     return f"""
 <div class="group-header">KNOWLEDGE: {escape(knowledge_id)}
   <span class="sub">generation: {escape(generation_id or "(legacy, generation_id 없음)")} ({len(group_records)}건)</span>
+  {summary_html}
   {approve_all_html}
 </div>
 {"".join(platform_sections)}
