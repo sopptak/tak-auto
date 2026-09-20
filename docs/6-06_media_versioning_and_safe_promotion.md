@@ -441,22 +441,41 @@ tests/test_media_versioning_and_promotion.py | 372 +++++++++++++++++++++++++++
 `tests/test_media_batch.py`, 그리고 나머지 untracked 문서/스크립트도 이번
 커밋에 포함하지 않았다.
 
-커밋 메시지:
+커밋 결과:
 
 ```
-feat: add media generation versioning and safe promotion
+[main 74c3491] feat: add media generation versioning and safe promotion
+ 7 files changed, 1312 insertions(+), 2 deletions(-)
+ create mode 100644 docs/6-06_media_versioning_and_safe_promotion.md
+ create mode 100644 scripts/promote_media_generation.py
+ create mode 100644 tests/test_media_versioning_and_promotion.py
 ```
 
 ## 18. Push
 
 ```
-git push
-git fetch origin
-git log origin/main..HEAD --oneline   # 비어 있어야 함
-git status --short                    # 6-05 종료 시점과 동일한 미커밋 변경만 남아야 함
+$ git push
+To https://github.com/sopptak/tak-auto
+   a2094c4..74c3491  main -> main
+
+$ git fetch origin   # (출력 없음)
+$ git log origin/main..HEAD --oneline   # (출력 없음 — 비어 있음, origin과 완전히 동기화)
+
+$ git status --short
 ```
 
-결과는 커밋 직후 실행분을 아래에 그대로 기록한다.
+최종 `git status --short`는 **6-05 종료 시점(및 이번 작업 시작 시점, 1장)과
+정확히 동일한 파일 목록**을 그대로 출력했다 — `.gitignore`,
+`content_engine/generator.py`, `content_engine/llm_provider.py`,
+`content_engine/rewrite.py`, `tests/test_content_engine.py`,
+`tests/test_media_batch.py`(수정됨, M), `data/tak_media_archive.json`(신규,
+untracked)과 동일한 untracked 문서/스크립트 목록. `content_engine/__init__.py`도
+여전히 `M`으로 표시되지만, 그 diff는 이번 커밋에 포함되지 않은 다른 세션의
+80줄(youtube_publisher 등)만 남아 있다 — 이번 6-06이 추가한 10줄은 커밋에
+반영됐고 인덱스에서 빠졌다(17장에서 확인한 대로). `data/tak_brain_knowledge.json`도
+6-05가 남긴 상태 그대로(M) 유지된다. 즉 **이번 작업이 만든 변경(6개 파일 커밋)만
+깨끗이 빠지고, 세션 시작 전부터 있던 기존 미커밋 변경은 단 한 글자도 건드리지
+않은 채 그대로 남아 있음**을 확인했다.
 
 ## 19. 남은 문제
 
