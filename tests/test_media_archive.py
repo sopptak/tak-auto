@@ -299,6 +299,17 @@ class MediaArchiveToDashboardIntegrationTests(unittest.TestCase):
             "전제(approved KNOWLEDGE가 존재한다) 자체가 깨졌다는 뜻이므로 명확히 실패시킨다.",
         )
 
+        # 6-04: 이 테스트는 애초에 "production archive가 존재하지 않는다"를 전제로
+        # 삼으면 안 된다 - 6-03 작성 이후 실제로 사람이 --execute를 실행해
+        # data/tak_media_archive.json이 production에 실제로 생겼다(6-04 조사 보고서
+        # 1장 참고). 이 테스트가 지켜야 할 것은 "production archive가 없어야 한다"가
+        # 아니라 "이 테스트가 production archive를 새로 만들거나 바꾸지 않는다"이므로,
+        # 실행 전/후 스냅샷을 비교하는 방식으로 바꾼다.
+        production_archive = KNOWLEDGE_PATH.parent / "tak_media_archive.json"
+        production_archive_before = (
+            production_archive.read_bytes() if production_archive.exists() else None
+        )
+
         report = run_media_batch(self.approved_records, provider=MockRewriteProvider())
         # 설계대로 KNOWLEDGE 1건당 9개(Blog 1 + Shorts 3 + Threads 5)가 나와야 한다.
         self.assertEqual(report.total_draft_count, len(self.approved_records) * 9)
@@ -334,11 +345,15 @@ class MediaArchiveToDashboardIntegrationTests(unittest.TestCase):
         self.assertEqual(detail_status, 200)
         self.assertIn(f"/media/{valid_record.content_id}/approve", detail_body)
 
-        # production 파일은 이 테스트 어디에서도 생성/수정되지 않아야 한다.
-        production_archive = KNOWLEDGE_PATH.parent / "tak_media_archive.json"
-        self.assertFalse(
-            production_archive.exists(),
-            "이 테스트가 실수로 production archive를 생성했습니다 - 절대 발생하면 안 됩니다.",
+        # production 파일은 이 테스트 어디에서도 생성/수정되지 않아야 한다 - 테스트
+        # 시작 전 상태(없었으면 없는 채로, 있었으면 그 바이트 그대로)와 정확히 같아야 한다.
+        production_archive_after = (
+            production_archive.read_bytes() if production_archive.exists() else None
+        )
+        self.assertEqual(
+            production_archive_before,
+            production_archive_after,
+            "이 테스트가 production archive를 생성/변경했습니다 - 절대 발생하면 안 됩니다.",
         )
 
     def test_pending_and_rejected_knowledge_never_reach_the_archive(self):

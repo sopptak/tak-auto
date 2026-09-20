@@ -20,7 +20,8 @@ from tak_brain.knowledge import load_knowledge_records, select_approved, set_rev
 from tak_scout.answers import InterviewAnswer
 from tak_scout.collector import build_daily_pack, save_daily_pack_json
 from tak_scout.interview import build_interview_question
-from tak_scout.knowledge_bridge import append_scout_knowledge
+from tak_scout.knowledge_bridge import append_scout_knowledge, build_knowledge_from_interview
+from tak_scout.models import ScoutCandidate
 
 
 FEED_XML = """<rss version="2.0"><channel>
@@ -31,6 +32,94 @@ FEED_XML = """<rss version="2.0"><channel>
   <pubDate>Thu, 10 Sep 2026 09:00:00 +0900</pubDate>
 </item>
 </channel></rss>"""
+
+# 6-04: 실제 production에서 재현된 문제(knowledge-scout-b28b782b2a33,
+# docs/6-04_media_generation_quality_investigation.md)를 그대로 반영한 fixture다 -
+# data/scout_sources.json의 "BBC Business" 소스는 category="finance"로 등록되어
+# 있지만, 실제 기사 내용은 AI 개발 속도에 대한 것이라 금융과 무관하다.
+_AI_NEWS_FROM_FINANCE_TAGGED_SOURCE = ScoutCandidate(
+    scout_id="scout-ai-news-1",
+    title="Anthropic boss Dario Amodei calls for AI development to slow down",
+    summary=(
+        "The call comes amid growing concerns that AI models may become able to "
+        "inflict serious damage worldwide."
+    ),
+    source_url="https://www.bbc.co.uk/news/articles/c14dpgm0rg4o",
+    published_at="2026-09-14T00:00:00+00:00",
+    source_name="BBC Business",
+    category="finance",
+)
+
+_FINANCE_TEMPLATE_MARKERS = ("재무 판단", "금융기관", "심사 기준")
+
+
+class ScoutSourcedFinanceTemplateLeakageTests(unittest.TestCase):
+    """6-04 회귀 테스트: category(=RSS 소스의 블랭킷 카테고리)만으로 article_type을
+    "finance"로 단정하면, 실제로 금융과 무관한 SCOUT 기사에도
+    content_engine/generator.py의 finance 전용 템플릿(제목/공식 기준 비해석
+    문구)이 잘못 적용된다. 이 클래스는 knowledge_bridge -> generator 전체 사슬을
+    실제로 통과시켜 그 문제가 재발하지 않는지 확인한다."""
+
+    def test_finance_tagged_source_with_ai_content_does_not_get_finance_template(self):
+        answer = InterviewAnswer.create(
+            _AI_NEWS_FROM_FINANCE_TAGGED_SOURCE.scout_id, "D", "신기술은 두려워 말고 부딪혀서 느껴봐야 한다"
+        )
+        knowledge = build_knowledge_from_interview(_AI_NEWS_FROM_FINANCE_TAGGED_SOURCE, answer)
+
+        # category/domain은 소스 태그를 그대로 참고 정보로 보존한다(안전 검토 트리거용).
+        self.assertEqual(knowledge.domain, "금융")
+        # 하지만 article_type은 실제 본문을 분석한 결과가 아니므로 "finance"로 단정하지 않는다.
+        self.assertIsNone(knowledge.article_type)
+
+        approved = set_review_status(knowledge, "approved")
+        bundle = generate_content_bundle(approved)
+
+        all_text = bundle.blog.title + " " + bundle.blog.body
+        for short in bundle.shorts:
+            all_text += " " + short.title + " " + short.body
+        for thread in bundle.threads:
+            all_text += " " + thread.title + " " + thread.body
+
+        for marker in _FINANCE_TEMPLATE_MARKERS:
+            self.assertNotIn(
+                marker, all_text,
+                f"금융과 무관한 SCOUT 콘텐츠에 finance 전용 템플릿 문구({marker!r})가 포함되었습니다.",
+            )
+
+    def test_finance_tagged_source_ai_content_keeps_core_facts(self):
+        """AI development slowdown이라는 원문 핵심 사실(evidence)이 Blog Draft에
+        그대로 유지되는지 확인한다 - finance 템플릿으로 잘못 치환되어 핵심 내용이
+        사라지면 안 된다."""
+        answer = InterviewAnswer.create(
+            _AI_NEWS_FROM_FINANCE_TAGGED_SOURCE.scout_id, "D", "신기술은 두려워 말고 부딪혀서 느껴봐야 한다"
+        )
+        knowledge = build_knowledge_from_interview(_AI_NEWS_FROM_FINANCE_TAGGED_SOURCE, answer)
+        approved = set_review_status(knowledge, "approved")
+        bundle = generate_content_bundle(approved)
+
+        self.assertIn("AI models may become able to inflict serious damage worldwide", bundle.blog.body)
+        self.assertIn("신기술은 두려워 말고 부딪혀서 느껴봐야 한다", bundle.blog.body)
+
+    def test_workplace_tagged_source_does_not_get_finance_template(self):
+        """워크플레이스 성격 소재도 finance 템플릿과 무관해야 한다(회귀 확인,
+        구조적으로 원래도 영향이 없었지만 명시적으로 고정한다)."""
+        candidate = ScoutCandidate(
+            scout_id="scout-workplace-1",
+            title="상사에게 신뢰받는 신입사원의 습관",
+            summary="직장에서 상사와 동료에게 인정받는 사람들의 공통된 습관을 정리했다.",
+            source_url="https://example.test/news/workplace-1",
+            published_at="2026-09-14T00:00:00+00:00",
+            source_name="테스트 매거진",
+            category="workplace",
+        )
+        answer = InterviewAnswer.create(candidate.scout_id, "A")
+        knowledge = build_knowledge_from_interview(candidate, answer)
+        self.assertIsNone(knowledge.article_type)
+
+        approved = set_review_status(knowledge, "approved")
+        bundle = generate_content_bundle(approved)
+        self.assertNotIn(_FINANCE_TEMPLATE_MARKERS[0], bundle.blog.title)
+        self.assertNotIn(_FINANCE_TEMPLATE_MARKERS[1], bundle.blog.body)
 
 
 class ScoutToMediaPipelineTests(unittest.TestCase):

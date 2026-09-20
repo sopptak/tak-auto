@@ -31,8 +31,6 @@ from .collector import load_daily_pack
 from .models import ScoutCandidate, subject_label
 
 
-_FINANCE_CATEGORIES = ("금융", "대출", "경매", "부동산")
-
 # data/scout_sources.json의 category는 영문(예: "finance")도 쓸 수 있으므로,
 # tak_brain.models.CATEGORIES(한글)에 대응하는 것만 최소로 번역한다.
 _CATEGORY_ALIASES = {"finance": "금융"}
@@ -78,7 +76,25 @@ def build_knowledge_from_interview(candidate: ScoutCandidate, answer: InterviewA
         evidence.append(f"USER ANGLE: {angle}")
 
     category = _map_category(candidate.category)
-    article_type = "finance" if category in _FINANCE_CATEGORIES else None
+    # 6-04: article_type은 category(=candidate.category, data/scout_sources.json에 등록된
+    # RSS 소스의 블랭킷 카테고리, 예: "BBC Business" -> "finance")에서 유추하지 않는다.
+    # category/domain은 "이 소재가 대략 어떤 성격의 출처에서 왔는가"를 나타낼 뿐 이 후보
+    # 기사 하나의 실제 내용을 분석한 결과가 아니다 - 예를 들어 BBC Business RSS에 실린
+    # AI 안전성 기사(Anthropic CEO의 AI 개발 속도 완화 촉구)도 "finance" 카테고리로
+    # 통째로 태깅된다(실제 재현: knowledge-scout-b28b782b2a33,
+    # docs/6-04_media_generation_quality_investigation.md). article_type == "finance"는
+    # content_engine/generator.py의 _profile()과 content_engine/rewrite.py의
+    # _finance_errors()가 "이 콘텐츠는 실제로 대출/금융기관 심사 기준을 다룬다"고 신뢰하는
+    # 신호라서, 무관한 콘텐츠에 잘못 붙으면 "재무 판단..." 제목과 "금융기관의 공식 심사
+    # 기준으로 해석하지 않습니다" 문구가 엉뚱하게 삽입된다. 실제 본문을 분석해 분류하는
+    # tak_brain.article_types.ArticleTypeClassifier(블로그 RAW 임포트 경로가 쓰는 것과
+    # 동일한 분류기)가 SCOUT 후보에는 적용되지 않으므로, 이 경로에는 신뢰할 수 있는
+    # content-based 분류 신호가 아예 없다 - 없는 신호를 있는 것처럼 만들지 않고 None으로
+    # 둔다. category/domain(예: "금융")은 그대로 유지한다 -
+    # content_engine/blog_publish_pack.py의 is_review_required()가 이 값만으로 이미
+    # "사람 확인 필요" 안전장치를 독립적으로 보장하므로(article_type과 무관), 이 변경으로
+    # 안전성이 약화되지 않는다.
+    article_type = None
 
     knowledge = KnowledgeRecord(
         id=_knowledge_id(answer),

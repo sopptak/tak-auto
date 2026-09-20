@@ -69,10 +69,20 @@ class BuildKnowledgeFromInterviewTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_knowledge_from_interview(CANDIDATE, other_answer)
 
-    def test_finance_category_maps_to_finance_article_type(self):
+    def test_finance_category_maps_to_domain_but_not_article_type(self):
+        """6-04: category(=RSS 소스의 블랭킷 카테고리)는 domain/category 필드에는
+        그대로 반영되지만(참고 정보), article_type에는 더 이상 영향을 주지 않는다 -
+        source category만으로 "이 기사가 실제로 금융/대출 내용을 다룬다"고 단정할 수
+        없기 때문이다(docs/6-04_*.md, knowledge-scout-b28b782b2a33 실제 재현 사례).
+        SCOUT 경로에는 실제 본문을 분석하는 분류기(tak_brain.article_types.
+        ArticleTypeClassifier)가 적용되지 않으므로, article_type은 항상 None이다."""
         answer = InterviewAnswer.create(CANDIDATE.scout_id, "C")
         knowledge = build_knowledge_from_interview(CANDIDATE, answer)
-        self.assertEqual(knowledge.article_type, "finance")
+        self.assertIsNone(knowledge.article_type)
+        # category/domain은 그대로 "금융"으로 남아야 한다 - blog_publish_pack.py의
+        # is_review_required()가 이 값으로 사람 확인 필요 여부를 독립적으로 판정한다.
+        self.assertEqual(knowledge.domain, "금융")
+        self.assertEqual(knowledge.category, "금융")
 
     def test_knowledge_id_is_deterministic_for_same_answer(self):
         answer1 = InterviewAnswer.create(CANDIDATE.scout_id, "A")
