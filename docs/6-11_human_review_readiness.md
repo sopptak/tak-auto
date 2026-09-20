@@ -335,30 +335,49 @@ $ git add scripts/run_scout_dashboard.py \
     tests/test_generation_review_and_promotion.py \
     tests/test_second_knowledge_correction_and_generation_pool.py \
     docs/6-11_human_review_readiness.md
-$ git diff --cached --stat   # 위 16장과 동일한 파일만 표시됨을 확인
-$ git commit -m "feat: improve generation review context"
+$ git diff --cached --stat
+ docs/6-11_human_review_readiness.md                | 386 +++++++++++++++++++++
+ scripts/run_scout_dashboard.py                     |  54 ++-
+ tests/test_generation_review_and_promotion.py      | 196 +++++++++++
+ tests/test_second_knowledge_correction_and_generation_pool.py |  40 ++-
+ 4 files changed, 669 insertions(+), 7 deletions(-)
+
+$ git commit -m "feat: improve generation review context" (+본문)
+[main 250076f] feat: improve generation review context
+ 4 files changed, 669 insertions(+), 7 deletions(-)
+ create mode 100644 docs/6-11_human_review_readiness.md
 ```
 
-커밋 해시는 19장에 기록한다.
+**커밋 해시: `250076f`**
 
 ## 18. Push
 
 ```
 $ git push
+To https://github.com/sopptak/tak-auto
+   97792f1..250076f  main -> main
+
 $ git fetch origin
-$ git log origin/main..HEAD --oneline   # (비어 있어야 함)
+$ git log origin/main..HEAD --oneline
+(출력 없음)
+$ git log HEAD..origin/main --oneline
+(출력 없음)
 ```
 
-결과는 19장에 기록한다.
+**Push 완료. origin/main과 완전히 동기화됨(양방향 모두 비어 있음).**
 
 ## 19. 최종 git status
 
-커밋/push 직후 `git status --short`가 시작 시점(3장 이전)과 정확히 같은
-기존 미커밋/untracked 목록만 남고, 이번에 수정한 파일들은 더 이상 나타나지
-않는지 확인했다.
-
-*(실행 로그는 최종 검증 단계에서 실제 명령 출력으로 아래에 채운다 - 17/18장
-커밋·push 직후 실행)*
+커밋/push 직후 `git status --short`를 실행한 결과, 시작 시점(2장)과
+정확히 같은 기존 미커밋(`M .gitignore`, `M content_engine/*`,
+`M data/tak_brain_knowledge.json`, `M tests/test_content_engine.py`,
+`M tests/test_media_batch.py`)과 untracked 문서/스크립트만 남았고, 이번에
+커밋한 4개 파일(`scripts/run_scout_dashboard.py`,
+`tests/test_generation_review_and_promotion.py`,
+`tests/test_second_knowledge_correction_and_generation_pool.py`,
+`docs/6-11_human_review_readiness.md`)은 더 이상 목록에 나타나지 않는다 -
+이번 작업에서 만든/수정한 파일만 정확히 commit됐고, 기존 미커밋 변경은
+작업 시작 때와 동일하게 그대로 보존됐다.
 
 ## 20. 남은 문제
 
