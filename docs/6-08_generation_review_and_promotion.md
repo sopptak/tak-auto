@@ -381,23 +381,45 @@ $ git diff --cached --stat
 
 커밋 메시지: `feat: add generation review and safe promotion workflow`
 
-(정확한 커밋 해시는 15장/16장 참고.)
+```
+[main 92a8a1f] feat: add generation review and safe promotion workflow
+ 4 files changed, 1314 insertions(+), 49 deletions(-)
+ create mode 100644 docs/6-08_generation_review_and_promotion.md
+ create mode 100644 tests/test_generation_review_and_promotion.py
+```
 
 ## 15. Push
 
-커밋 후 `git push` 실행, 이어서 `git fetch origin` +
-`git log origin/main..HEAD --oneline`으로 원격과 완전히 동기화됐는지
-확인했다(15장/16장 실제 실행 결과는 아래 16장에 기록).
+```
+$ git push
+To https://github.com/sopptak/tak-auto
+   188f13c..92a8a1f  main -> main
+
+$ git fetch origin   # (출력 없음)
+$ git log origin/main..HEAD --oneline   # (출력 없음 — 비어 있음, origin과 완전히 동기화)
+```
 
 ## 16. 최종 git status
 
-작업 시작 시점(2장)과 비교해, 이번 세션이 만든 변경(위 4개 파일)만 정확히
-빠지고, 기존 미커밋 변경(`.gitignore`, `content_engine/*`,
-`data/tak_brain_knowledge.json`의 나머지 16개 레코드,
-`tests/test_content_engine.py`, `tests/test_media_batch.py`,
-`data/tak_media_archive.json`, 기타 untracked 파일)은 단 한 글자도 건드리지
-않은 채 그대로 남아 있어야 한다. 실제 실행 결과는 아래 "최종 상태 확인"
-섹션(20장) 직전에 커밋/푸시 로그와 함께 기록한다.
+```
+$ git status --short
+ M .gitignore
+ M content_engine/__init__.py
+ M content_engine/generator.py
+ M content_engine/llm_provider.py
+ M content_engine/rewrite.py
+ M data/tak_brain_knowledge.json
+ M tests/test_content_engine.py
+ M tests/test_media_batch.py
+?? (기존 untracked 문서/스크립트 — 2장과 동일한 목록, 변경 없음)
+?? data/tak_media_archive.json
+```
+
+작업 시작 시점(2장)과 비교해, 이번 세션이 만든 변경(4개 파일)만 정확히
+커밋에 반영되어 목록에서 빠졌고, 기존 미커밋 변경은 단 한 글자도 건드리지
+않은 채 그대로 남아 있음을 확인했다. `scripts/run_scout_dashboard.py`와
+`tests/test_second_knowledge_correction_and_generation_pool.py`도 더 이상
+`M`으로 나타나지 않는다(이번 커밋에 포함돼 HEAD와 일치하게 됐기 때문).
 
 ## 17. 보안 검증
 
