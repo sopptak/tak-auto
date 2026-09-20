@@ -354,6 +354,9 @@ $ git log origin/main..HEAD --oneline
 
 **Push 완료. origin/main과 동기화 확인됨.**
 
+(이 보고서 자체의 최종 커밋/push 확인 기록: `4ef7da9` - 6-08/6-09와 동일한
+관례로, 보고서에 실제 커밋 해시를 기록하는 후속 커밋 1건을 추가했다.)
+
 ## 19. 최종 git status
 
 커밋 직후 `git status --short`를 실행한 결과, 2장의 시작 시점 목록과
