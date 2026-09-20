@@ -533,17 +533,44 @@ staging하지 않았다(읽기만 함, 15장). `.gitignore`, `content_engine/__i
 `tests/test_media_batch.py`, 그리고 나머지 untracked 문서/스크립트도
 이번 커밋에 포함하지 않았다.
 
-커밋 메시지: `fix: correct second scout knowledge and generate safe media revision`
+커밋 결과:
+
+```
+[main 8acceca] fix: correct second scout knowledge and generate safe media revision
+ 4 files changed, 1120 insertions(+)
+ create mode 100644 docs/6-07_second_knowledge_regeneration.md
+ create mode 100644 tests/test_second_knowledge_correction_and_generation_pool.py
+```
 
 ## 23. Push
 
-커밋/푸시 결과와 최종 `git log origin/main..HEAD --oneline`은 실제 실행
-직후 아래에 기록한다(24장 "최종 git status"와 함께 커밋 완료 후 갱신).
+```
+$ git push
+To https://github.com/sopptak/tak-auto
+   08b5a1d..8acceca  main -> main
+
+$ git fetch origin   # (출력 없음)
+$ git log origin/main..HEAD --oneline   # (출력 없음 — 비어 있음, origin과 완전히 동기화)
+```
 
 ## 24. 최종 git status
 
-커밋 이후 `git status --short`가 작업 시작 시점(1장)과 정확히 같은 목록을
-보여야 한다 - 실제 실행 결과는 커밋/푸시 직후 이 절에 기록한다.
+```
+$ git status --short
+```
+
+작업 시작 시점(1장)과 **정확히 동일한 파일 목록**을 그대로 출력했다 —
+`.gitignore`, `content_engine/__init__.py`(다른 세션의 미커밋 export 추가분,
+이번 세션 무관), `content_engine/generator.py`, `content_engine/llm_provider.py`,
+`content_engine/rewrite.py`, `tests/test_content_engine.py`,
+`tests/test_media_batch.py`, `data/tak_media_archive.json`(untracked), 그리고
+동일한 목록의 untracked 문서/스크립트. `data/tak_brain_knowledge.json`도 여전히
+`M`으로 표시되지만, 그 diff는 이번 커밋에 반영되지 않은 나머지 16개 레코드
+(다른 세션의 미커밋 작업)만 남아 있다(6장에서 확인한 대로) — 이번 세션이
+정정한 `knowledge-scout-6d1d0e2fa762` 1건은 커밋에 포함돼 인덱스/HEAD 양쪽에
+반영됐다. 즉 **이번 작업이 만든 변경(4개 파일 커밋)만 깨끗이 빠지고, 세션
+시작 전부터 있던 기존 미커밋 변경은 단 한 글자도 건드리지 않은 채 그대로
+남아 있음**을 확인했다.
 
 ## 25. 남은 문제
 
