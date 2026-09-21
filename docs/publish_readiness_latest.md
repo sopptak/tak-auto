@@ -1,6 +1,6 @@
 # Publish Readiness
 
-생성 시각(UTC): 2026-09-21T05:40:07.005531+00:00
+생성 시각(UTC): 2026-09-21T07:09:31.308462+00:00
 
 ## Summary
 
@@ -10,6 +10,7 @@
 - 사람 검토 필요(NEEDS_HUMAN_REVIEW): 7
 - 게시 차단(BLOCKED): 2
 - 이미 게시됨(ALREADY_PUBLISHED): 0
+- 정정본으로 대체됨(SUPERSEDED): 0
 - 오류(ERROR): 0
 
 ⚠️ 이 보고서는 읽기 전용 점검 결과입니다. 어떤 콘텐츠도 이 보고서 생성
@@ -55,3 +56,8 @@
 
 - `content-cabd37f3a2745724` (shorts, BLOCKED): generation_status가 valid가 아님: rejected; review_status가 approved가 아님: unreviewed; ShortsScript 파일이 아직 생성되지 않음
 - `content-5a6b175ac6023db1` (threads, BLOCKED): generation_status가 valid가 아님: rejected; review_status가 approved가 아님: unreviewed
+
+
+## Superseded
+
+정정본으로 대체된 콘텐츠가 없습니다.

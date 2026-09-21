@@ -24,6 +24,13 @@
       검증 실패/필수 필드 누락/Shorts Script 미생성 등).
     - ``ALREADY_PUBLISHED``: 해당 채널의 실제 게시 이력에 이미 있다 - 다시
       게시하면 안 된다.
+    - ``SUPERSEDED``(6-17): 정정본으로 대체된 옛 승인 레코드다
+      (``record.superseded_by``가 채워져 있다) - 이미 승인됐던 사실과 이력은
+      그대로 보존되지만, 더 이상 활성 게시 후보가 아니다. 아직 게시되지
+      않은 경우에만 이 상태가 된다 - 이미 게시된 적이 있다면
+      ``ALREADY_PUBLISHED``가 우선한다(외부에 이미 나간 사실이 내부 lifecycle
+      표시보다 더 긴급한 정보이기 때문 - docs/6-17_superseded_lifecycle_design.md
+      8장).
     - ``ERROR``: 정상적인 운영에서는 있을 수 없는 구조적 이상(같은 content_id가
       production archive에 두 번 이상 존재하는 경우 등). 사람이 데이터를
       직접 조사해야 한다.
@@ -51,9 +58,10 @@ READY = "READY"
 NEEDS_HUMAN_REVIEW = "NEEDS_HUMAN_REVIEW"
 BLOCKED = "BLOCKED"
 ALREADY_PUBLISHED = "ALREADY_PUBLISHED"
+SUPERSEDED = "SUPERSEDED"
 ERROR = "ERROR"
 
-PUBLISH_READINESS_STATUSES = (READY, NEEDS_HUMAN_REVIEW, BLOCKED, ALREADY_PUBLISHED, ERROR)
+PUBLISH_READINESS_STATUSES = (READY, NEEDS_HUMAN_REVIEW, BLOCKED, ALREADY_PUBLISHED, SUPERSEDED, ERROR)
 
 PLATFORMS = ("blog", "shorts", "threads")
 
@@ -181,6 +189,18 @@ def audit_record(
     elif record.platform == "shorts" and inputs.youtube_history is not None:
         if inputs.youtube_history.is_published(record.content_id):
             return _result(ALREADY_PUBLISHED, "YouTube 업로드 이력에 이미 기록됨")
+
+    # 2.5. superseded(6-17) - 정정본으로 대체된 옛 승인 레코드다. 이미 게시된
+    #      적이 있다면(위 2번에서 이미 ALREADY_PUBLISHED로 반환됐을 것이므로)
+    #      여기 도달하지 않는다 - "이미 외부에 나간 사실"이 "내부적으로
+    #      대체됐다"는 사실보다 우선한다(사람이 재게시가 아니라 회수를
+    #      판단해야 하는 더 긴급한 상황이므로).
+    if record.superseded_by:
+        return _result(
+            SUPERSEDED,
+            f"정정본으로 대체됨(superseded_by={record.superseded_by}) - 더 이상 활성 게시 후보가 아님",
+            threads_pending_status=threads_pending_status,
+        )
 
     # 3. 정상적인 차단 사유(BLOCKED) - 여러 개면 전부 모아서 보여준다.
     blocking_reasons: list[str] = []
@@ -345,6 +365,16 @@ def _blocked_section(results: Sequence[PublishAuditResult]) -> str:
     return "".join(lines)
 
 
+def _superseded_section(results: Sequence[PublishAuditResult]) -> str:
+    rows = [r for r in results if r.status == SUPERSEDED]
+    if not rows:
+        return "정정본으로 대체된 콘텐츠가 없습니다.\n"
+    lines = []
+    for r in rows:
+        lines.append(f"- `{r.content_id}` ({r.platform}): {'; '.join(r.reasons)}\n")
+    return "".join(lines)
+
+
 def render_readiness_markdown(
     results: Sequence[PublishAuditResult], generated_at: str | None = None
 ) -> str:
@@ -366,6 +396,7 @@ def render_readiness_markdown(
         f"- 사람 검토 필요(NEEDS_HUMAN_REVIEW): {summary[NEEDS_HUMAN_REVIEW]}",
         f"- 게시 차단(BLOCKED): {summary[BLOCKED]}",
         f"- 이미 게시됨(ALREADY_PUBLISHED): {summary[ALREADY_PUBLISHED]}",
+        f"- 정정본으로 대체됨(SUPERSEDED): {summary[SUPERSEDED]}",
         f"- 오류(ERROR): {summary[ERROR]}",
         "",
         "⚠️ 이 보고서는 읽기 전용 점검 결과입니다. 어떤 콘텐츠도 이 보고서 생성",
@@ -389,6 +420,10 @@ def render_readiness_markdown(
         "## Blocked",
         "",
         _blocked_section(results),
+        "",
+        "## Superseded",
+        "",
+        _superseded_section(results),
     ]
     return "\n".join(header) + "\n".join(body)
 

@@ -62,7 +62,30 @@ from .publish_history import compute_content_id
 
 
 GENERATION_STATUSES = ("valid", "rejected", "error")
-REVIEW_STATUSES = ("unreviewed", "approved", "dismissed")
+# 6-17: "superseded"는 review_status의 4번째 값이다(generation_status에는 넣지
+# 않는다 - generation_status는 "이 생성 시도가 검증을 통과했는가"라는 배치
+# 단계의 사실이고, 재검증하면 값이 바뀌지 않는다. superseded는 그와 무관하게
+# "사람이 이미 approved로 승인한 뒤, 나중에 정정본으로 대체했다"는 순수히
+# 사람의 검토/운영 결정이므로 review_status 축에 속한다).
+#
+# superseded는 오직 approved에서만 도달 가능하고(_REVIEW_STATUS_TRANSITIONS),
+# 거기서 더 이상 전이가 없는 종결 상태다 - unreviewed/dismissed와 달리 다시
+# 검토 대상으로 돌아가지 않는다("취소"가 아니라 "대체"이기 때문- 자세한 설계
+# 근거는 docs/6-17_superseded_lifecycle_design.md 4~5장 참고).
+REVIEW_STATUSES = ("unreviewed", "approved", "dismissed", "superseded")
+
+# 6-17: review_status 전이 허용 그래프. threads_review.py의 _ALLOWED_TRANSITIONS
+# (ThreadsPendingDraft.status)와 동일한 관례를 media review_status에도 적용한다.
+# 이 상수 자체는 아직 어떤 코드도 강제하지 않는다(기존 handle_media_* 함수들은
+# 각자 개별 조건으로 전이를 막고 있다) - supersede 관련 신규 코드가 이 표를
+# 참고용/문서화용으로 쓴다. 기존 unreviewed/approved/dismissed 전이 규칙은
+# 하나도 바꾸지 않았다(기존 코드 동작 그대로).
+REVIEW_STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
+    "unreviewed": frozenset({"approved", "dismissed"}),
+    "dismissed": frozenset({"unreviewed", "approved"}),
+    "approved": frozenset({"superseded"}),
+    "superseded": frozenset(),
+}
 
 
 def new_generation_id(knowledge_id: str) -> str:
@@ -125,6 +148,20 @@ class MediaArchiveRecord:
     # 필드 없이 저장됐으므로 기본값 None("legacy generation")이 반드시 필요하다 -
     # 이 기본값 덕분에 기존 JSON을 읽을 때 KeyError 없이 그대로 파싱된다.
     generation_id: str | None = None
+    # 6-17: 이 레코드가 superseded된 경우, 이 레코드를 대체한 새 레코드의
+    # content_id. "이 레코드"에만 저장한다(단방향 - B안, docs/6-17 6장) - 새
+    # 레코드 쪽에는 대칭 필드(supersedes)를 두지 않는다. 이유:
+    #   1. 새 레코드는 기존 promote_media_generation.py로 이미 독립적으로
+    #      production archive에 들어간(승인된) 레코드이고, 이 필드를 채우려면
+    #      promotion 코드까지 건드려야 한다 - supersede는 "옛 레코드 1건만
+    #      갱신"으로 끝나야 원자성이 가장 단순해진다(9장 CASE 9/10 참고).
+    #   2. "새 레코드가 무엇을 대체했는가"는 언제든 조회로 구할 수 있다
+    #      (find_superseded_record() - superseded_by == new_content_id인
+    #      레코드를 archive 전체에서 찾으면 된다) - 양방향 필드를 저장하면
+    #      두 값이 어긋날 위험(dual-consistency bug)만 늘어난다.
+    # 기존(5-27~6-16) 레코드에는 이 필드 자체가 없으므로 기본값 None이 반드시
+    # 필요하다(generation_id와 동일한 이유로 backward-compatible).
+    superseded_by: str | None = None
 
     def __post_init__(self) -> None:
         if not self.content_id:
@@ -139,6 +176,20 @@ class MediaArchiveRecord:
             raise MediaArchiveError(
                 f"review_status는 {REVIEW_STATUSES} 중 하나여야 합니다: {self.review_status!r}"
             )
+        # 6-17: superseded_by와 review_status=="superseded"는 항상 함께 있어야
+        # 한다 - 한쪽만 세팅된 레코드는 데이터 정합성이 깨진 상태이므로 생성
+        # 시점에 막는다(둘 다 None이거나 둘 다 채워진 경우만 허용).
+        if self.review_status == "superseded" and not self.superseded_by:
+            raise MediaArchiveError(
+                "review_status가 'superseded'이면 superseded_by(대체한 새 content_id)가 반드시 있어야 합니다."
+            )
+        if self.superseded_by and self.review_status != "superseded":
+            raise MediaArchiveError(
+                f"superseded_by가 설정된 레코드는 review_status가 'superseded'여야 합니다: "
+                f"review_status={self.review_status!r}"
+            )
+        if self.superseded_by == self.content_id:
+            raise MediaArchiveError("superseded_by는 자기 자신의 content_id일 수 없습니다.")
 
     @property
     def final_title(self) -> str:
@@ -179,6 +230,7 @@ class MediaArchiveRecord:
             "edited_title": self.edited_title,
             "edited_body": self.edited_body,
             "generation_id": self.generation_id,
+            "superseded_by": self.superseded_by,
         }
 
     @classmethod
@@ -219,6 +271,9 @@ class MediaArchiveRecord:
             # .get()이라 키 자체가 없는 기존(5-27) 레코드도 KeyError 없이
             # generation_id=None(legacy generation)으로 읽힌다.
             generation_id=_optional_str(data.get("generation_id")),
+            # 6-17: 같은 이유로, 이 필드가 없는 기존(6-16 이전) 레코드도
+            # KeyError 없이 superseded_by=None으로 읽힌다 - migration 불필요.
+            superseded_by=_optional_str(data.get("superseded_by")),
         )
 
     @classmethod

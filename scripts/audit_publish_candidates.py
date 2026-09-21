@@ -32,6 +32,7 @@ from content_engine.publish_audit import (
     ERROR,
     NEEDS_HUMAN_REVIEW,
     READY,
+    SUPERSEDED,
     PublishAuditInputs,
     audit_archive,
     save_readiness_report,
@@ -154,6 +155,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"사람 검토 필요(NEEDS_HUMAN_REVIEW): {summary[NEEDS_HUMAN_REVIEW]}")
     print(f"게시 차단(BLOCKED): {summary[BLOCKED]}")
     print(f"이미 게시됨(ALREADY_PUBLISHED): {summary[ALREADY_PUBLISHED]}")
+    print(f"정정본으로 대체됨(SUPERSEDED): {summary[SUPERSEDED]}")
     print(f"오류(ERROR): {summary[ERROR]}")
     print()
 
@@ -168,6 +170,13 @@ def main(argv: list[str] | None = None) -> int:
     if review_results:
         print("--- NEEDS_HUMAN_REVIEW(게시 전 사람의 최종 확인 필요) ---")
         for r in review_results:
+            print(f"  [{r.platform}] {r.content_id} - {r.title} ({'; '.join(r.reasons)})")
+        print()
+
+    superseded_results = [r for r in results if r.status == SUPERSEDED]
+    if superseded_results:
+        print("--- SUPERSEDED(정정본으로 대체됨 - 활성 후보 아님) ---")
+        for r in superseded_results:
             print(f"  [{r.platform}] {r.content_id} - {r.title} ({'; '.join(r.reasons)})")
         print()
 
