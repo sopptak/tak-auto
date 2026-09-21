@@ -72,14 +72,21 @@ class SecondKnowledgeCorrectionTests(unittest.TestCase):
 
     def test_other_fields_are_unchanged_from_6_05_report(self):
         """6-05 보고서(3장)가 기록한 정정 전 값과 비교해, article_type 외 필드는
-        전혀 바뀌지 않았어야 한다."""
+        전혀 바뀌지 않았어야 한다.
+
+        예외: category/domain은 6-15에서 "금융"->"기타"로 정정됐다 - 이 KNOWLEDGE의
+        실제 내용(Mustafa Suleyman의 AI 의식 가능성 발언)은 금융/대출/경매/부동산과
+        무관한데, SCOUT 수집 당시 출처 RSS 피드(BBC Business)의 블랭킷 category가
+        그대로 복사되어 있었다(tak_scout/knowledge_bridge.py의 구조적 한계,
+        docs/6-15_data_integrity_and_publish_readiness_report.md 3장 참고). 다른
+        모든 필드(승인 상태, 검토 메모, 시각, 본문 등)는 그대로 유지된다."""
         self.assertEqual(self.knowledge.title, "Uncontrolled AI could lead to 'silicon species' rivalling humans, warns Microsoft")
         self.assertEqual(
             self.knowledge.source_url,
             "https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
         )
-        self.assertEqual(self.knowledge.category, "금융")
-        self.assertEqual(self.knowledge.domain, "금융")
+        self.assertEqual(self.knowledge.category, "기타")
+        self.assertEqual(self.knowledge.domain, "기타")
         self.assertEqual(self.knowledge.knowledge_type, "의견")
         self.assertEqual(self.knowledge.knowledge_review_status, "approved")
         self.assertEqual(self.knowledge.review_note, "SCOUT 인터뷰 테스트 승인")
@@ -98,10 +105,16 @@ class SecondKnowledgeCorrectionTests(unittest.TestCase):
         for marker in _FINANCE_TEMPLATE_MARKERS:
             self.assertNotIn(marker, all_text)
 
-    def test_corrected_knowledge_still_requires_human_review(self):
-        """category/domain="금융"이 남아 있으므로 article_type 정정 후에도
-        is_review_required()는 여전히 True여야 한다(6-05/6-06과 동일한 안전장치)."""
-        self.assertTrue(is_review_required(self.knowledge))
+    def test_corrected_knowledge_no_longer_requires_finance_review(self):
+        """6-15에서 category/domain이 "금융"->"기타"로 정정된 뒤에는
+        is_review_required()가 False여야 한다 - 이 콘텐츠는 실제로 금융/대출/
+        경매/부동산과 무관하므로, 정확한 category가 반영되면 금융 전용 안전장치가
+        더 이상 걸리지 않는 것이 의도된 동작이다(review_required 판정 로직 자체는
+        바뀌지 않았다 - 입력 category가 정확해졌을 뿐이다).
+        Production Archive의 이 knowledge_id 레코드 9건 전부 stale finance-template
+        잔재가 없다는 사실은 docs/6-15_data_integrity_and_publish_readiness_report.md
+        6장에서 별도로 확인했다."""
+        self.assertFalse(is_review_required(self.knowledge))
 
     def test_mock_generation_produces_nine_drafts(self):
         report = run_media_batch([self.knowledge], provider=MockRewriteProvider())

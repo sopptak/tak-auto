@@ -1,13 +1,13 @@
 # Publish Readiness
 
-생성 시각(UTC): 2026-09-21T02:21:32.269189+00:00
+생성 시각(UTC): 2026-09-21T04:21:16.571855+00:00
 
 ## Summary
 
 - 전체 Production 콘텐츠: 18
 - 승인 콘텐츠(review_status==approved): 16
-- 게시 가능(READY): 0
-- 사람 검토 필요(NEEDS_HUMAN_REVIEW): 16
+- 게시 가능(READY): 9
+- 사람 검토 필요(NEEDS_HUMAN_REVIEW): 7
 - 게시 차단(BLOCKED): 2
 - 이미 게시됨(ALREADY_PUBLISHED): 0
 - 오류(ERROR): 0
@@ -20,7 +20,7 @@
 | content_id | 제목 | review_status | publish readiness | source | 사유 |
 | --- | --- | --- | --- | --- | --- |
 | content-5971ed5204437cdd | 신기술을 바라보는 나의 기준 | approved | NEEDS_HUMAN_REVIEW | https://www.bbc.co.uk/news/articles/c14d… | 금융/부동산/대출 등 민감 콘텐츠 - 게시 전 사람의 최종 확인 필요 |
-| content-80a05485e895abf4 | AI 의식 가능성을 다룰 때 필요한 기준 | approved | NEEDS_HUMAN_REVIEW | https://www.bbc.co.uk/news/articles/c6n0… | 금융/부동산/대출 등 민감 콘텐츠 - 게시 전 사람의 최종 확인 필요 |
+| content-80a05485e895abf4 | AI 의식 가능성을 다룰 때 필요한 기준 | approved | READY | https://www.bbc.co.uk/news/articles/c6n0… | - |
 
 
 ## Threads
@@ -32,11 +32,11 @@
 | content-4015df0692e0bcc4 | NEEDS_HUMAN_REVIEW | pending | 아니오 |
 | content-5a6b175ac6023db1 | BLOCKED | (pending draft 없음) | 아니오 |
 | content-cbcf705b6056c9fc | NEEDS_HUMAN_REVIEW | pending | 아니오 |
-| content-5e9c2842373b859b | NEEDS_HUMAN_REVIEW | (pending draft 없음) | 아니오 |
-| content-62450803823399d3 | NEEDS_HUMAN_REVIEW | (pending draft 없음) | 아니오 |
-| content-696790d5bda07e90 | NEEDS_HUMAN_REVIEW | (pending draft 없음) | 아니오 |
-| content-c04f9f6efc86969e | NEEDS_HUMAN_REVIEW | (pending draft 없음) | 아니오 |
-| content-8dc32a88a18c0ede | NEEDS_HUMAN_REVIEW | (pending draft 없음) | 아니오 |
+| content-5e9c2842373b859b | READY | (pending draft 없음) | 예 |
+| content-62450803823399d3 | READY | (pending draft 없음) | 예 |
+| content-696790d5bda07e90 | READY | (pending draft 없음) | 예 |
+| content-c04f9f6efc86969e | READY | (pending draft 없음) | 예 |
+| content-8dc32a88a18c0ede | READY | (pending draft 없음) | 예 |
 
 
 ## Shorts / YouTube
@@ -46,9 +46,9 @@
 | content-e787c9201b94a948 | 예 | 아니오 | 아니오 | 아니오 | NEEDS_HUMAN_REVIEW |
 | content-3ae2d78568210164 | 예 | 아니오 | 아니오 | 아니오 | NEEDS_HUMAN_REVIEW |
 | content-cabd37f3a2745724 | 아니오 | 아니오 | 아니오 | 아니오 | BLOCKED |
-| content-ec0c38b9a20c424c | 예 | 아니오 | 아니오 | 아니오 | NEEDS_HUMAN_REVIEW |
-| content-e3b8d986ea6db98e | 예 | 아니오 | 아니오 | 아니오 | NEEDS_HUMAN_REVIEW |
-| content-91869ed8be17f3f3 | 예 | 아니오 | 아니오 | 아니오 | NEEDS_HUMAN_REVIEW |
+| content-ec0c38b9a20c424c | 예 | 아니오 | 아니오 | 아니오 | READY |
+| content-e3b8d986ea6db98e | 예 | 아니오 | 아니오 | 아니오 | READY |
+| content-91869ed8be17f3f3 | 예 | 아니오 | 아니오 | 아니오 | READY |
 
 
 ## Blocked
