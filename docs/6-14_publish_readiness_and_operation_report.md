@@ -415,8 +415,48 @@ $ git add content_engine/publish_audit.py \
     docs/6-14_publish_readiness_and_operation_report.md
 ```
 
-(실제 커밋 해시/push 결과는 커밋 직후 재확인해 아래에 덧붙인다 - 6-05~6-13이
-반복해 온 것과 동일한 절차.)
+```
+$ git status --short   # 위 10개 파일만 A/M으로 표시, 나머지는 기존과 동일한 M/?? 그대로
+```
+
+```
+$ git commit -m "feat: add publish readiness audit + close blog pack review-gate bypass (6-14)" (+본문)
+[main 4459a67] feat: add publish readiness audit + close blog pack review-gate bypass (6-14)
+ 10 files changed, 2091 insertions(+), 1 deletion(-)
+ create mode 100644 content_engine/publish_audit.py
+ create mode 100644 docs/6-14_publish_readiness_and_operation_report.md
+ create mode 100644 docs/publish_readiness_latest.md
+ create mode 100644 scripts/audit_publish_candidates.py
+ create mode 100644 tests/test_audit_publish_candidates_cli.py
+ create mode 100644 tests/test_publish_audit.py
+ create mode 100644 tests/test_publish_readiness_dashboard.py
+```
+
+**커밋 해시: `4459a67`**
+
+```
+$ git push
+To https://github.com/sopptak/tak-auto
+   2e0c283..4459a67  main -> main
+
+$ git fetch origin
+$ git log origin/main..HEAD --oneline
+(출력 없음)
+$ git log HEAD..origin/main --oneline
+(출력 없음)
+```
+
+**Push 완료. origin/main과 완전히 동기화됨(양방향 모두 비어 있음).**
+
+커밋/push 직후 `git status --short`가 작업 시작 시점(2장)과 정확히 같은
+기존 미커밋(`.gitignore`, `content_engine/__init__.py`,
+`content_engine/generator.py`, `content_engine/llm_provider.py`,
+`content_engine/rewrite.py`, `data/tak_brain_knowledge.json`,
+`data/tak_threads_pending.json`, `tests/test_content_engine.py`,
+`tests/test_media_batch.py`)과 untracked 문서/스크립트만 남았고, 이번에
+커밋한 10개 파일은 더 이상 목록에 나타나지 않았다 - 이번 작업에서
+만든/수정한 파일만 정확히 commit됐고, 기존 미커밋 변경은 작업 시작 때와
+동일하게 그대로 보존됐다.
 
 ## 16. 남은 문제
 
