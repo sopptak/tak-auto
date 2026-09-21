@@ -140,7 +140,43 @@ def main(argv: list[str] | None = None) -> int:
             "Pack을 만든다(5-29). 이 모드에서는 --output/--limit이 쓰이지 않는다."
         ),
     )
+    parser.add_argument(
+        "--generate-without-review",
+        action="store_true",
+        help=(
+            "안전장치(6-14): --from-archive 없이 실행하면 콘텐츠(문구) 단위 Human "
+            "Review(review_status==approved) 없이 승인 KNOWLEDGE 전체에서 바로 Pack이 "
+            "만들어진다(5-10 시절 동작) - 기본적으로는 이 실행을 거부한다. 그 동작을 "
+            "정말 원하면 이 플래그를 명시적으로 추가해야 한다. 실제 자동화 워크플로"
+            "(scripts/prepare_approved_media.py, .github/workflows/daily-media-prepare.yml)"
+            "는 이 플래그를 쓰지 않고 --from-archive만 쓴다."
+        ),
+    )
     args = parser.parse_args(argv)
+
+    # 6-14: --from-archive도 --generate-without-review도 주지 않으면 콘텐츠 단위
+    # 승인 없이 Pack이 만들어질 수 있는 경로를 실행 자체를 거부해서 막는다(6-13에서
+    # 발견된 문제). content_engine.blog_publish_pack.build_blog_publish_pack()
+    # 함수 자체나 --from-archive 모드는 전혀 바꾸지 않는다 - CLI의 "아무 플래그도
+    # 없는 기본 실행"만 안전한 쪽으로 바뀐다.
+    if not args.from_archive and not args.generate_without_review:
+        print(
+            "오류: --from-archive 없이 실행하면 콘텐츠 단위 Human Review "
+            "(review_status==approved) 없이 Blog Publishing Pack이 만들어집니다. "
+            "안전을 위해 이 실행을 거부합니다.",
+            file=sys.stderr,
+        )
+        print(
+            "  권장: --from-archive를 사용해 이미 /media에서 승인된 항목만으로 "
+            "Pack을 만드세요.",
+            file=sys.stderr,
+        )
+        print(
+            "  예전 방식(승인 KNOWLEDGE 전체에서 바로 TAK MEDIA를 새로 실행)을 "
+            "정말 원하면 --generate-without-review를 명시적으로 추가하세요.",
+            file=sys.stderr,
+        )
+        return 1
 
     try:
         records = load_knowledge_records(args.knowledge)

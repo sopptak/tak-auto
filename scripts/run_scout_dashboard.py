@@ -113,6 +113,17 @@ from content_engine.performance import (
     render_text_trend,
     summarize_content_history,
 )
+from content_engine.publish_audit import (
+    ALREADY_PUBLISHED,
+    BLOCKED,
+    ERROR,
+    NEEDS_HUMAN_REVIEW,
+    READY,
+    PublishAuditInputs,
+    PublishAuditResult,
+    audit_archive,
+    summarize as summarize_publish_audit,
+)
 from content_engine.publish_history import PublishHistory
 from content_engine.shorts_adapter import (
     ShortsAdapterError,
@@ -214,6 +225,10 @@ class DashboardConfig:
     # scripts/upload_youtube_short.py로 한다(blog_history_path와 동일한 책임 분리).
     # 기본값을 둬서 기존 호출부(테스트 포함)가 이 필드를 넘기지 않아도 그대로 동작한다.
     youtube_history_path: Path = ROOT / "data" / "youtube_publish_log.json"
+    # 6-14 - Threads 게시 이력(PublishHistory, threads_publish_log.json). /publish-readiness
+    # 화면이 content_engine.publish_audit.audit_archive()를 호출할 때 필요하다.
+    # 기본값을 둬서 기존 호출부(테스트 포함)가 이 필드를 넘기지 않아도 그대로 동작한다.
+    threads_history_path: Path = ROOT / "data" / "threads_publish_log.json"
 
 
 # Threads 500자 제한은 새로 만드는 규칙이 아니다 - ThreadsClient.publish_text
@@ -398,7 +413,7 @@ def render_candidate_list_html(
 
     body = f"""
 <h1>TAK SCOUT Dashboard</h1>
-<div class="nav-links"><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/performance">📈 Performance</a></div>
+<div class="nav-links"><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/performance">📈 Performance</a></div>
 <div class="sub">오늘의 소재 {len(ranked)}건 · 점수 내림차순 (SCOUT SCORE MVP, LLM 미사용)</div>
 {"".join(cards) if cards else "<p>오늘 표시할 소재가 없습니다.</p>"}
 """
@@ -1010,6 +1025,106 @@ def render_media_list_html(
 {"".join(groups_html)}
 """
     return body
+
+
+# --- Publish Readiness 화면(6-14) ---------------------------------------------
+#
+# content_engine.publish_audit.audit_archive()(순수 읽기 전용 판정 함수, 6-14)를
+# 그대로 호출해 production archive 전체를 READY/NEEDS_HUMAN_REVIEW/BLOCKED/
+# ALREADY_PUBLISHED/ERROR로 분류해 보여준다. 이 화면은 어떤 승인/보류/게시
+# 액션도 갖지 않는다(완전히 읽기 전용) - "사람이 dashboard에 들어가기 전에
+# 먼저 전부 자동 점검한 결과를 한눈에 보는 화면"이라는 6-14 설계를 그대로
+# 반영한다. 같은 판정 로직을 scripts/audit_publish_candidates.py CLI와
+# 100% 공유한다(이 화면은 그 CLI가 저장하는 docs/publish_readiness_latest.md와
+# 별도로, 항상 최신 데이터로 즉석에서 다시 계산한다).
+
+_PUBLISH_READINESS_LABELS: dict[str, str] = {
+    READY: "게시 가능",
+    NEEDS_HUMAN_REVIEW: "사람 검토 필요",
+    BLOCKED: "차단됨",
+    ALREADY_PUBLISHED: "이미 게시됨",
+    ERROR: "오류",
+}
+
+
+def build_publish_audit_inputs(config: DashboardConfig) -> PublishAuditInputs:
+    knowledge_by_id = {
+        record.id: record for record in load_knowledge_records(config.knowledge_path)
+    }
+    return PublishAuditInputs(
+        knowledge_by_id=knowledge_by_id,
+        blog_history=PublishHistory(config.blog_history_path),
+        threads_history=PublishHistory(config.threads_history_path),
+        threads_pending=tuple(load_pending(config.pending_path)),
+        youtube_history=YouTubeUploadHistory(config.youtube_history_path),
+        shorts_scripts_path=config.shorts_scripts_path,
+        shorts_dir_path=ROOT / "data" / "shorts",
+    )
+
+
+def _publish_readiness_row(result: PublishAuditResult) -> str:
+    status_label = _PUBLISH_READINESS_LABELS.get(result.status, result.status)
+    reasons = "; ".join(result.reasons) if result.reasons else "-"
+    detail_link = (
+        f'<a href="/media/{escape(result.content_id)}">상세보기</a>'
+        if result.status != ERROR
+        else "(상세보기 불가 - content_id 중복)"
+    )
+    return f"""
+<div class="card">
+  <div class="card-top">
+    <span class="status">{escape(result.platform.upper())}</span>
+    <span class="status">{escape(status_label)}</span>
+    <span class="status">review_status: {escape(result.review_status)}</span>
+  </div>
+  <div class="title">{escape(result.title or "(제목 없음)")}</div>
+  <div class="meta">content_id: {escape(result.content_id)}</div>
+  <div class="sub">{escape(reasons)}</div>
+  <div class="actions">{detail_link}</div>
+</div>
+"""
+
+
+def render_publish_readiness_html(results: tuple[PublishAuditResult, ...]) -> str:
+    """GET /publish-readiness - 사람이 /media를 하나씩 열지 않아도 지금 상태를
+    한눈에 볼 수 있는 자동 점검 요약 화면(6-14). 읽기 전용."""
+    summary = summarize_publish_audit(results)
+
+    summary_html = f"""
+<div class="sub">
+  전체 {len(results)}건 ·
+  게시 가능(READY) {summary[READY]} ·
+  사람 검토 필요 {summary[NEEDS_HUMAN_REVIEW]} ·
+  차단 {summary[BLOCKED]} ·
+  이미 게시됨 {summary[ALREADY_PUBLISHED]} ·
+  오류 {summary[ERROR]}
+</div>
+"""
+
+    if not results:
+        return f"""
+<h1>Publish Readiness</h1>
+<div class="nav-links"><a href="/media">📱 TAK MEDIA</a><a href="/media/generations">Generation Pool</a></div>
+{summary_html}
+<div class="sub">Production Archive에 콘텐츠가 없습니다.</div>
+"""
+
+    # READY/NEEDS_HUMAN_REVIEW를 맨 위(사람이 실제로 판단해야 하는 것)에,
+    # 그다음 ERROR(데이터 이상, 시급), BLOCKED, ALREADY_PUBLISHED 순으로 보여준다 -
+    # "지금 당장 볼 필요가 있는 것"을 위로 올리는 것 외에 다른 임의 순위는 매기지
+    # 않는다(6-14 지시 6장: Best/Worst 평가 금지, 같은 상태 안에서는 원래 순서
+    # 그대로).
+    order = {READY: 0, NEEDS_HUMAN_REVIEW: 1, ERROR: 2, BLOCKED: 3, ALREADY_PUBLISHED: 4}
+    ordered_results = sorted(results, key=lambda r: order.get(r.status, 99))
+    cards = "".join(_publish_readiness_row(result) for result in ordered_results)
+
+    return f"""
+<h1>Publish Readiness</h1>
+<div class="nav-links"><a href="/media">📱 TAK MEDIA</a><a href="/media/generations">Generation Pool</a></div>
+<div class="sub">review_status==approved가 아닌 콘텐츠는 이 화면에서도 READY로 표시되지 않습니다.</div>
+{summary_html}
+{cards}
+"""
 
 
 # --- MEDIA Generation Pool 검수 (6-07 읽기 전용 조회 -> 6-08 승인 기능 추가) ---
@@ -2346,6 +2461,18 @@ def make_handler_class(
                     # (이미 처리된 초안을 다시 승인할 수 있는 경로 자체가 없다).
                     body = render_threads_resolved_html(draft)
                 self._send_html(_page("Threads 초안 검수", body))
+                return
+
+            # --- Publish Readiness 자동 점검(6-14, 읽기 전용) ------------------
+            # "/media" 목록 라우트보다 먼저 검사할 필요는 없다(경로가 겹치지
+            # 않는다) - 위치는 단지 TAK MEDIA 섹션 바로 앞이 자연스러워서다.
+
+            if path == "/publish-readiness":
+                inputs = build_publish_audit_inputs(config)
+                records = load_archive(config.media_archive_path)
+                results = audit_archive(records, inputs=inputs)
+                body = render_publish_readiness_html(results)
+                self._send_html(_page("Publish Readiness", body))
                 return
 
             # --- TAK MEDIA Human Review Dashboard (5-28) ---------------------

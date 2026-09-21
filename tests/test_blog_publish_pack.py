@@ -381,6 +381,12 @@ class GenerateBlogPublishPackIdFilterTests(unittest.TestCase):
                     "--history", str(history),
                     "--pack-output", str(pack),
                     "--archive", str(archive),
+                    # 6-14: 이 클래스는 정확히 --from-archive 없이 승인 KNOWLEDGE에서
+                    # 바로 배치를 생성하는 옛(5-10) 동작을 테스트한다 - 그 동작은
+                    # 이제 --generate-without-review를 명시적으로 줘야만 실행되므로
+                    # (승인 게이트 안전장치, 6-13에서 발견된 문제의 수정) 여기서 항상
+                    # 추가한다.
+                    "--generate-without-review",
                     *extra_args,
                 ]
             )
@@ -415,6 +421,70 @@ class GenerateBlogPublishPackIdFilterTests(unittest.TestCase):
         self.assertEqual(exit_code, 1)
         self.assertFalse(output.exists())
         self.assertEqual(provider.call_count, 0)
+
+
+class GenerateBlogPublishPackReviewGateTests(unittest.TestCase):
+    """6-14: 6-13에서 발견한 문제(--from-archive 없이 실행하면 콘텐츠 단위 Human
+    Review 없이 Pack이 만들어질 수 있음)의 수정 검증. --from-archive도
+    --generate-without-review도 주지 않으면 LLM을 호출하기 전에 안전하게 거부해야
+    한다."""
+
+    def setUp(self) -> None:
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp_dir.cleanup)
+        self.tmp_path = Path(self.tmp_dir.name)
+        self.knowledge_path = self.tmp_path / "knowledge.json"
+        self.knowledge_path.write_text("[]", encoding="utf-8")
+
+    def _run(self, extra_args: list[str]) -> tuple[int, str]:
+        from io import StringIO
+        from contextlib import redirect_stderr
+
+        provider = _CountingRewriteProvider()
+        stderr = StringIO()
+        default_args = [
+            "--knowledge", str(self.knowledge_path),
+            "--output", str(self.tmp_path / "media_batch.json"),
+            "--history", str(self.tmp_path / "history.json"),
+            "--pack-output", str(self.tmp_path / "pack.md"),
+            "--archive", str(self.tmp_path / "media_archive.json"),
+        ]
+        with mock.patch(
+            "scripts.generate_blog_publish_pack.OpenAICompatibleRewriteProvider.from_environment",
+            return_value=provider,
+        ), redirect_stderr(stderr):
+            exit_code = generate_blog_publish_pack_main([*default_args, *extra_args])
+        self.assertEqual(provider.call_count, 0, "거부된 실행은 LLM을 호출하면 안 됩니다.")
+        return exit_code, stderr.getvalue()
+
+    def test_no_flags_is_rejected_before_any_llm_call(self):
+        exit_code, stderr = self._run([])
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("Human Review", stderr)
+        self.assertIn("--from-archive", stderr)
+        self.assertIn("--generate-without-review", stderr)
+
+    def test_no_flags_with_id_is_still_rejected(self):
+        """--id를 줘도 이 안전장치를 우회할 수 없다."""
+        exit_code, stderr = self._run(["--id", "knowledge-anything"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("Human Review", stderr)
+
+    def test_generate_without_review_flag_bypasses_the_gate_explicitly(self):
+        """명시적으로 opt-in하면(예전 동작) 게이트를 통과해 정상 진행된다 -
+        KNOWLEDGE가 0건이라 곧바로 '승인된 KNOWLEDGE가 없습니다'로 정상 종료된다."""
+        exit_code, stderr = self._run(["--generate-without-review"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertNotIn("안전을 위해 이 실행을 거부합니다", stderr)
+
+    def test_from_archive_flag_bypasses_the_gate_without_generate_without_review(self):
+        exit_code, stderr = self._run(["--from-archive"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertNotIn("안전을 위해 이 실행을 거부합니다", stderr)
 
 
 def _archive_record(**overrides) -> MediaArchiveRecord:
