@@ -400,12 +400,8 @@ cefe257224273126c41800332831fc796ab89ddc
 cefe257224273126c41800332831fc796ab89ddc
 ```
 
-커밋/push는 이 보고서 작성 직후 아래 순서로 진행한다: 이번 세션이
-수정/추가한 파일만 정확히 `git add`(기존 미커밋 변경은 절대 포함하지
-않음) → 커밋 → `git push` → `git status --short`로 시작 시점과 동일한
-기존 미커밋 목록만 남는지 재확인. 실제 커밋 해시/push 결과는 이 보고서와
-같은 커밋에 포함할 수 없으므로(닭과 달걀 문제 - 6-05~6-11이 반복해서
-겪은 것과 동일), 커밋 직후 실행 결과를 아래에 덧붙인다.
+이번 세션이 수정/추가한 파일 9개만 정확히 `git add`했다(기존 미커밋
+변경은 포함하지 않음):
 
 ```
 $ git add content_engine/youtube_upload_history.py \
@@ -417,9 +413,46 @@ $ git add content_engine/youtube_upload_history.py \
     tests/test_youtube_upload_history_dedup.py \
     tests/test_media_dashboard.py \
     docs/6-13_publish_operation_report.md
-$ git status --short   # 위 9개 파일만 staged로 보이는지 확인
-(커밋 직후 재확인 결과를 여기 덧붙인다)
+$ git status --short   # 위 9개 파일만 M/A로 표시, 나머지는 기존과 동일한 M/?? 그대로
 ```
+
+```
+$ git commit -m "feat: add YouTube dedup + publish status visibility, fix stale 6-06/6-07 snapshots (6-13)" (+본문)
+[main 745d67c] feat: add YouTube dedup + publish status visibility, fix stale 6-06/6-07 snapshots (6-13)
+ 9 files changed, 824 insertions(+), 24 deletions(-)
+ create mode 100644 docs/6-13_publish_operation_report.md
+ create mode 100644 tests/test_youtube_upload_history_dedup.py
+```
+
+**커밋 해시: `745d67c`**
+
+```
+$ git push
+To https://github.com/sopptak/tak-auto
+   cefe257..745d67c  main -> main
+
+$ git fetch origin
+$ git log origin/main..HEAD --oneline
+(출력 없음)
+$ git log HEAD..origin/main --oneline
+(출력 없음)
+```
+
+**Push 완료. origin/main과 완전히 동기화됨(양방향 모두 비어 있음).**
+
+```
+$ git status --short
+```
+
+커밋 직후 `git status --short`가 작업 시작 시점(2장)과 정확히 같은
+기존 미커밋(`.gitignore`, `content_engine/__init__.py`,
+`content_engine/generator.py`, `content_engine/llm_provider.py`,
+`content_engine/rewrite.py`, `data/tak_brain_knowledge.json`,
+`data/tak_threads_pending.json`, `tests/test_content_engine.py`,
+`tests/test_media_batch.py`)과 untracked 문서/스크립트만 남았고, 이번에
+커밋한 9개 파일은 더 이상 목록에 나타나지 않는다 - 이번 작업에서
+만든/수정한 파일만 정확히 commit됐고, 기존 미커밋 변경은 작업 시작 때와
+동일하게 그대로 보존됐다.
 
 ## 14. 남은 문제
 
