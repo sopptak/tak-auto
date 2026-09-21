@@ -132,6 +132,22 @@ def main(argv: list[str] | None = None) -> int:
         print(f"오류: YouTube title exceeds 100 characters: {len(clean_title)}", file=sys.stderr)
         return 1
 
+    # 6-13: content_id가 주어졌고 이미 업로드 이력에 있으면 dry-run/live 모두
+    # 여기서 끝낸다 - Threads(publish_approved_threads.py)/Blog(mark_blog_published.py)와
+    # 동일한 idempotency 원칙(이미 게시된 content_id는 다시 게시하지 않는다).
+    # content_id를 생략한 호출(기존 사용자의 기존 명령)은 판단 근거가 없으므로
+    # 이 검사를 건너뛰고 완전히 기존과 동일하게 동작한다.
+    history = YouTubeUploadHistory(args.history)
+    if content_id and history.is_published(content_id):
+        existing = next(
+            (record for record in history.load() if record.get("content_id") == content_id),
+            {},
+        )
+        print(f"안내: content_id={content_id}는 이미 YouTube 업로드 이력에 있습니다. 다시 업로드하지 않습니다.")
+        print(f"기존 video_id: {existing.get('video_id', '')}")
+        print(f"기존 URL: {existing.get('url', '')}")
+        return 0
+
     if args.dry_run:
         print("=== YouTube Shorts Upload (Dry-run) ===")
         print(f"영상 파일: {video_path}")
@@ -181,7 +197,6 @@ def main(argv: list[str] | None = None) -> int:
     print(f"URL: {result.url}")
 
     try:
-        history = YouTubeUploadHistory(args.history)
         history.append(
             YouTubeUploadRecord(
                 video_id=result.video_id,

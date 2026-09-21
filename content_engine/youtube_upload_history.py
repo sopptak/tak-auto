@@ -84,6 +84,30 @@ class YouTubeUploadHistory:
             )
         return data
 
+    def published_content_ids(self) -> set[str]:
+        """content_id가 기록된(비어있지 않은) 업로드 이력의 content_id 집합.
+
+        content_id 없이 저장된 legacy 기록(6-02 이전, 또는 --content-id를
+        생략한 업로드)은 여기 포함되지 않는다 - 그런 레코드는 애초에 어떤
+        content_id와도 연결할 근거가 없으므로 중복 판정에 쓸 수 없다
+        (``content_engine.publish_history.PublishHistory.published_content_ids()``
+        와 동일한 관례).
+        """
+        return {
+            record["content_id"]
+            for record in self.load()
+            if isinstance(record.get("content_id"), str) and record["content_id"]
+        }
+
+    def is_published(self, content_id: str) -> bool:
+        """이 content_id가 이미 업로드 이력에 있는지(=이미 게시됨) 여부.
+
+        빈 문자열/None은 항상 False다 - content_id를 지정하지 않은 업로드는
+        (6-02 이전 관례대로) 중복 판정 대상이 아니다."""
+        if not content_id:
+            return False
+        return content_id in self.published_content_ids()
+
     def append(self, record: YouTubeUploadRecord) -> None:
         """이력을 한 건 추가하고 파일에 원자적으로(atomic) 저장한다."""
         records = self.load()

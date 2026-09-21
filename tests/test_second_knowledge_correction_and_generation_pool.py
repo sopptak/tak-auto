@@ -133,9 +133,16 @@ class RealGenerationPoolResultTests(unittest.TestCase):
         self.assertIsNotNone(next(iter(generation_ids)))
         self.assertTrue(next(iter(generation_ids)).startswith("gen-"))
 
-    def test_all_nine_start_as_unreviewed(self):
+    def test_all_nine_are_approved_after_6_12_review(self):
+        """6-07 직후에는 이 9건이 전부 unreviewed였지만, 6-12
+        (docs/6-12_media_generation_promotion_execution.md)에서 사람이 실제로
+        Dashboard에서 검토하고 approve-all을 실행해 전부 approved로 전이했다 -
+        이 파일 자체(generation pool)는 promotion 이후에도 그 상태 그대로
+        보존된다(promote_media_generation.py는 generation pool을 읽기만 하고
+        쓰지 않는다). 그래서 이제는 "생성 직후 unreviewed"가 아니라 "6-12 검토
+        완료 후 approved"가 이 실제 파일의 고정된 현재 상태다."""
         for record in self.records:
-            self.assertEqual(record.review_status, "unreviewed")
+            self.assertEqual(record.review_status, "approved")
 
     def test_generation_status_values_are_faithfully_stored(self):
         """generation_status가 valid/rejected/error 중 하나로 정확히 저장되고
@@ -158,17 +165,33 @@ class RealGenerationPoolResultTests(unittest.TestCase):
             {"https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss"},
         )
 
-    def test_no_content_id_collision_with_production_archive(self):
-        production_content_ids = {record.content_id for record in load_archive(PRODUCTION_ARCHIVE_PATH)}
+    def test_content_ids_are_now_promoted_into_production_archive(self):
+        """6-07 시점에는 이 pool의 content_id 9건이 production archive와 겹치지
+        않아야 했다(승격 전이므로). 6-12에서 사람이 이 9건을 승인하고 실제로
+        promote_media_generation.py --execute로 production archive에 승격했으므로,
+        이제는 정반대로 "pool의 9건이 production archive의 부분집합"이어야
+        정상이다 - 겹치지 않으면 오히려 6-12 promotion이 사라졌다는 뜻이므로
+        경고 신호다. 승격된 production 레코드는 이 pool 레코드와 동일한
+        generation_id(gen-20260920T033856-6e8d98fb)를 가져야 한다(promotion이
+        내용을 바꾸지 않고 그대로 복사했는지 확인)."""
+        production_records = {
+            record.content_id: record for record in load_archive(PRODUCTION_ARCHIVE_PATH)
+        }
         pool_content_ids = {record.content_id for record in self.records}
-        self.assertEqual(production_content_ids & pool_content_ids, set())
+        self.assertTrue(pool_content_ids.issubset(production_records.keys()))
+        for record in self.records:
+            promoted = production_records[record.content_id]
+            self.assertEqual(promoted.generation_id, record.generation_id)
+            self.assertEqual(promoted.review_status, "approved")
 
-    def test_production_archive_still_has_only_the_original_nine_records(self):
-        """6-07 실행(실제 LLM 호출 포함) 전체가 production archive를 전혀
-        건드리지 않았는지 - 6-05가 기록한 content_id 9개와 정확히 같아야 한다."""
+    def test_production_archive_still_has_the_original_nine_plus_promoted_nine(self):
+        """6-07 실행(실제 LLM 호출 포함) 자체는 production archive를 건드리지
+        않았다 - 다만 그 이후 6-12에서 사람이 명시적으로 이 9건을 승격시켰으므로,
+        지금 production archive는 "6-05가 기록한 legacy 9건" + "6-12가 승격한
+        신규 9건" = 18건이어야 한다. legacy 9건의 content_id 집합은 6-12
+        promotion과 무관하게 그대로 유지되어야 한다(정확히 일치, 추가/삭제 없음)."""
         production_records = load_archive(PRODUCTION_ARCHIVE_PATH)
-        self.assertEqual(len(production_records), 9)
-        expected_content_ids = {
+        legacy_content_ids = {
             "content-5971ed5204437cdd",
             "content-e787c9201b94a948",
             "content-3ae2d78568210164",
@@ -179,9 +202,18 @@ class RealGenerationPoolResultTests(unittest.TestCase):
             "content-5a6b175ac6023db1",
             "content-cbcf705b6056c9fc",
         }
-        self.assertEqual({record.content_id for record in production_records}, expected_content_ids)
+        promoted_content_ids = {record.content_id for record in self.records}
+
+        self.assertEqual(len(production_records), 18)
+        self.assertEqual(
+            {record.content_id for record in production_records},
+            legacy_content_ids | promoted_content_ids,
+        )
         for record in production_records:
-            self.assertIsNone(record.generation_id)
+            if record.content_id in legacy_content_ids:
+                self.assertIsNone(record.generation_id)
+            else:
+                self.assertEqual(record.generation_id, "gen-20260920T033856-6e8d98fb")
 
     # --- 6-11 3/10/12(G)장: 이 세션(6-11)이 실제 9건/production archive를 --
     # 절대 쓰지 않는다는 것을 파일 해시로 재확인한다. 이 클래스의 다른 모든

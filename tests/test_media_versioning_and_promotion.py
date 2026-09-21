@@ -90,12 +90,23 @@ class GenerationIdTests(unittest.TestCase):
         self.assertIsNone(record.generation_id)
 
     def test_real_production_archive_records_are_legacy_generations(self):
-        """실제 production archive(data/tak_media_archive.json)의 기존 9건은
-        generation_id 없이 저장돼 있다 - 이 테스트는 그 파일을 읽기만 하고
-        전혀 쓰지 않는다."""
+        """실제 production archive(data/tak_media_archive.json)의 legacy 9건
+        (knowledge-scout-b28b782b2a33, 5-27 시절 레코드)은 generation_id 없이
+        저장돼 있다 - 이 테스트는 그 파일을 읽기만 하고 전혀 쓰지 않는다.
+
+        6-12(docs/6-12_media_generation_promotion_execution.md)에서 실제로
+        두 번째 KNOWLEDGE(knowledge-scout-6d1d0e2fa762)의 generation 9건이
+        production archive에 승격되어, 이 파일의 총 레코드 수는 이제 9가 아니라
+        18이다(9 legacy + 9 신규, 신규 9건은 generation_id가 있다) - 그래서
+        "9건 전체"가 아니라 "generation_id가 없는 legacy 부분집합만 9건"인지로
+        범위를 좁혀 확인한다. 이 범위 좁히기 자체가 이 테스트의 안전장치(legacy
+        레코드는 generation_id 없이 보존된다)를 약화시키지 않는다 - 오히려
+        production archive가 앞으로 계속 자라나도(추가 promotion) 이 테스트가
+        불필요하게 깨지지 않도록 만든다."""
         records = load_archive(PRODUCTION_ARCHIVE_PATH)
-        self.assertEqual(len(records), 9)
-        for record in records:
+        legacy_records = [record for record in records if record.generation_id is None]
+        self.assertEqual(len(legacy_records), 9)
+        for record in legacy_records:
             self.assertIsNone(record.generation_id)
 
 
@@ -340,16 +351,26 @@ class ExistingProductionArchiveUntouchedTests(unittest.TestCase):
     기존 9건을 절대 건드리지 않는지 확인한다(6-06 절대 원칙 7·8, 15장)."""
 
     def test_production_archive_still_has_exactly_nine_unreviewed_legacy_records(self):
+        """6-12 이후 production archive 총 레코드 수는 18(9 legacy + 9 신규
+        promoted)이므로, legacy 부분집합(generation_id is None)만 9건인지로
+        범위를 좁힌다 - 이유는 test_real_production_archive_records_are_legacy_generations
+        와 동일(6-12 참고)."""
         records = load_archive(PRODUCTION_ARCHIVE_PATH)
-        self.assertEqual(len(records), 9)
-        for record in records:
+        legacy_records = [record for record in records if record.generation_id is None]
+        self.assertEqual(len(legacy_records), 9)
+        for record in legacy_records:
             self.assertIn(record.review_status, ("unreviewed", "approved", "dismissed"))
             self.assertIsNone(record.generation_id)
 
     def test_new_generation_added_to_a_temp_copy_does_not_drop_existing_nine(self):
         """실제 파일 대신 임시 복사본에 6-06 upsert_archive()(기존 함수, 변경 없음)로
-        새 레코드를 추가해도 기존 9건이 사라지지 않는지 - production archive
-        자체는 전혀 열어서 쓰지 않는다(읽기만 한다)."""
+        새 레코드를 추가해도 기존 레코드가 사라지지 않는지 - production archive
+        자체는 전혀 열어서 쓰지 않는다(읽기만 한다).
+
+        6-12 이전에는 원본이 9건이라 "10건이 되는지"로 고정 검증했지만, 이제
+        원본 자체가 18건(6-12 promotion 결과 포함)이므로 절대값 대신
+        "원본 개수 + 1"로 비교한다 - 검증하는 내용(새 레코드 추가로 기존 레코드가
+        하나도 사라지지 않는다)은 동일하다."""
         original = load_archive(PRODUCTION_ARCHIVE_PATH)
         tmp = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
         tmp.close()
@@ -360,7 +381,7 @@ class ExistingProductionArchiveUntouchedTests(unittest.TestCase):
             upsert_archive(tmp_path, [new_record])
 
             reloaded = load_archive(tmp_path)
-            self.assertEqual(len(reloaded), 10)
+            self.assertEqual(len(reloaded), len(original) + 1)
             original_content_ids = {record.content_id for record in original}
             reloaded_content_ids = {record.content_id for record in reloaded}
             self.assertTrue(original_content_ids.issubset(reloaded_content_ids))

@@ -127,6 +127,7 @@ from content_engine.threads_review import (
     mark_approved,
     upsert_pending,
 )
+from content_engine.youtube_upload_history import YouTubeUploadHistory
 
 
 _BREAKDOWN_LABELS: tuple[tuple[str, str, int], ...] = (
@@ -207,6 +208,12 @@ class DashboardConfig:
     # 액션은 generation pool 파일만 갱신하고 production archive는 절대 건드리지
     # 않는다(docs/6-08_generation_review_and_promotion.md 참고).
     generation_archive_paths: tuple[Path, ...] = ()
+    # 6-13 - YouTube 업로드 이력(YouTubeUploadHistory, content_engine.youtube_upload_history).
+    # Dashboard는 이 경로를 읽기만 해서 Shorts의 downstream 상태가 "MP4 생성됨"에서
+    # 더 나아가 "YouTube 업로드됨"까지 표시되도록 한다 - 실제 업로드는 여전히 사람이
+    # scripts/upload_youtube_short.py로 한다(blog_history_path와 동일한 책임 분리).
+    # 기본값을 둬서 기존 호출부(테스트 포함)가 이 필드를 넘기지 않아도 그대로 동작한다.
+    youtube_history_path: Path = ROOT / "data" / "youtube_publish_log.json"
 
 
 # Threads 500자 제한은 새로 만드는 규칙이 아니다 - ThreadsClient.publish_text
@@ -735,6 +742,14 @@ def compute_media_downstream_status(record: MediaArchiveRecord, config: Dashboar
         script_path = shorts_script_output_path(config.shorts_scripts_path, record.content_id)
         if not script_path.exists():
             return "승인됨 (Script 생성 가능)"
+        # 6-13: YouTube 업로드는 이 상태 체인의 종결 상태다 - review_status=="approved"가
+        # 곧 "게시됨"을 뜻하지 않는다는 원칙(6-13 지시 5장)을 그대로 따라, 실제
+        # 업로드 이력(YouTubeUploadHistory, content_id로 연결)이 있을 때만 "YouTube
+        # 업로드됨"을 보여준다 - MP4가 로컬에 렌더링됐다는 사실만으로는 게시됐다고
+        # 표시하지 않는다.
+        youtube_history = YouTubeUploadHistory(config.youtube_history_path)
+        if youtube_history.is_published(record.content_id):
+            return "YouTube 업로드됨"
         mp4_path = ROOT / "data" / "shorts" / f"{record.content_id}.mp4"
         if mp4_path.exists():
             return "Script 생성됨 (MP4 생성됨)"

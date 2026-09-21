@@ -692,6 +692,7 @@ class MediaDownstreamStatusHttpTests(unittest.TestCase):
         self.archive_path = self.directory / "tak_media_archive.json"
         self.shorts_scripts_path = self.directory / "shorts_scripts"
         self.blog_history_path = self.directory / "blog_publish_log.json"
+        self.youtube_history_path = self.directory / "youtube_publish_log.json"
 
         self.config = DashboardConfig(
             daily_pack_path=self.directory / "tak_scout_daily.json",
@@ -703,6 +704,7 @@ class MediaDownstreamStatusHttpTests(unittest.TestCase):
             media_archive_path=self.archive_path,
             shorts_scripts_path=self.shorts_scripts_path,
             blog_history_path=self.blog_history_path,
+            youtube_history_path=self.youtube_history_path,
         )
         handler_class = make_handler_class(self.config)
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler_class)
@@ -814,6 +816,39 @@ class MediaDownstreamStatusHttpTests(unittest.TestCase):
 
         # 실제 파일도 만들어졌는지(자동 연결 기능 자체의 재확인).
         self.assertTrue((self.shorts_scripts_path / "content-media-test-1.json").exists())
+
+    def test_shorts_downstream_status_shows_youtube_uploaded_once_history_recorded(self):
+        """6-13: Script만 생성돼 있고 실제 YouTube 업로드 이력
+        (YouTubeUploadHistory, content_id로 연결)이 없으면 "MP4 미생성"까지만
+        보여주고, 업로드 이력이 생기면 "YouTube 업로드됨"으로 바뀌어야 한다 -
+        review_status=="approved"(사람의 승인)와 실제 게시 여부를 절대 같은
+        의미로 취급하지 않는다는 원칙(6-13)의 확인. 실제 MP4 파일(고정 경로
+        data/shorts/<content_id>.mp4)은 이 테스트가 만들지 않는다 - YouTube
+        업로드 이력 확인이 MP4 파일 존재 확인보다 먼저 판정되므로 필요 없다."""
+        from content_engine.youtube_upload_history import YouTubeUploadHistory, YouTubeUploadRecord
+
+        self._seed(_record(platform="shorts", review_status="unreviewed"))
+        self._post("/media/content-media-test-1/approve")  # 최초 승인 - ShortsScript 자동 생성
+
+        status, body = self._get("/media/content-media-test-1")
+        self.assertEqual(status, 200)
+        self.assertIn("MP4 미생성", body)
+        self.assertNotIn("YouTube 업로드됨", body)
+
+        YouTubeUploadHistory(self.youtube_history_path).append(
+            YouTubeUploadRecord(
+                video_id="yt_video_1",
+                uploaded_at="2026-09-21T00:00:00+00:00",
+                title="업로드된 Shorts",
+                privacy_status="private",
+                content_id="content-media-test-1",
+                knowledge_id="knowledge-media-1",
+            )
+        )
+
+        status, body = self._get("/media/content-media-test-1")
+        self.assertEqual(status, 200)
+        self.assertIn("YouTube 업로드됨", body)
 
     # --- L. 승인 후 다음 단계 안내 표시 ----------------------------------------------
 

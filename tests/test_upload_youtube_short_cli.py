@@ -29,6 +29,7 @@ from content_engine.youtube_publisher import (
     YouTubeConfigurationError,
     YouTubeUploadResult,
 )
+from content_engine.youtube_upload_history import YouTubeUploadHistory, YouTubeUploadRecord
 from scripts.upload_youtube_short import main
 
 
@@ -255,6 +256,96 @@ class UploadYouTubeShortCLITests(unittest.TestCase):
         records = json.loads(self.history_path.read_text(encoding="utf-8"))
         self.assertEqual(records[0]["content_id"], "")
         self.assertEqual(records[0]["knowledge_id"], "")
+
+    # --- 6-13: content_id 중복 게시 방지 --------------------------------------
+
+    def test_dry_run_skips_already_uploaded_content_id_without_touching_history(self):
+        history = YouTubeUploadHistory(self.history_path)
+        history.append(
+            YouTubeUploadRecord(
+                video_id="already_uploaded_vid",
+                uploaded_at="2026-09-20T00:00:00+00:00",
+                title="이전 업로드",
+                privacy_status="private",
+                content_id="content-dup-001",
+                knowledge_id="knowledge-dup",
+            )
+        )
+
+        exit_code, stdout, _stderr = self._assert_from_environment_not_called(
+            [
+                "--video", str(self.video_path),
+                "--title", "새로 시도한 제목",
+                "--content-id", "content-dup-001",
+                "--knowledge-id", "knowledge-dup",
+                "--history", str(self.history_path),
+                "--dry-run",
+            ]
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("이미 YouTube 업로드 이력에 있습니다", stdout)
+        self.assertIn("already_uploaded_vid", stdout)
+        records = json.loads(self.history_path.read_text(encoding="utf-8"))
+        self.assertEqual(len(records), 1)  # 새 레코드가 추가되지 않았다.
+
+    def test_live_skips_upload_and_does_not_call_api_for_duplicate_content_id(self):
+        history = YouTubeUploadHistory(self.history_path)
+        history.append(
+            YouTubeUploadRecord(
+                video_id="already_uploaded_vid",
+                uploaded_at="2026-09-20T00:00:00+00:00",
+                title="이전 업로드",
+                privacy_status="private",
+                content_id="content-dup-002",
+                knowledge_id="knowledge-dup",
+            )
+        )
+
+        exit_code, stdout, _stderr = self._assert_from_environment_not_called(
+            [
+                "--video", str(self.video_path),
+                "--title", "새로 시도한 제목",
+                "--content-id", "content-dup-002",
+                "--knowledge-id", "knowledge-dup",
+                "--history", str(self.history_path),
+            ]
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("이미 YouTube 업로드 이력에 있습니다", stdout)
+        records = json.loads(self.history_path.read_text(encoding="utf-8"))
+        self.assertEqual(len(records), 1)
+
+    def test_live_uploads_normally_when_content_id_is_new(self):
+        history = YouTubeUploadHistory(self.history_path)
+        history.append(
+            YouTubeUploadRecord(
+                video_id="unrelated_vid",
+                uploaded_at="2026-09-20T00:00:00+00:00",
+                title="다른 업로드",
+                privacy_status="private",
+                content_id="content-other",
+                knowledge_id="knowledge-other",
+            )
+        )
+        fake_client = FakeYouTubeClient(result=YouTubeUploadResult(video_id="brand_new_vid"))
+        with mock.patch.object(YouTubeClient, "from_environment", return_value=fake_client):
+            exit_code, stdout, _stderr = self._run(
+                [
+                    "--video", str(self.video_path),
+                    "--title", "새 제목",
+                    "--content-id", "content-dup-003",
+                    "--knowledge-id", "knowledge-dup",
+                    "--history", str(self.history_path),
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("brand_new_vid", stdout)
+        self.assertEqual(len(fake_client.upload_short_calls), 1)
+        records = json.loads(self.history_path.read_text(encoding="utf-8"))
+        self.assertEqual(len(records), 2)
 
     def test_live_api_error_reported_without_recording_history(self):
         fake_client = FakeYouTubeClient(error=YouTubeAPIError("YouTube Upload HTTP 500: message=internal error"))
