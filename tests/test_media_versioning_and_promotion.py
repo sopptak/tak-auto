@@ -89,6 +89,12 @@ class GenerationIdTests(unittest.TestCase):
 
         self.assertIsNone(record.generation_id)
 
+    @unittest.skipUnless(
+        PRODUCTION_ARCHIVE_PATH.exists(),
+        "Production Archive(data/tak_media_archive.json)가 없는 환경(예: 새 clone, "
+        "notebook2)에서는 이 실제 운영 데이터 회귀 테스트를 검증할 수 없어 건너뜁니다. "
+        "이 파일은 git에 커밋되지 않는 로컬/운영 산출물이다(6-20).",
+    )
     def test_real_production_archive_records_are_legacy_generations(self):
         """실제 production archive(data/tak_media_archive.json)의 legacy 9건
         (knowledge-scout-b28b782b2a33, 5-27 시절 레코드)은 generation_id 없이
@@ -346,6 +352,13 @@ class PromotionDryRunAndExecuteTests(unittest.TestCase):
         self.assertFalse(self.production_path.exists() and self.production_path.read_text().strip())
 
 
+@unittest.skipUnless(
+    PRODUCTION_ARCHIVE_PATH.exists(),
+    "Production Archive(data/tak_media_archive.json)가 없는 환경(예: 새 clone, "
+    "notebook2)에서는 이 실제 운영 데이터 회귀 테스트를 검증할 수 없어 건너뜁니다. "
+    "이 파일은 git에 커밋되지 않는 로컬/운영 산출물이다(6-20). 파일이 있는 환경에서는 "
+    "이 클래스가 그대로 실행되어 기존 9건이 보존되는지 계속 검증한다.",
+)
 class ExistingProductionArchiveUntouchedTests(unittest.TestCase):
     """이번 6-06 작업이 실제 production archive(data/tak_media_archive.json)의
     기존 9건을 절대 건드리지 않는지 확인한다(6-06 절대 원칙 7·8, 15장)."""

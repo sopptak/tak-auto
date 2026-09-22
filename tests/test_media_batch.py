@@ -183,6 +183,13 @@ class MediaBatchPipelineTests(unittest.TestCase):
 
     def test_cli_dry_run_saves_json_output(self):
         script = Path(__file__).parents[1] / "scripts" / "run_media_batch.py"
+        # 승인 KNOWLEDGE 수는 data/tak_brain_knowledge.json이 자라남에 따라 계속
+        # 늘어난다(예: 4건 -> 6건). 이 CLI 자체는 --limit 없이 실행하면 승인된
+        # 전체를 대상으로 하므로, 절대값 대신 setUp()에서 실제 파일을 읽어 얻은
+        # self.approved_records를 기준으로 기대값을 계산한다(운영 데이터가 늘어나도
+        # 이 테스트가 불필요하게 깨지지 않는다 - 같은 패턴을
+        # test_generate_media_batch_dry_run_structure에서도 이미 사용 중).
+        approved_count = len(self.approved_records)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             out_path = Path(tmp_dir) / "dryrun_report.json"
@@ -197,9 +204,9 @@ class MediaBatchPipelineTests(unittest.TestCase):
             self.assertTrue(out_path.exists())
 
             data = json.loads(out_path.read_text(encoding="utf-8"))
-            self.assertEqual(data["summary"]["approved_knowledge_count"], 4)
-            self.assertEqual(data["summary"]["total_draft_count"], 36)
-            self.assertEqual(len(data["items"]), 36)
+            self.assertEqual(data["summary"]["approved_knowledge_count"], approved_count)
+            self.assertEqual(data["summary"]["total_draft_count"], approved_count * 9)
+            self.assertEqual(len(data["items"]), approved_count * 9)
             first_item = data["items"][0]
             self.assertIn("knowledge_id", first_item)
             self.assertIn("article_type", first_item)

@@ -498,6 +498,13 @@ class LegacyRecordIsNotExemptFromConflictProtectionTests(_TempArchiveMixin):
 # --- 실제 production archive(18건)는 이 파일에서 읽기만 한다 -----------------
 
 
+@unittest.skipUnless(
+    PRODUCTION_ARCHIVE_PATH.exists(),
+    "Production Archive(data/tak_media_archive.json)가 없는 환경(예: 새 clone, "
+    "notebook2)에서는 이 실제 운영 데이터 회귀 테스트를 검증할 수 없어 건너뜁니다. "
+    "이 파일은 git에 커밋되지 않는 로컬/운영 산출물이다(6-20). 파일이 있는 환경에서는 "
+    "이 클래스가 그대로 실행되어 기존 18건이 보존되는지 계속 검증한다.",
+)
 class ExistingProductionArchiveReadOnlyRegressionTests(unittest.TestCase):
     """이번 6-18 변경이 실제 production archive의 기존 18건에 어떤 영향도 주지
     않는지 - 이 클래스는 그 파일을 읽기만 하고 절대 쓰지 않는다."""
