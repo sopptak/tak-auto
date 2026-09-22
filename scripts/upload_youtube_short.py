@@ -33,6 +33,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from content_engine.media_archive import load_archive
+from content_engine.publish_eligibility import check_content_supersede, format_block_message
 from content_engine.youtube_publisher import (
     VALID_PRIVACY_STATUSES,
     YouTubeAPIError,
@@ -97,6 +99,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="실제 YouTube API를 호출하지 않고 업로드 예정 내용만 확인합니다.",
     )
+    parser.add_argument(
+        "--production-archive",
+        type=Path,
+        default=ROOT / "data" / "tak_media_archive.json",
+        help=(
+            "Production Archive 경로 (기본값: data/tak_media_archive.json). --content-id가 "
+            "주어졌을 때만 이 파일에서 현재 review_status를 다시 확인해, superseded된 "
+            "레코드는 업로드를 차단한다(6-19). 읽기 전용 - 이 스크립트는 이 파일을 쓰지 않는다."
+        ),
+    )
     args = parser.parse_args(argv)
 
     tags = parse_tags(args.tags)
@@ -147,6 +159,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"기존 video_id: {existing.get('video_id', '')}")
         print(f"기존 URL: {existing.get('url', '')}")
         return 0
+
+    # 6-19: --content-id가 주어졌을 때만 Production Archive에서 지금 superseded
+    # 상태인지 다시 확인한다("ShortsScript/MP4가 이미 만들어져 있으니 지금도
+    # 유효하다"는 가정을 하지 않는다). --content-id를 생략한 기존 호출(레거시
+    # 업로드)은 판단 근거가 없으므로 이 검사를 건너뛰고 기존과 동일하게 동작한다.
+    if content_id:
+        production_records = load_archive(args.production_archive)
+        supersede_check = check_content_supersede(production_records, content_id)
+        if supersede_check.blocked:
+            print(format_block_message(content_id, supersede_check))
+            return 1
 
     if args.dry_run:
         print("=== YouTube Shorts Upload (Dry-run) ===")

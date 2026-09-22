@@ -35,6 +35,8 @@ if str(ROOT) not in sys.path:
 
 from blog_importer.models import utc_now
 from content_engine import ThreadsAPIError, ThreadsClient, ThreadsConfigurationError
+from content_engine.media_archive import load_archive
+from content_engine.publish_eligibility import check_content_supersede, format_block_message
 from content_engine.publish_history import PublishHistory, PublishRecord
 from content_engine.threads_review import (
     ThreadsPendingDraft,
@@ -101,6 +103,16 @@ def main(argv: list[str] | None = None) -> int:
         help="특정 content_id 1건만 발행 대상으로 제한",
     )
     parser.add_argument(
+        "--production-archive",
+        type=Path,
+        default=ROOT / "data" / "tak_media_archive.json",
+        help=(
+            "Production Archive 경로 (기본값: data/tak_media_archive.json). 발행 직전 "
+            "이 파일에서 content_id의 현재 review_status를 다시 확인해, superseded된 "
+            "레코드는 발행을 차단한다(6-19). 읽기 전용 - 이 스크립트는 이 파일을 쓰지 않는다."
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="실제 Threads API를 호출하지 않고 발행 예정 내용만 보여줍니다(기본 동작과 동일).",
@@ -135,15 +147,16 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     history = PublishHistory(args.history)
+    # 6-19: production archive는 한 번만 읽는다(모든 draft가 같은 스냅샷을 기준으로
+    # 판정받도록 - 읽기 전용이므로 루프 중간에 값이 바뀔 일이 없다).
+    production_records = load_archive(args.production_archive)
     exit_code = 0
 
     for draft in approved:
-        validation_error = validate_final_text(draft)
-        if validation_error:
-            print(f"오류: {validation_error}", file=sys.stderr)
-            exit_code = 1
-            continue
-
+        # ALREADY_PUBLISHED(아래 history.is_published 분기)가 SUPERSEDED보다 항상
+        # 우선한다는 기존 Publish Readiness 정책(content_engine.publish_audit)을
+        # 그대로 따르기 위해, supersede 차단 검사는 이미 게시된 경우를 먼저 처리한
+        # 다음에 한다.
         if history.is_published(draft.content_id):
             print(
                 f"안내: content_id={draft.content_id}는 이미 게시 이력에 존재합니다. "
@@ -157,6 +170,22 @@ def main(argv: list[str] | None = None) -> int:
                     published_at=str(record.get("published_at") or utc_now()),
                 )
                 upsert_pending(args.input, synced)
+            continue
+
+        # 6-19: production archive에서 이 content_id가 지금 superseded 상태인지
+        # 다시 확인한다. "pending draft를 만들 당시 approved였다"는 과거 사실이
+        # 아니라 "지금 발행해도 되는가"를 기준으로 판단한다 - dry-run/execute 모두
+        # 동일하게 차단해서, --execute 없이 미리 이 사실을 알 수 있게 한다.
+        supersede_check = check_content_supersede(production_records, draft.content_id)
+        if supersede_check.blocked:
+            print(format_block_message(draft.content_id, supersede_check))
+            exit_code = 1
+            continue
+
+        validation_error = validate_final_text(draft)
+        if validation_error:
+            print(f"오류: {validation_error}", file=sys.stderr)
+            exit_code = 1
             continue
 
         if not execute:
