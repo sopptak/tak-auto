@@ -303,11 +303,11 @@ uncommitted 변경(예: `content_engine/__init__.py`, `content_engine/generator.
 
 ## 14. commit hash
 
-<!-- 커밋 후 채움 -->
+`90a2424` (main)
 
 ## 15. push 결과
 
-<!-- push 후 채움 -->
+성공. `8d7f60c..90a2424  main -> main`
 
 ## 16. 남은 리스크
 
