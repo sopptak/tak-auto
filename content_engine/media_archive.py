@@ -108,6 +108,22 @@ class MediaArchiveError(ValueError):
     """아카이브 파일 구조가 올바르지 않을 때 발생한다."""
 
 
+class ArchiveConflictError(MediaArchiveError):
+    """production archive에 이미 존재하는 content_id를, generation_id가 다른
+    레코드로 자동 upsert하려고 할 때 발생한다(6-18,
+    docs/6-18-same-content-id-overwrite-protection.md).
+
+    배경: ``upsert_archive()``는 content_id 단독 키로 upsert하므로(5-27 설계,
+    이 동작 자체는 바꾸지 않는다), 같은 content_id를 다시 upsert하면 이전
+    레코드가 review_status와 무관하게 조용히 대체된다. 이 예외는
+    ``upsert_archive()`` 자체에서 던지지 않는다(대시보드의 approve/dismiss/edit,
+    ``scripts/supersede_media_record.py``처럼 "같은 content_id를 의도적으로
+    갱신"하는 정당한 호출부가 이미 여럿 있고, 그 동작은 그대로 유지해야
+    하기 때문이다) - 대신 ``check_promotion_conflict()``를 호출하는
+    ``scripts/promote_media_generation.py``의 promotion 경로에서만 검사한다.
+    """
+
+
 def _optional_str(value: Any) -> str | None:
     if value is None:
         return None
@@ -360,6 +376,39 @@ def upsert_archive(path: Path | str, records: list[MediaArchiveRecord]) -> list[
     result = list(by_content_id.values())
     save_archive(result, path)
     return result
+
+
+def check_promotion_conflict(
+    existing: MediaArchiveRecord | None, candidate: MediaArchiveRecord
+) -> None:
+    """production archive의 기존 활성 레코드(``existing``)에 ``candidate``를
+    promotion(구성 요소: ``upsert_archive()``)하면 안전한지 검사한다(6-18).
+    파일을 읽거나 쓰지 않는 순수 함수다 - 호출부가 ``existing``을
+    ``find_active_record()`` 등으로 미리 조회해 넘긴다.
+
+    - ``existing``이 없으면(신규 content_id) 충돌 없음 - 그냥 통과한다.
+    - ``existing.generation_id == candidate.generation_id``면(완전히 같은
+      generation을 다시 promotion) 충돌 없음 - idempotent 케이스는 호출부가
+      별도로(정책 E) 처리한다.
+    - 그 외에는 ``existing.content_id == candidate.content_id``이면서
+      generation_id가 다른 것이므로 항상 충돌이다. ``existing.review_status``가
+      approved/published/superseded/unreviewed 무엇이든, ``existing.generation_id``가
+      None(legacy record)이든 상관없이 예외 없이 차단한다 - "본문/제목이
+      같아 보이니 괜찮다"는 판단도 하지 않는다(정책 A~D, 6-18 설계 문서 4장).
+    """
+    if existing is None:
+        return
+    if existing.content_id != candidate.content_id:
+        return
+    if existing.generation_id == candidate.generation_id:
+        return
+    raise ArchiveConflictError(
+        f"content_id={candidate.content_id!r}가 production archive에 이미 존재하며 "
+        f"generation_id가 다릅니다(기존 generation_id={existing.generation_id!r}, "
+        f"신규 generation_id={candidate.generation_id!r}, 기존 review_status="
+        f"{existing.review_status!r}) - 자동 overwrite는 금지됩니다. 명시적인 "
+        "supersede 절차(scripts/supersede_media_record.py)를 사용하세요."
+    )
 
 
 def archive_report(report: MediaBatchReport, path: Path | str) -> list[MediaArchiveRecord]:

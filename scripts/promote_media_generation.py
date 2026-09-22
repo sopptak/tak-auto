@@ -55,7 +55,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from content_engine.media_archive import (
+    ArchiveConflictError,
     MediaArchiveRecord,
+    check_promotion_conflict,
     find_generation_record,
     load_archive,
     upsert_archive,
@@ -77,6 +79,20 @@ _SKIP_REASON_LABELS = {
 
 class PromotionError(ValueError):
     """Promotion 조건을 만족하지 못했을 때 발생한다."""
+
+
+class PromotionConflictError(PromotionError):
+    """6-18: production archive에 이미 존재하는 content_id를 다른 generation_id를
+    가진 candidate로 promotion하려고 할 때 발생한다(``PromotionError``의
+    하위 클래스라 기존 ``except PromotionError`` 호출부는 그대로 잡아낸다).
+
+    이 예외가 발생했다는 것은 곧 production archive가 전혀 바뀌지 않았다는
+    뜻이다 - ``check_promotion_conflict()``가 파일을 쓰기 전에 검사하는
+    순수 함수이기 때문이다(``content_engine.media_archive.ArchiveConflictError``
+    참고). 이 상황을 해결하려면 명시적인
+    ``scripts/supersede_media_record.py``를 사용해야 한다 - 이 스크립트는
+    자동으로 supersede하지 않는다(6-18 정책 D).
+    """
 
 
 def find_active_record(production_archive_path: Path, content_id: str) -> MediaArchiveRecord | None:
@@ -117,6 +133,14 @@ def plan_promotion(
         )
 
     current_active = find_active_record(production_archive_path, content_id)
+    # 6-18: 같은 content_id + 다른 generation_id인 기존 production 레코드가
+    # 있으면 여기서 즉시 차단한다 - 이 함수는 순수 조회/검증만 하므로(파일에
+    # 아무것도 쓰지 않는다), 이 시점에 예외가 발생해도 production archive는
+    # 호출 전 상태 그대로 보존된다.
+    try:
+        check_promotion_conflict(current_active, candidate)
+    except ArchiveConflictError as error:
+        raise PromotionConflictError(str(error)) from error
     return candidate, current_active
 
 
@@ -133,8 +157,18 @@ class BatchPromotionItem:
     #   generation_id로 승격돼 있어 다시 쓸 필요가 없다(idempotent skip).
     # "skip": generation_status/review_status 조건을 만족하지 못해 애초에
     #   promotion 대상이 아니다.
+    # "conflict"(6-18): approved+valid이지만 production에 이미 다른
+    #   generation_id의 활성 레코드가 있어 자동 overwrite가 금지된 경우.
+    #   "skip"과 구분하는 이유: skip은 이 candidate 자체가 아직 promotion
+    #   조건(승인/유효성)을 만족하지 못한 정상적인 대기 상태이지만, conflict는
+    #   candidate는 조건을 만족하는데도 데이터 무결성 보호 때문에 사람의
+    #   추가 결정(supersede)이 필요한 상태이기 때문이다.
     action: str
     reason: str
+    # 6-18: action=="conflict"일 때만 채워진다 - 기존 production 활성
+    # 레코드의 generation_id(사람이 CLI 출력에서 old/new를 한눈에 비교할 수
+    # 있도록). 그 외 action에서는 None이다(의미가 없으므로).
+    old_generation_id: str | None = None
 
 
 def plan_batch_promotion(
@@ -189,8 +223,27 @@ def plan_batch_promotion(
             items.append(
                 BatchPromotionItem(record=record, action="already_promoted", reason="이미 승격됨(변경 없음)")
             )
-        else:
-            items.append(BatchPromotionItem(record=record, action="promote", reason="approved+valid"))
+            continue
+        if current_active is not None:
+            # 6-18: content_id는 같지만 generation_id가 다른 기존 production
+            # 활성 레코드가 있다 - 이 record만 conflict로 보고하고 건너뛴다.
+            # 같은 batch의 다른 record(신규 content_id 등)는 이 conflict와
+            # 무관하게 정상적으로 "promote"/"already_promoted"/"skip"으로
+            # 계속 분류된다(11장: 하나의 충돌이 다른 정상 record를 막지 않는다).
+            items.append(
+                BatchPromotionItem(
+                    record=record,
+                    action="conflict",
+                    reason=(
+                        f"기존 production 활성 레코드와 충돌(old_generation_id="
+                        f"{current_active.generation_id!r}, new_generation_id={generation_id!r}) - "
+                        "자동 overwrite 금지, supersede_media_record.py로 명시적 처리 필요"
+                    ),
+                    old_generation_id=current_active.generation_id,
+                )
+            )
+            continue
+        items.append(BatchPromotionItem(record=record, action="promote", reason="approved+valid"))
 
     return items
 
@@ -206,6 +259,7 @@ def _print_batch_plan(generation_id: str, items: list[BatchPromotionItem]) -> No
     to_promote = [item for item in items if item.action == "promote"]
     already_promoted = [item for item in items if item.action == "already_promoted"]
     to_skip = [item for item in items if item.action == "skip"]
+    to_conflict = [item for item in items if item.action == "conflict"]
 
     knowledge_ids = {item.record.knowledge_id for item in items}
 
@@ -221,18 +275,30 @@ def _print_batch_plan(generation_id: str, items: list[BatchPromotionItem]) -> No
     print(f"promotion 예정:  {len(to_promote)}건")
     print(f"이미 승격됨:      {len(already_promoted)}건 (변경 없음, idempotent)")
     print(f"skip:            {len(to_skip)}건")
+    print(f"conflict:        {len(to_conflict)}건 (기존 production record와 충돌 - 자동 차단, 6-18)")
     print()
     for item in items:
         action_label = {
             "promote": "PROMOTE",
             "already_promoted": "ALREADY PROMOTED (변경 없음)",
             "skip": f"SKIP ({item.reason})",
+            "conflict": f"CONFLICT ({item.reason})",
         }[item.action]
         print(
             f"  {item.record.content_id}  [{item.record.platform}]  "
             f"generation_status={item.record.generation_status} review_status={item.record.review_status}  "
             f"-> {action_label}"
         )
+    if to_conflict:
+        print()
+        print("=== CONFLICT 상세 (사람의 결정 필요) ===")
+        for item in to_conflict:
+            print(f"  content_id       = {item.record.content_id}")
+            print(f"  old_generation_id = {item.old_generation_id}")
+            print(f"  new_generation_id = {generation_id}")
+            print("  result           = CONFLICT")
+            print("  reason           = 기존 production 활성 레코드와 다른 generation_id로 충돌 - 자동 overwrite 금지")
+            print()
 
 
 def _print_plan(candidate: MediaArchiveRecord, current_active: MediaArchiveRecord | None) -> None:
@@ -244,18 +310,16 @@ def _print_plan(candidate: MediaArchiveRecord, current_active: MediaArchiveRecor
     print(f"review_status:     {candidate.review_status}")
     print(f"새 title:        {candidate.final_title}")
     print()
+    # 6-18: current_active가 있으면서 generation_id가 다른 경우는 이제 이
+    # 함수가 호출되기 전에 plan_promotion()이 PromotionConflictError를 던져
+    # 걸러낸다 - 여기 도달했다는 것 자체가 "없음" 또는 "이미 이 generation"
+    # 둘 중 하나만 가능하다는 뜻이다(자동 overwrite가 조용히 진행되는 것처럼
+    # 보이던 기존 문구는 더 이상 나올 수 없으므로 제거했다).
     if current_active is None:
         print("기존 production 활성 레코드: 없음 (이 content_id는 production archive에 처음 추가됨)")
-    elif current_active.generation_id == candidate.generation_id:
+    else:
         print("기존 production 활성 레코드가 이미 이 generation입니다 (변경 없음, idempotent).")
         print(f"  현재 title: {current_active.final_title}")
-    else:
-        print("기존 production 활성 레코드가 이 promotion으로 교체됩니다:")
-        print(f"  기존 generation_id: {current_active.generation_id!r} (legacy면 None)")
-        print(f"  기존 title:        {current_active.final_title}")
-        print(f"  기존 review_status: {current_active.review_status}")
-        print("  (review_status/edited_title/edited_body는 candidate 레코드의 값을 그대로 씁니다 -")
-        print("   candidate가 이미 승인된 generation이므로, 승격 이후에는 candidate의 값이 곧 production 상태입니다.)")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -353,7 +417,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if not to_promote:
-        print("\npromotion 대상이 없습니다(전부 이미 승격됐거나 skip 대상). 아무것도 쓰지 않았습니다.")
+        print("\npromotion 대상이 없습니다(전부 이미 승격됐거나 skip/conflict 대상). 아무것도 쓰지 않았습니다.")
         return 0
 
     upsert_archive(args.production_archive, to_promote)
