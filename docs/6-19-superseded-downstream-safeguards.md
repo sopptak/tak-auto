@@ -324,14 +324,14 @@ uncommitted 변경은 전혀 포함하지 않는다).
 
 ## 17. Commit
 
-커밋 예정 메시지: `6-19: block superseded downstream publishing`. 이번 세션이
-만든 파일만 개별적으로 `git add`한다(15장 목록). 커밋 해시는 실제 커밋 후
-이 절에 기록한다(아래 "커밋 완료" 참고).
+커밋 완료: `1f4df7e` — "6-19: block superseded downstream publishing".
+15장 목록의 6개 파일만 개별적으로 `git add`했다(`git add -A`/`.` 사용하지
+않음). `6 files changed, 1403 insertions(+), 6 deletions(-)`.
 
 ## 18. Push
 
-`origin main`으로 push한다. push 결과(성공/실패, 커밋 해시)는 실행 후 이
-절에 기록한다.
+`origin main`으로 push 완료: `3d151c4..1f4df7e main -> main`. force push
+사용하지 않았다.
 
 ## 19. 남은 리스크
 
