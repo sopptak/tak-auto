@@ -152,3 +152,24 @@ def latest_snapshot_per_content(path: Path | str) -> dict[str, PerformanceRecord
         if current is None or _sort_key(record) > _sort_key(current):
             latest[record.content_id] = record
     return latest
+
+
+def snapshots_for_knowledge(path: Path | str, knowledge_id: str) -> dict[str, list[PerformanceRecord]]:
+    """같은 KNOWLEDGE에서 파생된 모든 content_id의 스냅샷을 content_id별로
+    묶어 반환한다(6-34 10장).
+
+    superseded 등으로 같은 knowledge_id 아래 여러 content_id(예: 정정 전/후,
+    또는 Blog/Shorts/Threads 등 플랫폼별)가 존재할 수 있다 - 이 함수는 그
+    각각을 절대 합치지 않는다(각 content_id의 성과는 독립적으로 보존한다,
+    6-34 9/10장 원칙). "이 KNOWLEDGE에서 어떤 content_id들이 성과를 냈는가"를
+    한 번에 조회하는 용도일 뿐, 새 집계 로직을 추가하지 않는다 - 호출부가
+    필요하면 각 content_id 목록에 summarize_content_history()를 따로 적용한다.
+    """
+    grouped: dict[str, list[PerformanceRecord]] = {}
+    for record in load_snapshots(path):
+        if record.knowledge_id != knowledge_id:
+            continue
+        grouped.setdefault(record.content_id, []).append(record)
+    for content_id in grouped:
+        grouped[content_id] = sorted(grouped[content_id], key=_sort_key)
+    return grouped
