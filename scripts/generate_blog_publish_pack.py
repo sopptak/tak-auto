@@ -32,7 +32,7 @@ from content_engine.blog_publish_pack import (
     save_markdown,
 )
 from content_engine.llm_provider import LLMConfigurationError, OpenAICompatibleRewriteProvider
-from content_engine.media_archive import archive_report, load_archive
+from content_engine.media_archive import archive_report, find_protected_overwrite_targets, load_archive
 from content_engine.pipeline import run_media_batch
 from content_engine.publish_history import PublishHistory
 from tak_brain import load_knowledge_records, select_approved
@@ -229,6 +229,28 @@ def main(argv: list[str] | None = None) -> int:
         f"총 Draft {report.total_draft_count}건 "
         f"(valid {report.valid_count}, rejected {report.rejected_count}, error {report.error_count})"
     )
+
+    # 6-27 P0(6-24에서 발견된 것과 동일한 클래스): --generate-without-review로
+    # 이 레거시 경로를 실행하면 archive_report()가 이미 approved/superseded인
+    # content_id의 rewritten_title/rewritten_body를 조용히 최신 LLM 결과로
+    # 덮어쓸 수 있다(docs/6-27-blog-publish-readiness.md 2장, 원래 발견:
+    # docs/6-24-production-readiness-audit.md 4장) - run_media_batch.py/
+    # run_daily.py에 이미 적용한 것과 동일한 가드를 여기도 적용한다.
+    protected = find_protected_overwrite_targets(report, load_archive(args.archive))
+    if protected:
+        print(
+            "오류: 이미 approved/superseded 상태인 content_id를 다시 아카이브에 쓰려고 합니다 - "
+            "사람이 승인한 문구가 조용히 바뀔 수 있어 중단합니다.",
+            file=sys.stderr,
+        )
+        for content_id in protected:
+            print(f"  - {content_id}", file=sys.stderr)
+        print(
+            "이미 승인된 콘텐츠를 정정하려면 --from-archive 경로를 쓰거나, "
+            "scripts/supersede_media_record.py로 명시적으로 반영하세요.",
+            file=sys.stderr,
+        )
+        return 1
 
     # Pack에는 Blog valid 항목 일부만 들어간다. 나머지(Shorts/Threads, rejected/error
     # 포함)가 그냥 버려지지 않도록 배치 결과 전체를 먼저 아카이브에 남긴다(5-27 설계 문서).

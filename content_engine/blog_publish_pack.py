@@ -341,6 +341,13 @@ def _render_item(item: BlogPublishItem) -> str:
         "원본:",
         item.knowledge_id,
         f"source_url: {item.source_url}",
+        # 6-27: content_id를 사람이 읽는 문서에도 노출한다 - 이 Pack이 만들어진
+        # 뒤 시간이 지나 Production Archive 상태가 바뀌었을 수 있으므로(예:
+        # supersede), 실제 게시 직전 `python scripts/audit_publish_candidates.py`
+        # 로 이 content_id의 지금 상태를 다시 확인할 수 있어야 한다(stale pack
+        # 문제, docs/6-27-blog-publish-readiness.md 10장). content_id가
+        # 문서에 없으면 이 재확인 자체가 불가능했다.
+        f"content_id: {item.content_id}",
         divider,
     ]
     return "\n".join(lines)

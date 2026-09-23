@@ -257,8 +257,16 @@ class RenderMarkdownTests(BlogPublishPackFixtureMixin, unittest.TestCase):
             "원본:",
             "knowledge-sample",
             "source_url: https://example.test/sample",
+            "content_id: content-sample1234",
         ):
             self.assertIn(expected, markdown)
+
+    def test_markdown_exposes_content_id_for_stale_pack_recheck(self):
+        """6-27: content_id가 사람이 읽는 문서에도 나와야, 게시 직전
+        `scripts/audit_publish_candidates.py`로 이 항목의 현재 상태를
+        다시 확인(stale pack 재검증)할 수 있다(10장)."""
+        markdown = render_markdown([self._sample_item(content_id="content-freshness-check")])
+        self.assertIn("content_id: content-freshness-check", markdown)
 
     def test_markdown_marks_review_required_checkbox(self):
         markdown = render_markdown([self._sample_item(review_required=True)])
@@ -291,23 +299,59 @@ class RenderMarkdownTests(BlogPublishPackFixtureMixin, unittest.TestCase):
         self.assertIn("샘플 제목", target.read_text(encoding="utf-8"))
 
 
+def _approved_archive_record(content_id: str, **overrides) -> MediaArchiveRecord:
+    defaults = dict(
+        content_id=content_id,
+        knowledge_id="knowledge-x",
+        platform="blog",
+        generation_status="valid",
+        original_title="원본 제목",
+        original_body="원본 본문입니다.",
+        rewritten_title="재작성 제목",
+        rewritten_body="재작성 본문입니다.",
+        source_url="https://example.test/x",
+        evidence=(),
+        evidence_unit_ids=(),
+        created_at="2026-01-01T00:00:00Z",
+        review_status="approved",
+    )
+    defaults.update(overrides)
+    return MediaArchiveRecord(**defaults)
+
+
 class MarkBlogPublishedScriptTests(unittest.TestCase):
-    """scripts/mark_blog_published.py의 최소 동작 검증."""
+    """scripts/mark_blog_published.py의 최소 동작 검증.
+
+    6-27: 이 스크립트는 이제 --content-id가 Production Archive에 존재하고
+    review_status==approved인지 확인한다(docs/6-27-blog-publish-readiness.md
+    9장) - 아래 "정상 기록" 테스트들은 그 조건을 만족하는 archive fixture를
+    함께 준비한다. 게이트 자체(ORPHAN/미승인/superseded 차단)를 검증하는
+    테스트는 별도 클래스(MarkBlogPublishedEligibilityGateTests)에 있다.
+    """
 
     def setUp(self) -> None:
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp_dir.cleanup)
-        self.history_path = Path(self.tmp_dir.name) / "blog_publish_log.json"
+        self.tmp_path = Path(self.tmp_dir.name)
+        self.history_path = self.tmp_path / "blog_publish_log.json"
+        self.archive_path = self.tmp_path / "tak_media_archive.json"
+
+    def _write_archive(self, records) -> None:
+        from content_engine.media_archive import save_archive
+
+        save_archive(records, self.archive_path)
 
     def test_marks_content_as_published(self):
         from scripts.mark_blog_published import main
 
+        self._write_archive([_approved_archive_record("content-manualtest1")])
         exit_code = main(
             [
                 "--content-id", "content-manualtest1",
                 "--knowledge-id", "knowledge-x",
                 "--source-url", "https://example.test/x",
                 "--history", str(self.history_path),
+                "--production-archive", str(self.archive_path),
             ]
         )
 
@@ -318,7 +362,12 @@ class MarkBlogPublishedScriptTests(unittest.TestCase):
     def test_marking_twice_is_idempotent(self):
         from scripts.mark_blog_published import main
 
-        args = ["--content-id", "content-dup1", "--history", str(self.history_path)]
+        self._write_archive([_approved_archive_record("content-dup1")])
+        args = [
+            "--content-id", "content-dup1",
+            "--history", str(self.history_path),
+            "--production-archive", str(self.archive_path),
+        ]
         first_exit = main(args)
         second_exit = main(args)
 
@@ -326,6 +375,67 @@ class MarkBlogPublishedScriptTests(unittest.TestCase):
         self.assertEqual(second_exit, 0)
         history = PublishHistory(self.history_path)
         self.assertEqual(len(history.load()), 1)
+
+
+class MarkBlogPublishedEligibilityGateTests(unittest.TestCase):
+    """6-27 신규: --content-id가 정당한 대상인지 검증하는 게이트(9~10장)."""
+
+    def setUp(self) -> None:
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp_dir.cleanup)
+        self.tmp_path = Path(self.tmp_dir.name)
+        self.history_path = self.tmp_path / "blog_publish_log.json"
+        self.archive_path = self.tmp_path / "tak_media_archive.json"
+
+    def _write_archive(self, records) -> None:
+        from content_engine.media_archive import save_archive
+
+        save_archive(records, self.archive_path)
+
+    def _run(self, content_id: str) -> int:
+        from scripts.mark_blog_published import main
+
+        return main(
+            [
+                "--content-id", content_id,
+                "--history", str(self.history_path),
+                "--production-archive", str(self.archive_path),
+            ]
+        )
+
+    def test_missing_production_record_is_orphan_blocked(self) -> None:
+        exit_code = self._run("content-does-not-exist")
+        self.assertEqual(exit_code, 1)
+        self.assertFalse(PublishHistory(self.history_path).is_published("content-does-not-exist"))
+
+    def test_unreviewed_record_is_blocked(self) -> None:
+        self._write_archive([_approved_archive_record("c1", review_status="unreviewed")])
+        exit_code = self._run("c1")
+        self.assertEqual(exit_code, 1)
+        self.assertFalse(PublishHistory(self.history_path).is_published("c1"))
+
+    def test_dismissed_record_is_blocked(self) -> None:
+        self._write_archive([_approved_archive_record("c1", review_status="dismissed")])
+        exit_code = self._run("c1")
+        self.assertEqual(exit_code, 1)
+        self.assertFalse(PublishHistory(self.history_path).is_published("c1"))
+
+    def test_superseded_record_is_blocked(self) -> None:
+        self._write_archive(
+            [
+                _approved_archive_record("c1", review_status="superseded", superseded_by="c2"),
+                _approved_archive_record("c2"),
+            ]
+        )
+        exit_code = self._run("c1")
+        self.assertEqual(exit_code, 1)
+        self.assertFalse(PublishHistory(self.history_path).is_published("c1"))
+
+    def test_approved_record_succeeds(self) -> None:
+        self._write_archive([_approved_archive_record("c1")])
+        exit_code = self._run("c1")
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(PublishHistory(self.history_path).is_published("c1"))
 
 
 class _CountingRewriteProvider(RewriteProvider):
@@ -421,6 +531,47 @@ class GenerateBlogPublishPackIdFilterTests(unittest.TestCase):
         self.assertEqual(exit_code, 1)
         self.assertFalse(output.exists())
         self.assertEqual(provider.call_count, 0)
+
+
+class GenerateBlogPublishPackOverwriteGuardTests(GenerateBlogPublishPackIdFilterTests):
+    """6-27 P0(6-24에서 발견된 것과 동일 클래스): --generate-without-review
+    레거시 경로가 이미 approved/superseded인 content_id를 조용히 재작성하지
+    않는지 확인한다. GenerateBlogPublishPackIdFilterTests의 fixture(_run 헬퍼,
+    승인 KNOWLEDGE 2건)를 그대로 상속해 재사용한다."""
+
+    def test_rerun_after_approval_is_blocked_and_archive_untouched(self) -> None:
+        from content_engine.media_archive import load_archive, save_archive
+        from dataclasses import replace
+
+        exit_code, _output, _provider = self._run(["--id", self.record_a.id])
+        self.assertEqual(exit_code, 0)
+
+        archive_path = self.tmp_path / "media_archive.json"
+        records = load_archive(archive_path)
+        self.assertTrue(records)
+        approved_records = [replace(r, review_status="approved") for r in records]
+        save_archive(approved_records, archive_path)
+        before_bytes = archive_path.read_bytes()
+
+        exit_code_again, _output2, provider2 = self._run(["--id", self.record_a.id])
+
+        self.assertEqual(exit_code_again, 1)
+        self.assertEqual(archive_path.read_bytes(), before_bytes, "차단됐는데도 archive 파일이 바뀌었습니다.")
+
+    def test_rerun_after_dismissal_is_not_blocked(self) -> None:
+        from content_engine.media_archive import load_archive, save_archive
+        from dataclasses import replace
+
+        exit_code, _output, _provider = self._run(["--id", self.record_a.id])
+        self.assertEqual(exit_code, 0)
+
+        archive_path = self.tmp_path / "media_archive.json"
+        records = load_archive(archive_path)
+        dismissed_records = [replace(r, review_status="dismissed") for r in records]
+        save_archive(dismissed_records, archive_path)
+
+        exit_code_again, _output2, _provider2 = self._run(["--id", self.record_a.id])
+        self.assertEqual(exit_code_again, 0)
 
 
 class GenerateBlogPublishPackReviewGateTests(unittest.TestCase):
