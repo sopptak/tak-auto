@@ -19,23 +19,36 @@
 멀티 PC(노트북1/노트북2/Codespaces) 환경에서 "이 컴퓨터에 지금 어떤 운영
 데이터가 있고, 그중 무엇이 Git에 커밋되어 있는가"를 작업 시작 전에 빠르게
 확인하는 용도로 만들었다.
+
+상태 판정 로직(NOT_PRESENT/EMPTY/VALID/CORRUPTED) 자체는 6-22에서
+``content_engine/data_state.py``로 옮겨 이 스크립트와 Recovery Staging
+(``content_engine/recovery_staging.py``, ``scripts/audit_recovery_source.py``)이
+같은 구현을 공유한다 - 이 파일은 그 함수들을 그대로 재노출(re-export)한다.
 """
 
 from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-import json
 from pathlib import Path
+import json
 import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-NOT_PRESENT = "NOT_PRESENT"
-EMPTY = "EMPTY"
-VALID = "VALID"
-CORRUPTED = "CORRUPTED"
+from content_engine.data_state import (  # noqa: E402
+    CORRUPTED,
+    EMPTY,
+    NOT_PRESENT,
+    VALID,
+    dir_status as _dir_status,
+    format_mtime as _format_mtime,
+    json_file_status as _json_file_status,
+    text_file_status as _text_file_status,
+)
 
 TRACKED = "TRACKED"
 IGNORED = "IGNORED"
@@ -169,54 +182,6 @@ def _git_status_for(relative_path: str) -> str:
     if code == 0:
         return IGNORED
     return UNTRACKED
-
-
-def _json_file_status(path: Path) -> tuple[str, int | None]:
-    """(status, record_count)를 반환한다. record_count는 VALID일 때만 채운다."""
-    if not path.exists():
-        return NOT_PRESENT, None
-    raw = path.read_text(encoding="utf-8", errors="replace")
-    if not raw.strip():
-        return EMPTY, None
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        return CORRUPTED, None
-    if isinstance(data, list):
-        return VALID, len(data)
-    if isinstance(data, dict):
-        return VALID, len(data)
-    return VALID, None
-
-
-def _text_file_status(path: Path) -> str:
-    if not path.exists():
-        return NOT_PRESENT
-    if path.stat().st_size == 0:
-        return EMPTY
-    return VALID
-
-
-def _dir_status(path: Path, glob: str) -> tuple[str, int | None]:
-    if not path.exists():
-        return NOT_PRESENT, None
-    if not path.is_dir():
-        return CORRUPTED, None
-    entries = sorted(path.glob(glob))
-    if not entries:
-        return EMPTY, 0
-    return VALID, len(entries)
-
-
-def _format_mtime(path: Path) -> str:
-    if not path.exists():
-        return "-"
-    import datetime
-
-    ts = path.stat().st_mtime
-    return datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc).strftime(
-        "%Y-%m-%d %H:%M:%S UTC"
-    )
 
 
 def audit_file(spec: DataFileSpec) -> dict[str, object]:
