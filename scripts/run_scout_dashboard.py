@@ -115,6 +115,7 @@ from content_engine.performance import (
 )
 from content_engine.insight_report import review_priority
 from content_engine.performance_insight import load_insights as load_performance_insights
+from content_engine.media_strategy import evaluate_media_strategy
 from content_engine.publish_audit import (
     ALREADY_PUBLISHED,
     BLOCKED,
@@ -421,7 +422,7 @@ def render_candidate_list_html(
 
     body = f"""
 <h1>TAK SCOUT Dashboard</h1>
-<div class="nav-links"><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
+<div class="nav-links"><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/media/strategy">🎯 Strategy Gate</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
 <div class="sub">오늘의 소재 {len(ranked)}건 · 점수 내림차순 (SCOUT SCORE MVP, LLM 미사용)</div>
 {"".join(cards) if cards else "<p>오늘 표시할 소재가 없습니다.</p>"}
 """
@@ -1924,6 +1925,47 @@ def render_insight_list_html(
 """
 
 
+def _strategy_row_html(candidate) -> str:
+    platforms_text = " / ".join(f"{item.platform}={item.status}" for item in candidate.platform_eligibility)
+    return f"""
+<div class="card">
+  <div><strong>{escape(candidate.knowledge_id)}</strong> - {escape(candidate.topic)}</div>
+  <div>status: {escape(candidate.status)} | risk: {escape(", ".join(candidate.risk_flags) or "-")} | evidence: {escape(candidate.evidence_quality)} | novelty: {escape(candidate.novelty_signal)}</div>
+  <div class="sub">reason_codes: {escape(", ".join(candidate.reason_codes) or "-")}</div>
+  <div class="sub">{escape(platforms_text)}</div>
+</div>
+"""
+
+
+def render_media_strategy_list_html(
+    candidates: list,
+    *,
+    status: str | None = None,
+    knowledge_id: str | None = None,
+) -> str:
+    """GET /media/strategy - KNOWLEDGE -> MEDIA 전략/품질 Gate 결과를 읽기
+    전용으로 보여준다(6-37 18장). 이 화면에는 어떤 form/버튼도 없다 - generate/
+    approve/promote/publish로 이어지는 액션이 전혀 없다(조회만 가능)."""
+    filtered = candidates
+    if status:
+        filtered = [c for c in filtered if c.status == status]
+    if knowledge_id:
+        filtered = [c for c in filtered if c.knowledge_id == knowledge_id]
+
+    if not filtered:
+        return """
+<h1>Media Strategy Gate</h1>
+<div class="sub">조건에 맞는 KNOWLEDGE가 없습니다.</div>
+"""
+
+    rows = "".join(_strategy_row_html(candidate) for candidate in filtered)
+    return f"""
+<h1>Media Strategy Gate</h1>
+<div class="sub">총 {len(filtered)}건(읽기 전용 - MEDIA 생성/승인/게시는 이 화면에서 실행되지 않습니다)</div>
+{rows}
+"""
+
+
 def render_threads_review_html(
     draft: ThreadsPendingDraft,
     error: str | None = None,
@@ -2660,6 +2702,27 @@ def make_handler_class(
                     content_id=query.get("content_id", [None])[0],
                 )
                 self._send_html(_page("Performance Insights", body))
+                return
+
+            # --- Media Strategy Gate Dashboard (6-37, 읽기 전용) ---
+
+            if path == "/media/strategy":
+                try:
+                    knowledge_records = load_knowledge_records(config.knowledge_path)
+                except (OSError, ValueError):
+                    knowledge_records = []
+                approved = [r for r in knowledge_records if r.knowledge_review_status == "approved"]
+                production_records = load_archive(config.media_archive_path)
+                candidates = [
+                    evaluate_media_strategy(record, production_records=production_records, other_knowledge=approved)
+                    for record in approved
+                ]
+                body = render_media_strategy_list_html(
+                    candidates,
+                    status=query.get("status", [None])[0],
+                    knowledge_id=query.get("knowledge_id", [None])[0],
+                )
+                self._send_html(_page("Media Strategy Gate", body))
                 return
 
             self._send_html(_page("페이지 없음", "<p>페이지를 찾을 수 없습니다.</p>"), status=404)
