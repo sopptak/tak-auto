@@ -17,6 +17,14 @@ data/*.json
 !data/threads_publish_log.json
 !data/scout_sources.json
 !data/tak_scout_daily.json
+# 6-29 P1(docs/6-28-full-e2e-operating-readiness.md 21장, 6-21에서 이미
+# 발견된 정책 불일치): threads_publish_log.json/youtube_publish_log.json과
+# 동일한 이유로 화이트리스트에 추가한다 - 사람이 mark_blog_published.py로
+# 기록한 "이미 게시됨" 상태가 다른 PC/CI에서도 보이려면 git에 커밋 가능해야
+# 한다. 화이트리스트만 추가할 뿐 실제로 커밋할지는 여전히 사람의 결정이다
+# (data/tak_media_archive.json과 동일 원칙 - 이 파일 자체를 만들거나
+# 커밋하지 않는다).
+!data/blog_publish_log.json
 # data/tak_threads_pending.json과 동일한 이유(5-30): 사람이 로컬/Dashboard에서
 # 승인한 상태는 GitHub Actions 러너의 새 checkout에서도 보이려면 git에 커밋
 # 가능해야 한다. 이 저장소의 어떤 workflow도 이 파일을 직접 쓰지 않는다 -

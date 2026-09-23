@@ -45,6 +45,8 @@ from content_engine import (
     OpenAICompatibleRewriteProvider,
     RewriteProvider,
     archive_report,
+    find_protected_overwrite_targets,
+    load_archive,
     run_media_batch_file,
 )
 from tak_brain import KnowledgeRecord, load_knowledge_records, review_knowledge_file
@@ -298,6 +300,18 @@ def run_operator(
         provider=provider,
         knowledge_id=approved_record.id,
     )
+
+    # 6-29 P1(docs/6-28-full-e2e-operating-readiness.md 21장, 6-24 P0와 동일
+    # 클래스): 이 KNOWLEDGE의 content_id가 이미 approved/superseded인 production
+    # 레코드와 같으면, archive_report()가 rewritten_title/rewritten_body를
+    # 조용히 최신 LLM 결과로 덮어쓸 수 있다 - 쓰기 전에 먼저 막는다.
+    protected = find_protected_overwrite_targets(report, load_archive(media_archive_path))
+    if protected:
+        print_func("오류: 이미 approved/superseded 상태인 content_id를 다시 아카이브에 쓰려고 합니다 - ")
+        print_func("사람이 승인한 문구가 조용히 바뀔 수 있어 중단합니다.")
+        for content_id in protected:
+            print_func(f"  - {content_id}")
+        return 1
 
     # --media-output 여부와 무관하게 실제 생성 결과 전체(valid/rejected/error)를
     # 아카이브에 누적 보존한다 (5-27 설계 문서).

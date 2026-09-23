@@ -30,7 +30,7 @@ if str(ROOT) not in sys.path:
 
 from blog_importer.models import utc_now
 from content_engine.llm_provider import LLMConfigurationError, OpenAICompatibleRewriteProvider
-from content_engine.media_archive import archive_report
+from content_engine.media_archive import archive_report, find_protected_overwrite_targets, load_archive
 from content_engine.pipeline import run_media_batch
 from content_engine.publish_history import PublishHistory, select_unpublished_threads_item
 from content_engine.threads_review import ThreadsPendingDraft, has_unresolved_draft, upsert_pending
@@ -140,6 +140,24 @@ def main(argv: list[str] | None = None) -> int:
         f"총 Draft {report.total_draft_count}건 "
         f"(valid {report.valid_count}, rejected {report.rejected_count}, error {report.error_count})"
     )
+
+    # 6-29 P1(6-24 P0와 동일 클래스, docs/6-28-full-e2e-operating-readiness.md
+    # 21장에서 이미 발견된 잔여 항목): 이 KNOWLEDGE의 content_id가 우연히
+    # 이미 approved/superseded인 production 레코드와 같으면, archive_report()가
+    # rewritten_title/rewritten_body를 조용히 최신 LLM 결과로 덮어쓸 수 있다
+    # (원래 발견: docs/6-24-production-readiness-audit.md 4장, 이미
+    # scripts/run_media_batch.py·run_daily.py·generate_blog_publish_pack.py에는
+    # 적용됨) - 이 스크립트에도 동일한 가드를 적용한다.
+    protected = find_protected_overwrite_targets(report, load_archive(args.archive))
+    if protected:
+        print(
+            "오류: 이미 approved/superseded 상태인 content_id를 다시 아카이브에 쓰려고 합니다 - "
+            "사람이 승인한 문구가 조용히 바뀔 수 있어 중단합니다.",
+            file=sys.stderr,
+        )
+        for content_id in protected:
+            print(f"  - {content_id}", file=sys.stderr)
+        return 1
 
     # 이 스크립트는 9건 중 rotation으로 고른 1건만 tak_threads_pending.json에 넘긴다
     # (아래 3~4단계). 나머지 8건(다른 Threads 후보, Blog, Shorts, rejected/error 포함)이
