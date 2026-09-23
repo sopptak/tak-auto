@@ -2,6 +2,13 @@
 
 실제 Threads API는 절대 호출하지 않는다. ``ThreadsClient.from_environment``를 patch하여
 네트워크 대신 가짜 transport로 프로필 조회/게시 성공·실패를 시뮬레이션한다.
+
+6-25(docs/6-25-threads-publish-path-consolidation.md)에서 이 스크립트에 Production
+Archive 기반 eligibility 게이트가 추가됐다 - 이 파일의 모든 기존 테스트는 이제
+"이 batch 항목들이 production archive에 approved 상태로 이미 존재한다"를 기본 전제로
+삼는다(``_write_batch()``가 자동으로 매칭되는 approved archive record를 함께 쓴다).
+게이트 자체(미승인/superseded/orphan 차단)를 검증하는 테스트는
+``PublishThreadsEligibilityGateTests``에 별도로 있다.
 """
 
 from pathlib import Path
@@ -10,6 +17,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+from content_engine.media_archive import MediaArchiveRecord, save_archive
 from content_engine.publish_history import PublishHistory, PublishRecord, compute_content_id
 from content_engine.threads_publisher import ThreadsAPIError, ThreadsClient
 from scripts.publish_threads import main
@@ -53,6 +61,26 @@ def _failure_transport():
     return transport
 
 
+def _approved_record_for(item: dict) -> MediaArchiveRecord:
+    """batch 항목과 같은 content_id를 갖는, 이미 approved인 production archive
+    레코드를 만든다(6-25 - 이 게시 경로가 이제 요구하는 승인 상태)."""
+    return MediaArchiveRecord(
+        content_id=compute_content_id(item),
+        knowledge_id=str(item.get("knowledge_id") or ""),
+        platform=str(item.get("platform") or "threads"),
+        generation_status="valid",
+        original_title=str(item.get("original_title") or ""),
+        original_body=str(item.get("original_body") or ""),
+        rewritten_title=item.get("rewritten_title"),
+        rewritten_body=item.get("rewritten_body"),
+        source_url=str(item.get("source_url") or ""),
+        evidence=tuple(item.get("evidence") or ()),
+        evidence_unit_ids=tuple(item.get("evidence_unit_ids") or ()),
+        created_at="2026-01-01T00:00:00Z",
+        review_status="approved",
+    )
+
+
 class PublishThreadsAutoSelectTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp_dir = tempfile.TemporaryDirectory()
@@ -60,17 +88,25 @@ class PublishThreadsAutoSelectTests(unittest.TestCase):
         self.tmp_path = Path(self.tmp_dir.name)
         self.input_path = self.tmp_path / "batch.json"
         self.history_path = self.tmp_path / "threads_publish_log.json"
+        self.archive_path = self.tmp_path / "tak_media_archive.json"
 
     def _write_batch(self, items) -> None:
+        """batch 파일을 쓰고, 6-25 eligibility 게이트를 통과하도록 같은
+        content_id로 approved production archive record도 함께 쓴다(이 파일의
+        기존 테스트들은 전부 "이미 승인된 콘텐츠"를 전제로 하기 때문 - 게이트
+        자체를 검증하는 테스트는 별도 클래스에 있다)."""
         self.input_path.write_text(
             json.dumps(_batch_data(items), ensure_ascii=False), encoding="utf-8"
         )
+        threads_items = [item for item in items if item.get("platform") == "threads"]
+        save_archive([_approved_record_for(item) for item in threads_items], self.archive_path)
 
     def _run(self, extra_args):
         return main(
             [
                 "--input", str(self.input_path),
                 "--history", str(self.history_path),
+                "--production-archive", str(self.archive_path),
                 *extra_args,
             ]
         )
@@ -287,6 +323,139 @@ class PublishThreadsAutoSelectTests(unittest.TestCase):
 
         # 1회차 k-001(첫 항목) -> 2회차 아직 등장하지 않은 k-002 우선 -> 3회차 다시 k-001(남은 항목)
         self.assertEqual(selected_knowledge_ids, ["k-001", "k-002", "k-001"])
+
+
+# --- 6-25: Production Archive eligibility 게이트 자체(음성 시나리오) ------------------
+
+
+class PublishThreadsEligibilityGateTests(unittest.TestCase):
+    """``_write_batch()``의 자동 승인을 쓰지 않고, archive 상태를 직접 통제해
+    게이트가 실제로 차단하는지 확인한다(docs/6-25-threads-publish-path-consolidation.md
+    5장 Eligibility Contract)."""
+
+    def setUp(self) -> None:
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp_dir.cleanup)
+        self.tmp_path = Path(self.tmp_dir.name)
+        self.input_path = self.tmp_path / "batch.json"
+        self.history_path = self.tmp_path / "threads_publish_log.json"
+        self.archive_path = self.tmp_path / "tak_media_archive.json"
+
+    def _write_batch_only(self, items) -> None:
+        self.input_path.write_text(json.dumps(_batch_data(items), ensure_ascii=False), encoding="utf-8")
+
+    def _write_archive(self, records) -> None:
+        save_archive(records, self.archive_path)
+
+    def _run(self, extra_args):
+        return main(
+            [
+                "--input", str(self.input_path),
+                "--history", str(self.history_path),
+                "--production-archive", str(self.archive_path),
+                *extra_args,
+            ]
+        )
+
+    def test_missing_production_archive_file_blocks_auto(self) -> None:
+        """archive 파일 자체가 없으면(NOT_PRESENT) load_archive()가 빈 목록을
+        반환하므로 모든 후보가 '레코드 없음'으로 차단된다."""
+        self._write_batch_only([_threads_item()])
+        # self.archive_path를 아예 쓰지 않는다(NOT_PRESENT).
+
+        with mock.patch.object(ThreadsClient, "from_environment") as from_env:
+            exit_code = self._run(["--auto"])
+
+        self.assertEqual(exit_code, 0)  # "게시할 콘텐츠 없음"은 오류가 아니라 정상 종료
+        from_env.assert_not_called()
+        self.assertFalse(self.history_path.exists())
+
+    def test_missing_archive_record_blocks_index(self) -> None:
+        item = _threads_item()
+        self._write_batch_only([item])
+        self._write_archive([])  # archive는 있지만 이 content_id가 없음(orphan)
+
+        with mock.patch.object(ThreadsClient, "from_environment") as from_env:
+            exit_code = self._run(["--index", "1"])
+
+        self.assertEqual(exit_code, 1)
+        from_env.assert_not_called()
+
+    def test_unreviewed_record_blocks_publish(self) -> None:
+        item = _threads_item()
+        self._write_batch_only([item])
+        self._write_archive([_record_with_status(item, "unreviewed")])
+
+        with mock.patch.object(ThreadsClient, "from_environment") as from_env:
+            exit_code = self._run(["--index", "1"])
+
+        self.assertEqual(exit_code, 1)
+        from_env.assert_not_called()
+
+    def test_dismissed_record_blocks_publish(self) -> None:
+        item = _threads_item()
+        self._write_batch_only([item])
+        self._write_archive([_record_with_status(item, "dismissed")])
+
+        with mock.patch.object(ThreadsClient, "from_environment") as from_env:
+            exit_code = self._run(["--index", "1"])
+
+        self.assertEqual(exit_code, 1)
+        from_env.assert_not_called()
+
+    def test_superseded_record_blocks_publish(self) -> None:
+        item = _threads_item()
+        new_content_item = _threads_item(knowledge_id="k-002", evidence_unit_ids=["b:1"])
+        new_record = _approved_record_for(new_content_item)
+        old_record_dict = {**_approved_record_for(item).to_dict(), "review_status": "superseded", "superseded_by": new_record.content_id}
+        old_record = MediaArchiveRecord.from_dict(old_record_dict)
+        self._write_batch_only([item])
+        self._write_archive([old_record, new_record])
+
+        with mock.patch.object(ThreadsClient, "from_environment") as from_env:
+            exit_code = self._run(["--index", "1"])
+
+        self.assertEqual(exit_code, 1)
+        from_env.assert_not_called()
+
+    def test_approved_and_not_superseded_is_eligible(self) -> None:
+        """대조군: approved + 정상 레코드는 정상적으로 발행된다."""
+        item = _threads_item()
+        self._write_batch_only([item])
+        self._write_archive([_approved_record_for(item)])
+
+        fake_client = ThreadsClient(access_token="fake-token", transport=_success_transport("th_eligible"))
+        with mock.patch.object(ThreadsClient, "from_environment", return_value=fake_client):
+            exit_code = self._run(["--index", "1"])
+
+        self.assertEqual(exit_code, 0)
+        records = PublishHistory(self.history_path).load()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["threads_post_id"], "th_eligible")
+
+    def test_auto_skips_ineligible_and_selects_eligible(self) -> None:
+        """--auto가 후보 여러 건 중 승인된 것만 골라야 한다."""
+        ineligible_item = _threads_item(knowledge_id="k-001", evidence_unit_ids=["a:1"])
+        eligible_item = _threads_item(knowledge_id="k-002", evidence_unit_ids=["a:2"])
+        self._write_batch_only([ineligible_item, eligible_item])
+        self._write_archive([
+            _record_with_status(ineligible_item, "unreviewed"),
+            _approved_record_for(eligible_item),
+        ])
+
+        fake_client = ThreadsClient(access_token="fake-token", transport=_success_transport("th_auto_eligible"))
+        with mock.patch.object(ThreadsClient, "from_environment", return_value=fake_client):
+            exit_code = self._run(["--auto"])
+
+        self.assertEqual(exit_code, 0)
+        records = PublishHistory(self.history_path).load()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["knowledge_id"], "k-002")
+
+
+def _record_with_status(item: dict, review_status: str) -> MediaArchiveRecord:
+    record_dict = {**_approved_record_for(item).to_dict(), "review_status": review_status}
+    return MediaArchiveRecord.from_dict(record_dict)
 
 
 if __name__ == "__main__":

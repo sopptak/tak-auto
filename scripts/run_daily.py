@@ -179,10 +179,15 @@ def main(argv: list[str] | None = None) -> int:
 
     # 4단계: Threads 게시 - 기존 publish_threads.py의 --auto 로직을 그대로 재사용한다.
     # 자동 선정/게시 이력 기록 로직은 여기서 다시 구현하지 않는다.
+    # 6-25: --production-archive를 명시적으로 넘겨, 방금 archive_report()로 저장한
+    # 바로 이 archive를 기준으로 승인(review_status=="approved") 여부를 재확인하게
+    # 한다 - 이 인자가 없으면 publish_threads.py가 자기 기본값(data/tak_media_archive.json)을
+    # 쓰게 되어 이번 실행에서 막 만든 archive와 다른 파일을 볼 수도 있었다.
     publish_argv = [
         "--input", str(args.output),
         "--auto",
         "--history", str(args.history),
+        "--production-archive", str(args.archive),
     ]
     if args.dry_run:
         publish_argv.append("--dry-run")

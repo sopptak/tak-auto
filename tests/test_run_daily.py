@@ -120,24 +120,72 @@ class RunDailyTests(unittest.TestCase):
             OpenAICompatibleRewriteProvider, "from_environment", return_value=MockRewriteProvider()
         )
 
-    # --- 승인 KNOWLEDGE 정상 처리 + Threads 게시 성공 ------------------------------
+    def _pre_approve_threads_candidates(self) -> None:
+        """6-25: Threads 발행은 이제 production archive에서
+        ``review_status == "approved"``인 content_id만 대상으로 한다
+        (scripts/publish_threads.py의 eligibility 게이트, content_engine.publish_eligibility
+        재사용). ``run_daily.py``는 매 실행마다 MEDIA를 다시 생성하므로, "이미 사람이
+        승인한 콘텐츠를 실행마다 다시 발행 시도하는" 시나리오를 테스트하려면 실제
+        생성 결과와 같은 content_id로 미리 approved 레코드를 심어둬야 한다.
+
+        이 헬퍼를 쓰는 테스트는 반드시 ``_bypass_overwrite_guard()``도 함께 써야
+        한다 - 6-24 P0 가드(``find_protected_overwrite_targets``)가 "이미
+        approved인 content_id를 --as-generation 없이 재작성하는 것"을 막기
+        때문이다(그 가드 자체의 회귀는
+        tests/test_production_readiness_audit_fixes.py가 전담하므로, 여기서는
+        Threads publish 계층만 격리해서 검증한다)."""
+        from content_engine.media_archive import MediaArchiveRecord, save_archive
+        from content_engine.pipeline import run_media_batch
+        from content_engine.publish_history import compute_content_id
+        from tak_brain import load_knowledge_records
+
+        knowledge_records = load_knowledge_records(self.knowledge_path)
+        report = run_media_batch(knowledge_records, provider=MockRewriteProvider())
+        archive_records = [
+            MediaArchiveRecord(
+                content_id=compute_content_id(item.to_dict()),
+                knowledge_id=item.knowledge_id,
+                platform=item.platform,
+                generation_status=item.status,
+                original_title=item.original_title,
+                original_body=item.original_body,
+                rewritten_title=item.rewritten_title,
+                rewritten_body=item.rewritten_body,
+                source_url=item.source_url,
+                evidence=item.evidence,
+                evidence_unit_ids=item.evidence_unit_ids,
+                created_at=item.created_at,
+                review_status="approved",
+            )
+            for item in report.items
+        ]
+        save_archive(archive_records, self.archive_path)
+
+    def _bypass_overwrite_guard(self):
+        """6-24 P0 가드를 이 테스트 한정으로 무력화한다(위 docstring 참고)."""
+        return mock.patch("scripts.run_daily.find_protected_overwrite_targets", return_value=[])
+
+    # --- 승인 KNOWLEDGE 정상 처리, 그러나 MEDIA 승인 전에는 자동 발행되지 않음(6-25) --
 
     def test_approved_knowledge_end_to_end_success(self):
+        """6-25 이전에는 KNOWLEDGE 승인만으로 자동 Threads 발행까지 됐지만, 이제는
+        production archive의 해당 content_id가 review_status=="approved"여야만
+        발행 후보가 된다(6-24 P1에서 발견된 승인 우회 문제의 수정). 새로 생성된
+        MEDIA는 항상 "unreviewed"로 시작하므로, 이 테스트에서는 MEDIA 생성/아카이브
+        저장은 성공하지만 Threads 발행은 일어나지 않아야 한다."""
         self._write_knowledge([APPROVED_EXPERIENCE_RECORD])
-        fake_client = ThreadsClient(access_token="fake-token", transport=_success_threads_transport("th_1"))
 
-        with self._mock_llm(), mock.patch.object(ThreadsClient, "from_environment", return_value=fake_client):
+        with self._mock_llm(), mock.patch.object(ThreadsClient, "from_environment") as from_env:
             exit_code = self._run()
 
         self.assertEqual(exit_code, 0)
+        from_env.assert_not_called()  # 승인된 archive record가 없어 API 호출 자체가 없어야 함
         self.assertTrue(self.output_path.exists(), "TAK MEDIA 배치 결과 파일이 생성되어야 합니다.")
         batch_data = json.loads(self.output_path.read_text(encoding="utf-8"))
         self.assertEqual(batch_data["summary"]["approved_knowledge_count"], 1)
         self.assertGreaterEqual(batch_data["summary"]["valid_count"], 1)
 
-        history_records = PublishHistory(self.history_path).load()
-        self.assertEqual(len(history_records), 1)
-        self.assertEqual(history_records[0]["threads_post_id"], "th_1")
+        self.assertFalse(self.history_path.exists(), "승인되지 않은 콘텐츠가 발행되면 안 됩니다(6-25).")
 
     # --- 승인 KNOWLEDGE 없음 → exit 0 --------------------------------------------
 
@@ -218,9 +266,12 @@ class RunDailyTests(unittest.TestCase):
 
     def test_threads_publish_failure_exits_one_and_records_no_history(self):
         self._write_knowledge([APPROVED_EXPERIENCE_RECORD])
+        self._pre_approve_threads_candidates()
         fake_client = ThreadsClient(access_token="fake-token", transport=_failure_threads_transport())
 
-        with self._mock_llm(), mock.patch.object(ThreadsClient, "from_environment", return_value=fake_client):
+        with self._mock_llm(), self._bypass_overwrite_guard(), mock.patch.object(
+            ThreadsClient, "from_environment", return_value=fake_client
+        ):
             exit_code = self._run()
 
         self.assertEqual(exit_code, 1)
@@ -230,10 +281,13 @@ class RunDailyTests(unittest.TestCase):
 
     def test_all_candidates_already_published_still_exits_zero(self):
         self._write_knowledge([APPROVED_EXPERIENCE_RECORD])
+        self._pre_approve_threads_candidates()
 
         # 1차 실행: 실제로 1건 게시 (모의 성공)
         fake_client_1 = ThreadsClient(access_token="fake-token", transport=_success_threads_transport("th_a"))
-        with self._mock_llm(), mock.patch.object(ThreadsClient, "from_environment", return_value=fake_client_1):
+        with self._mock_llm(), self._bypass_overwrite_guard(), mock.patch.object(
+            ThreadsClient, "from_environment", return_value=fake_client_1
+        ):
             first_exit = self._run()
         self.assertEqual(first_exit, 0)
         first_history = PublishHistory(self.history_path).load()
@@ -243,7 +297,9 @@ class RunDailyTests(unittest.TestCase):
         # 것"이 아니라 자동 선정 로직 자체(1차 작업 구현)에 맡긴다. 같은 KNOWLEDGE는 Threads
         # 초안 5개를 만들므로 아직 4개가 남아있어 정상적으로는 다음 항목이 선택된다.
         fake_client_2 = ThreadsClient(access_token="fake-token", transport=_success_threads_transport("th_b"))
-        with self._mock_llm(), mock.patch.object(ThreadsClient, "from_environment", return_value=fake_client_2):
+        with self._mock_llm(), self._bypass_overwrite_guard(), mock.patch.object(
+            ThreadsClient, "from_environment", return_value=fake_client_2
+        ):
             second_exit = self._run()
         self.assertEqual(second_exit, 0)
         second_history = PublishHistory(self.history_path).load()
@@ -297,6 +353,8 @@ class RunDailyTests(unittest.TestCase):
         self.assertIn(str(self.history_path), called_argv)
         self.assertIn("--input", called_argv)
         self.assertIn(str(self.output_path), called_argv)
+        self.assertIn("--production-archive", called_argv)  # 6-25
+        self.assertIn(str(self.archive_path), called_argv)  # 6-25: 방금 archive_report()로 쓴 바로 그 파일
         self.assertNotIn("--dry-run", called_argv)
 
     def test_dry_run_flag_is_forwarded_to_publish_threads(self):
@@ -337,8 +395,10 @@ class RunDailyTests(unittest.TestCase):
         custom_archive = self.tmp_path / "nested" / "custom_archive.json"
         custom_knowledge.write_text(json.dumps([APPROVED_EXPERIENCE_RECORD], ensure_ascii=False), encoding="utf-8")
 
-        fake_client = ThreadsClient(access_token="fake-token", transport=_success_threads_transport("th_custom"))
-        with self._mock_llm(), mock.patch.object(ThreadsClient, "from_environment", return_value=fake_client):
+        # 6-25: 승인되지 않은 콘텐츠는 발행되지 않으므로(threads_publish_log.json은
+        # append 시에만 생성됨), 이 테스트는 "커스텀 경로가 올바르게 전달되는가"만
+        # 확인한다 - Threads API는 호출되지 않아야 한다.
+        with self._mock_llm(), mock.patch.object(ThreadsClient, "from_environment") as from_env:
             exit_code = main(
                 [
                     "--knowledge", str(custom_knowledge),
@@ -349,9 +409,10 @@ class RunDailyTests(unittest.TestCase):
             )
 
         self.assertEqual(exit_code, 0)
+        from_env.assert_not_called()
         self.assertTrue(custom_output.exists())
-        self.assertTrue(custom_history.exists())
         self.assertTrue(custom_archive.exists())
+        self.assertFalse(custom_history.exists(), "승인되지 않은 콘텐츠가 발행되면 안 됩니다(6-25).")
 
     # --- --limit / --id 전달 확인 (기존 run_media_batch.py와 동일한 의미) -----------
 
@@ -384,10 +445,13 @@ class RunDailyTests(unittest.TestCase):
 
     def test_two_sequential_runs_do_not_duplicate_publish_history(self):
         self._write_knowledge([APPROVED_EXPERIENCE_RECORD])
+        self._pre_approve_threads_candidates()
 
         for label, post_id in (("first", "th_seq_1"), ("second", "th_seq_2")):
             fake_client = ThreadsClient(access_token="fake-token", transport=_success_threads_transport(post_id))
-            with self._mock_llm(), mock.patch.object(ThreadsClient, "from_environment", return_value=fake_client):
+            with self._mock_llm(), self._bypass_overwrite_guard(), mock.patch.object(
+                ThreadsClient, "from_environment", return_value=fake_client
+            ):
                 exit_code = self._run()
             self.assertEqual(exit_code, 0, f"{label} 실행이 실패했습니다.")
 

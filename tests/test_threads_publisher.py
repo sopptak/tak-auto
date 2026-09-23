@@ -8,6 +8,8 @@ import unittest
 from unittest import mock
 from urllib.error import HTTPError
 
+from content_engine.media_archive import MediaArchiveRecord, save_archive
+from content_engine.publish_history import compute_content_id
 from content_engine.threads_publisher import (
     DEFAULT_INSIGHTS_METRICS,
     ThreadsAPIError,
@@ -17,6 +19,29 @@ from content_engine.threads_publisher import (
     ThreadsPublishResult,
     _default_http_transport,
 )
+
+
+def _write_approved_archive_for(path: Path, item: dict) -> None:
+    """``item``과 같은 content_id로 approved production archive record 1건을
+    임시 파일에 쓴다(6-25: publish_threads.py --index가 이제 이 archive에서
+    approved인 content_id만 발행 후보로 인정하므로, subprocess CLI 테스트도
+    이 archive를 함께 넘겨야 한다)."""
+    record = MediaArchiveRecord(
+        content_id=compute_content_id(item),
+        knowledge_id=str(item.get("knowledge_id") or ""),
+        platform=str(item.get("platform") or "threads"),
+        generation_status="valid",
+        original_title=str(item.get("original_title") or ""),
+        original_body=str(item.get("original_body") or ""),
+        rewritten_title=item.get("rewritten_title"),
+        rewritten_body=item.get("rewritten_body"),
+        source_url=str(item.get("source_url") or ""),
+        evidence=tuple(item.get("evidence") or ()),
+        evidence_unit_ids=tuple(item.get("evidence_unit_ids") or ()),
+        created_at="2026-01-01T00:00:00Z",
+        review_status="approved",
+    )
+    save_archive([record], path)
 
 
 class ThreadsPublisherTests(unittest.TestCase):
@@ -184,19 +209,31 @@ class ThreadsPublisherTests(unittest.TestCase):
 
         script = Path(__file__).parents[1] / "scripts" / "publish_threads.py"
 
-        try:
-            result = subprocess.run(
-                [sys.executable, str(script), "--input", tmp_path, "--index", "1", "--dry-run"],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            self.assertIn("TAK MEDIA Threads Publish (Dry-run)", result.stdout)
-            self.assertIn("선택 항목: [1/1]", result.stdout)
-            self.assertIn("스레드 1인칭 본문 내용입니다.", result.stdout)
-            self.assertIn("네트워크 호출 없음", result.stdout)
-        finally:
-            Path(tmp_path).unlink(missing_ok=True)
+        with tempfile.TemporaryDirectory() as archive_dir:
+            # 6-25: --index 선택도 이제 production archive에서 approved인
+            # content_id만 허용한다 - dry-run이라도 이 게이트를 통과해야 한다.
+            archive_path = Path(archive_dir) / "tak_media_archive.json"
+            _write_approved_archive_for(archive_path, sample_batch_data["all_items"][1])
+
+            try:
+                result = subprocess.run(
+                    [
+                        sys.executable, str(script),
+                        "--input", tmp_path,
+                        "--index", "1",
+                        "--production-archive", str(archive_path),
+                        "--dry-run",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                self.assertIn("TAK MEDIA Threads Publish (Dry-run)", result.stdout)
+                self.assertIn("선택 항목: [1/1]", result.stdout)
+                self.assertIn("스레드 1인칭 본문 내용입니다.", result.stdout)
+                self.assertIn("네트워크 호출 없음", result.stdout)
+            finally:
+                Path(tmp_path).unlink(missing_ok=True)
 
     def test_cli_rejects_out_of_range_index(self):
         sample_batch_data = {
@@ -243,16 +280,26 @@ class ThreadsPublisherTests(unittest.TestCase):
 
         script = Path(__file__).parents[1] / "scripts" / "publish_threads.py"
 
-        try:
-            result = subprocess.run(
-                [sys.executable, str(script), "--input", tmp_path, "--index", "1", "--dry-run"],
-                capture_output=True,
-                text=True,
-            )
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("Threads text exceeds 500 characters: 501", result.stderr)
-        finally:
-            Path(tmp_path).unlink(missing_ok=True)
+        with tempfile.TemporaryDirectory() as archive_dir:
+            archive_path = Path(archive_dir) / "tak_media_archive.json"
+            _write_approved_archive_for(archive_path, sample_batch_data["all_items"][0])
+
+            try:
+                result = subprocess.run(
+                    [
+                        sys.executable, str(script),
+                        "--input", tmp_path,
+                        "--index", "1",
+                        "--production-archive", str(archive_path),
+                        "--dry-run",
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("Threads text exceeds 500 characters: 501", result.stderr)
+            finally:
+                Path(tmp_path).unlink(missing_ok=True)
 
 
 class ThreadsMediaInsightsTests(unittest.TestCase):
