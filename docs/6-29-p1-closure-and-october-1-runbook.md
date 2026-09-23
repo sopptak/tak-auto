@@ -397,3 +397,39 @@ knowledge_id 유지, generation_id/superseded 미처리)을 그대로 유지하�
 PRODUCTION ARCHIVE→Threads/Blog 발행** 경로에서 여전히 가능하다(P0
 없음, 6-28 결론 유지). YouTube는 렌더러 복구 전까지 BLOCKED로 명확히
 재확인했다(6-28의 "NEEDS_REVIEW"보다 더 정확한 상태).
+
+## 21. 6-30 업데이트 - Shorts Renderer 최종 판정 및 YouTube 세부 절차
+
+이 장은 `docs/6-30-shorts-renderer-and-youtube-readiness.md`의 결론을
+반영해 12장(M단계)/13장(#8 행)을 보강한다 - 위 20장의 결론과 충돌하지
+않는다(9장이 "만든 적 없는 기능이 아니라 커밋을 놓친 코드"라고 추정한
+것을, 6-30이 `git log --all`로 이 저장소 전체 이력을 직접 검색해
+"이 저장소에는 커밋된 적이 한 번도 없다(CASE C)"로 확정했다 - 결이
+같은 결론이며, 다만 이 저장소만으로는 확정할 수 없는 "노트북1에
+지금도 남아있는가"는 가설로 남겼다).
+
+**M단계(YouTube) 정확한 절차** (12장 원문 대체가 아니라 구체화):
+
+1. `python scripts/youtube_oauth_setup.py --check` - env var 3개
+   존재 확인(실제 인증 아님).
+2. `content_engine/shorts_renderer.py`, `scripts/render_youtube_short.py`
+   존재 확인 - **먼저 노트북1에서 직접 `git status`/`ls`로 확인**
+   (이 세션은 노트북2에서 실행되어 노트북1을 확인할 수 없었다). 있고
+   uncommitted 상태라면 `git add` → 전체 테스트 통과 확인 → 커밋/푸시.
+3. 2번이 없다면(재작성 필요, `docs/6-30-...md` 16장 최소 구현
+   우선순위 참고) - 이 경우 renderer 실행 환경(ffmpeg/ffprobe PATH,
+   Pillow 등 이미지 라이브러리, 한글 폰트 자산)도 함께 준비해야
+   한다(6-30 13장 - 노트북2는 현재 셋 다 없음, 노트북1도 별도 확인
+   필요).
+4. `python scripts/generate_approved_shorts_script.py` - ShortsScript
+   생성(이 단계는 renderer 유무와 무관하게 실행 가능).
+5. renderer로 mp4 생성(2/3번 완료 후에만 가능).
+6. `python scripts/upload_youtube_short.py --video <mp4> --content-id <id> --knowledge-id <id> --execute` -
+   eligibility 검증(approved/not-superseded/ShortsScript 일치)은
+   mp4 유무와 무관하게 이미 정확히 동작한다(6-30 10/11장에서
+   `main()` 전체 CLI 경로로 재검증 완료).
+
+**13장 #8 행 보강**: `EXTERNAL_MACHINE_REQUIRED`(6-30 최종 판정) -
+"렌더러 부재 확인"이라는 6-29의 표현을 "이 저장소 git 이력 전체에
+존재한 적 없음(CASE C), 다른 머신 확인 또는 재작성 필요"로
+구체화한다. BLOCKED라는 최종 상태 자체는 바뀌지 않는다.
