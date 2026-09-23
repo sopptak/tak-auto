@@ -113,6 +113,8 @@ from content_engine.performance import (
     render_text_trend,
     summarize_content_history,
 )
+from content_engine.insight_report import review_priority
+from content_engine.performance_insight import load_insights as load_performance_insights
 from content_engine.publish_audit import (
     ALREADY_PUBLISHED,
     BLOCKED,
@@ -209,6 +211,12 @@ class DashboardConfig:
     # 책임이다(MEDIA archive를 이 Dashboard가 승인만 하고 발행은 다른 스크립트가
     # 하는 것과 동일한 책임 분리).
     performance_path: Path = ROOT / "data" / "tak_performance.json"
+    # 6-36 - Insight 저장소(content_engine.performance_insight, 6-35). Dashboard는
+    # /performance/insights에서 읽기만 한다(18장: 조회만 가능, 검토 결정은
+    # Dashboard가 아니라 Python API(content_engine.insight_report.record_decision())로만
+    # 한다 - 이 화면에는 승인/거부 버튼이 없다). 기본값을 둬서 기존 호출부(테스트
+    # 포함)가 이 필드를 넘기지 않아도 그대로 동작한다.
+    insights_path: Path = ROOT / "data" / "tak_performance_insights.json"
     # 6-07 - MEDIA generation pool(6-06 설계) 파일 목록. 6-07에서는 읽기 전용
     # 조회만 가능했고, 6-08에서 승인/보류(review_status 변경) 액션이 추가됐다.
     # production archive(media_archive_path)와 달리 generation pool은 고정된
@@ -413,7 +421,7 @@ def render_candidate_list_html(
 
     body = f"""
 <h1>TAK SCOUT Dashboard</h1>
-<div class="nav-links"><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/performance">📈 Performance</a></div>
+<div class="nav-links"><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
 <div class="sub">오늘의 소재 {len(ranked)}건 · 점수 내림차순 (SCOUT SCORE MVP, LLM 미사용)</div>
 {"".join(cards) if cards else "<p>오늘 표시할 소재가 없습니다.</p>"}
 """
@@ -1863,6 +1871,59 @@ def render_performance_list_html(
 """
 
 
+def _insight_row_html(insight) -> str:
+    priority = review_priority(insight)
+    return f"""
+<div class="card">
+  <div><strong>{escape(insight.insight_type)}</strong> - {escape(insight.scope)}={escape(insight.scope_id)} ({escape(insight.platform or "-")}, {escape(insight.metric)})</div>
+  <div>result: {escape(insight.result)} | status: {escape(insight.status)} | priority: {escape(priority)}</div>
+  <div class="sub">{escape(insight.observation)}</div>
+</div>
+"""
+
+
+def render_insight_list_html(
+    insights: list,
+    *,
+    platform: str | None = None,
+    insight_type: str | None = None,
+    status: str | None = None,
+    knowledge_id: str | None = None,
+    content_id: str | None = None,
+) -> str:
+    """GET /performance/insights - Insight candidate/accepted/rejected 목록을
+    읽기 전용으로 보여준다(6-36 17/18장). 이 화면에는 어떤 form/버튼도 없다 -
+    조회만 가능하다(KNOWLEDGE 수정/MEDIA 생성/Production Archive 수정/발행으로
+    이어지는 액션이 전혀 없다). "최고/최악/1위" 같은 평가 문구를 쓰지 않는다 -
+    insight.result의 중립 상태값(INCREASING/ABOVE_BASELINE 등)만 그대로 보여준다.
+    """
+    filtered = insights
+    if platform:
+        filtered = [i for i in filtered if i.platform == platform]
+    if insight_type:
+        filtered = [i for i in filtered if i.insight_type == insight_type]
+    if status:
+        filtered = [i for i in filtered if i.status == status]
+    if knowledge_id:
+        filtered = [i for i in filtered if i.scope == "knowledge" and i.scope_id == knowledge_id]
+    if content_id:
+        filtered = [i for i in filtered if i.scope == "content" and i.scope_id == content_id]
+
+    if not filtered:
+        return """
+<h1>Performance Insights</h1>
+<div class="sub">조건에 맞는 Insight가 없습니다. scripts/analyze_performance.py로 계산해야 여기에 표시됩니다.</div>
+"""
+
+    ordered = sorted(filtered, key=lambda i: i.created_at, reverse=True)
+    rows = "".join(_insight_row_html(insight) for insight in ordered)
+    return f"""
+<h1>Performance Insights</h1>
+<div class="sub">총 {len(ordered)}건(읽기 전용 - 검토 결정은 Python API로만 가능합니다)</div>
+{rows}
+"""
+
+
 def render_threads_review_html(
     draft: ThreadsPendingDraft,
     error: str | None = None,
@@ -2583,6 +2644,24 @@ def make_handler_class(
                 self._send_html(_page("Performance", body))
                 return
 
+            # --- Performance Insight Dashboard (6-36, 읽기 전용) ---
+
+            if path == "/performance/insights":
+                try:
+                    insights = load_performance_insights(config.insights_path)
+                except Exception:
+                    insights = []
+                body = render_insight_list_html(
+                    insights,
+                    platform=query.get("platform", [None])[0],
+                    insight_type=query.get("type", [None])[0],
+                    status=query.get("status", [None])[0],
+                    knowledge_id=query.get("knowledge_id", [None])[0],
+                    content_id=query.get("content_id", [None])[0],
+                )
+                self._send_html(_page("Performance Insights", body))
+                return
+
             self._send_html(_page("페이지 없음", "<p>페이지를 찾을 수 없습니다.</p>"), status=404)
 
         def do_POST(self) -> None:  # noqa: N802
@@ -2990,6 +3069,10 @@ def main(argv: list[str] | None = None) -> int:
         help="성과 스냅샷 저장소 경로, 읽기 전용(/performance 화면용) (기본값: data/tak_performance.json, 6-01)",
     )
     parser.add_argument(
+        "--insights", type=Path, default=ROOT / "data" / "tak_performance_insights.json",
+        help="Insight 저장소 경로, 읽기 전용(/performance/insights 화면용) (기본값: data/tak_performance_insights.json, 6-36)",
+    )
+    parser.add_argument(
         "--generation-archive", type=Path, action="append", default=[],
         help=(
             "MEDIA generation pool 경로(/media/generations 검수 화면용, 6-07/6-08). "
@@ -3033,6 +3116,7 @@ def main(argv: list[str] | None = None) -> int:
         shorts_scripts_path=args.shorts_scripts,
         blog_history_path=args.blog_history,
         performance_path=args.performance,
+        insights_path=args.insights,
         generation_archive_paths=generation_archive_paths,
     )
 
