@@ -63,10 +63,12 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timezone
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import os
 from pathlib import Path
+import subprocess
 import sys
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -116,6 +118,8 @@ from content_engine.performance import (
 from content_engine.insight_report import review_priority
 from content_engine.performance_insight import load_insights as load_performance_insights
 from content_engine.media_strategy import evaluate_media_strategy
+from content_engine.data_state import NOT_PRESENT as _DATA_NOT_PRESENT, dir_status as _dir_status, json_file_status as _json_file_status
+from content_engine.operator_summary import OperatorInputs, build_operator_summary
 from content_engine.publish_audit import (
     ALREADY_PUBLISHED,
     BLOCKED,
@@ -422,7 +426,7 @@ def render_candidate_list_html(
 
     body = f"""
 <h1>TAK SCOUT Dashboard</h1>
-<div class="nav-links"><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/media/strategy">🎯 Strategy Gate</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
+<div class="nav-links"><a href="/operator">🧭 Operator Center</a><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/media/strategy">🎯 Strategy Gate</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
 <div class="sub">오늘의 소재 {len(ranked)}건 · 점수 내림차순 (SCOUT SCORE MVP, LLM 미사용)</div>
 {"".join(cards) if cards else "<p>오늘 표시할 소재가 없습니다.</p>"}
 """
@@ -1966,6 +1970,58 @@ def render_media_strategy_list_html(
 """
 
 
+def _swa_row_html(item) -> str:
+    detail = f' <a href="{escape(item.detail_route)}">상세보기 →</a>' if item.detail_route else ""
+    count = f" ({item.count}건)" if item.count is not None else ""
+    why = f'<div class="sub">WHY: {escape(item.why)}</div>' if item.why else ""
+    action = f'<div class="sub">ACTION: {escape(item.action)}</div>' if item.action else ""
+    return f"""
+<div class="card">
+  <div><strong>{escape(item.label)}</strong>: {escape(item.status)}{count}{detail}</div>
+  {why}
+  {action}
+</div>
+"""
+
+
+def render_operator_center_html(summary) -> str:
+    """GET /operator - Operator Control Center(6-38). 8개 영역을 위→아래
+    순서로 보여준다(TODAY/PIPELINE/HUMAN ACTION/BLOCKED/PUBLISH/DATA
+    HEALTH/PERFORMANCE·INSIGHT/NEXT ACTION). 이 화면에는 어떤 form/버튼도
+    없다 - 완전한 읽기 전용이다(16장). 모바일에서도 읽을 수 있도록 카드
+    레이아웃만 쓴다(기존 .card 스타일 재사용, 새 CSS 없음)."""
+
+    def _section(title: str, items, empty_text: str = "(없음)") -> str:
+        if not items:
+            return f"<h2>{escape(title)}</h2><div class=\"sub\">{escape(empty_text)}</div>"
+        rows = "".join(_swa_row_html(item) for item in items)
+        return f"<h2>{escape(title)}</h2>{rows}"
+
+    next_actions_html = "".join(f"<div class=\"card\">{i}. {escape(action)}</div>" for i, action in enumerate(summary.next_actions, start=1)) or '<div class="sub">(없음)</div>'
+
+    return f"""
+<h1>Operator Control Center</h1>
+<div class="sub">generated_at: {escape(summary.generated_at)} | SYSTEM: <strong>{escape(summary.system_status)}</strong></div>
+
+<h2>TODAY STATUS</h2>
+{_swa_row_html(summary.git_status)}
+{_swa_row_html(summary.test_status)}
+
+{_section("PIPELINE STATUS", summary.pipeline)}
+{_section("HUMAN ACTION", summary.human_actions)}
+{_section("BLOCKED / RISK", summary.blocked_items)}
+{_section("PUBLISH STATUS", summary.publish_status)}
+{_section("DATA HEALTH", summary.data_health)}
+
+<h2>PERFORMANCE / INSIGHT</h2>
+{_swa_row_html(summary.performance)}
+{_swa_row_html(summary.insights)}
+
+<h2>NEXT ACTION</h2>
+{next_actions_html}
+"""
+
+
 def render_threads_review_html(
     draft: ThreadsPendingDraft,
     error: str | None = None,
@@ -2723,6 +2779,76 @@ def make_handler_class(
                     knowledge_id=query.get("knowledge_id", [None])[0],
                 )
                 self._send_html(_page("Media Strategy Gate", body))
+                return
+
+            # --- Operator Control Center (6-38, 읽기 전용) ---
+
+            if path == "/operator":
+                def _git(*git_args: str) -> str:
+                    try:
+                        result = subprocess.run(["git", *git_args], cwd=ROOT, capture_output=True, text=True, check=False)
+                    except FileNotFoundError:
+                        return ""
+                    return result.stdout.strip()
+
+                head = _git("rev-parse", "HEAD")
+                origin_main = _git("rev-parse", "origin/main")
+                working_tree_clean = _git("status", "--short") == ""
+
+                scout_candidate_count = None
+                if config.daily_pack_path.exists():
+                    try:
+                        scout_candidate_count = len(load_daily_pack(config.daily_pack_path))
+                    except (ValueError, OSError):
+                        scout_candidate_count = None
+
+                knowledge_status, _ = _json_file_status(config.knowledge_path)
+                knowledge_records2: tuple = ()
+                if knowledge_status != _DATA_NOT_PRESENT:
+                    try:
+                        knowledge_records2 = tuple(load_knowledge_records(config.knowledge_path))
+                    except (OSError, ValueError):
+                        knowledge_records2 = ()
+
+                generation_pool_records = tuple(
+                    record for gen_path in config.generation_archive_paths for record in load_archive(gen_path)
+                )
+
+                production_status, _ = _json_file_status(config.media_archive_path)
+                production_records2 = tuple(load_archive(config.media_archive_path)) if production_status != _DATA_NOT_PRESENT else ()
+
+                pending_status, _ = _json_file_status(config.pending_path)
+                pending_drafts = tuple(load_pending(config.pending_path)) if pending_status != _DATA_NOT_PRESENT else ()
+
+                performance_status, _ = _json_file_status(config.performance_path)
+                performance_records2 = tuple(load_performance_snapshots(config.performance_path)) if performance_status != _DATA_NOT_PRESENT else ()
+
+                insight_status, _ = _json_file_status(config.insights_path)
+                insight_records2 = tuple(load_performance_insights(config.insights_path)) if insight_status != _DATA_NOT_PRESENT else ()
+
+                shorts_scripts_status, _ = _dir_status(config.shorts_scripts_path, glob="*.json")
+                blog_drafts_status, _ = _dir_status(ROOT / "data" / "blog_drafts")
+
+                operator_inputs = OperatorInputs(
+                    generated_at=datetime.now(timezone.utc).isoformat(),
+                    git_head=head, git_origin_main=origin_main, git_working_tree_clean=working_tree_clean,
+                    test_status="UNKNOWN",
+                    scout_candidate_count=scout_candidate_count,
+                    knowledge_status=knowledge_status, knowledge_records=knowledge_records2,
+                    generation_pool_found=bool(config.generation_archive_paths), generation_pool_records=generation_pool_records,
+                    production_archive_status=production_status, production_records=production_records2,
+                    threads_pending_status=pending_status, threads_pending=pending_drafts,
+                    performance_status=performance_status, performance_records=performance_records2,
+                    insight_status=insight_status, insight_records=insight_records2,
+                    shorts_scripts_status=shorts_scripts_status, blog_drafts_status=blog_drafts_status,
+                    threads_token_present=bool(os.environ.get("THREADS_ACCESS_TOKEN")),
+                    youtube_credentials_present=bool(
+                        os.environ.get("YOUTUBE_CLIENT_ID") and os.environ.get("YOUTUBE_CLIENT_SECRET") and os.environ.get("YOUTUBE_REFRESH_TOKEN")
+                    ),
+                    youtube_renderer_available=(ROOT / "content_engine" / "shorts_renderer.py").exists(),
+                )
+                summary = build_operator_summary(operator_inputs)
+                self._send_html(_page("Operator Control Center", render_operator_center_html(summary)))
                 return
 
             self._send_html(_page("페이지 없음", "<p>페이지를 찾을 수 없습니다.</p>"), status=404)
