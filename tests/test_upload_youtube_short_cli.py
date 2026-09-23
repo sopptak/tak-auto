@@ -23,6 +23,8 @@ import tempfile
 import unittest
 from unittest import mock
 
+from content_engine.media_archive import MediaArchiveRecord, save_archive
+from content_engine.shorts_adapter import save_approved_shorts_script
 from content_engine.youtube_publisher import (
     YouTubeAPIError,
     YouTubeClient,
@@ -62,6 +64,36 @@ class UploadYouTubeShortCLITests(unittest.TestCase):
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp_dir.cleanup)
         self.history_path = Path(self.tmp_dir.name) / "youtube_publish_log.json"
+        self.archive_path = Path(self.tmp_dir.name) / "tak_media_archive.json"
+        self.shorts_scripts_dir = Path(self.tmp_dir.name) / "shorts_scripts"
+
+    def _make_eligible(self, content_id: str, knowledge_id: str) -> list[str]:
+        """6-26: --content-id를 준 업로드는 이제 production archive
+        review_status=="approved" + ShortsScript 존재까지 확인한다
+        (Eligibility Contract, docs/6-26-youtube-publish-readiness.md 4-5장).
+        이 헬퍼는 그 조건을 만족하는 최소 fixture를 만들고, main()에 전달할
+        --production-archive/--shorts-scripts-dir 인자를 반환한다."""
+        record = MediaArchiveRecord(
+            content_id=content_id,
+            knowledge_id=knowledge_id,
+            platform="shorts",
+            generation_status="valid",
+            original_title="원본 제목",
+            original_body="원본 본문입니다.",
+            rewritten_title="재작성 제목",
+            rewritten_body="재작성 본문입니다.",
+            source_url="https://example.test/source",
+            evidence=(),
+            evidence_unit_ids=(),
+            created_at="2026-01-01T00:00:00Z",
+            review_status="approved",
+        )
+        save_archive([record], self.archive_path)
+        save_approved_shorts_script(record, self.shorts_scripts_dir)
+        return [
+            "--production-archive", str(self.archive_path),
+            "--shorts-scripts-dir", str(self.shorts_scripts_dir),
+        ]
 
     def _run(self, args: list[str]) -> tuple[int, str, str]:
         stdout, stderr = StringIO(), StringIO()
@@ -181,6 +213,7 @@ class UploadYouTubeShortCLITests(unittest.TestCase):
     # --- 6-02: --content-id/--knowledge-id 연결 -----------------------------
 
     def test_dry_run_shows_content_id_and_knowledge_id_when_given(self):
+        eligibility_args = self._make_eligible("content-abc123", "knowledge-xyz")
         exit_code, stdout, _stderr = self._assert_from_environment_not_called(
             [
                 "--video", str(self.video_path),
@@ -188,6 +221,7 @@ class UploadYouTubeShortCLITests(unittest.TestCase):
                 "--content-id", "content-abc123",
                 "--knowledge-id", "knowledge-xyz",
                 "--dry-run",
+                *eligibility_args,
             ]
         )
         self.assertEqual(exit_code, 0)
@@ -227,6 +261,7 @@ class UploadYouTubeShortCLITests(unittest.TestCase):
         self.assertIn("둘 다 지정하거나 둘 다 생략해야 합니다", stderr)
 
     def test_live_success_stores_content_id_and_knowledge_id_in_history(self):
+        eligibility_args = self._make_eligible("content-abc123", "knowledge-xyz")
         fake_client = FakeYouTubeClient(result=YouTubeUploadResult(video_id="fake_video_id"))
         with mock.patch.object(YouTubeClient, "from_environment", return_value=fake_client):
             exit_code, _stdout, _stderr = self._run(
@@ -236,6 +271,7 @@ class UploadYouTubeShortCLITests(unittest.TestCase):
                     "--content-id", "content-abc123",
                     "--knowledge-id", "knowledge-xyz",
                     "--history", str(self.history_path),
+                    *eligibility_args,
                 ]
             )
 
@@ -318,6 +354,7 @@ class UploadYouTubeShortCLITests(unittest.TestCase):
         self.assertEqual(len(records), 1)
 
     def test_live_uploads_normally_when_content_id_is_new(self):
+        eligibility_args = self._make_eligible("content-dup-003", "knowledge-dup")
         history = YouTubeUploadHistory(self.history_path)
         history.append(
             YouTubeUploadRecord(
@@ -338,6 +375,7 @@ class UploadYouTubeShortCLITests(unittest.TestCase):
                     "--content-id", "content-dup-003",
                     "--knowledge-id", "knowledge-dup",
                     "--history", str(self.history_path),
+                    *eligibility_args,
                 ]
             )
 

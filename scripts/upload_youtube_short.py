@@ -20,12 +20,20 @@ Threads 게시 로직은 전혀 import하거나 수정하지 않는다.
 억지로 채워지지 않는다).
 
 최초 1회 OAuth 인증은 scripts/youtube_oauth_setup.py로 진행한다 (docs 참고).
+
+6-26(docs/6-26-youtube-publish-readiness.md)에서 --content-id가 주어졌을 때의
+검증을 강화했다. 이전에는 supersede 여부만 다시 확인했는데(6-19), 그것만으로는
+review_status가 "unreviewed"/"dismissed"인 콘텐츠나 ShortsScript가 아예 없는
+콘텐츠도 업로드를 막지 못했다. --content-id를 생략한 호출(레거시/자유
+업로드)은 이 검증을 전혀 거치지 않는다 - 애초에 TAK MEDIA 파이프라인과 무관한
+영상을 올리는 것이 정당한 사용법이기 때문이다(docstring 상단 예시 참고).
 """
 
 from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 import sys
 
@@ -33,8 +41,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from content_engine.media_archive import load_archive
-from content_engine.publish_eligibility import check_content_supersede, format_block_message
+from content_engine.media_archive import MediaArchiveRecord, load_archive
+from content_engine.publish_eligibility import check_content_supersede, find_production_record, format_block_message
+from content_engine.shorts_adapter import shorts_script_output_path
 from content_engine.youtube_publisher import (
     VALID_PRIVACY_STATUSES,
     YouTubeAPIError,
@@ -48,6 +57,51 @@ def parse_tags(raw_tags: str) -> list[str]:
     if not raw_tags:
         return []
     return [tag.strip() for tag in raw_tags.split(",") if tag.strip()]
+
+
+def check_shorts_upload_eligibility(
+    content_id: str,
+    production_records: list[MediaArchiveRecord],
+    shorts_scripts_dir: Path | str,
+) -> str | None:
+    """--content-id가 주어졌을 때 지금 업로드해도 되는지 판정한다(6-26 4장
+    Eligibility Contract). 문제가 없으면 ``None``, 있으면 차단 사유 문자열을
+    반환한다. 새 판정 로직을 만들지 않고 기존 6-19
+    ``content_engine.publish_eligibility``(``find_production_record()``,
+    ``check_content_supersede()``)를 그대로 재사용한다 - 이 함수는 그 결과를
+    조합만 한다.
+
+    파일을 쓰지 않는다(읽기 전용) - ``production_records``는 호출부가 한 번만
+    읽어 넘긴다(다른 publish CLI들과 동일한 "스냅샷 1회 읽기" 관례).
+    """
+    record = find_production_record(production_records, content_id)
+    if record is None:
+        return f"content_id={content_id}: production archive에 이 레코드가 없습니다(ORPHAN) - 업로드하지 않습니다."
+    if record.review_status != "approved":
+        return (
+            f"content_id={content_id}: production archive review_status가 "
+            f"approved가 아닙니다({record.review_status!r}) - 업로드하지 않습니다."
+        )
+
+    supersede_check = check_content_supersede(production_records, content_id)
+    if supersede_check.blocked:
+        return format_block_message(content_id, supersede_check)
+
+    script_path = shorts_script_output_path(shorts_scripts_dir, content_id)
+    if not script_path.exists():
+        return f"content_id={content_id}: ShortsScript 파일이 없습니다({script_path}) - 업로드하지 않습니다."
+    try:
+        script_data = json.loads(script_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        return f"content_id={content_id}: ShortsScript 파일을 읽을 수 없습니다: {error}"
+    script_content_id = script_data.get("content_id") if isinstance(script_data, dict) else None
+    if script_content_id != content_id:
+        return (
+            f"content_id={content_id}: ShortsScript 내부 content_id({script_content_id!r})가 "
+            "일치하지 않습니다(CONFLICT)."
+        )
+
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -105,8 +159,18 @@ def main(argv: list[str] | None = None) -> int:
         default=ROOT / "data" / "tak_media_archive.json",
         help=(
             "Production Archive 경로 (기본값: data/tak_media_archive.json). --content-id가 "
-            "주어졌을 때만 이 파일에서 현재 review_status를 다시 확인해, superseded된 "
-            "레코드는 업로드를 차단한다(6-19). 읽기 전용 - 이 스크립트는 이 파일을 쓰지 않는다."
+            "주어졌을 때만 이 파일에서 review_status==approved 여부와 superseded 여부를 "
+            "다시 확인한다(6-19/6-26). 읽기 전용 - 이 스크립트는 이 파일을 쓰지 않는다."
+        ),
+    )
+    parser.add_argument(
+        "--shorts-scripts-dir",
+        type=Path,
+        default=ROOT / "data" / "shorts_scripts",
+        help=(
+            "ShortsScript JSON 디렉터리 (기본값: data/shorts_scripts). --content-id가 "
+            "주어졌을 때만, 이 디렉터리에 <content_id>.json이 존재하고 내부 content_id가 "
+            "일치하는지 확인한다(6-26). 읽기 전용."
         ),
     )
     args = parser.parse_args(argv)
@@ -160,15 +224,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"기존 URL: {existing.get('url', '')}")
         return 0
 
-    # 6-19: --content-id가 주어졌을 때만 Production Archive에서 지금 superseded
-    # 상태인지 다시 확인한다("ShortsScript/MP4가 이미 만들어져 있으니 지금도
-    # 유효하다"는 가정을 하지 않는다). --content-id를 생략한 기존 호출(레거시
-    # 업로드)은 판단 근거가 없으므로 이 검사를 건너뛰고 기존과 동일하게 동작한다.
+    # 6-19/6-26: --content-id가 주어졌을 때만 Production Archive/ShortsScript를
+    # 다시 확인한다("ShortsScript/MP4가 이미 만들어져 있으니 지금도 유효하다"는
+    # 가정을 하지 않는다) - approved 여부, superseded 여부, ShortsScript
+    # 존재/일치까지 전부 확인한다(6-26 Eligibility Contract). --content-id를
+    # 생략한 기존 호출(레거시/자유 업로드)은 판단 근거가 없으므로 이 검사를
+    # 건너뛰고 기존과 동일하게 동작한다.
     if content_id:
         production_records = load_archive(args.production_archive)
-        supersede_check = check_content_supersede(production_records, content_id)
-        if supersede_check.blocked:
-            print(format_block_message(content_id, supersede_check))
+        block_reason = check_shorts_upload_eligibility(content_id, production_records, args.shorts_scripts_dir)
+        if block_reason:
+            print(f"차단: {block_reason}")
             return 1
 
     if args.dry_run:

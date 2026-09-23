@@ -399,6 +399,7 @@ class YouTubeUploadSupersedeBlockTests(_TempDirMixin):
         self.addCleanup(self.video_path.unlink, missing_ok=True)
         self.history_path = self.tmp_path / "youtube_publish_log.json"
         self.archive_path = self.tmp_path / "tak_media_archive.json"
+        self.shorts_scripts_dir = self.tmp_path / "shorts_scripts"
 
     def _run(self, extra_args: list[str]) -> int:
         args = [
@@ -406,6 +407,7 @@ class YouTubeUploadSupersedeBlockTests(_TempDirMixin):
             "--title", "6-19 테스트 제목",
             "--history", str(self.history_path),
             "--production-archive", str(self.archive_path),
+            "--shorts-scripts-dir", str(self.shorts_scripts_dir),
         ]
         args.extend(extra_args)
         return youtube_upload_main(args)
@@ -467,21 +469,37 @@ class YouTubeUploadSupersedeBlockTests(_TempDirMixin):
         self.assertEqual(exit_code, 0)
         self.assertEqual(len(fake_client.upload_short_calls), 1)
 
-    def test_missing_archive_record_is_not_blocked_orphan_policy_preserved(self):
-        fake_client = FakeYouTubeClient()
-        with mock.patch.object(YouTubeClient, "from_environment", return_value=fake_client):
+    def test_missing_archive_record_now_blocks_upload_6_26(self):
+        """6-19 당시 이 테스트는 "orphan(레코드 없음)은 차단하지 않는다"는 정책을
+        검증했다(원래 이름: test_missing_archive_record_is_not_blocked_orphan_policy_preserved).
+        6-19 설계 문서 5장 원칙 2는 이 orphan 통과 정책이 "각 플랫폼의 기존 승인
+        게이트가 계속 담당한다"는 전제 위에 있다고 명시했는데, 6-26 조사 결과
+        YouTube 업로드 경로(--content-id)에는 애초에 그런 승인 게이트가 없었다
+        (Threads의 tak_threads_pending.json status=="approved"에 대응하는 것이
+        YouTube에는 없다 - content_id/knowledge_id는 원래 성과 데이터 연결용
+        선택 필드일 뿐이었다, 6-02). 즉 "기존 게이트가 있으니 orphan을 통과시켜도
+        안전하다"는 전제가 YouTube에는 성립하지 않았다 - 이 테스트가 검증하던
+        "안전함"은 실제로는 존재한 적이 없었다. 6-26에서
+        content_engine.publish_eligibility.find_production_record()로 archive
+        record 존재 자체를 필수 조건으로 만들었다(docs/6-26-youtube-publish-readiness.md
+        4-5장) - orphan은 이제 BLOCK이다. Threads(publish_approved_threads.py)는
+        건드리지 않았다 - 그쪽은 실제로 별도 승인 트랙(pending draft status)이
+        있어 이 전제가 유효하다."""
+        with mock.patch.object(
+            YouTubeClient, "from_environment", side_effect=AssertionError("YouTube API가 호출되면 안 됩니다")
+        ) as mocked:
             exit_code = self._run(
                 ["--content-id", "content-yt-orphan", "--knowledge-id", "knowledge-6-19-1"]
             )
 
-        self.assertEqual(exit_code, 0)
-        self.assertEqual(len(fake_client.upload_short_calls), 1)
+        mocked.assert_not_called()
+        self.assertEqual(exit_code, 1)
+        self.assertFalse(self.history_path.exists())
 
     def test_approved_active_record_is_not_blocked(self):
-        upsert_archive(
-            self.archive_path,
-            [_record(content_id="content-yt-active", platform="shorts", review_status="approved")],
-        )
+        record = _record(content_id="content-yt-active", platform="shorts", review_status="approved")
+        upsert_archive(self.archive_path, [record])
+        save_approved_shorts_script(record, self.shorts_scripts_dir)
         fake_client = FakeYouTubeClient(result=YouTubeUploadResult(video_id="yt_active"))
         with mock.patch.object(YouTubeClient, "from_environment", return_value=fake_client):
             exit_code = self._run(
@@ -729,6 +747,7 @@ class EndToEndSupersedeDownstreamScenarioTests(_TempDirMixin):
                     "--knowledge-id", "knowledge-e2e",
                     "--history", str(self.youtube_history_path),
                     "--production-archive", str(self.archive_path),
+                    "--shorts-scripts-dir", str(self.shorts_scripts_dir),
                 ]
             )
 
