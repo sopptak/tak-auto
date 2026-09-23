@@ -16,7 +16,9 @@ from content_engine import (
     OpenAICompatibleRewriteProvider,
     archive_generation_report,
     archive_report,
+    find_protected_overwrite_targets,
     generate_media_batch_dry_run,
+    load_archive,
     run_media_batch_file,
 )
 from tak_brain import load_knowledge_records, select_approved
@@ -128,6 +130,29 @@ def main(argv: list[str] | None = None) -> int:
         archived = archive_generation_report(report, args.archive)
         generation_ids = sorted({record.generation_id for record in archived if record.generation_id})
     else:
+        # 6-24 P0: --as-generation 없이 이 KNOWLEDGE를 다시 실행하면, 이미
+        # approved/superseded인 content_id라도 archive_report()가
+        # rewritten_title/rewritten_body를 최신 LLM 결과로 조용히 덮어쓴다
+        # (review_status는 보존되므로 "승인된 상태"처럼 보이지만 실제 승인받은
+        # 문구는 아니게 된다) - docs/6-24-production-readiness-audit.md 4장.
+        # 쓰기 전에 먼저 막는다.
+        protected = find_protected_overwrite_targets(report, load_archive(args.archive))
+        if protected:
+            print(
+                "오류: 이미 approved/superseded 상태인 content_id를 --as-generation 없이 "
+                "다시 아카이브에 쓰려고 합니다 - 사람이 승인한 문구가 조용히 바뀔 수 있어 "
+                "중단합니다.",
+                file=sys.stderr,
+            )
+            for content_id in protected:
+                print(f"  - {content_id}", file=sys.stderr)
+            print(
+                "이미 승인된 콘텐츠를 정정하려면 --as-generation으로 generation pool에 저장한 "
+                "뒤, 사람이 검토하고 scripts/promote_media_generation.py 또는 "
+                "scripts/supersede_media_record.py로 명시적으로 반영하세요.",
+                file=sys.stderr,
+            )
+            return 1
         archive_report(report, args.archive)
         generation_ids = []
 

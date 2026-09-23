@@ -437,6 +437,47 @@ def archive_report(report: MediaBatchReport, path: Path | str) -> list[MediaArch
     return upsert_archive(path, new_records)
 
 
+def find_protected_overwrite_targets(
+    report: MediaBatchReport, existing_records: list[MediaArchiveRecord]
+) -> list[str]:
+    """``archive_report()``로 이 ``report``를 upsert하면 이미 ``approved``나
+    ``superseded``인 기존 레코드의 ``rewritten_title``/``rewritten_body`` 등이
+    조용히 최신 LLM 재작성 결과로 바뀌는 content_id 목록을 반환한다(6-24
+    Production Readiness 감사에서 발견 - docs/6-24-production-readiness-audit.md
+    4장 P0).
+
+    ``archive_report()``는 ``review_status``/``edited_*``는 보존하지만
+    ``rewritten_title``/``rewritten_body``/``generation_status`` 등은 항상 새
+    LLM 출력으로 덮어쓴다(위 docstring 참고, 이 동작 자체는 바꾸지 않았다 -
+    KNOWLEDGE 정정 후 재생성처럼 정당한 용도가 있다, 아래 참고). 문제는
+    ``review_status=="approved"``인 슬롯도 예외 없이 같은 방식으로 덮어써진다는
+    점이다 - 사람이 승인한 것은 "그 문구"이지 "이 content_id의 미래 어떤
+    재작성 결과"가 아니므로, 승인된 본문이 사람 모르게 바뀌면 승인의 의미가
+    깨진다. ``superseded``도 같은 이유로 보호한다(되살아나면 안 되는 상태이기
+    때문 - 6-17).
+
+    KNOWLEDGE 정정 후 재생성(``tests/test_knowledge_correction_media_regeneration.py``)은
+    보통 article_type이 바뀌어 ``compute_content_id()``의 입력(원본
+    제목/본문)도 함께 바뀌므로 대부분 새 content_id를 받는다 - 이 함수가 막는
+    것은 "content_id가 우연히 같은데 그 자리가 이미 사람이 승인/대체 결정을
+    내린 슬롯인 경우"뿐이다. 새 content_id, 또는 기존에 ``unreviewed``/
+    ``dismissed``였던 content_id는 이 함수가 전혀 막지 않는다(기존 동작 그대로
+    허용).
+
+    호출부(``scripts/run_media_batch.py``, ``scripts/run_daily.py``)가 이 목록이
+    비어 있지 않으면 ``archive_report()``를 호출하기 전에 사용자에게 알리고
+    중단해야 한다 - 이 함수 자체는 파일을 읽거나 쓰지 않는 순수 함수다.
+    """
+    existing_by_content_id = {record.content_id: record for record in existing_records}
+    protected: list[str] = []
+    for item in report.items:
+        content_id = compute_content_id(item.to_dict())
+        prior = existing_by_content_id.get(content_id)
+        if prior is not None and prior.review_status in ("approved", "superseded"):
+            protected.append(content_id)
+    return sorted(set(protected))
+
+
 def _generation_key(record: MediaArchiveRecord) -> tuple[str, str | None]:
     return (record.content_id, record.generation_id)
 

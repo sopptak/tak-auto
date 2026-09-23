@@ -3,6 +3,14 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+
+# 6-24 P1: THREADS_ACCESS_TOKEN/TAK_MEDIA_LLM_*/YOUTUBE_* 등을 로컬에서
+# .env로 관리할 경우 실수로 커밋되지 않도록 한다(docs/6-24-production-readiness-audit.md
+# 16장 - 지금까지 .gitignore에 없었다는 사실 자체가 발견 사항이었다).
+.env
+.env.*
+!.env.example
+
 data/*.json
 !data/tak_brain_knowledge.json
 !data/tak_media_batch_e2e_test.json

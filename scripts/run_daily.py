@@ -25,7 +25,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from content_engine.llm_provider import LLMConfigurationError, OpenAICompatibleRewriteProvider
-from content_engine.media_archive import archive_report
+from content_engine.media_archive import archive_report, find_protected_overwrite_targets, load_archive
 from content_engine.pipeline import run_media_batch
 from scripts.publish_threads import main as publish_threads_main
 from tak_brain import load_knowledge_records, select_approved
@@ -147,6 +147,21 @@ def main(argv: list[str] | None = None) -> int:
     # 3단계: 배치 결과 저장 - 아카이브(누적, 전체 보존)를 먼저 남긴 뒤, 기존
     # --output 스냅샷(휘발성)을 저장한다. 아카이브를 먼저 남기면, --output 저장이
     # 실패하더라도 이번 실행 결과 자체는 이미 보존된 뒤다.
+    #
+    # 6-24 P0: run_media_batch.py --execute(레거시 경로)와 동일한 이유로,
+    # 이미 approved/superseded인 content_id를 조용히 재작성하지 않도록 먼저
+    # 확인한다(docs/6-24-production-readiness-audit.md 4장).
+    protected = find_protected_overwrite_targets(report, load_archive(args.archive))
+    if protected:
+        print(
+            "오류: 이미 approved/superseded 상태인 content_id를 다시 아카이브에 쓰려고 합니다 - "
+            "사람이 승인한 문구가 조용히 바뀔 수 있어 중단합니다.",
+            file=sys.stderr,
+        )
+        for content_id in protected:
+            print(f"  - {content_id}", file=sys.stderr)
+        return 1
+
     try:
         archive_report(report, args.archive)
     except OSError as err:
