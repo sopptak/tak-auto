@@ -405,7 +405,7 @@ Tests:
 신규 25개(`test_shorts_renderer.py` 10 + `test_render_youtube_short_cli.py` 5 + `test_6_30_...` 갱신 2 포함 기존 파일 10) 전부 PASS. 전체 회귀 1445 tests, failures=0, errors=9(전부 사전 존재 환경 의존 - Windows `python -m unittest discover`의 `subprocess.run(capture_output=True)` stdout=None 타이밍 이슈, 6-38/6-39에서 이미 문서화된 것과 동일 패턴, 6-40이 건드리지 않은 6개 파일에서만 발생), skipped=17(사전 존재)
 
 Commit:
-(push 직후 갱신)
+41dad54994272d88056ce5208e746724231b4960
 
 Push:
 YES
