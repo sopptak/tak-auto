@@ -1,9 +1,14 @@
 """TAK AUTO 6-30(docs/6-30-shorts-renderer-and-youtube-readiness.md) 전용 검증.
 
 이 파일이 확인하는 것:
-  1) content_engine.shorts_renderer / scripts.render_youtube_short는 이 저장소에
-     실제로 존재하지 않는다(회귀 감지 - 나중에 복구되면 이 테스트가 실패로
-     알려준다).
+  1) **6-40에서 갱신**: 6-30 당시 ``content_engine.shorts_renderer``/
+     ``scripts.render_youtube_short``는 이 저장소 git 이력 전체에 존재한 적이
+     없어(CASE C, EXTERNAL_MACHINE_REQUIRED) "존재하지 않는다"는 회귀 감지
+     테스트였다. 6-40이 6-30 15/16장의 권고("Git history에서 복구 불가능하면
+     사람이 확인 후 REBUILD_REQUIRED")에 따라 실제로 renderer를 새로
+     구현했으므로, 이 클래스는 이제 반대로 "renderer가 정상 존재/동작하는지"를
+     확인한다 - 기능 자체의 상세 테스트는 ``tests/test_shorts_renderer.py``/
+     ``tests/test_render_youtube_short_cli.py``(6-40, 신규)가 담당한다.
   2) 6-30 Section 11: ShortsScript와 mp4 파일이 실제로 디스크에 존재해도,
      Production Archive가 superseded면 scripts/upload_youtube_short.py의
      main() 전체 CLI 경로가 재업로드를 차단한다(실제 렌더러는 없으므로 가짜
@@ -31,21 +36,20 @@ from content_engine.youtube_upload_history import YouTubeUploadHistory
 import scripts.upload_youtube_short as uploader
 
 
-class RendererDoesNotExistTests(unittest.TestCase):
-    """6-30 Section 3/4: content_engine.shorts_renderer는 git history 전체에
-    커밋된 적이 없다(git log --all로 확인). import 자체가 실패해야 한다."""
+class RendererNowExistsTests(unittest.TestCase):
+    """6-30 Section 15/16 -> 6-40: renderer를 REBUILD_REQUIRED 판정에 따라
+    새로 구현했다(``docs/6-40-shorts-quality-validation.md``). 이 클래스는
+    더 이상 "존재하지 않음"을 확인하지 않는다 - 반대로 두 진입점이 정상
+    import/실행 가능한지만 최소한으로 확인한다(상세 기능 테스트는
+    ``test_shorts_renderer.py``/``test_render_youtube_short_cli.py``)."""
 
-    def test_shorts_renderer_module_does_not_exist(self) -> None:
-        with self.assertRaises(ModuleNotFoundError):
-            __import__("content_engine.shorts_renderer")
+    def test_shorts_renderer_module_is_importable(self) -> None:
+        module = __import__("content_engine.shorts_renderer", fromlist=["render_shorts_video"])
+        self.assertTrue(hasattr(module, "render_shorts_video"))
 
-    def test_render_youtube_short_script_does_not_exist(self) -> None:
+    def test_render_youtube_short_script_exists(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
-        self.assertFalse(
-            (repo_root / "scripts" / "render_youtube_short.py").exists(),
-            "scripts/render_youtube_short.py가 존재합니다 - 6-30 문서의 EXTERNAL_MACHINE_REQUIRED "
-            "판정을 다시 검토해야 합니다(회귀 감지).",
-        )
+        self.assertTrue((repo_root / "scripts" / "render_youtube_short.py").exists())
 
 
 def _record(**overrides) -> MediaArchiveRecord:
