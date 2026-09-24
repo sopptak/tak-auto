@@ -42,6 +42,10 @@ from content_engine.media_strategy import (
 )
 from content_engine.performance.models import PerformanceRecord
 from content_engine.performance_insight import InsightRecord, STATUS_CANDIDATE
+from content_engine.recovery_decision import (
+    CONFLICT as RECOVERY_CONFLICT,
+    REVIEW_REQUIRED as RECOVERY_REVIEW_REQUIRED,
+)
 from content_engine.publish_audit import (
     ALREADY_PUBLISHED,
     BLOCKED as PUBLISH_BLOCKED,
@@ -80,6 +84,14 @@ _SYSTEM_STATUS_PRIORITY = {
 TEST_PASS = "PASS"
 TEST_FAIL = "FAIL"
 TEST_UNKNOWN = "UNKNOWN"
+
+# --- 6-39: RECOVERY 상태(정상/검토 필요/충돌/복구 필요, STATE A/B/C 구분) ----------
+# CONFLICT/REVIEW_REQUIRED는 6-23 recovery_decision의 기존 7개 상태를 그대로
+# 재사용한다(위에서 import) - 새로 만든 것은 "이 PC에서 git 이력상 존재했어야
+# 할 데이터가 지금 없다"는, 기존 어디에도 없던 개념 하나(RECOVERY_REQUIRED)뿐이다.
+RECOVERY_NOT_REQUIRED = "NOT_REQUIRED"
+RECOVERY_REQUIRED = "RECOVERY_REQUIRED"
+RECOVERY_UNVERIFIED = "UNVERIFIED"
 
 
 # --- 12장: STATUS -> WHY -> ACTION 공통 구조 -------------------------------------
@@ -135,6 +147,14 @@ class OperatorInputs:
 
     production_archive_status: str = NOT_PRESENT
     production_records: tuple[MediaArchiveRecord, ...] = ()
+    # 6-39: git 이력에 이 파일이 커밋된 적이 있는지(호출부가 ``git log --all``로
+    # 확인해서 넘긴다 - 이 모듈은 git을 호출하지 않는다). None=UNVERIFIED(확인
+    # 불가), False=STATE A(정상, 한 번도 커밋된 적 없음), True=STATE B(커밋된
+    # 적 있는데 지금 이 PC에는 없음 - 사람이 복구 여부를 확인해야 함).
+    production_archive_ever_tracked: bool | None = None
+    # 6-22 ``recovery_staging.validate_production_archive()``가 이미 계산하는
+    # A~M 무결성 이슈 개수(호출부가 재사용해서 넘긴다 - 새 검증 로직 없음).
+    production_archive_issue_count: int = 0
 
     threads_pending_status: str = NOT_PRESENT
     threads_pending: tuple[ThreadsPendingDraft, ...] = ()
@@ -166,6 +186,7 @@ class OperatorSummary:
     data_health: tuple[StatusWhyAction, ...] = field(default_factory=tuple)
     performance: StatusWhyAction = None  # type: ignore[assignment]
     insights: StatusWhyAction = None  # type: ignore[assignment]
+    recovery: StatusWhyAction = None  # type: ignore[assignment]
     next_actions: tuple[str, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
@@ -181,6 +202,7 @@ class OperatorSummary:
             "data_health": [item.to_dict() for item in self.data_health],
             "performance": self.performance.to_dict(),
             "insights": self.insights.to_dict(),
+            "recovery": self.recovery.to_dict(),
             "next_actions": list(self.next_actions),
         }
 
@@ -506,6 +528,48 @@ def build_insight_summary(inputs: OperatorInputs) -> StatusWhyAction:
     )
 
 
+# --- 6-39: RECOVERY(STATE A/B/C 구분, 6-21~6-23 재사용) -----------------------------
+
+
+def build_recovery_status(inputs: OperatorInputs) -> StatusWhyAction:
+    """Production Archive가 정상적으로 없는 것(STATE A)인지, 있었는데
+    사라진 것(STATE B)인지, 있지만 검증/충돌이 필요한 것(STATE C)인지를
+    구분한다(docs/6-39). 새 검증 로직을 만들지 않는다 - git 이력 존재
+    여부(호출부가 ``git log --all``로 확인해 넘김)와 6-22
+    ``recovery_staging.validate_production_archive()``가 이미 계산한 이슈
+    개수만 재사용/집계한다."""
+    if inputs.production_archive_status == NOT_PRESENT:
+        if inputs.production_archive_ever_tracked is True:
+            return StatusWhyAction(
+                label="RECOVERY", status=RECOVERY_REQUIRED,
+                why="Production Archive가 git 이력에는 존재했지만 현재 이 PC에는 없습니다(STATE B).",
+                action="다른 PC의 데이터를 확인한 뒤 python scripts/audit_recovery_source.py --source <복사본>으로 검토하세요(docs/6-22, 6-23).",
+            )
+        if inputs.production_archive_ever_tracked is False:
+            return StatusWhyAction(
+                label="RECOVERY", status=RECOVERY_NOT_REQUIRED,
+                why="Production Archive가 git에 커밋된 적이 없습니다 - 정상적인 fresh clone 상태입니다(STATE A).",
+            )
+        return StatusWhyAction(
+            label="RECOVERY", status=RECOVERY_UNVERIFIED,
+            why="git 이력을 확인할 수 없습니다(git 저장소가 아니거나 명령이 실패했습니다).",
+            action="git log --all -- data/tak_media_archive.json으로 직접 확인하세요.",
+        )
+    if inputs.production_archive_status == CORRUPTED:
+        return StatusWhyAction(
+            label="RECOVERY", status=RECOVERY_REVIEW_REQUIRED,
+            why="Production Archive 파일이 손상되어 파싱할 수 없습니다(STATE C).",
+            action="git log로 이전 정상 버전을 확인하거나 python scripts/audit_recovery_source.py로 복구 후보를 검토하세요.",
+        )
+    if inputs.production_archive_issue_count:
+        return StatusWhyAction(
+            label="RECOVERY", status=RECOVERY_CONFLICT, count=inputs.production_archive_issue_count,
+            why="Production Archive 내부 정합성 문제가 발견됐습니다(중복 content_id 등, STATE C).",
+            action="python scripts/audit_recovery_source.py --source data --verbose로 상세를 확인하세요.",
+        )
+    return StatusWhyAction(label="RECOVERY", status=RECOVERY_NOT_REQUIRED)
+
+
 # --- 11장: NEXT ACTION(최대 3개, 새 점수 시스템 없음) --------------------------------
 
 
@@ -527,12 +591,17 @@ def build_next_actions(human_actions: tuple[StatusWhyAction, ...], blocked_items
 
 def _determine_system_status(
     git_status: StatusWhyAction, pipeline: tuple[StatusWhyAction, ...], blocked_items: tuple[StatusWhyAction, ...],
-    human_actions: tuple[StatusWhyAction, ...],
+    human_actions: tuple[StatusWhyAction, ...], recovery_status: StatusWhyAction,
 ) -> str:
     if git_status.status in ("OUT_OF_SYNC", "DIRTY", "UNKNOWN"):
         return SYSTEM_NEEDS_REVIEW
     if any(item.status == PUBLISH_ERROR for item in pipeline):
         return SYSTEM_ERROR
+    # 6-39: RECOVERY_UNVERIFIED(확인 불가)는 escalate하지 않는다 - "모른다"를
+    # "문제 있다"로 오판하지 않기 위함. 실제로 확인된 문제(RECOVERY_REQUIRED/
+    # CONFLICT/REVIEW_REQUIRED)만 시스템 상태를 끌어올린다.
+    if recovery_status.status in (RECOVERY_REQUIRED, RECOVERY_CONFLICT, RECOVERY_REVIEW_REQUIRED):
+        return SYSTEM_NEEDS_REVIEW
     if any(item.status == "BLOCKED" for item in blocked_items):
         return SYSTEM_BLOCKED
     if human_actions:
@@ -557,9 +626,10 @@ def build_operator_summary(inputs: OperatorInputs) -> OperatorSummary:
     data_health = build_data_health(inputs)
     performance = build_performance_summary(inputs)
     insights = build_insight_summary(inputs)
+    recovery = build_recovery_status(inputs)
     next_actions = build_next_actions(human_actions, blocked_items)
 
-    system_status = _determine_system_status(git_status, pipeline, blocked_items, human_actions)
+    system_status = _determine_system_status(git_status, pipeline, blocked_items, human_actions, recovery)
 
     return OperatorSummary(
         system_status=system_status,
@@ -573,5 +643,6 @@ def build_operator_summary(inputs: OperatorInputs) -> OperatorSummary:
         data_health=data_health,
         performance=performance,
         insights=insights,
+        recovery=recovery,
         next_actions=next_actions,
     )

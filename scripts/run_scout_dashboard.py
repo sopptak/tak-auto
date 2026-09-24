@@ -1985,11 +1985,12 @@ def _swa_row_html(item) -> str:
 
 
 def render_operator_center_html(summary) -> str:
-    """GET /operator - Operator Control Center(6-38). 8개 영역을 위→아래
-    순서로 보여준다(TODAY/PIPELINE/HUMAN ACTION/BLOCKED/PUBLISH/DATA
-    HEALTH/PERFORMANCE·INSIGHT/NEXT ACTION). 이 화면에는 어떤 form/버튼도
-    없다 - 완전한 읽기 전용이다(16장). 모바일에서도 읽을 수 있도록 카드
-    레이아웃만 쓴다(기존 .card 스타일 재사용, 새 CSS 없음)."""
+    """GET /operator - Operator Control Center(6-38, RECOVERY 추가는 6-39).
+    9개 영역을 위→아래 순서로 보여준다(TODAY/PIPELINE/HUMAN ACTION/BLOCKED/
+    PUBLISH/DATA HEALTH/RECOVERY/PERFORMANCE·INSIGHT/NEXT ACTION). 이
+    화면에는 어떤 form/버튼도 없다 - 완전한 읽기 전용이다(16장). 모바일에서도
+    읽을 수 있도록 카드 레이아웃만 쓴다(기존 .card 스타일 재사용, 새 CSS
+    없음)."""
 
     def _section(title: str, items, empty_text: str = "(없음)") -> str:
         if not items:
@@ -2012,6 +2013,9 @@ def render_operator_center_html(summary) -> str:
 {_section("BLOCKED / RISK", summary.blocked_items)}
 {_section("PUBLISH STATUS", summary.publish_status)}
 {_section("DATA HEALTH", summary.data_health)}
+
+<h2>RECOVERY</h2>
+{_swa_row_html(summary.recovery)}
 
 <h2>PERFORMANCE / INSIGHT</h2>
 {_swa_row_html(summary.performance)}

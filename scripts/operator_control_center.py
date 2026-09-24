@@ -29,11 +29,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from content_engine.data_state import NOT_PRESENT, dir_status, json_file_status
+from content_engine.data_state import NOT_PRESENT, VALID, dir_status, json_file_status
 from content_engine.media_archive import load_archive
 from content_engine.operator_summary import OperatorInputs, StatusWhyAction, build_operator_summary
 from content_engine.performance.store import load_snapshots
 from content_engine.performance_insight import load_insights
+from content_engine.recovery_staging import validate_production_archive
 from content_engine.threads_review import load_pending
 from scripts.run_scout_dashboard import discover_generation_pool_paths
 from tak_brain import load_knowledge_records
@@ -46,6 +47,21 @@ def _run_git(*args: str) -> tuple[int, str]:
     except FileNotFoundError:
         return 1, ""
     return result.returncode, result.stdout.strip()
+
+
+def _ever_tracked_in_git(path: Path) -> bool | None:
+    """이 파일이 git 이력(``--all`` - 모든 브랜치) 어딘가에 커밋된 적이
+    있는지 확인한다(6-39). ``None``은 확인 불가(git 저장소가 아니거나 이
+    파일이 저장소 밖에 있음)를 의미한다 - 절대로 True/False를 추측하지
+    않는다."""
+    try:
+        rel = path.resolve().relative_to(ROOT)
+    except ValueError:
+        return None
+    returncode, output = _run_git("log", "--all", "--oneline", "--", rel.as_posix())
+    if returncode != 0:
+        return None
+    return bool(output.strip())
 
 
 def _load_operator_inputs(args: argparse.Namespace, test_status: str) -> OperatorInputs:
@@ -76,6 +92,8 @@ def _load_operator_inputs(args: argparse.Namespace, test_status: str) -> Operato
 
     production_status, _ = json_file_status(args.production_archive)
     production_records = tuple(load_archive(args.production_archive)) if production_status != NOT_PRESENT else ()
+    production_ever_tracked = _ever_tracked_in_git(args.production_archive)
+    production_issue_count = len(validate_production_archive(args.production_archive).issues) if production_status == VALID else 0
 
     threads_pending_status, _ = json_file_status(args.threads_pending)
     threads_pending = tuple(load_pending(args.threads_pending)) if threads_pending_status != NOT_PRESENT else ()
@@ -97,6 +115,7 @@ def _load_operator_inputs(args: argparse.Namespace, test_status: str) -> Operato
         knowledge_status=knowledge_status, knowledge_records=knowledge_records,
         generation_pool_found=bool(generation_pool_paths), generation_pool_records=generation_pool_records,
         production_archive_status=production_status, production_records=production_records,
+        production_archive_ever_tracked=production_ever_tracked, production_archive_issue_count=production_issue_count,
         threads_pending_status=threads_pending_status, threads_pending=threads_pending,
         performance_status=performance_status, performance_records=performance_records,
         insight_status=insight_status, insight_records=insight_records,
@@ -184,6 +203,9 @@ def main(argv: list[str] | None = None) -> int:
     print("\n--- DATA HEALTH ---")
     for item in summary.data_health:
         print(_render_row(item))
+
+    print("\n--- RECOVERY ---")
+    print(_render_row(summary.recovery))
 
     print("\n--- PERFORMANCE / INSIGHT ---")
     print(_render_row(summary.performance))
