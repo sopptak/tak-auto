@@ -549,7 +549,7 @@ P2:
 `audit_recovery_source.py`를 실행해 실제 데이터 유무를 최초로 확인.
 
 commit:
-(아래 push 직후 커밋 해시로 갱신)
+e8887d075531b938fde4b7906eefdbc80d7b88ac
 
 push:
 YES
