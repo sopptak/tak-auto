@@ -1,0 +1,19 @@
+{
+  "id": "finance",
+  "style": "finance",
+  "bpm": 100,
+  "idea": "신용점수가 괜찮은데 대출이 안 나온 사람의 실제 의문에서 출발한다. 은행 심사를 '점수 하나'가 아니라 상환능력/기존 부채/신용·담보·거래관계 세 축으로 보여주고, 마지막에 그걸 묶는 실제 용어(DSR)와 신청 전 할 일 하나로 끝낸다. 구체적인 규정 수치는 만들지 않는다.",
+  "scenes": [
+    {"role": "HOOK", "text": "신용점수 괜찮은데\n*대출이 안 나왔다면?*", "visual": "notify", "audio": ["impact"], "beats": 4,
+     "voiceover": "신용점수도 괜찮은데 대출이 안 나왔다면?"},
+    {"role": "PROBLEM", "text": "은행은 점수 *하나로*\n결정하지 않아요.", "transition": "punch", "audio": ["whoosh"], "beats": 4},
+    {"role": "CONTEXT", "layout": "big", "text": "심사할 때 먼저 보는 건\n크게 *세 가지*", "big": "3", "visual": "count_accent", "audio": ["pop"], "beats": 5},
+    {"role": "INFO", "label": "01 상환능력", "text": "매달 버는 돈으로\n*이 대출을 갚을 수 있나*", "visual": "bars", "transition": "punch", "audio": ["whoosh"], "beats": 7},
+    {"role": "INFO", "label": "02 기존 부채", "text": "이미 갚고 있는 대출,\n카드론, 할부까지\n*전부 합쳐서* 봐요.", "visual": "stack", "transition": "punch", "audio": ["whoosh"], "beats": 8},
+    {"role": "INFO", "label": "03 신용·거래", "text": "연체 기록, 담보,\n그리고 *거래해 온 기간*", "visual": "timeline", "transition": "punch", "audio": ["whoosh"], "beats": 7},
+    {"role": "INSIGHT", "text": "그래서 *연봉이 같아도*\n결과가 달라져요.", "visual": "compare", "transition": "punch", "audio": ["whoosh"], "music": "break", "beats": 7},
+    {"role": "INSIGHT", "layout": "big", "text": "은행 용어로는", "big": "DSR", "note": "연 소득 대비 1년에 갚는 원리금 비율\n※ 적용 기준은 대출 종류·시기마다 다릅니다", "visual": "big_accent", "audio": ["pop", "riser"], "beats": 8},
+    {"role": "TAKEAWAY", "text": "신청하기 전에\n*내 소득 대비 빚*부터\n계산해 보세요.", "transition": "punch", "audio": ["impact"], "beats": 6},
+    {"role": "BRAND", "layout": "brand", "text": "", "audio": ["chime"], "beats": 4}
+  ]
+}

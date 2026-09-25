@@ -1,0 +1,17 @@
+{
+  "id": "human",
+  "style": "human",
+  "bpm": 70,
+  "idea": "크게 싸운 적 없이 멀어진 관계. 추상적 교훈 대신 '답장이 늦어진다', '나중에 얘기하자가 습관이 된다' 같은 누구나 겪은 작은 장면을 쌓고, 마지막에 오늘 할 수 있는 아주 작은 행동 하나로 끝낸다.",
+  "scenes": [
+    {"role": "HOOK", "text": "싸운 적도 없는데\n*멀어진 사람*, 있죠.", "visual": "bokeh_warm", "beats": 3},
+    {"role": "PROBLEM", "text": "연락이 끊긴 건\n*어느 날 갑자기*가 아니었다.", "visual": "street", "transition": "dissolve", "beats": 4},
+    {"role": "STORY", "text": "답장이\n*조금씩* 늦어지고", "visual": "rain", "transition": "dissolve", "beats": 3},
+    {"role": "STORY", "text": "'나중에 얘기하자'가\n*습관*이 되고", "visual": "dusk", "transition": "dissolve", "beats": 4},
+    {"role": "STORY", "text": "서운한 걸\n설명하는 대신\n*그냥 넘기게* 된다.", "visual": "rain", "transition": "dissolve", "beats": 4},
+    {"role": "STORY", "text": "그렇게\n*한 뼘씩.*", "visual": "two_lights", "transition": "dissolve", "beats": 4},
+    {"role": "INSIGHT", "text": "관계는 큰 사건보다\n*작은 무관심*에서\n끝난다.", "visual": "bokeh_warm", "transition": "dissolve", "beats": 5},
+    {"role": "TAKEAWAY", "text": "오늘 문득\n떠오른 사람에게\n*\"잘 지내?\"* 한 줄.", "visual": "dawn", "transition": "dissolve", "beats": 5},
+    {"role": "BRAND", "layout": "brand", "text": "", "visual": "brand", "transition": "dissolve", "audio": ["chime"], "beats": 3}
+  ]
+}

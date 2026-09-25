@@ -1,0 +1,19 @@
+{
+  "id": "ai",
+  "style": "ai",
+  "bpm": 120,
+  "idea": "'AI 시대엔 인간의 창의성' 같은 추상 결론 대신, 자료 조사 30분이 30초가 된 구체적 장면에서 출발한다. AI가 잘하는 것/사람에게 남는 것을 대비시키고, 요약 10개 중 뭘 믿을지·틀리면 누가 책임지는지로 판단과 책임을 보여준 뒤 '질문을 먼저 한 줄로 적기'라는 바로 할 수 있는 행동으로 끝낸다. 과장된 예언은 하지 않는다.",
+  "scenes": [
+    {"role": "HOOK", "layout": "big", "text": "예전엔 자료 찾는 데", "big": "30분", "visual": "scan", "audio": ["impact"], "beats": 4},
+    {"role": "PROBLEM", "layout": "big", "text": "AI한테 물으면", "big": "30초", "visual": "count_accent_strike", "transition": "punch", "audio": ["whoosh"], "beats": 4},
+    {"role": "QUESTION", "text": "그럼 남은 시간,\n*사람은* 뭘 해야 할까?", "transition": "punch", "music": "break", "audio": ["riser"], "beats": 5},
+    {"role": "INFO", "layout": "list", "text": "AI가 잘하는 것", "items": ["검색", "요약", "계산", "반복"], "visual": "list_ai", "transition": "punch", "audio": ["impact"]},
+    {"role": "INFO", "layout": "list", "text": "*사람*에게 남는 것", "items": ["판단", "책임", "관계", "방향"], "visual": "list_human", "transition": "punch", "audio": ["whoosh"]},
+    {"role": "STORY", "text": "AI는 보고서 10개를\n*금방* 요약해 준다.", "visual": "terminal", "transition": "punch", "audio": ["whoosh"], "beats": 5},
+    {"role": "STORY", "text": "그중 *뭘 믿을지*\n정하는 건 나다.", "transition": "punch", "audio": ["pop"], "beats": 5},
+    {"role": "STORY", "text": "틀렸을 때\n*책임지는 것도* 나다.", "transition": "punch", "audio": ["pop", "riser"], "beats": 5},
+    {"role": "INSIGHT", "text": "이제 중요한 건\n*뭘 찾을지*\n정하는 힘", "visual": "scan", "transition": "punch", "audio": ["impact"], "beats": 6},
+    {"role": "TAKEAWAY", "text": "AI한테 묻기 전에\n*질문을 한 줄로*\n먼저 적어 보자.", "transition": "punch", "audio": ["whoosh"], "beats": 7},
+    {"role": "BRAND", "layout": "brand", "text": "", "audio": ["chime"], "beats": 4}
+  ]
+}
