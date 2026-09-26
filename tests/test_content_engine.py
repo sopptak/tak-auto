@@ -10,8 +10,8 @@ from unittest import mock
 
 from content_engine.generator import build_content_brief, generate_content_bundle, generate_from_approved
 from content_engine.llm_provider import LLMConfigurationError, LLMResponseError, OpenAICompatibleRewriteProvider, _http_transport
-from content_engine.models import ContentBundle
-from content_engine.rewrite import MockRewriteProvider, RewriteService
+from content_engine.models import BlogDraft, ContentBundle
+from content_engine.rewrite import MockRewriteProvider, RewriteService, RewriteValidator
 from tak_brain import KnowledgeRecord, load_knowledge_records, select_approved
 
 
@@ -205,6 +205,122 @@ class ContentEngineTests(unittest.TestCase):
         before = self.KNOWLEDGE_PATH.read_bytes()
         generate_content_bundle(self.knowledge)
         self.assertEqual(self.KNOWLEDGE_PATH.read_bytes(), before)
+
+
+class InterviewQAFormatTests(unittest.TestCase):
+    """5-10 Phase 4-2 수정 #1: tak_scout 인터뷰가 만드는 "Q{n}. .../A{n}. ..."
+    형식의 reusable_principle이 문장 분리와 충돌하지 않는지 검증한다(Phase 4-1에서
+    실제 운영 KNOWLEDGE로 "Q1"이 label 조각으로 잘못 선택되는 버그가 재현됨).
+    """
+
+    def _interview_knowledge(self, reusable_principle: str) -> KnowledgeRecord:
+        return KnowledgeRecord(
+            id="knowledge-interview-qa",
+            source_url="https://example.test/rent",
+            title="임대료 상승 관련 기사",
+            article_type="finance",
+            knowledge_type="의견",
+            lesson="The cost of renting is expected to rise by 4% or 5% a year by December.",
+            reusable_principle=reusable_principle,
+            evidence=("SOURCE FACT: ...",),
+            knowledge_review_status="approved",
+        )
+
+    def test_single_turn_qa_format_produces_no_label_fragments(self):
+        knowledge = self._interview_knowledge(
+            "Q1. 최근 임대료 인상이 계속되고 있는데, 이에 대한 귀하의 생각은 무엇인가요?\n"
+            "A1. 임대료가 계속 오르는 흐름을 보면서 가장 걱정되는 건, 소득은 물가만큼 안 오르는데 "
+            "주거비만 먼저 뛴다는 점이다. 작년에 지인이 재계약 시점에 월세를 10% 넘게 올려달라는 "
+            "요구를 받고, 결국 대중교통이 불편한 외곽으로 이사한 걸 옆에서 지켜봤다."
+        )
+        brief = build_content_brief(knowledge)
+        principle_units = [u for u in brief.evidence_units if u.field_name == "reusable_principle"]
+
+        self.assertTrue(principle_units, "reusable_principle evidence unit이 생성되어야 합니다.")
+        for unit in principle_units:
+            self.assertNotRegex(unit.text, r"^[AQ]\d+\.?$")  # 1. 깨진 label-only fragment 없음
+            self.assertNotIn("무엇인가요", unit.text)  # 질문 문장이 섞이지 않음
+
+    def test_qa_based_reusable_principle_is_picked_as_real_sentence(self):
+        knowledge = self._interview_knowledge(
+            "Q1. 이 소재에 대해 어떻게 생각하시나요?\n"
+            "A1. 임대료 상승은 결국 세입자의 실질 소득 감소로 이어질 수 있어 우려된다."
+        )
+        bundle = generate_content_bundle(knowledge)
+
+        self.assertEqual(bundle.status, "complete")
+        self.assertIsNotNone(bundle.blog)
+        # 2. Q/A 기반 reusable_principle이 정상적으로(사용자의 실제 답변으로) 선택된다.
+        self.assertIn(
+            "임대료 상승은 결국 세입자의 실질 소득 감소로 이어질 수 있어 우려된다",
+            bundle.blog.body,
+        )
+        self.assertNotIn('"Q1"', bundle.blog.body)
+        self.assertNotIn("어떻게 생각하시나요", bundle.blog.body)
+
+    def test_multi_turn_qa_format_extracts_only_answers_in_order(self):
+        knowledge = self._interview_knowledge(
+            "Q1. 첫 번째 질문입니다.\nA1. 첫 번째 답변입니다.\n\n"
+            "Q2. 두 번째 질문입니다.\nA2. 두 번째 답변입니다."
+        )
+        brief = build_content_brief(knowledge)
+        texts = [u.text for u in brief.evidence_units if u.field_name == "reusable_principle"]
+
+        self.assertEqual(texts, ["첫 번째 답변입니다.", "두 번째 답변입니다."])
+
+    def test_non_qa_field_sentence_splitting_is_unchanged(self):
+        # 3. Q/A 포맷이 아닌 일반 텍스트는 기존 문장 분리 동작 그대로 유지된다.
+        knowledge = self._interview_knowledge("일반적인 원칙 문장입니다. 두 번째 문장도 있습니다.")
+        brief = build_content_brief(knowledge)
+        texts = [u.text for u in brief.evidence_units if u.field_name == "reusable_principle"]
+
+        self.assertEqual(texts, ["일반적인 원칙 문장입니다.", "두 번째 문장도 있습니다."])
+
+
+class MonthNumberFalsePositiveTests(unittest.TestCase):
+    """5-10 Phase 4-2 수정 #2: 날짜의 영→한 표기 변환(예: December -> 12월)이
+    RewriteValidator._new_number_errors에서 "새 숫자 추가"로 오탐되지 않는지
+    검증한다(Phase 4-1에서 "by December" -> "12월"이 실제로 오탐된 것을 재현).
+    """
+
+    @staticmethod
+    def _draft(body: str) -> BlogDraft:
+        return BlogDraft(title="", body=body, source_url="https://example.test", evidence=())
+
+    def test_december_to_month_12_is_allowed(self):
+        source = "The cost of renting is expected to rise by 4% or 5% a year by December."
+        errors = RewriteValidator._new_number_errors(
+            source, self._draft("12월까지 4%에서 5% 상승할 것으로 예상됩니다.")
+        )
+        self.assertEqual(errors, ())
+
+    def test_january_to_month_1_is_allowed(self):
+        source = "The meeting is scheduled for January."
+        errors = RewriteValidator._new_number_errors(source, self._draft("1월에 회의가 예정되어 있습니다."))
+        self.assertEqual(errors, ())
+
+    def test_march_to_month_3_is_allowed(self):
+        source = "The report is due in March."
+        errors = RewriteValidator._new_number_errors(source, self._draft("3월에 보고서가 마감됩니다."))
+        self.assertEqual(errors, ())
+
+    def test_december_with_unrelated_new_number_still_fails(self):
+        source = "The rate is expected to rise by December."
+        errors = RewriteValidator._new_number_errors(source, self._draft("12월에 30% 상승할 것으로 예상됩니다."))
+        self.assertTrue(any("30" in error for error in errors))
+        self.assertFalse(any(error.endswith(": 12") for error in errors))
+
+    def test_number_matching_month_number_but_not_a_date_still_fails(self):
+        # "12"가 "12월"(날짜)이 아니라 금액 등 다른 새 사실로 쓰이면 여전히 거부돼야 한다 -
+        # 월 이름이 source에 있다고 해서 숫자 12를 광범위하게 허용하지 않는다.
+        source = "The rate is expected to rise by December."
+        errors = RewriteValidator._new_number_errors(source, self._draft("이번 분기 매출이 12억원입니다."))
+        self.assertTrue(any("12" in error for error in errors))
+
+    def test_existing_new_number_insertion_still_fails_without_month_name(self):
+        # source에 월 이름이 전혀 없으면 이번 수정의 영향을 받지 않고 기존 동작 그대로다.
+        errors = RewriteValidator._new_number_errors("Sales rose by 5%.", self._draft("Sales rose by 12%."))
+        self.assertTrue(any("12" in error for error in errors))
 
 
 class RewriteLayerTests(unittest.TestCase):
@@ -750,6 +866,123 @@ class LLMRewriteExperimentTests(unittest.TestCase):
         self.assertIn("author's observation and official institution criteria", system_prompt)
         self.assertIn("금융기관 공식 기준으로의 확대", user_prompt["prohibited_changes"])
         self.assertIn("공식 기준 비해석 문구", user_prompt["validation_requirements"])
+
+
+class FinanceBoundaryPromptTests(unittest.TestCase):
+    """5-10 Phase 4-3: 금융 Blog rewrite에서 안전 경계 문구가 LLM prompt에
+    명시적으로(그대로 보존해야 할 문장으로) 전달되는지, 그리고 Validator의
+    안전 기준은 전혀 낮아지지 않았는지 검증한다. 실제 네트워크는 쓰지 않는다.
+    """
+
+    KNOWLEDGE_PATH = Path(__file__).parents[1] / "data" / "tak_brain_knowledge.json"
+    # find_finance_boundary_sentence는 content_engine.rewrite._SENTENCE_PATTERN
+    # (r"[^.!?\n]+")으로 문장을 나누므로, 문장 끝 마침표는 포함하지 않는다 -
+    # 이는 RewriteValidator의 기존 문장 분리 관례와 동일하다(예: _fact_scope_errors).
+    BOUNDARY_SENTENCE = "이 글의 금융 관련 내용은 원문 작성자의 설명이며, 금융기관의 공식 심사 기준으로 해석하지 않습니다"
+
+    def setUp(self) -> None:
+        records = load_knowledge_records(self.KNOWLEDGE_PATH)
+        self.finance = next(r for r in records if r.id == "knowledge-e1cc05264953")
+        self.finance_draft = generate_content_bundle(self.finance).blog
+        self.assertIn(self.BOUNDARY_SENTENCE, self.finance_draft.body)
+
+        self.non_finance = next(r for r in records if r.id == "knowledge-da6ddf5aa459")
+        self.non_finance_draft = generate_content_bundle(self.non_finance).blog
+
+    def _provider(self, responder):
+        captured: dict = {}
+
+        def transport(endpoint, headers, payload, timeout_seconds):
+            captured["payload"] = payload
+            return responder(payload)
+
+        provider = OpenAICompatibleRewriteProvider.from_environment(
+            {
+                "TAK_MEDIA_LLM_API_KEY": "test-key",
+                "TAK_MEDIA_LLM_ENDPOINT": "https://llm.example.test/v1/chat/completions",
+                "TAK_MEDIA_LLM_MODEL": "test-model",
+            },
+            transport=transport,
+        )
+        return provider, captured
+
+    @staticmethod
+    def _echo_original_draft(payload):
+        user_prompt = json.loads(payload["messages"][1]["content"])
+        return {"choices": [{"message": {"content": json.dumps(user_prompt["original_draft"], ensure_ascii=False)}}]}
+
+    def test_finance_prompt_includes_boundary_sentence_verbatim_field(self):
+        provider, captured = self._provider(self._echo_original_draft)
+        RewriteService(provider).rewrite(self.finance, self.finance_draft)
+
+        user_prompt = json.loads(captured["payload"]["messages"][1]["content"])
+        system_prompt = captured["payload"]["messages"][0]["content"]
+        self.assertEqual(user_prompt["finance_boundary_sentence_required_verbatim"], self.BOUNDARY_SENTENCE)
+        self.assertIn("finance_boundary_sentence_required_verbatim", system_prompt)
+        self.assertIn("character-for-character", system_prompt)
+
+    # A. 금융 Blog rewrite에서 금융 경계 문구가 유지되는 경우 PASS
+    def test_a_finance_rewrite_preserving_boundary_sentence_passes(self):
+        def responder(payload):
+            user_prompt = json.loads(payload["messages"][1]["content"])
+            boundary = user_prompt["finance_boundary_sentence_required_verbatim"]
+            body = f"임대료가 계속 오르는 흐름이 걱정됩니다. {boundary}"
+            return {"choices": [{"message": {"content": json.dumps({"title": "제목", "body": body}, ensure_ascii=False)}}]}
+
+        provider, _ = self._provider(responder)
+        result = RewriteService(provider).rewrite(self.finance, self.finance_draft)
+
+        self.assertEqual(result.validation_status, "valid")
+        self.assertIn(self.BOUNDARY_SENTENCE, result.rewritten_draft.body)
+
+    # B. 금융 Blog rewrite에서 경계 문구가 삭제되면 기존 validator가 REJECT하는 안전성 유지
+    def test_b_finance_rewrite_dropping_boundary_sentence_is_rejected(self):
+        def responder(payload):
+            body = "임대료가 계속 오르는 흐름이 걱정됩니다."  # 경계 문구 없음
+            return {"choices": [{"message": {"content": json.dumps({"title": "제목", "body": body}, ensure_ascii=False)}}]}
+
+        provider, captured = self._provider(responder)
+        result = RewriteService(provider).rewrite(self.finance, self.finance_draft)
+
+        self.assertEqual(result.validation_status, "invalid")
+        self.assertTrue(any("공식 기준 비해석 경계" in error for error in result.validation_errors))
+        # prompt에는 여전히 "그대로 보존하라"는 지시가 담겨 있었다(이번 수정이 검증을
+        # 느슨하게 만든 게 아니라, LLM이 지시를 어긴 경우까지 여전히 잡아낸다).
+        user_prompt = json.loads(captured["payload"]["messages"][1]["content"])
+        self.assertIn("finance_boundary_sentence_required_verbatim", user_prompt)
+
+    # C. 금융 Blog rewrite에서 경계 문구의 의미가 바뀌면 REJECT
+    def test_c_finance_rewrite_altering_boundary_sentence_meaning_is_rejected(self):
+        def responder(payload):
+            body = "임대료가 계속 오르는 흐름이 걱정됩니다. 이는 금융기관의 공식 심사 기준입니다."
+            return {"choices": [{"message": {"content": json.dumps({"title": "제목", "body": body}, ensure_ascii=False)}}]}
+
+        provider, _ = self._provider(responder)
+        result = RewriteService(provider).rewrite(self.finance, self.finance_draft)
+
+        self.assertEqual(result.validation_status, "invalid")
+
+    # D. 일반(비금융) Blog rewrite에는 금융 경계 문구 강제가 적용되지 않음
+    def test_d_non_finance_prompt_has_no_boundary_field(self):
+        provider, captured = self._provider(self._echo_original_draft)
+        result = RewriteService(provider).rewrite(self.non_finance, self.non_finance_draft)
+
+        self.assertEqual(result.validation_status, "valid")
+        user_prompt = json.loads(captured["payload"]["messages"][1]["content"])
+        self.assertNotIn("finance_boundary_sentence_required_verbatim", user_prompt)
+
+    # F. 기존 Shorts/Threads rewrite 동작에 변화 없음(경계 문구 자체가 원본에 없으므로
+    # 필드가 추가되지 않는다 - _criterion_blog에서만 경계 문구를 덧붙이기 때문)
+    def test_f_finance_shorts_and_threads_prompts_unaffected(self):
+        bundle = generate_content_bundle(self.finance)
+        for draft in (*bundle.shorts, *bundle.threads):
+            with self.subTest(platform=type(draft).__name__):
+                provider, captured = self._provider(self._echo_original_draft)
+                result = RewriteService(provider).rewrite(self.finance, draft)
+
+                self.assertEqual(result.validation_status, "valid")
+                user_prompt = json.loads(captured["payload"]["messages"][1]["content"])
+                self.assertNotIn("finance_boundary_sentence_required_verbatim", user_prompt)
 
 
 if __name__ == "__main__":

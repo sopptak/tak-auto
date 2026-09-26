@@ -31,6 +31,23 @@ _SAFE_REWRITE_WORDS = frozenset(
         "독자", "문장", "제목", "훅", "원문", "작성자", "따라서", "그리고",
     }
 )
+
+
+def find_finance_boundary_sentence(text: str) -> str | None:
+    """금융 안전 경계 문구가 포함된 문장을 text에서 찾아 원문 그대로 반환한다.
+
+    RewriteValidator._finance_errors가 재작성 결과를 검사할 때 쓰는 것과
+    완전히 동일한 패턴(_FINANCE_BOUNDARY_PATTERN)을 사용한다 - LLM에게
+    "반드시 그대로 보존하라"고 전달하는 문장과, 실제로 검증하는 문장이
+    항상 같은 기준(단일 source of truth)을 공유하도록 하기 위함이다
+    (5-10 Phase 4-3). 일치하는 문장이 없으면 None을 반환한다.
+    """
+    for sentence in _SENTENCE_PATTERN.findall(text):
+        if _FINANCE_BOUNDARY_PATTERN.search(sentence):
+            return sentence.strip()
+    return None
+
+
 _FACT_RISK_TERMS = frozenset(
     {
         "경험", "성과", "수익", "매출", "고객", "출시", "수상", "계약", "투자",
@@ -38,6 +55,19 @@ _FACT_RISK_TERMS = frozenset(
         "규정", "조례", "시행령", "법적", "기준",
     }
 )
+
+# SOURCE FACT의 영문 월 이름이 재작성 과정에서 한국어 "N월"로 자연스럽게 번역되면
+# _new_number_errors가 "원문에 없는 새 숫자"로 오탐한다(예: "by December" ->
+# "12월" 에서 12를 새 숫자로 오인 - 5-10 Phase 4-1에서 실제로 재현됨). 이 표를
+# source_text에 실제로 등장한 월 이름과 정확히 대응하는 "N월" 표기만 숫자 비교
+# 대상에서 제외하는 데 쓴다 - "12"라는 숫자 자체를 광범위하게 허용하지 않는다
+# (예: "12억원"처럼 월 표기가 아닌 숫자는 이 예외의 영향을 받지 않는다).
+_MONTH_NAME_TO_NUMBER = {
+    "January": "1", "February": "2", "March": "3", "April": "4",
+    "May": "5", "June": "6", "July": "7", "August": "8",
+    "September": "9", "October": "10", "November": "11", "December": "12",
+}
+_MONTH_NAME_PATTERN = re.compile(r"\b(" + "|".join(_MONTH_NAME_TO_NUMBER) + r")\b")
 
 
 @dataclass(frozen=True)
@@ -134,6 +164,22 @@ class RewriteValidator:
         return " ".join((request.draft.title, request.draft.body, knowledge_text, *request.evidence))
 
     @staticmethod
+    def _strip_translated_month_references(source_text: str, rewritten_text: str) -> str:
+        """source_text에 실제로 등장한 영문 월 이름과 대응하는 "N월" 표기만
+        rewritten_text에서 제거해, 날짜의 영→한 표기 변환이 새 숫자로 오탐되지
+        않게 한다. 그 외 숫자(예: "12억원", "30%")는 그대로 남아 기존 검증을
+        받는다 - "N월" 형태로 정확히 등장할 때만 제외한다.
+        """
+        months_in_source = set(_MONTH_NAME_PATTERN.findall(source_text))
+        if not months_in_source:
+            return rewritten_text
+        result = rewritten_text
+        for month_name in months_in_source:
+            number = _MONTH_NAME_TO_NUMBER[month_name]
+            result = re.sub(rf"(?<!\d){number}월", "", result)
+        return result
+
+    @staticmethod
     def _new_number_errors(
         source_text: str,
         rewritten_draft: ContentDraft,
@@ -141,7 +187,10 @@ class RewriteValidator:
     ) -> tuple[str, ...]:
         allowed_numbers = set(_NUMBER_PATTERN.findall(source_text))
         url_numbers = set(_NUMBER_PATTERN.findall(source_url)) if source_url else set()
-        rewritten_numbers = set(_NUMBER_PATTERN.findall(f"{rewritten_draft.title} {rewritten_draft.body}"))
+        rewritten_text = RewriteValidator._strip_translated_month_references(
+            source_text, f"{rewritten_draft.title} {rewritten_draft.body}"
+        )
+        rewritten_numbers = set(_NUMBER_PATTERN.findall(rewritten_text))
         new_numbers = sorted(rewritten_numbers - allowed_numbers - url_numbers)
         return tuple(f"원문 근거에 없는 숫자가 추가되었습니다: {number}" for number in new_numbers)
 

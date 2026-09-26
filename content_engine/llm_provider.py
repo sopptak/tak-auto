@@ -11,7 +11,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from .models import BlogDraft, ContentDraft, ShortDraft, ThreadDraft
-from .rewrite import RewriteProvider, RewriteRequest
+from .rewrite import RewriteProvider, RewriteRequest, find_finance_boundary_sentence
 
 
 class LLMConfigurationError(ValueError):
@@ -125,39 +125,52 @@ class OpenAICompatibleRewriteProvider(RewriteProvider):
             "For experience-based content, write directly in the first person ('나', '내가', '직접 해보니') and "
             "never use third-person summary language such as '작성자는', '저자는', '원문에서는', or '~경험을 남겼습니다/공유합니다'. "
             "Never add, infer, amplify, or replace facts. Never add legal or regulatory claims. For financial "
-            "content, preserve the distinction between the author's observation and official institution criteria."
+            "content, preserve the distinction between the author's observation and official institution criteria. "
+            "When the user message includes 'finance_boundary_sentence_required_verbatim', that exact Korean "
+            "sentence is a mandatory safety disclaimer: reproduce it character-for-character, unmodified, "
+            "somewhere in your rewritten body. Do not paraphrase, translate, shorten, reorder its words, or "
+            "omit it, even while you improve the rest of the text."
         )
 
     @staticmethod
     def _user_prompt(request: RewriteRequest) -> str:
-        return json.dumps(
-            {
-                "contract_version": "tak-media-rewrite-v1",
-                "platform": OpenAICompatibleRewriteProvider._platform_name(request.draft),
-                "article_type": request.article_type,
-                "knowledge_type": request.knowledge_type,
-                "source_url": request.source_url,
-                "evidence": request.evidence,
-                "approved_knowledge_facts": OpenAICompatibleRewriteProvider._knowledge_facts(request.knowledge),
-                "original_draft": {"title": request.draft.title, "body": request.draft.body},
-                "allowed_changes": (
-                    "조사와 어미 변경, 문장 순서 조정, 자연스러운 연결어, 제목과 훅 개선, "
-                    "1인칭 직접 서술로의 전환, 동일 의미의 한국어 재표현"
-                ),
-                "prohibited_changes": (
-                    "새 사실·숫자·사람·기관·상품·사건·경험·성과 추가, 근거 없는 인과관계, "
-                    "법률·규정 판단 추가, 금융기관 공식 기준으로의 확대, "
-                    "경험형 콘텐츠에서의 3인칭 요약체(작성자는, 저자는, 원문에서는, ~경험을 남겼습니다/공유합니다 등)"
-                ),
-                "validation_requirements": (
-                    "source_url, evidence, 근거 단위 추적 정보는 원본 Draft와 동일하게 유지되며, "
-                    "금융 초안의 공식 기준 비해석 문구는 삭제하거나 약화하지 않는다"
-                ),
-                "platform_requirements": OpenAICompatibleRewriteProvider._platform_requirements(request.draft),
-                "response_schema": {"title": "string", "body": "string"},
-            },
-            ensure_ascii=False,
-        )
+        payload: dict[str, Any] = {
+            "contract_version": "tak-media-rewrite-v1",
+            "platform": OpenAICompatibleRewriteProvider._platform_name(request.draft),
+            "article_type": request.article_type,
+            "knowledge_type": request.knowledge_type,
+            "source_url": request.source_url,
+            "evidence": request.evidence,
+            "approved_knowledge_facts": OpenAICompatibleRewriteProvider._knowledge_facts(request.knowledge),
+            "original_draft": {"title": request.draft.title, "body": request.draft.body},
+            "allowed_changes": (
+                "조사와 어미 변경, 문장 순서 조정, 자연스러운 연결어, 제목과 훅 개선, "
+                "1인칭 직접 서술로의 전환, 동일 의미의 한국어 재표현"
+            ),
+            "prohibited_changes": (
+                "새 사실·숫자·사람·기관·상품·사건·경험·성과 추가, 근거 없는 인과관계, "
+                "법률·규정 판단 추가, 금융기관 공식 기준으로의 확대, "
+                "경험형 콘텐츠에서의 3인칭 요약체(작성자는, 저자는, 원문에서는, ~경험을 남겼습니다/공유합니다 등)"
+            ),
+            "validation_requirements": (
+                "source_url, evidence, 근거 단위 추적 정보는 원본 Draft와 동일하게 유지되며, "
+                "금융 초안의 공식 기준 비해석 문구는 삭제하거나 약화하지 않는다"
+            ),
+            "platform_requirements": OpenAICompatibleRewriteProvider._platform_requirements(request.draft),
+            "response_schema": {"title": "string", "body": "string"},
+        }
+
+        # 금융(article_type == "finance") 초안에만, 그리고 원본 draft.body에 실제로 금융 안전
+        # 경계 문구가 있을 때만 이 필드를 추가한다 - 일반 콘텐츠의 prompt는 전혀 바뀌지 않는다
+        # (5-10 Phase 4-3). RewriteValidator._finance_errors가 검사하는 것과 동일한 패턴
+        # (find_finance_boundary_sentence)으로 문장을 찾으므로, LLM에게 "그대로 보존하라"고
+        # 전달하는 문장과 실제 검증 대상 문장이 항상 일치한다.
+        if request.article_type == "finance":
+            boundary_sentence = find_finance_boundary_sentence(request.draft.body)
+            if boundary_sentence:
+                payload["finance_boundary_sentence_required_verbatim"] = boundary_sentence
+
+        return json.dumps(payload, ensure_ascii=False)
 
     @staticmethod
     def _platform_name(draft: ContentDraft) -> str:

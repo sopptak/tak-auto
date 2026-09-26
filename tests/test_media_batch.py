@@ -183,11 +183,26 @@ class MediaBatchPipelineTests(unittest.TestCase):
 
     def test_cli_dry_run_saves_json_output(self):
         script = Path(__file__).parents[1] / "scripts" / "run_media_batch.py"
+        approved = self.approved_records[0]
+
+        # 실제 운영 데이터(data/tak_brain_knowledge.json)의 승인 건수에 의존하면,
+        # 사람이 KNOWLEDGE를 새로 승인할 때마다 이 테스트가 깨진다(실제로 5-6 단계에서
+        # Dario KNOWLEDGE 승인 후 approved_knowledge_count가 4 -> 5로 바뀌어 실패했다).
+        # 이 테스트는 "CLI --output이 올바른 dry-run JSON 구조를 저장하는지"만 검증하면
+        # 충분하므로, 실제 데이터 대신 이 테스트 전용의 결정적인(항상 approved 2건)
+        # fixture 파일을 임시로 만들어 --input으로 명시한다.
+        fixture_records = [
+            {**approved.to_dict(), "id": "knowledge-fixture-dryrun-1"},
+            {**approved.to_dict(), "id": "knowledge-fixture-dryrun-2"},
+        ]
 
         with tempfile.TemporaryDirectory() as tmp_dir:
+            fixture_path = Path(tmp_dir) / "fixture_knowledge.json"
+            fixture_path.write_text(json.dumps(fixture_records, ensure_ascii=False), encoding="utf-8")
+
             out_path = Path(tmp_dir) / "dryrun_report.json"
             result = subprocess.run(
-                [sys.executable, str(script), "--output", str(out_path)],
+                [sys.executable, str(script), "--input", str(fixture_path), "--output", str(out_path)],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -197,9 +212,9 @@ class MediaBatchPipelineTests(unittest.TestCase):
             self.assertTrue(out_path.exists())
 
             data = json.loads(out_path.read_text(encoding="utf-8"))
-            self.assertEqual(data["summary"]["approved_knowledge_count"], 4)
-            self.assertEqual(data["summary"]["total_draft_count"], 36)
-            self.assertEqual(len(data["items"]), 36)
+            self.assertEqual(data["summary"]["approved_knowledge_count"], 2)
+            self.assertEqual(data["summary"]["total_draft_count"], 18)
+            self.assertEqual(len(data["items"]), 18)
             first_item = data["items"][0]
             self.assertIn("knowledge_id", first_item)
             self.assertIn("article_type", first_item)

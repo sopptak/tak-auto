@@ -1,0 +1,493 @@
+[
+  {
+    "content_id": "content-5971ed5204437cdd",
+    "knowledge_id": "knowledge-scout-b28b782b2a33",
+    "platform": "blog",
+    "generation_status": "valid",
+    "original_title": "재무 판단에서 함께 볼 기준",
+    "original_body": "원문에서는 \"The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide\"고 설명합니다.\n\n이를 적용할 때는 \"신기술은 두려워 말고 부딪혀서 느껴봐야 한다\"는 원칙을 제시합니다.\n\n이 글의 금융 관련 내용은 원문 작성자의 설명이며, 금융기관의 공식 심사 기준으로 해석하지 않습니다.",
+    "rewritten_title": "신기술을 바라보는 나의 기준",
+    "rewritten_body": "AI 모델이 전 세계적으로 심각한 피해를 일으킬 수 있게 될지에 대한 우려가 커지는 가운데, 이러한 요구가 나왔다는 설명을 접했다.\n\n나는 신기술을 두려워하기보다 직접 부딪혀 보고 느껴봐야 한다고 생각한다.\n\n출처: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss\n\n이 글의 금융 관련 내용은 원문 작성자의 설명이며, 금융기관의 공식 심사 기준으로 해석하지 않습니다",
+    "source_url": "https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide.",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: 신기술은 두려워 말고 부딪혀서 느껴봐야 한다."
+    ],
+    "evidence_unit_ids": [
+      "lesson:1",
+      "reusable_principle:1"
+    ],
+    "created_at": "2026-09-20T01:26:36.867099+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": null
+  },
+  {
+    "content_id": "content-e787c9201b94a948",
+    "knowledge_id": "knowledge-scout-b28b782b2a33",
+    "platform": "shorts",
+    "generation_status": "valid",
+    "original_title": "재무 판단의 출발점",
+    "original_body": "\"The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide\".\n\n남는 기준은 \"신기술은 두려워 말고 부딪혀서 느껴봐야 한다\"입니다.",
+    "rewritten_title": "새로운 기술을 마주하는 나의 기준",
+    "rewritten_body": "AI 모델이 전 세계적으로 심각한 피해를 일으킬 수 있다는 우려가 커지는 가운데 나온 요청입니다.\n\n내가 남긴 기준은 분명합니다. 신기술은 두려워 말고 부딪혀서 느껴봐야 한다.\n\n출처: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide.",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: 신기술은 두려워 말고 부딪혀서 느껴봐야 한다."
+    ],
+    "evidence_unit_ids": [
+      "lesson:1",
+      "reusable_principle:1"
+    ],
+    "created_at": "2026-09-20T01:26:36.867099+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": null
+  },
+  {
+    "content_id": "content-3ae2d78568210164",
+    "knowledge_id": "knowledge-scout-b28b782b2a33",
+    "platform": "shorts",
+    "generation_status": "valid",
+    "original_title": "함께 살펴볼 기준",
+    "original_body": "\"신기술은 두려워 말고 부딪혀서 느껴봐야 한다\".\n\n원문은 이어 \"The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide\"고 설명합니다.",
+    "rewritten_title": "신기술을 마주하는 내 기준",
+    "rewritten_body": "나는 신기술을 두려워하기보다 직접 부딪혀 느껴봐야 한다고 생각한다.\n\n다만 AI 모델이 전 세계에 심각한 피해를 줄 수 있게 될지도 모른다는 우려가 커지는 가운데 이런 요청이 나왔다는 점은 함께 살펴볼 필요가 있다.\n\n출처: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide.",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: 신기술은 두려워 말고 부딪혀서 느껴봐야 한다."
+    ],
+    "evidence_unit_ids": [
+      "reusable_principle:1",
+      "lesson:1"
+    ],
+    "created_at": "2026-09-20T01:26:36.867099+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": null
+  },
+  {
+    "content_id": "content-cabd37f3a2745724",
+    "knowledge_id": "knowledge-scout-b28b782b2a33",
+    "platform": "shorts",
+    "generation_status": "rejected",
+    "original_title": "적용 전에 확인할 점",
+    "original_body": "\"The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide\".\n\n원문은 이어 \"신기술은 두려워 말고 부딪혀서 느껴봐야 한다\"고 설명합니다.",
+    "rewritten_title": "신기술을 대하는 내 기준",
+    "rewritten_body": "AI 모델이 전 세계적으로 심각한 피해를 일으킬 수 있게 될지도 모른다는 우려가 커지는 가운데, 이런 요구가 나왔습니다.\n\n내 생각은 분명합니다. 신기술은 두려워 말고 부딪혀서 느껴봐야 합니다.\n\n출처: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide.",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: 신기술은 두려워 말고 부딪혀서 느껴봐야 한다."
+    ],
+    "evidence_unit_ids": [
+      "lesson:1",
+      "reusable_principle:1"
+    ],
+    "created_at": "2026-09-20T01:26:36.867099+00:00",
+    "validation_errors": [
+      "사실 범위를 넓히는 표현이 추가되었습니다: 기준"
+    ],
+    "error_message": null,
+    "review_status": "unreviewed",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": null
+  },
+  {
+    "content_id": "content-dbf0fb4eb5cfd791",
+    "knowledge_id": "knowledge-scout-b28b782b2a33",
+    "platform": "threads",
+    "generation_status": "valid",
+    "original_title": "원문이 제시한 판단",
+    "original_body": "\"The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide\".\n\n원문은 \"신기술은 두려워 말고 부딪혀서 느껴봐야 한다\"고 덧붙입니다.",
+    "rewritten_title": "AI에 대한 우려와 내가 택한 태도",
+    "rewritten_body": "AI 모델이 전 세계에 심각한 피해를 줄 수 있게 될지 모른다는 우려가 커지는 가운데 나온 주장입니다. 나는 신기술을 두려워하기보다 직접 부딪혀 보고 느껴봐야 한다고 생각합니다.\n\n출처: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide.",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: 신기술은 두려워 말고 부딪혀서 느껴봐야 한다."
+    ],
+    "evidence_unit_ids": [
+      "lesson:1",
+      "reusable_principle:1"
+    ],
+    "created_at": "2026-09-20T01:26:36.867099+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": null
+  },
+  {
+    "content_id": "content-81d4e7c5723598f6",
+    "knowledge_id": "knowledge-scout-b28b782b2a33",
+    "platform": "threads",
+    "generation_status": "valid",
+    "original_title": "판단 기준의 범위",
+    "original_body": "\"신기술은 두려워 말고 부딪혀서 느껴봐야 한다\".\n\n원문은 \"The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide\"고 덧붙입니다.",
+    "rewritten_title": "신기술은 직접 부딪혀 봐야 한다",
+    "rewritten_body": "나는 신기술을 두려워하기보다 직접 부딪혀 느껴봐야 한다고 생각한다.\n\nBBC 원문은 AI 모델이 전 세계적으로 심각한 피해를 입힐 수 있게 될지 모른다는 우려가 커지는 가운데 이런 요구가 나왔다고 전한다.\n\n출처: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide.",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: 신기술은 두려워 말고 부딪혀서 느껴봐야 한다."
+    ],
+    "evidence_unit_ids": [
+      "reusable_principle:1",
+      "lesson:1"
+    ],
+    "created_at": "2026-09-20T01:26:36.867099+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": null
+  },
+  {
+    "content_id": "content-4015df0692e0bcc4",
+    "knowledge_id": "knowledge-scout-b28b782b2a33",
+    "platform": "threads",
+    "generation_status": "valid",
+    "original_title": "확인할 항목",
+    "original_body": "\"The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide\".\n\n원문은 \"신기술은 두려워 말고 부딪혀서 느껴봐야 한다\"고 덧붙입니다.",
+    "rewritten_title": "AI에 대한 우려, 직접 마주해 보기",
+    "rewritten_body": "AI 모델이 앞으로 전 세계에 심각한 피해를 줄 수 있게 될지도 모른다는 우려가 커지는 가운데 나온 요구입니다.\n\n나는 신기술을 두려워하기보다 직접 부딪혀 보고 느껴봐야 한다고 생각합니다.\n\n출처: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide.",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: 신기술은 두려워 말고 부딪혀서 느껴봐야 한다."
+    ],
+    "evidence_unit_ids": [
+      "lesson:1",
+      "reusable_principle:1"
+    ],
+    "created_at": "2026-09-20T01:26:36.867099+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": null
+  },
+  {
+    "content_id": "content-5a6b175ac6023db1",
+    "knowledge_id": "knowledge-scout-b28b782b2a33",
+    "platform": "threads",
+    "generation_status": "rejected",
+    "original_title": "질문에서 얻는 기준",
+    "original_body": "\"The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide\".",
+    "rewritten_title": "AI를 두려워하기 전에",
+    "rewritten_body": "AI 모델이 전 세계적으로 심각한 피해를 일으킬 수 있게 될지에 대한 우려가 커지는 가운데, 이런 요청이 나왔다는 내용을 읽었다. 금융기관의 공식 기준을 설명하는 글이 아니라, 내가 읽고 든 의견이다. 신기술은 두려워 말고 부딪혀서 느껴봐야 한다.\n\n출처: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide.",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: 신기술은 두려워 말고 부딪혀서 느껴봐야 한다."
+    ],
+    "evidence_unit_ids": [
+      "lesson:1"
+    ],
+    "created_at": "2026-09-20T01:26:36.867099+00:00",
+    "validation_errors": [
+      "사실 범위를 넓히는 표현이 추가되었습니다: 기관",
+      "금융기관의 공식 심사 기준으로 오해될 표현이 추가되었습니다."
+    ],
+    "error_message": null,
+    "review_status": "unreviewed",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": null
+  },
+  {
+    "content_id": "content-cbcf705b6056c9fc",
+    "knowledge_id": "knowledge-scout-b28b782b2a33",
+    "platform": "threads",
+    "generation_status": "valid",
+    "original_title": "적용 원칙",
+    "original_body": "\"신기술은 두려워 말고 부딪혀서 느껴봐야 한다\".\n\n원문은 \"The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide\"고 덧붙입니다.",
+    "rewritten_title": "신기술은 직접 부딪혀 봐야 한다",
+    "rewritten_body": "나는 신기술을 두려워하기보다 직접 부딪혀 느껴봐야 한다고 생각한다.\n\n참고한 BBC 기사에는 다음과 같은 내용이 담겼다. “The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide.” 이는 AI 모델이 전 세계에 심각한 피해를 입힐 수 있게 될지에 대한 우려가 커지는 가운데 나온 요구라는 뜻이다.\n\n출처: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: The call comes amid growing concerns that AI models may become able to inflict serious damage worldwide.",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c14dpgm0rg4o?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: 신기술은 두려워 말고 부딪혀서 느껴봐야 한다."
+    ],
+    "evidence_unit_ids": [
+      "reusable_principle:1",
+      "lesson:1"
+    ],
+    "created_at": "2026-09-20T01:26:36.867099+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": null
+  },
+  {
+    "content_id": "content-80a05485e895abf4",
+    "knowledge_id": "knowledge-scout-6d1d0e2fa762",
+    "platform": "blog",
+    "generation_status": "valid",
+    "original_title": "판단에 앞서 확인할 기준",
+    "original_body": "원문에서는 \"Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\"\"고 설명합니다.\n\n이를 적용할 때는 \"투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다\"는 원칙을 제시합니다.",
+    "rewritten_title": "AI 의식 가능성을 다룰 때 필요한 기준",
+    "rewritten_body": "Mustafa Suleyman은 경쟁 AI 기업 Anthropic이 Claude에게 자신이 ‘의식이 있을 수 있다’고 사실상 가르치고 있다고 믿는다고 말합니다.\n\n이 주장에 대한 내 생각은 투명한 연구와 감독 아래 제한적으로 허용하되, 사회적 논의를 이어가야 한다는 것입니다.\n\nAI의 의식 가능성을 연구할 때는 연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받아야 한다고 봅니다. 또한 AI 의식 연구는 검증 가능한 피해가 발생할 때만 중단해야 한다고 생각합니다.\n\n출처: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\".",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: Q1. AI에게 ‘의식이 있을 수 있다’고 가르치는 일이 논란이 된다면, 티몽은 어떤 접근이 가장 바람직하다고 생각하나요?\nA1. 투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다.\n\nQ2. AI의 의식 가능성을 연구할 때, 사회적 논의와 감독 외에 가장 우선해야 할 구체적 기준은 무엇인가요?\nA2. 연구 범위와 실험 대상을 명확히 정하고 독립적인 검토를 받아야 한다.\n\nQ3. AI 의식 연구에서 반드시 금지하거나 중단해야 한다고 보는 상황은 무엇인가요?\nA3. 검증 가능한 피해가 발생할 때만 연구를 중단해야 한다"
+    ],
+    "evidence_unit_ids": [
+      "lesson:1",
+      "reusable_principle:1"
+    ],
+    "created_at": "2026-09-20T03:38:25.984474+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": "gen-20260920T033856-6e8d98fb"
+  },
+  {
+    "content_id": "content-ec0c38b9a20c424c",
+    "knowledge_id": "knowledge-scout-6d1d0e2fa762",
+    "platform": "shorts",
+    "generation_status": "valid",
+    "original_title": "판단이 시작되는 질문",
+    "original_body": "\"Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\"\".\n\n남는 기준은 \"투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다\"입니다.",
+    "rewritten_title": "AI 의식 연구, 어디까지 허용할까?",
+    "rewritten_body": "Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\".\n\n이 논란을 보며 나는 AI에게 ‘의식이 있을 수 있다’고 가르치는 일을 투명한 연구와 감독 아래 제한적으로 허용하고, 사회적 논의를 이어가야 한다고 생각한다.\n\n연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받는 것도 우선해야 한다.\n\n다만 검증 가능한 피해가 발생한다면 연구를 중단해야 한다.\n\n출처: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\".",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: Q1. AI에게 ‘의식이 있을 수 있다’고 가르치는 일이 논란이 된다면, 티몽은 어떤 접근이 가장 바람직하다고 생각하나요?\nA1. 투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다.\n\nQ2. AI의 의식 가능성을 연구할 때, 사회적 논의와 감독 외에 가장 우선해야 할 구체적 기준은 무엇인가요?\nA2. 연구 범위와 실험 대상을 명확히 정하고 독립적인 검토를 받아야 한다.\n\nQ3. AI 의식 연구에서 반드시 금지하거나 중단해야 한다고 보는 상황은 무엇인가요?\nA3. 검증 가능한 피해가 발생할 때만 연구를 중단해야 한다"
+    ],
+    "evidence_unit_ids": [
+      "lesson:1",
+      "reusable_principle:1"
+    ],
+    "created_at": "2026-09-20T03:38:25.984474+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": "gen-20260920T033856-6e8d98fb"
+  },
+  {
+    "content_id": "content-e3b8d986ea6db98e",
+    "knowledge_id": "knowledge-scout-6d1d0e2fa762",
+    "platform": "shorts",
+    "generation_status": "valid",
+    "original_title": "함께 살펴볼 기준",
+    "original_body": "\"투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다\".\n\n원문은 이어 \"연구 범위와 실험 대상을 명확히 정하고 독립적인 검토를 받아야 한다\"고 설명합니다.\n\n남는 기준은 \"Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\"\"입니다.",
+    "rewritten_title": "AI 의식 연구, 어디까지 허용해야 할까?",
+    "rewritten_body": "AI에게 ‘의식이 있을 수 있다’고 가르치는 일이 논란이 된다면, 나는 투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다고 생각한다.\n\n연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토도 받아야 한다. 검증 가능한 피해가 발생할 때만 연구를 중단해야 한다고 본다.\n\nMustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\".\n\n출처: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\".",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: Q1. AI에게 ‘의식이 있을 수 있다’고 가르치는 일이 논란이 된다면, 티몽은 어떤 접근이 가장 바람직하다고 생각하나요?\nA1. 투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다.\n\nQ2. AI의 의식 가능성을 연구할 때, 사회적 논의와 감독 외에 가장 우선해야 할 구체적 기준은 무엇인가요?\nA2. 연구 범위와 실험 대상을 명확히 정하고 독립적인 검토를 받아야 한다.\n\nQ3. AI 의식 연구에서 반드시 금지하거나 중단해야 한다고 보는 상황은 무엇인가요?\nA3. 검증 가능한 피해가 발생할 때만 연구를 중단해야 한다"
+    ],
+    "evidence_unit_ids": [
+      "reusable_principle:1",
+      "reusable_principle:2",
+      "lesson:1"
+    ],
+    "created_at": "2026-09-20T03:38:25.984474+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": "gen-20260920T033856-6e8d98fb"
+  },
+  {
+    "content_id": "content-91869ed8be17f3f3",
+    "knowledge_id": "knowledge-scout-6d1d0e2fa762",
+    "platform": "shorts",
+    "generation_status": "valid",
+    "original_title": "적용 전에 확인할 점",
+    "original_body": "\"Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\"\".\n\n원문은 이어 \"투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다\"고 설명합니다.\n\n남는 기준은 \"연구 범위와 실험 대상을 명확히 정하고 독립적인 검토를 받아야 한다\"입니다.",
+    "rewritten_title": "AI 의식 연구, 어디까지 허용할까?",
+    "rewritten_body": "Mustafa Suleyman은 경쟁 AI 기업 Anthropic이 Claude에게 “의식이 있을 수 있다”고 사실상 가르치고 있다고 믿는다고 말했습니다. 원문 표현은 \"may be conscious\"입니다.\n\n나는 이런 논란을 투명한 연구와 감독 아래 제한적으로 허용하면서 사회적 논의를 이어가는 방식으로 다뤄야 한다고 생각합니다. 연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받아야 합니다. 검증 가능한 피해가 발생할 때만 연구를 중단해야 한다고 봅니다.\n\n출처: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\".",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: Q1. AI에게 ‘의식이 있을 수 있다’고 가르치는 일이 논란이 된다면, 티몽은 어떤 접근이 가장 바람직하다고 생각하나요?\nA1. 투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다.\n\nQ2. AI의 의식 가능성을 연구할 때, 사회적 논의와 감독 외에 가장 우선해야 할 구체적 기준은 무엇인가요?\nA2. 연구 범위와 실험 대상을 명확히 정하고 독립적인 검토를 받아야 한다.\n\nQ3. AI 의식 연구에서 반드시 금지하거나 중단해야 한다고 보는 상황은 무엇인가요?\nA3. 검증 가능한 피해가 발생할 때만 연구를 중단해야 한다"
+    ],
+    "evidence_unit_ids": [
+      "lesson:1",
+      "reusable_principle:1",
+      "reusable_principle:2"
+    ],
+    "created_at": "2026-09-20T03:38:25.984474+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": "gen-20260920T033856-6e8d98fb"
+  },
+  {
+    "content_id": "content-5e9c2842373b859b",
+    "knowledge_id": "knowledge-scout-6d1d0e2fa762",
+    "platform": "threads",
+    "generation_status": "valid",
+    "original_title": "원문이 제시한 판단",
+    "original_body": "\"Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\"\".\n\n원문은 \"투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다\"고 덧붙입니다.",
+    "rewritten_title": "AI 의식 연구, 어디까지 허용해야 할까",
+    "rewritten_body": "Mustafa Suleyman은 경쟁 AI 기업 Anthropic이 Claude에게 ‘의식이 있을 수 있다’고 사실상 가르치고 있다고 믿는다고 말했습니다.\n\n내 생각은 이렇습니다. 투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 합니다. 연구 범위와 실험 대상을 명확히 정하고 독립적인 검토를 받아야 하며, 검증 가능한 피해가 발생할 때만 연구를 중단해야 합니다.\n\n출처: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\".",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: Q1. AI에게 ‘의식이 있을 수 있다’고 가르치는 일이 논란이 된다면, 티몽은 어떤 접근이 가장 바람직하다고 생각하나요?\nA1. 투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다.\n\nQ2. AI의 의식 가능성을 연구할 때, 사회적 논의와 감독 외에 가장 우선해야 할 구체적 기준은 무엇인가요?\nA2. 연구 범위와 실험 대상을 명확히 정하고 독립적인 검토를 받아야 한다.\n\nQ3. AI 의식 연구에서 반드시 금지하거나 중단해야 한다고 보는 상황은 무엇인가요?\nA3. 검증 가능한 피해가 발생할 때만 연구를 중단해야 한다"
+    ],
+    "evidence_unit_ids": [
+      "lesson:1",
+      "reusable_principle:1"
+    ],
+    "created_at": "2026-09-20T03:38:25.984474+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": "gen-20260920T033856-6e8d98fb"
+  },
+  {
+    "content_id": "content-62450803823399d3",
+    "knowledge_id": "knowledge-scout-6d1d0e2fa762",
+    "platform": "threads",
+    "generation_status": "valid",
+    "original_title": "판단 기준의 범위",
+    "original_body": "\"투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다\".\n\n원문은 \"Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\"\"고 덧붙입니다.",
+    "rewritten_title": "AI 의식 연구, 어디까지 허용할까",
+    "rewritten_body": "Mustafa Suleyman은 경쟁 AI 기업 Anthropic이 Claude에게 “의식이 있을 수 있다”고 사실상 가르치고 있다고 믿는다고 말했습니다.\n\n내가 보기엔 투명한 연구와 감독 아래 제한적으로 허용하되, 사회적 논의를 이어가야 합니다. 연구 범위와 실험 대상을 명확히 정하고 독립적인 검토를 받아야 하며, 검증 가능한 피해가 발생할 때만 연구를 중단해야 합니다.\n\n출처: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\".",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: Q1. AI에게 ‘의식이 있을 수 있다’고 가르치는 일이 논란이 된다면, 티몽은 어떤 접근이 가장 바람직하다고 생각하나요?\nA1. 투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다.\n\nQ2. AI의 의식 가능성을 연구할 때, 사회적 논의와 감독 외에 가장 우선해야 할 구체적 기준은 무엇인가요?\nA2. 연구 범위와 실험 대상을 명확히 정하고 독립적인 검토를 받아야 한다.\n\nQ3. AI 의식 연구에서 반드시 금지하거나 중단해야 한다고 보는 상황은 무엇인가요?\nA3. 검증 가능한 피해가 발생할 때만 연구를 중단해야 한다"
+    ],
+    "evidence_unit_ids": [
+      "reusable_principle:1",
+      "lesson:1"
+    ],
+    "created_at": "2026-09-20T03:38:25.984474+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": "gen-20260920T033856-6e8d98fb"
+  },
+  {
+    "content_id": "content-696790d5bda07e90",
+    "knowledge_id": "knowledge-scout-6d1d0e2fa762",
+    "platform": "threads",
+    "generation_status": "valid",
+    "original_title": "확인할 항목",
+    "original_body": "\"Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\"\".\n\n원문은 \"투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다\"고 덧붙입니다.",
+    "rewritten_title": "AI 의식 연구, 어디까지 허용해야 할까",
+    "rewritten_body": "Mustafa Suleyman은 경쟁 AI 기업 Anthropic이 Claude에 ‘의식이 있을 수 있다’고 사실상 가르치고 있다고 믿는다고 말했습니다.\n\n내 생각은 이렇습니다. 이런 접근은 투명한 연구와 감독 아래 제한적으로 허용하되, 사회적 논의를 이어가야 합니다. 연구 범위와 실험 대상을 명확히 정하고 독립적인 검토도 받아야 합니다. 검증 가능한 피해가 발생할 때만 연구를 중단해야 한다고 봅니다.\n\n출처: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\".",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: Q1. AI에게 ‘의식이 있을 수 있다’고 가르치는 일이 논란이 된다면, 티몽은 어떤 접근이 가장 바람직하다고 생각하나요?\nA1. 투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다.\n\nQ2. AI의 의식 가능성을 연구할 때, 사회적 논의와 감독 외에 가장 우선해야 할 구체적 기준은 무엇인가요?\nA2. 연구 범위와 실험 대상을 명확히 정하고 독립적인 검토를 받아야 한다.\n\nQ3. AI 의식 연구에서 반드시 금지하거나 중단해야 한다고 보는 상황은 무엇인가요?\nA3. 검증 가능한 피해가 발생할 때만 연구를 중단해야 한다"
+    ],
+    "evidence_unit_ids": [
+      "lesson:1",
+      "reusable_principle:1"
+    ],
+    "created_at": "2026-09-20T03:38:25.984474+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": "gen-20260920T033856-6e8d98fb"
+  },
+  {
+    "content_id": "content-c04f9f6efc86969e",
+    "knowledge_id": "knowledge-scout-6d1d0e2fa762",
+    "platform": "threads",
+    "generation_status": "valid",
+    "original_title": "질문에서 얻는 기준",
+    "original_body": "\"Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\"\".",
+    "rewritten_title": "AI 의식 연구, 어디까지 허용할까",
+    "rewritten_body": "Mustafa Suleyman은 경쟁 AI 기업 Anthropic이 Claude에게 ‘의식이 있을 수 있다’고 사실상 가르치고 있다고 믿는다고 말했습니다. 저는 이런 논란 속에서도 투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다고 봅니다. 연구 범위와 실험 대상을 명확히 하고 독립적인 검토를 받아야 하며, 검증 가능한 피해가 발생할 때만 연구를 중단해야 합니다.\n출처: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\".",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: Q1. AI에게 ‘의식이 있을 수 있다’고 가르치는 일이 논란이 된다면, 티몽은 어떤 접근이 가장 바람직하다고 생각하나요?\nA1. 투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다.\n\nQ2. AI의 의식 가능성을 연구할 때, 사회적 논의와 감독 외에 가장 우선해야 할 구체적 기준은 무엇인가요?\nA2. 연구 범위와 실험 대상을 명확히 정하고 독립적인 검토를 받아야 한다.\n\nQ3. AI 의식 연구에서 반드시 금지하거나 중단해야 한다고 보는 상황은 무엇인가요?\nA3. 검증 가능한 피해가 발생할 때만 연구를 중단해야 한다"
+    ],
+    "evidence_unit_ids": [
+      "lesson:1"
+    ],
+    "created_at": "2026-09-20T03:38:25.984474+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": "gen-20260920T033856-6e8d98fb"
+  },
+  {
+    "content_id": "content-8dc32a88a18c0ede",
+    "knowledge_id": "knowledge-scout-6d1d0e2fa762",
+    "platform": "threads",
+    "generation_status": "valid",
+    "original_title": "적용 원칙",
+    "original_body": "\"투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다\".\n\n원문은 \"Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\"\"고 덧붙입니다.",
+    "rewritten_title": "AI 의식 연구, 어디까지 허용할까",
+    "rewritten_body": "Mustafa Suleyman은 경쟁 AI 기업 Anthropic이 Claude에게 사실상 “의식이 있을 수 있다”고 가르치고 있다고 믿는다고 말했습니다.\n\n나는 투명한 연구와 감독 아래 이를 제한적으로 허용하고 사회적 논의를 이어가야 한다고 봅니다. 연구 범위와 실험 대상을 명확히 정하고 독립적인 검토를 받아야 합니다. 검증 가능한 피해가 발생할 때만 연구를 중단해야 합니다.\n\n출처: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\".",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
+      "USER ORIGINAL THOUGHT: Q1. AI에게 ‘의식이 있을 수 있다’고 가르치는 일이 논란이 된다면, 티몽은 어떤 접근이 가장 바람직하다고 생각하나요?\nA1. 투명한 연구와 감독 아래 제한적으로 허용하며 사회적 논의를 이어가야 한다.\n\nQ2. AI의 의식 가능성을 연구할 때, 사회적 논의와 감독 외에 가장 우선해야 할 구체적 기준은 무엇인가요?\nA2. 연구 범위와 실험 대상을 명확히 정하고 독립적인 검토를 받아야 한다.\n\nQ3. AI 의식 연구에서 반드시 금지하거나 중단해야 한다고 보는 상황은 무엇인가요?\nA3. 검증 가능한 피해가 발생할 때만 연구를 중단해야 한다"
+    ],
+    "evidence_unit_ids": [
+      "reusable_principle:1",
+      "lesson:1"
+    ],
+    "created_at": "2026-09-20T03:38:25.984474+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": null,
+    "edited_body": null,
+    "generation_id": "gen-20260920T033856-6e8d98fb"
+  }
+]

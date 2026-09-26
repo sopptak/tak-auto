@@ -21,6 +21,20 @@ _CONTENT_FIELDS = (
 )
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
 
+# tak_scout 인터뷰(1턴이든 멀티턴이든)를 거친 KNOWLEDGE는
+# scripts/run_scout_dashboard.py::_build_combined_answer_text()가 만든
+# "Q1. 질문\nA1. 답변\n\nQ2. 질문\nA2. 답변" 형식을 reusable_principle에 그대로
+# 담고 있다(이 함수는 이번 단계에서 수정하지 않는다). _SENTENCE_BOUNDARY로 이
+# 텍스트를 그대로 split하면 "Q1."이 독립된 "문장"으로 잘려 나와, _pick()이
+# 그 label 조각을 골라 "이를 적용할 때는 "Q1"는 원칙을 제시합니다." 같은 깨진
+# 문장을 만든다(5-10 Phase 4-1에서 실제 운영 KNOWLEDGE로 재현·확인됨).
+# 이 포맷일 때만 A{n}. 답변 부분만 뽑아 문장 분리 대상으로 쓰고, 질문 텍스트와
+# "Q{n}."/"A{n}." label은 제외한다 - 질문은 시스템이 만든 프롬프트일 뿐 사용자의
+# 근거가 아니다. 이 포맷이 아닌 일반 KNOWLEDGE 필드(RAW 블로그 등 기존 소스)는
+# 전혀 건드리지 않는다 - 기존 문장 분리 동작 그대로 유지된다.
+_QA_TRANSCRIPT_PREFIX = re.compile(r"^Q\d+\.\s")
+_QA_ANSWER_BLOCK = re.compile(r"A\d+\.\s*(.*?)(?=\n\nQ\d+\.|\Z)", re.DOTALL)
+
 
 def _required_text(knowledge: KnowledgeRecord, field_name: str) -> str:
     value = getattr(knowledge, field_name)
@@ -29,13 +43,30 @@ def _required_text(knowledge: KnowledgeRecord, field_name: str) -> str:
     return value
 
 
+def _sentence_source_chunks(value: str) -> tuple[str, ...]:
+    """문장 분리를 적용할 텍스트 조각을 만든다.
+
+    "Q{n}. .../A{n}. ..." 인터뷰 기록이면 답변(A) 부분만 조각으로 반환하고,
+    그 외에는 기존과 동일하게 원문 전체를 조각 1개로 반환한다(동작 무변경).
+    """
+    if _QA_TRANSCRIPT_PREFIX.match(value):
+        answers = tuple(match.strip() for match in _QA_ANSWER_BLOCK.findall(value) if match.strip())
+        if answers:
+            return answers
+    return (value,)
+
+
 def _evidence_units(knowledge: KnowledgeRecord) -> tuple[EvidenceUnit, ...]:
     units = []
     for field_name in _CONTENT_FIELDS:
         value = getattr(knowledge, field_name)
         if not isinstance(value, str) or not value.strip():
             continue
-        sentences = tuple(sentence.strip() for sentence in _SENTENCE_BOUNDARY.split(value) if sentence.strip())
+        sentences: list[str] = []
+        for chunk in _sentence_source_chunks(value.strip()):
+            sentences.extend(
+                sentence.strip() for sentence in _SENTENCE_BOUNDARY.split(chunk) if sentence.strip()
+            )
         units.extend(
             EvidenceUnit(f"{field_name}:{index}", field_name, sentence)
             for index, sentence in enumerate(sentences, start=1)
