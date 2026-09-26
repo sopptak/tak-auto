@@ -317,9 +317,12 @@ class GitHistoryClassificationTests(unittest.TestCase):
         # 6-48: Codespace export 브랜치(codespace-silver-robot-…)를 fetch한 clone에서는 그 브랜치에
         # 이 파일이 있으므로 ``--all`` 기준 결과가 True(STATE B)가 된다 - 그것이 정확한 동작이다.
         # 그래서 "main에는 없음"과 "함수 결과 == git log --all 결과"를 따로 검증한다.
+        # 6-50: 운영자 지시로 승인된 2건 복구 archive가 main에 처음 커밋됐다(f2b74a2) -
+        # 그 뒤로는 main 이력에 이 파일을 건드린 커밋이 모두 6-50 이후의 것이어야 한다.
         rel = "data/tak_media_archive.json"
-        _, on_main = operator_cli._run_git("log", "--oneline", "HEAD", "--", rel)
-        self.assertEqual(on_main.strip(), "")
+        _, on_main = operator_cli._run_git("log", "--reverse", "--format=%s", "HEAD", "--", rel)
+        first = on_main.strip().splitlines()[:1]
+        self.assertIn(first, ([], ["6-50: safely apply recovered Shorts and verify fact-check claims"]))
         _, anywhere = operator_cli._run_git("log", "--all", "--oneline", "--", rel)
         self.assertEqual(operator_cli._ever_tracked_in_git(ROOT / rel), bool(anywhere.strip()))
 
