@@ -59,8 +59,8 @@ def document_from_shorts_script(data: Mapping, *, generation_id: str | None = No
     for card in script.cards:
         for chunk in split_to_fit(card, tpl):
             scene = {"layout": "text_focus", "body": chunk}
-            if label:
-                scene["source"] = label
+            if label:  # 6-54: 원문 URL을 그대로 두고 화면에는 템플릿 source_labels로 읽을 수 있는 이름(BBC)만 표시
+                scene["source"] = url
             scenes.append(scene)
     raw = json.dumps(dict(data), ensure_ascii=False, sort_keys=True).encode("utf-8")
     doc = {

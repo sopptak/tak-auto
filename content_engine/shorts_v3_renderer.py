@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import random
+from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,10 +35,10 @@ PLATE_SCALE = 1.08
 
 
 class ShortsV3Renderer:
-    def __init__(self, doc: V3RenderDocument, fps: int | None = None) -> None:
+    def __init__(self, doc: V3RenderDocument, fps: int | None = None, engine: LayoutEngine | None = None) -> None:
         self.doc, self.tpl = doc, doc.template
         self.fps = int(fps or self.tpl["canvas"]["fps"])
-        self.engine = LayoutEngine(doc)
+        self.engine = engine or LayoutEngine(doc)  # 파이프라인이 이미 계산한 배치(asset 포함)를 그대로 쓸 수 있다
         if self.engine.blocking:  # 넘치는 텍스트는 그릴 수 없다 - 이상한 MP4 대신 명확한 오류
             first = self.engine.blocking[0]
             raise V3LayoutError(first["code"], first["message"])
@@ -59,6 +60,11 @@ class ShortsV3Renderer:
             noise = Image.frombytes("L", (WIDTH // 2, HEIGHT // 2), rng.randbytes(WIDTH // 2 * HEIGHT // 2))
             noise = noise.point(lambda v: 128 + (v - 128) // 2).resize((WIDTH, HEIGHT), Image.NEAREST)
             self.grain.append(Image.merge("RGBA", (noise, noise, noise, Image.new("L", (WIDTH, HEIGHT), self.look.grain))))
+        # 6-54 성능: 비네트와 그레인을 미리 합성해 프레임마다 전체 화면 합성을 한 번만 한다(결과는 순서대로 두 번 합성한 것과 같다)
+        self.finish = [Image.alpha_composite(self.vignette, g) for g in self.grain]
+        self._bg_cache: OrderedDict = OrderedDict()
+        self._scrims: dict = {}
+        self._masks: dict = {}
 
     def layout_report(self) -> dict:
         return self.engine.report()
@@ -81,10 +87,16 @@ class ShortsV3Renderer:
         return len(self.timeline) - 1
 
     def _background(self, t: float) -> Image.Image:
-        z = 1 + 0.04 * ease_in_out(_clamp(t / max(self.total, 0.01)))
-        pw, ph = self.plate.size
-        cw, ch = pw / (PLATE_SCALE * z), ph / (PLATE_SCALE * z)
-        return self.plate.crop((int((pw - cw) / 2), int((ph - ch) / 2), int((pw + cw) / 2), int((ph + ch) / 2))).resize((WIDTH, HEIGHT), Image.BILINEAR)
+        # 6-54 성능: 느린 카메라 줌(전체 4%)을 0.05% 단위로 양자화해 같은 배율의 배경을 재사용한다
+        # (가장자리에서 0.3px 미만 차이 - 눈에 보이지 않는다). 프레임마다 전체 화면 리사이즈를 하지 않는다.
+        z = round((1 + 0.04 * ease_in_out(_clamp(t / max(self.total, 0.01)))) * 2000) / 2000
+        if z not in self._bg_cache:
+            pw, ph = self.plate.size
+            cw, ch = pw / (PLATE_SCALE * z), ph / (PLATE_SCALE * z)
+            self._bg_cache[z] = self.plate.crop((int((pw - cw) / 2), int((ph - ch) / 2), int((pw + cw) / 2), int((ph + ch) / 2))).resize((WIDTH, HEIGHT), Image.BILINEAR)
+            while len(self._bg_cache) > 3:
+                self._bg_cache.popitem(last=False)
+        return self._bg_cache[z].copy()
 
     def _previous(self, t: float, i: int) -> Image.Image:
         prev = self._background(t)
@@ -98,9 +110,8 @@ class ShortsV3Renderer:
         img = self._background(t)
         self._draw_scene(img, i, local)
         self._transition(img, t, i, local)
-        img.paste(self.vignette, (0, 0), self.vignette)
-        grain = self.grain[int(t * 12) % len(self.grain)]
-        img.paste(grain, (0, 0), grain)
+        finish = self.finish[int(t * 12) % len(self.finish)]  # 비네트 + 그레인(초당 12회 교체)
+        img.paste(finish, (0, 0), finish)
         if ts.scene is not None:
             self._overlay(img, t, i)
         return img
@@ -167,21 +178,31 @@ class ShortsV3Renderer:
         ox, oy = (src.width - cw) / 2, (src.height - ch) / 2
         part = src.crop((int(ox), int(oy), int(ox + cw), int(oy + ch))).resize((w, h), Image.BILINEAR).convert("RGBA")
         if lay.scrim:  # 전체 이미지 위 글자 가독성: 아래쪽을 어둡게
-            shade = Image.new("L", (1, 256))
-            for k in range(256):
-                shade.putpixel((0, k), int(210 * _clamp((k / 255 - 0.35) / 0.65)))
-            dark = Image.new("RGBA", (w, h), (0, 0, 0, 255))
-            dark.putalpha(shade.resize((w, h)))
-            part = Image.alpha_composite(part, dark)
+            part = Image.alpha_composite(part, self._scrim((w, h)))
         if lay.credit is not None:
             top = lay.credit_position.startswith("top")  # 글자를 이미지 위에 올리는 레이아웃은 위쪽에 둔다
             part.alpha_composite(lay.credit, (w - lay.credit.width - 14, 14 if top else h - lay.credit.height - 14))
         radius = int(self.tpl["image"].get("radius", 0))
-        mask = Image.new("L", (w, h), 0)
-        ImageDraw.Draw(mask).rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, fill=255)
-        part.putalpha(mask)
+        part.putalpha(self._mask((w, h), radius))
         q = ease_out_cubic(_clamp(local / float(self.tpl["animation"]["image_in"])))
         _blit(img, part, x0, y0 + 24 * (1 - q), q * (1 - exit_p))
+
+    def _scrim(self, size) -> Image.Image:
+        if size not in self._scrims:
+            shade = Image.new("L", (1, 256))
+            for k in range(256):
+                shade.putpixel((0, k), int(210 * _clamp((k / 255 - 0.35) / 0.65)))
+            dark = Image.new("RGBA", size, (0, 0, 0, 255))
+            dark.putalpha(shade.resize(size))
+            self._scrims[size] = dark
+        return self._scrims[size]
+
+    def _mask(self, size, radius: int) -> Image.Image:
+        if (size, radius) not in self._masks:
+            mask = Image.new("L", size, 0)
+            ImageDraw.Draw(mask).rounded_rectangle((0, 0, size[0] - 1, size[1] - 1), radius=radius, fill=255)
+            self._masks[(size, radius)] = mask
+        return self._masks[(size, radius)]
 
     def _overlay(self, img: Image.Image, t: float, i: int) -> None:
         """영상 전체에 고정된 요소: 제목, 워터마크, 진행 표시."""
@@ -190,29 +211,23 @@ class ShortsV3Renderer:
         if self.watermark is not None:
             wm, x, y = self.watermark
             _blit(img, wm, x, y, 0.9)
-        p = self.doc.progress
-        if not p.get("enabled", True):
-            return
-        h = int(p.get("height", 6))
-        if p.get("position", "footer") == "top":
-            x0, y0, x1, _ = self.frames["title"]
-            bar = (x0, y0, x1, y0 + h)
-        else:
-            x0, _, x1, y1 = self.engine.progress_row()
-            bar = (x0, y1 - h, x1, y1)
+        p, boxes = self.doc.progress, self.engine.progress_boxes()
         d = ImageDraw.Draw(img, "RGBA")
-        if p.get("bar", True):
+        if "bar" in boxes:
+            bar = boxes["bar"]
+            h = bar[3] - bar[1]
             if p.get("mode", "time") == "scene":  # 장면 단위로 한 칸씩
                 frac = (i + _clamp((t - self.timeline[i].start) / self.timeline[i].duration)) / self.scene_count
             else:  # 시간 기준(6-41 AI 스타일 진행 바)
                 frac = _clamp(t / max(self.content_total, 0.01))
             d.rounded_rectangle(bar, radius=h // 2, fill=(255, 255, 255, 40))
             d.rounded_rectangle((bar[0], bar[1], bar[0] + max(h, int((bar[2] - bar[0]) * frac)), bar[3]), radius=h // 2, fill=self.look.accent + (255,))
-        if p.get("counter", True):
+        if "counter" in boxes:
+            x0, y0, x1, _ = boxes["counter"]
             spec = self.tpl["text"]["counter"]
             font = _font(self.look.font, int(spec["size"]), int(spec["weight"]))
             label = f"{i + 1:02d} / {self.scene_count:02d}"
-            d.text((bar[2] - font.getlength(label), bar[1] - int(spec["size"]) - 10), label, font=font, fill=(255, 255, 255, 190))
+            d.text((x1 - font.getlength(label), y0), label, font=font, fill=(255, 255, 255, 190))
 
     def _end_card(self, img: Image.Image, local: float) -> None:
         look, brand = self.look, self.doc.brand
@@ -265,13 +280,15 @@ class RenderResultV3:
 
 
 def render_short_v3(doc: V3RenderDocument, output_path: Path | str, *, ffmpeg_path: str = "ffmpeg",
-                    max_seconds: float | None = None) -> RenderResultV3:
-    renderer = ShortsV3Renderer(doc)
+                    max_seconds: float | None = None, engine: LayoutEngine | None = None) -> RenderResultV3:
+    renderer = ShortsV3Renderer(doc, engine=engine)
     total = renderer.total if max_seconds is None else min(renderer.total, max_seconds)
     soundtrack = None
     if doc.audio.get("enabled", True):
         soundtrack = lambda wav: synthesize_soundtrack(soundtrack_spec(doc, renderer.timeline), wav)  # noqa: E731
+    enc = doc.template["encoder"]  # x264 preset/CRF도 템플릿 값(속도·용량·화질 선택은 코드가 아니라 데이터)
     frames = encode_frames(renderer.frame, total, Path(output_path), ffmpeg_path=ffmpeg_path, fps=renderer.fps,
-                           soundtrack=soundtrack, audio_filter=audio_filter(doc.audio, total))
+                           soundtrack=soundtrack, audio_filter=audio_filter(doc.audio, total),
+                           preset=str(enc["preset"]), crf=int(enc["crf"]), exact_length=True)
     return RenderResultV3(Path(output_path), frames / renderer.fps, frames, len(renderer.timeline),
                           soundtrack is not None, renderer.layout_report())

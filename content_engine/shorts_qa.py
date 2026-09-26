@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 import json
+import math
 import subprocess
+from array import array
 from pathlib import Path
 
 from PIL import Image, ImageStat
@@ -24,7 +26,7 @@ def ffprobe_for(ffmpeg: str) -> str:
 def probe(ffprobe: str, path: Path) -> dict:
     out = subprocess.run(
         [ffprobe, "-v", "error", "-show_entries",
-         "format=duration,size:stream=codec_type,codec_name,width,height,r_frame_rate,duration,sample_rate,channels",
+         "format=duration,size:stream=codec_type,codec_name,width,height,r_frame_rate,duration,sample_rate,channels,nb_frames",
          "-of", "json", str(path)],
         capture_output=True, text=True, check=True,
     ).stdout
@@ -40,6 +42,7 @@ def probe(ffprobe: str, path: Path) -> dict:
         "audio_codec": audio["codec_name"] if audio else None,
         "audio_duration": float(audio.get("duration", 0)) if audio else None,
         "audio_channels": audio.get("channels") if audio else None,
+        "nb_frames": int(video["nb_frames"]) if str(video.get("nb_frames", "")).isdigit() else None,
     }
 
 
@@ -68,3 +71,24 @@ def media_checks(ffmpeg: str, video: Path, info: dict, expected: float, scene_ti
         "no_blank_scene": not blank,
     }
     return checks, blank, decode.stderr.strip()[:500]
+
+
+def audio_levels(ffmpeg: str, video: Path, *, rate: int = 8000, window: float = 0.1) -> dict | None:
+    """MP4 오디오를 모노 PCM으로 디코드해 구간별 RMS(0~1)를 잰다(6-54). 오디오가 없으면 None.
+    반환: peak(가장 큰 구간), middle(가운데 절반 구간의 중앙값), tail(마지막 0.3초), windows(구간 수)."""
+    proc = subprocess.run([ffmpeg, "-v", "error", "-i", str(video), "-vn", "-ac", "1", "-ar", str(rate), "-f", "s16le", "-"],
+                          capture_output=True)
+    if proc.returncode != 0 or not proc.stdout:
+        return None
+    pcm = array("h")
+    pcm.frombytes(proc.stdout[: len(proc.stdout) // 2 * 2])
+    step = max(1, int(rate * window))
+    rms = [math.sqrt(sum(v * v for v in pcm[i:i + step]) / len(pcm[i:i + step])) / 32768 for i in range(0, len(pcm) - step + 1, step)]
+    if not rms:
+        return None
+    n = len(rms)
+    middle = sorted(rms[n // 4: max(n // 4 + 1, 3 * n // 4)])
+    tail = rms[-max(1, int(0.3 / window)):]
+    return {"peak": round(max(rms), 4), "middle": round(middle[len(middle) // 2], 4),
+            "tail": round(sum(tail) / len(tail), 4), "windows": n}
+

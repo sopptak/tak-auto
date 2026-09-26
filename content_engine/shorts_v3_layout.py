@@ -20,15 +20,17 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from PIL import Image, ImageDraw, ImageFilter, ImageOps
+from PIL import Image, ImageDraw, ImageFilter
 
 from content_engine.shorts_renderer import ShortsRenderError
 from content_engine.shorts_v2_renderer import LOOKS, Look, TextBlock, _font, _gradient, layout_text
+from content_engine.shorts_v3_assets import AssetResolver, ResolvedAsset, resolve_assets
 from content_engine.shorts_v3_document import TimedV3Scene, V3RenderDocument, V3Scene, build_v3_timeline
 from content_engine.shorts_v3_template import V3Error
 
 Rect = tuple[int, int, int, int]
 BLOCKING_LAYOUT_CODES = ("TITLE_OVERFLOW", "HEADLINE_OVERFLOW", "BODY_OVERFLOW", "SUBTITLE_OVERFLOW", "SOURCE_OVERFLOW")
+GEOMETRY_CODES = ("SAFE_AREA_VIOLATION", "FRAME_VIOLATION", "PROGRESS_OVERLAP")
 
 
 class V3LayoutError(V3Error, ShortsRenderError):
@@ -46,6 +48,10 @@ def sub_rect(frame: Rect, frac) -> Rect:
 
 def inside(box: Rect, rect: Rect) -> bool:
     return box[0] >= rect[0] and box[1] >= rect[1] and box[2] <= rect[2] and box[3] <= rect[3]
+
+
+def overlaps(a: Rect, b: Rect) -> bool:
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
 
 
 def text_look(base: Look, spec: dict, line_gap: float | None = None) -> Look:
@@ -107,6 +113,7 @@ class SceneLayout:
     scrim: bool = False
     credit: Image.Image | None = None
     credit_position: str = "bottom_right"  # 이미지 출처 표시 위치(템플릿/레이아웃 값)
+    asset: ResolvedAsset | None = None  # resolver 결과(메타데이터)
     headline: list[TextBlock] = field(default_factory=list)
     body: list[TextBlock] = field(default_factory=list)
     subtitle: list[TextBlock] = field(default_factory=list)
@@ -140,8 +147,10 @@ REGION_HANDLERS = {"image": _image_region, "text": _text_region}
 
 
 class LayoutEngine:
-    def __init__(self, doc: V3RenderDocument) -> None:
+    def __init__(self, doc: V3RenderDocument, assets: dict | None = None, resolver: AssetResolver | None = None) -> None:
         self.doc, self.tpl = doc, doc.template
+        self.resolver = resolver or AssetResolver.for_template(doc.template)
+        self.assets = assets if assets is not None else resolve_assets(doc, self.resolver)
         self.look = LOOKS[self.tpl["look"]]
         self.frames = {k: tuple(v) for k, v in self.tpl["frames"].items()}
         self.safe = tuple(self.tpl["safe_area"])
@@ -276,26 +285,25 @@ class LayoutEngine:
 
     # ---- 이미지 슬롯 ----
     def prepare_image(self, scene: V3Scene, lay: SceneLayout) -> None:
+        """이미지 슬롯: resolver가 확인한 asset을 cover/contain으로 맞춘다. 못 쓰면 placeholder + 코드."""
         x0, y0, x1, y1 = lay.image_rect
         kb = 1 + float(self.tpl["image"].get("ken_burns", 0))
         w, h = int((x1 - x0) * kb), int((y1 - y0) * kb)
-        path = self.doc.image_path(scene)
+        asset = self.assets.get(lay.timed.index)
+        lay.asset = asset
         img = None
-        if path is None:
+        if asset is None:
             lay.image_status = "fallback:empty"
-            lay.issues.append(_issue("IMAGE_SLOT_EMPTY", "warning", lay.timed.index, "이미지 경로가 없어 placeholder를 씁니다."))
+            required = bool(self.tpl["layouts"][scene.layout].get("image_required"))
+            lay.issues.append(_issue("ASSET_REQUIRED" if required else "IMAGE_SLOT_EMPTY", "error" if required else "warning",
+                                     lay.timed.index, "이미지가 지정되지 않아 placeholder를 씁니다."))
+        elif asset.ok:
+            img = self.resolver.load(asset)
+            lay.image_status = "loaded"
         else:
-            try:
-                with Image.open(path) as src:
-                    img = ImageOps.exif_transpose(src).convert("RGB")
-                lay.image_status = "loaded"
-            except FileNotFoundError:
-                lay.image_status = "fallback:missing"
-                lay.issues.append(_issue("IMAGE_MISSING", "error", lay.timed.index, f"이미지 파일이 없습니다: {scene.image.path}"))
-            except (OSError, ValueError):
-                lay.image_status = "fallback:unreadable" if path.exists() else "fallback:missing"
-                code = "IMAGE_DECODE_FAILED" if path.exists() else "IMAGE_MISSING"
-                lay.issues.append(_issue(code, "error", lay.timed.index, f"이미지를 읽을 수 없습니다: {scene.image.path}"))
+            lay.image_status = f"fallback:{asset.status}"
+            severity = "error" if self.tpl["image"].get("on_missing", "block") == "block" else "warning"
+            lay.issues.append(_issue(asset.code, severity, lay.timed.index, asset.message))
         if img is None:
             lay.image = self.placeholder((w, h))
         elif (scene.image.fit or self.tpl["image"].get("fit", "cover")) == "contain":
@@ -356,7 +364,40 @@ class LayoutEngine:
         return img
 
     # ---- 검사 ----
+    def progress_boxes(self) -> dict[str, Rect]:
+        """진행 바/장면 번호 위치(템플릿 progress + footer_rows). 렌더러와 겹침 검사가 같은 값을 쓴다."""
+        p = self.doc.progress
+        if not p.get("enabled", True):
+            return {}
+        h = int(p.get("height", 6))
+        if p.get("position", "footer") == "top":
+            x0, y0, x1, _ = self.frames["title"]
+            bar = (x0, y0, x1, y0 + h)
+        else:
+            x0, _, x1, y1 = self.progress_row()
+            bar = (x0, y1 - h, x1, y1)
+        boxes = {"bar": bar} if p.get("bar", True) else {}
+        if p.get("counter", True):
+            spec = self.tpl["text"]["counter"]
+            font = _font(self.look.font, int(spec["size"]), int(spec["weight"]))
+            n = sum(1 for ts in self.timeline if ts.scene is not None)
+            width = int(font.getlength(f"{n:02d} / {n:02d}")) + 2
+            size = int(spec["size"])
+            if p.get("position", "footer") == "top":  # 위쪽 바는 안전영역 맨 위라 번호는 바 아래에 둔다
+                boxes["counter"] = (bar[2] - width, bar[3] + 6, bar[2], bar[3] + size + 12)
+            else:
+                boxes["counter"] = (bar[2] - width, bar[1] - size - 10, bar[2], bar[1] - 4)
+        return boxes
+
     def _check_boxes(self) -> None:
+        progress = self.progress_boxes()
+        for name, box in progress.items():
+            if not inside(box, self.safe):
+                self.issues.append(_issue("SAFE_AREA_VIOLATION", "error", None, f"progress {name} {box}가 안전영역 밖"))
+        for name, box, _ in self.title_boxes:
+            for pname, pbox in progress.items():
+                if name != "watermark" and overlaps(box, pbox):
+                    self.issues.append(_issue("PROGRESS_OVERLAP", "error", None, f"progress {pname} {pbox}가 {name} {box}와 겹칩니다"))
         for name, box, frame in self.title_boxes:
             if not inside(box, frame) or not inside(box, self.safe):
                 self.issues.append(_issue("SAFE_AREA_VIOLATION", "error", None, f"{name} {box}가 {frame}/안전영역 밖"))
@@ -366,6 +407,9 @@ class LayoutEngine:
                     self.issues.append(_issue("SAFE_AREA_VIOLATION", "error", lay.timed.index, f"{name} {box}가 안전영역 {self.safe} 밖"))
                 elif not inside(box, frame):
                     self.issues.append(_issue("FRAME_VIOLATION", "error", lay.timed.index, f"{name} {box}가 프레임 {frame} 밖"))
+                for pname, pbox in progress.items():
+                    if overlaps(box, pbox):
+                        self.issues.append(_issue("PROGRESS_OVERLAP", "error", lay.timed.index, f"progress {pname} {pbox}가 {name} {box}와 겹칩니다"))
 
     @property
     def blocking(self) -> list[dict]:
@@ -383,7 +427,7 @@ class LayoutEngine:
                 "warnings": [i["code"].lower() for i in lay.issues if i["severity"] == "warning"],
                 "boxes": [{"name": n, "bbox": list(b), "frame": list(f)} for n, b, f in lay.boxes],
             })
-        overflow = [i["message"] for i in self.issues if i["code"] in BLOCKING_LAYOUT_CODES + ("SAFE_AREA_VIOLATION", "FRAME_VIOLATION")]
+        overflow = [i["message"] for i in self.issues if i["code"] in BLOCKING_LAYOUT_CODES + GEOMETRY_CODES]
         title_box = [min(b.bbox[0] for b in self.title), self.title[0].bbox[1], max(b.bbox[2] for b in self.title), self.title[-1].bbox[3]] if self.title else []
         return {"title": {"bbox": title_box, "lines": sum(b.lines for b in self.title)}, "scenes": scenes,
                 "total": round(self.timeline[-1].end, 3), "overflow": overflow, "issues": list(self.issues)}

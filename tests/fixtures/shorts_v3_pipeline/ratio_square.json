@@ -1,0 +1,47 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-654-ratio_square",
+  "template": "default",
+  "title": "정사각형 이미지 비율 테스트",
+  "scenes": [
+    {
+      "layout": "image_top",
+      "image": {
+        "path": "images/square.png",
+        "fit": "contain"
+      },
+      "body": "image_top + 정사각형(contain).",
+      "source": {
+        "label": "자료",
+        "value": "책 「사피엔스」"
+      }
+    },
+    {
+      "layout": "split",
+      "image": {
+        "path": "images/square.png",
+        "fit": "cover",
+        "position": {
+          "x": 0.2,
+          "y": 0.8
+        },
+        "scale": 1.4
+      },
+      "body": "split + 정사각형(cover, 왼쪽 아래, 1.4배)."
+    },
+    {
+      "layout": "image_full",
+      "image": {
+        "path": "images/square.png",
+        "fit": "cover",
+        "position": "top"
+      },
+      "headline": "image_full + 정사각형"
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-654-ratio_square",
+    "generation_id": "gen-fixture-654-ratio_square",
+    "knowledge_id": null
+  }
+}

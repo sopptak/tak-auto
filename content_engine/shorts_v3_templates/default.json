@@ -3,6 +3,7 @@
   "version": 2,
   "description": "Shorts V3 기본 틀(6-52, 6-53). 좌표는 1080x1920 px, layouts의 영역은 CONTENT 프레임 기준 비율(x0, y0, x1, y1). 이 파일만 고치면 모든 문서의 화면 틀이 바뀐다.",
   "canvas": {"width": 1080, "height": 1920, "fps": 30},
+  "encoder": {"preset": "medium", "crf": 20},
   "safe_area": [90, 260, 910, 1360],
   "look": "ai",
   "frames": {
@@ -30,7 +31,10 @@
     "image_full": {"image": [0, 0, 1, 1], "text": [0.05, 0.55, 0.95, 0.97], "scrim": true, "credit_position": "top_right",
                    "fallback": {"image": [0, 0, 1, 1], "text": [0.05, 0.30, 0.95, 0.97], "scrim": true, "credit_position": "top_right"}}
   },
-  "image": {"radius": 28, "ken_burns": 0.04, "credit_size": 22, "credit_position": "bottom_right", "fit": "cover"},
+  "image": {"radius": 28, "ken_burns": 0.04, "credit_size": 22, "credit_position": "bottom_right", "fit": "cover",
+            "formats": ["PNG", "JPEG", "WEBP"], "min_width": 320, "min_height": 320, "on_missing": "block"},
+  "source_labels": {"bbc.co.uk": "BBC", "bbc.com": "BBC", "reuters.com": "Reuters", "apnews.com": "AP", "euronews.com": "Euronews",
+                    "techcrunch.com": "TechCrunch", "fortune.com": "Fortune", "yahoo.com": "Yahoo"},
   "animation": {"body_delay": 0.2, "paragraph_delay": 0.25, "subtitle_delay": 0.3, "source_delay": 0.5, "image_in": 0.35},
   "transition": {"default": "punch", "punch_seconds": 0.3, "punch_zoom": 0.045, "dissolve_seconds": 0.5, "slide_seconds": 0.35, "slide_distance": 140},
   "progress": {"enabled": true, "position": "footer", "mode": "time", "bar": true, "height": 6, "counter": true},

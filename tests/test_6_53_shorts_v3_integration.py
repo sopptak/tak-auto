@@ -43,9 +43,9 @@ class V3IntegrationTests(unittest.TestCase):
     def test_audio_on_passes_gate_with_lineage(self) -> None:
         r = render_item(BatchItem("audio_on", short_doc("audio_on"), self.dir), self.out, ffmpeg=FFMPEG)
         self.assertEqual(r["status"], "success", r)
-        report = json.loads(Path(r["report"]).read_text(encoding="utf-8"))
-        self.assertEqual(report["probe"]["audio_codec"], "aac")
-        self.assertEqual((report["probe"]["width"], report["probe"]["height"]), (1080, 1920))
+        report = json.loads(Path(r["manifest_path"]).read_text(encoding="utf-8"))  # 6-54: report -> manifest
+        self.assertEqual(report["output"]["audio_codec"], "aac")
+        self.assertEqual((report["output"]["width"], report["output"]["height"]), (1080, 1920))
         self.assertEqual(report["quality"]["status"], "PASS")
         for key in ("content_id", "document_sha256", "template_sha256", "render_key", "mp4_sha256"):
             self.assertTrue(report["lineage"][key])
@@ -53,14 +53,14 @@ class V3IntegrationTests(unittest.TestCase):
     def test_audio_off_renders_silent_video(self) -> None:
         r = render_item(BatchItem("audio_off", short_doc("audio_off", audio={"enabled": False}), self.dir), self.out, ffmpeg=FFMPEG)
         self.assertEqual(r["status"], "success", r)
-        report = json.loads(Path(r["report"]).read_text(encoding="utf-8"))
-        self.assertIsNone(report["probe"]["audio_codec"])
+        report = json.loads(Path(r["manifest_path"]).read_text(encoding="utf-8"))  # 6-54: report -> manifest
+        self.assertIsNone(report["output"]["audio_codec"])
 
     def test_same_render_key_is_cached_and_force_rerenders(self) -> None:
         item = BatchItem("cache", short_doc("cache"), self.dir)
         first = render_item(item, self.out, ffmpeg=FFMPEG)
         second = render_item(item, self.out, ffmpeg=FFMPEG)
-        self.assertEqual((first["status"], second["status"]), ("success", "cached"))
+        self.assertEqual((first["status"], second["status"]), ("success", "skipped"))  # 6-54: ALREADY_RENDERED
         self.assertEqual(first["render_key"], second["render_key"])
         with mock.patch.object(shorts_v3_pipeline, "render_short_v3", wraps=shorts_v3_pipeline.render_short_v3) as spy:
             forced = render_item(item, self.out, ffmpeg=FFMPEG, force=True)
@@ -73,7 +73,7 @@ class V3IntegrationTests(unittest.TestCase):
         item = BatchItem("det", short_doc("det"), self.dir)
         a = render_item(item, self.dir / "o1", ffmpeg=FFMPEG)
         b = render_item(item, self.dir / "o2", ffmpeg=FFMPEG)
-        self.assertEqual(Path(a["output"]).read_bytes(), Path(b["output"]).read_bytes())
+        self.assertEqual(Path(a["output_path"]).read_bytes(), Path(b["output_path"]).read_bytes())
 
     def test_batch_keeps_going_after_failures(self) -> None:
         real = shorts_v3_pipeline.render_short_v3
@@ -91,12 +91,14 @@ class V3IntegrationTests(unittest.TestCase):
             summary = render_batch(items, self.out, ffmpeg=FFMPEG)
         got = {r["name"]: (r["status"], r["reasons"]) for r in summary["results"]}
         self.assertEqual(got, {"ok": ("success", []), "boom": ("failed", ["RENDER_EXCEPTION"]),
-                               "overflow": ("blocked", ["TITLE_OVERFLOW"]), "missing_image": ("blocked", ["IMAGE_MISSING"]),
+                               "overflow": ("blocked", ["TITLE_OVERFLOW"]), "missing_image": ("blocked", ["ASSET_MISSING"]),
                                "ok2": ("success", [])})
         self.assertTrue((self.out / "ok.mp4").exists() and (self.out / "ok2.mp4").exists())
         self.assertFalse((self.out / "overflow.mp4").exists())
-        saved = json.loads((self.out / "batch_summary.json").read_text(encoding="utf-8"))
+        saved = json.loads((self.out / "batch_manifest.json").read_text(encoding="utf-8"))  # 6-54: batch_summary -> batch_manifest
         self.assertEqual(saved["counts"], {"success": 2, "failed": 1, "blocked": 2})
+        self.assertEqual((saved["total"], saved["success"], saved["failed"]), (5, 2, 3))
+        self.assertTrue((self.out / "batch_report.md").exists())
 
 
 if __name__ == "__main__":

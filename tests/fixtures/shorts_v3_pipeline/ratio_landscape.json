@@ -1,0 +1,45 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-654-ratio_landscape",
+  "template": "default",
+  "title": "가로 이미지 비율 테스트",
+  "scenes": [
+    {
+      "layout": "image_top",
+      "image": {
+        "path": "images/landscape.png",
+        "fit": "cover",
+        "position": "center"
+      },
+      "body": "image_top + 가로 이미지.",
+      "source": "https://www.reuters.com/world/some-long-article-path-2026-09-16/"
+    },
+    {
+      "layout": "split",
+      "image": {
+        "path": "images/landscape.png",
+        "fit": "crop",
+        "position": "right"
+      },
+      "body": "split + 가로 이미지(오른쪽 기준).",
+      "source": "BBC"
+    },
+    {
+      "layout": "image_full",
+      "image": {
+        "path": "images/landscape.png",
+        "fit": "cover",
+        "position": {
+          "x": 0.4,
+          "y": 0.5
+        }
+      },
+      "headline": "image_full + 가로 이미지"
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-654-ratio_landscape",
+    "generation_id": "gen-fixture-654-ratio_landscape",
+    "knowledge_id": null
+  }
+}

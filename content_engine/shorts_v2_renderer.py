@@ -904,7 +904,8 @@ LOUDNORM = "loudnorm=I=-14:TP=-1.5:LRA=11"
 
 
 def encode_frames(frame_at, total: float, output_path: Path, *, ffmpeg_path: str = "ffmpeg", fps: int = DEFAULT_FPS,
-                  soundtrack=None, audio_filter: str = LOUDNORM) -> int:
+                  soundtrack=None, audio_filter: str = LOUDNORM, preset: str = "medium", crf: int = 20,
+                  exact_length: bool = False) -> int:
     """``frame_at(t)`` 프레임을 rawvideo로 ffmpeg stdin에 흘려 H.264(+AAC) MP4를 만든다.
     ``soundtrack(wav_path)``가 있으면 그 WAV를 오디오로 붙인다. 반환값은 프레임 수. (V2/V3 공용)"""
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -917,8 +918,11 @@ def encode_frames(frame_at, total: float, output_path: Path, *, ffmpeg_path: str
             soundtrack(wav)
             cmd += ["-i", str(wav), "-map", "0:v", "-map", "1:a",
                     "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
-                    "-af", audio_filter, "-shortest"]
-        cmd += ["-c:v", "libx264", "-preset", "medium", "-crf", "20", "-profile:v", "high",
+                    "-af", audio_filter]
+            # 6-54: -shortest는 오디오 경계에서 마지막 영상 프레임을 떨어뜨린다(90프레임 -> 89).
+            # exact_length면 출력 길이를 프레임 수로 고정해 모든 프레임을 남긴다(V2 기본 동작은 그대로).
+            cmd += ["-t", f"{frames / fps:.6f}"] if exact_length else ["-shortest"]
+        cmd += ["-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-profile:v", "high",
                 "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(output_path)]
         log_path = Path(tmp) / "ffmpeg.log"
         with log_path.open("wb") as log:

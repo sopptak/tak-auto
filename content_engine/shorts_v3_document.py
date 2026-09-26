@@ -19,6 +19,7 @@ import json
 import math
 import re
 from collections.abc import Mapping
+from urllib.parse import urlsplit
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -29,7 +30,7 @@ from content_engine.shorts_v3_template import (  # noqa: F401 - 6-52 호환 재�
 
 SCHEMA = "shorts_v3_document/1"
 TRANSITIONS = ("cut", "punch", "dissolve", "fade", "slide")  # fade = dissolve 별칭
-IMAGE_FITS = ("cover", "contain")
+IMAGE_FITS = ("cover", "contain", "crop")  # crop = cover 별칭
 _POSITIONS = {"center": (0.5, 0.5), "top": (0.5, 0.0), "bottom": (0.5, 1.0), "left": (0.0, 0.5), "right": (1.0, 0.5)}
 _LATIN = re.compile(r"[A-Za-z0-9]")
 # 6-52 호환: 예전 이름. 이제 모든 문서 오류는 V3Error(code)다.
@@ -54,7 +55,21 @@ class Source:
     def display(self, template: Mapping) -> str:
         spec = template["text"]["source"]
         label = self.label or spec.get("label", "")
-        return f"{label}{spec.get('separator', ' · ')}{self.value}" if label else self.value
+        value = readable_source(self.value, template)
+        return f"{label}{spec.get('separator', ' · ')}{value}" if label else value
+
+
+def readable_source(value: str, template: Mapping) -> str:
+    """URL이면 화면에는 사람이 읽는 이름만: 템플릿 source_labels(도메인 -> 매체 이름), 없으면 도메인.
+    원문 URL은 문서에 그대로 남는다."""
+    if not re.match(r"https?://", value):
+        return value
+    host = urlsplit(value).netloc.lower().removeprefix("www.")
+    labels = template.get("source_labels", {})
+    for domain, name in labels.items():
+        if host == domain or host.endswith("." + domain):
+            return name
+    return host or value
 
 
 @dataclass(frozen=True)
@@ -193,10 +208,15 @@ def _position(raw, index: int) -> tuple[float, float]:
         if raw not in _POSITIONS:
             raise V3Error("INVALID_IMAGE_SPEC", f"scene {index}: position은 {tuple(_POSITIONS)} 또는 [x, y]여야 합니다: {raw!r}")
         return _POSITIONS[raw]
+    if isinstance(raw, Mapping):  # {"x": 0.5, "y": 0.3} - 사람이 읽기 쉬운 형태
+        raw = (raw.get("x", 0.5), raw.get("y", 0.5))
     if not (isinstance(raw, (list, tuple)) and len(raw) == 2):
         raise V3Error("INVALID_IMAGE_SPEC", f"scene {index}: position [x, y]가 잘못됐습니다: {raw!r}")
-    x, y = raw
-    return (min(1.0, max(0.0, float(x))), min(1.0, max(0.0, float(y))))
+    try:
+        x, y = float(raw[0]), float(raw[1])
+    except (TypeError, ValueError) as error:
+        raise V3Error("INVALID_IMAGE_SPEC", f"scene {index}: position 값은 숫자여야 합니다: {raw!r}") from error
+    return (min(1.0, max(0.0, x)), min(1.0, max(0.0, y)))
 
 
 def _media(raw, scene: Mapping, index: int) -> Media | None:
@@ -209,11 +229,14 @@ def _media(raw, scene: Mapping, index: int) -> Media | None:
     fit = str(raw.get("fit", scene.get("image_fit", "")))
     if fit and fit not in IMAGE_FITS:
         raise V3Error("INVALID_IMAGE_SPEC", f"scene {index}: image fit은 {IMAGE_FITS} 중 하나여야 합니다: {fit!r}")
-    scale = float(raw.get("scale", scene.get("image_scale", 1.0)))
+    try:
+        scale = float(raw.get("scale", scene.get("image_scale", 1.0)))
+    except (TypeError, ValueError) as error:
+        raise V3Error("INVALID_IMAGE_SPEC", f"scene {index}: image scale은 숫자여야 합니다.") from error
     if not 1.0 <= scale <= 4.0:
         raise V3Error("INVALID_IMAGE_SPEC", f"scene {index}: image scale은 1.0~4.0이어야 합니다: {scale}")
     return Media(path=str(raw.get("path", "")), alt=str(raw.get("alt", "")), source=str(raw.get("source", "")),
-                 fit=fit, position=_position(raw.get("position", scene.get("image_position")), index), scale=scale)
+                 fit="cover" if fit == "crop" else fit, position=_position(raw.get("position", scene.get("image_position")), index), scale=scale)
 
 
 def _source(raw, index: int) -> Source | None:

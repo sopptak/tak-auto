@@ -1,0 +1,20 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-654-broken_asset",
+  "template": "default",
+  "title": "잘못된 이미지 경로",
+  "scenes": [
+    {
+      "layout": "image_top",
+      "image": {
+        "path": "images/this_file_does_not_exist.png"
+      },
+      "body": "이 항목은 ASSET_MISSING으로 막혀야 한다."
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-654-broken_asset",
+    "generation_id": "gen-fixture-654-broken_asset",
+    "knowledge_id": null
+  }
+}

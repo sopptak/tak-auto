@@ -1,0 +1,41 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-654-transitions",
+  "template": "default",
+  "title": "전환 확인",
+  "scenes": [
+    {
+      "layout": "text_focus",
+      "body": "첫 장면(전환 없음).",
+      "source": "BBC"
+    },
+    {
+      "layout": "text_focus",
+      "body": "cut 전환.",
+      "transition": "cut"
+    },
+    {
+      "layout": "image_top",
+      "image": "images/landscape.png",
+      "body": "fade 전환.",
+      "transition": "fade"
+    },
+    {
+      "layout": "split",
+      "image": "images/portrait.png",
+      "body": "slide 전환.",
+      "transition": "slide"
+    },
+    {
+      "layout": "text_focus",
+      "body": "punch 전환.",
+      "transition": "punch",
+      "subtitle": "자막"
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-654-transitions",
+    "generation_id": "gen-fixture-654-transitions",
+    "knowledge_id": null
+  }
+}

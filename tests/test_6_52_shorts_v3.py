@@ -28,7 +28,7 @@ from content_engine.shorts_v3_document import (
 from content_engine.shorts_v3_renderer import ShortsV3Renderer, V3LayoutError, soundtrack_spec
 from content_engine.shorts_v2_scene import build_timeline
 from tests.fixtures.shorts_v3_images import make_images
-from content_engine.shorts_v3_pipeline import gate, media_issues, structure_issues  # 6-53: 오류 코드 게이트
+from content_engine.shorts_v3_pipeline import gate, inspect_media, structure_issues  # 6-53/6-54: 오류 코드 게이트
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures" / "shorts_v3"
@@ -65,7 +65,7 @@ class FixtureTests(unittest.TestCase):
                 report = r.layout_report()
                 self.assertEqual(report["overflow"], [])
                 # 6-53: 경로를 줬는데 없는/못 읽는 이미지는 렌더는 되지만(placeholder) 게이트가 막는다
-                expected = {"IMAGE_MISSING", "IMAGE_DECODE_FAILED"} if name.startswith("03") else set()
+                expected = {"ASSET_MISSING", "ASSET_DECODE_FAILED"} if name.startswith("03") else set()  # 6-54: asset resolver 코드
                 self.assertEqual(set(gate(structure_issues(doc, report))["codes"]), expected)
                 for ts in r.timeline:  # 장면마다 실제 프레임을 그려 빈 화면이 아닌지 본다
                     frame = r.frame(ts.start + ts.duration * 0.6)
@@ -84,7 +84,7 @@ class FixtureTests(unittest.TestCase):
     def test_image_fallback_does_not_fail(self) -> None:
         statuses = [s["image"] for s in self.renderers["03_no_image"].layout_report()["scenes"][:3]]
         # 6-53: 경로가 없는 빈 슬롯(fallback:empty)과 파일이 없는 경우(fallback:missing)를 구분한다
-        self.assertEqual(statuses, ["fallback:empty", "fallback:missing", "fallback:unreadable"])
+        self.assertEqual(statuses, ["fallback:empty", "fallback:missing", "fallback:decode_failed"])  # 6-54: resolver status
 
     def test_landscape_and_portrait_images_are_cropped_to_slot(self) -> None:
         for name in ("06_image_top", "07_split"):
@@ -95,8 +95,10 @@ class FixtureTests(unittest.TestCase):
                     self.assertAlmostEqual(lay.image.width / lay.image.height, w / h, places=1)
 
     def test_long_source_truncated_with_warning_not_failure(self) -> None:
+        # 6-54: URL 출처는 화면에 읽을 수 있는 이름(bbc.co.uk -> BBC)만 나오므로 말줄임이 필요 없다
         last = self.renderers["04_with_source"].layout_report()["scenes"][3]
-        self.assertIn("source_truncated", last["warnings"])
+        self.assertNotIn("source_truncated", last["warnings"])
+        self.assertEqual(self.docs["04_with_source"].scenes[3].source.display(self.docs["04_with_source"].template)[:9], "출처 · BBC")
 
     def test_footer_collapses_when_no_source_or_subtitle(self) -> None:
         with_src = self.renderers["04_with_source"].layouts[0].content
@@ -170,7 +172,10 @@ class LegacyAdapterTests(unittest.TestCase):
         strip = lambda s: re.sub(r"\s", "", s)  # noqa: E731
         self.assertEqual(strip("".join(bodies)), strip("".join(self.SCRIPT["cards"])))
         self.assertGreater(len(bodies), len(self.SCRIPT["cards"]))  # 긴 카드는 문장 경계에서 나뉜다
-        self.assertTrue(all(s["source"] == "bbc.co.uk" for s in doc_dict["scenes"]))
+        # 6-54: 문서에는 원문 URL, 화면에는 템플릿 source_labels 이름
+        self.assertTrue(all(s["source"].startswith("https://www.bbc.co.uk/") for s in doc_dict["scenes"]))
+        doc0 = ShortsV3Document.from_dict(doc_dict)
+        self.assertEqual(doc0.scenes[0].source.display(doc0.template), "출처 · BBC")
         self.assertNotIn("출처", "".join(bodies))
         self.assertEqual((doc_dict["lineage"]["content_id"], doc_dict["lineage"]["generation_id"]), ("content-test", "gen-x"))
         doc = ShortsV3Document.from_dict(json.loads(json.dumps(doc_dict)))
@@ -199,7 +204,7 @@ class EncodeTests(unittest.TestCase):
             if not Path(ffprobe).exists() and not shutil.which(ffprobe):
                 self.skipTest("ffprobe 없음")
             info = probe(ffprobe, video)
-            post, checks = media_issues(FFMPEG, video, info, doc, result.layout, tmp / "frames")
+            post, checks, _ = inspect_media(FFMPEG, video, info, doc, result.layout, tmp / "frames")
             verdict = gate(structure_issues(doc, result.layout) + post)
             self.assertEqual(verdict["status"], "PASS", verdict)
 

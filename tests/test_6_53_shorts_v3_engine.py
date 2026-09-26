@@ -222,7 +222,7 @@ class SlotFooterProgressTransitionTests(unittest.TestCase):
         self.assertEqual(len(lays[0].body), 2)  # 문단 2개
         self.assertEqual(self.docs["paragraphs_source_object"].scenes[1].source.display(self.docs["paragraphs_source_object"].template),
                          "자료 · 책 「사피엔스」")
-        long = V3RenderDocument.from_dict(doc_with(scenes=[scene(body="a", source="https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS " * 3)]))
+        long = V3RenderDocument.from_dict(doc_with(scenes=[scene(body="a", source="아주 긴 출처 설명이 계속 이어지는 책 제목 " * 4)]))
         issues = LayoutEngine(long).report()["issues"]
         self.assertEqual([i["code"] for i in issues], ["SOURCE_TRUNCATED"])
         self.assertEqual(gate(issues)["status"], "PASS")  # 경고일 뿐
@@ -248,7 +248,7 @@ class SlotFooterProgressTransitionTests(unittest.TestCase):
         data = doc_with(scenes=[scene(layout="image_top", body="a"), scene(layout="image_top", image="images/none.png", body="b"),
                                 scene(layout="image_top", image="images/not_an_image.png", body="c")])
         data["scenes"][0]["layout"] = "image_top"
-        self.assertEqual(codes(data, self.dir), {"IMAGE_MISSING", "IMAGE_DECODE_FAILED"})
+        self.assertEqual(codes(data, self.dir), {"ASSET_MISSING", "ASSET_DECODE_FAILED"})  # 6-54: asset resolver 코드
         issues = LayoutEngine(V3RenderDocument.from_dict(data, base_dir=self.dir)).report()["issues"]
         self.assertIn("IMAGE_SLOT_EMPTY", [i["code"] for i in issues if i["severity"] == "warning"])
 
@@ -267,7 +267,7 @@ class LineageBatchTests(unittest.TestCase):
             shutil.copy(tmp / "images" / "portrait.png", tmp / "images" / "landscape.png")  # 이미지만 교체
             self.assertNotEqual(k1, render_key(V3RenderDocument.from_dict(data, base_dir=tmp)))
             lin = lineage(V3RenderDocument.from_dict(data, base_dir=tmp))
-            for key in ("content_id", "document_sha256", "template_sha256", "template_id", "assets", "renderer_version", "render_key"):
+            for key in ("content_id", "document_sha256", "template_sha256", "template_id", "asset_sha256", "renderer_version", "render_key"):
                 self.assertIn(key, lin)
 
     def test_batch_validate_isolates_failures(self) -> None:

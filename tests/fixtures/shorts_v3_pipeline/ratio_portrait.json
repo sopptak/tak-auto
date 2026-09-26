@@ -1,0 +1,46 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-654-ratio_portrait",
+  "template": "default",
+  "title": "세로 이미지 비율 테스트",
+  "scenes": [
+    {
+      "layout": "image_top",
+      "image": {
+        "path": "images/portrait.png",
+        "fit": "cover",
+        "position": {
+          "x": 0.5,
+          "y": 0.3
+        },
+        "alt": "세로 샘플"
+      },
+      "body": "image_top + 세로 이미지(cover, 위쪽 기준점).",
+      "source": "BBC"
+    },
+    {
+      "layout": "split",
+      "image": {
+        "path": "images/portrait.png",
+        "fit": "cover",
+        "position": "center"
+      },
+      "body": "split + 세로 이미지.",
+      "source": "Reuters"
+    },
+    {
+      "layout": "image_full",
+      "image": {
+        "path": "images/portrait.png",
+        "fit": "contain",
+        "source": "샘플 이미지"
+      },
+      "headline": "image_full + contain"
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-654-ratio_portrait",
+    "generation_id": "gen-fixture-654-ratio_portrait",
+    "knowledge_id": null
+  }
+}

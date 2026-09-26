@@ -17,8 +17,9 @@ TEMPLATE_DIR = Path(__file__).resolve().parent / "shorts_v3_templates"
 CANVAS = (1080, 1920)
 AUDIO_BACKGROUNDS = ("finance", "human", "ai")  # 6-41 합성 음악 스타일
 LOOK_NAMES = ("finance", "human", "ai")  # 6-41 팔레트(shorts_v2_renderer.LOOKS)
+X264_PRESETS = ("ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow")
 TEXT_ROLES = ("title", "headline", "body", "subtitle", "source")
-REQUIRED = ("canvas", "safe_area", "look", "frames", "footer_rows", "text", "layouts", "image", "transition",
+REQUIRED = ("canvas", "encoder", "safe_area", "look", "frames", "footer_rows", "text", "layouts", "image", "transition",
             "animation", "progress", "audio", "brand", "timing")
 
 
@@ -84,6 +85,9 @@ def validate_template(t: Mapping) -> None:
     canvas = t["canvas"]
     if (canvas.get("width"), canvas.get("height")) != CANVAS or not 1 <= int(canvas.get("fps", 0)) <= 60:
         raise V3Error("INVALID_TEMPLATE", f"canvas는 {CANVAS[0]}x{CANVAS[1]}, fps 1~60이어야 합니다: {canvas}")
+    enc = t["encoder"]
+    if enc.get("preset") not in X264_PRESETS or not 0 <= int(enc.get("crf", -1)) <= 35:
+        raise V3Error("INVALID_TEMPLATE", f"encoder.preset은 {X264_PRESETS} 중 하나, crf는 0~35여야 합니다: {enc}")
     safe = _rect(t["safe_area"], "safe_area")
     if not _inside(safe, (0, 0, *CANVAS)):
         raise V3Error("INVALID_TEMPLATE", f"safe_area가 화면 밖입니다: {safe}")
@@ -122,6 +126,11 @@ def validate_template(t: Mapping) -> None:
         raise V3Error("INVALID_TEMPLATE", "footer_rows(progress + source + gap)가 FOOTER 프레임 높이보다 큽니다.")
     if any(float(t["animation"].get(k, -1)) < 0 for k in ("body_delay", "paragraph_delay", "subtitle_delay", "source_delay", "image_in")):
         raise V3Error("INVALID_TEMPLATE", f"animation 지연 값은 0 이상이어야 합니다: {t['animation']}")
+    image = t["image"]
+    if image.get("on_missing", "block") not in ("block", "fallback") or image.get("fit", "cover") not in ("cover", "contain"):
+        raise V3Error("INVALID_TEMPLATE", "image.on_missing는 block|fallback, image.fit은 cover|contain이어야 합니다.")
+    if not isinstance(t.get("source_labels", {}), Mapping):
+        raise V3Error("INVALID_TEMPLATE", "source_labels는 {도메인: 이름} 객체여야 합니다.")
     if t["audio"].get("background") not in AUDIO_BACKGROUNDS or not 50 <= float(t["audio"].get("bpm", 0)) <= 180:
         raise V3Error("INVALID_TEMPLATE", f"audio.background는 {AUDIO_BACKGROUNDS}, bpm 50~180이어야 합니다.")
     if t["progress"].get("position", "footer") not in ("footer", "top") or t["progress"].get("mode", "time") not in ("time", "scene"):

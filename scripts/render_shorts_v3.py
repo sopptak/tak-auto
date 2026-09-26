@@ -36,7 +36,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--document", type=Path, action="append", default=[], help="V3 문서 JSON(반복 가능)")
     parser.add_argument("--shorts-script", type=Path, action="append", default=[], help="기존 ShortsScript JSON(반복 가능)")
-    parser.add_argument("--generation-id", default=None, help="--shorts-script가 하나일 때 lineage용 generation_id")
+    parser.add_argument("--generation-id", action="append", default=[],
+                        help="lineage용 generation_id - --shorts-script와 같은 순서·같은 개수로(반복 가능)")
     parser.add_argument("--approved", action="store_true", help="Production Archive의 approved Shorts 전부(읽기 전용)")
     parser.add_argument("--archive", type=Path, default=DATA / "tak_media_archive.json")
     parser.add_argument("--scripts-dir", type=Path, default=DATA / "shorts_scripts")
@@ -45,12 +46,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--validate-only", action="store_true", help="렌더 없이 문서/레이아웃/lineage 검증만")
     parser.add_argument("--force", action="store_true", help="render key가 같아도 다시 렌더")
     args = parser.parse_args(argv)
-    if args.generation_id and len(args.shorts_script) != 1:
-        parser.error("--generation-id는 --shorts-script가 정확히 하나일 때만 쓸 수 있습니다.")
+    if args.generation_id and len(args.generation_id) != len(args.shorts_script):
+        parser.error("--generation-id는 --shorts-script와 같은 개수여야 합니다(순서대로 짝지음).")
 
     items = [item_from_document(p) for p in args.document]
-    for p in args.shorts_script:
-        item = item_from_shorts_script(p, generation_id=args.generation_id)
+    for k, p in enumerate(args.shorts_script):
+        gen = args.generation_id[k] if args.generation_id else None
+        item = item_from_shorts_script(p, generation_id=gen or None)
         if item.document is not None:  # 사람이 고쳐서 --document로 다시 렌더할 수 있게 저장
             args.out.mkdir(parents=True, exist_ok=True)
             path = args.out / f"{item.name}.document.json"
@@ -66,12 +68,13 @@ def main(argv: list[str] | None = None) -> int:
     summary = render_batch(items, args.out, ffmpeg=args.ffmpeg, validate_only=args.validate_only, force=args.force)
     unchanged = before == data_fingerprint()
     for r in summary["results"]:
-        print(json.dumps({k: r.get(k) for k in ("name", "content_id", "status", "reasons", "output")}, ensure_ascii=False))
-    print(json.dumps({"counts": summary["counts"], "production_data_unchanged": unchanged}, ensure_ascii=False))
+        print(json.dumps({k: r.get(k) for k in ("name", "content_id", "status", "reasons", "output_path")}, ensure_ascii=False))
+    print(json.dumps({"total": summary["total"], "success": summary["success"], "failed": summary["failed"], "counts": summary["counts"],
+                      "performance": summary["performance"], "production_data_unchanged": unchanged}, ensure_ascii=False))
     if not unchanged:
         print("ERROR: data/ 가 바뀌었습니다", file=sys.stderr)
         return 2
-    return 0 if all(r["status"] in ("success", "cached", "validated") for r in summary["results"]) else 1
+    return 0 if all(r["status"] in ("success", "skipped", "validated") for r in summary["results"]) else 1
 
 
 if __name__ == "__main__":

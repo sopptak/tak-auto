@@ -1,0 +1,37 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-654-long_text",
+  "template": "default",
+  "title": "제목이 아주 길어도 제목 프레임 안에서 줄바꿈과 글자 크기 조정만으로 세 줄 안에 들어가야 한다",
+  "scenes": [
+    {
+      "layout": "text_focus",
+      "headline": "짧은 본문",
+      "body": "짧다."
+    },
+    {
+      "layout": "text_focus",
+      "headline": "중간 본문",
+      "body": "연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받아야 합니다. 연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받아야 합니다."
+    },
+    {
+      "layout": "image_top",
+      "image": "images/landscape.png",
+      "headline": "긴 본문 + 이미지(대체 기하)",
+      "body": "연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받아야 합니다. 연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받아야 합니다. 연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받아야 합니다."
+    },
+    {
+      "layout": "text_focus",
+      "body": "연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받아야 합니다. 연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받아야 합니다. 연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받아야 합니다. 연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받아야 합니다. 연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받아야 합니다.",
+      "source": {
+        "label": "출처",
+        "value": "아주 긴 출처 이름이 계속 이어지는 보고서 제목 2026년 9월 16일 발행 부록 자료 모음"
+      }
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-654-long_text",
+    "generation_id": "gen-fixture-654-long_text",
+    "knowledge_id": null
+  }
+}
