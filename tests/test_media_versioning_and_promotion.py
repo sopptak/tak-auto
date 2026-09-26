@@ -44,6 +44,45 @@ from tak_brain import load_knowledge_records
 
 KNOWLEDGE_PATH = Path(__file__).parents[1] / "data" / "tak_brain_knowledge.json"
 PRODUCTION_ARCHIVE_PATH = Path(__file__).parents[1] / "data" / "tak_media_archive.json"
+
+
+# 6-50: 이 PC의 Production Archive는 6-12 시점 전체 스냅샷(18건)이 아니라 운영자가 승인한 레코드만
+# 복구된 부분집합일 수 있다(docs/6-50). 스냅샷 사실(18건, legacy 9건 등)은 그 스냅샷 원본
+# (Codespace export commit)에서 확인하고, 실제 파일에는 "스냅샷 레코드를 한 글자도 바꾸지 않았다"를
+# 확인한다. export commit이 없는 환경에서는 기존과 똑같이 실제 파일로 스냅샷 사실을 확인한다.
+_SNAPSHOT_COMMIT = "0547065b4f9b65ada8af6a3c33cc636d97b43345"
+
+
+def _snapshot_records():
+    """6-12 시점 production archive 스냅샷(없으면 None)."""
+    import subprocess
+
+    try:
+        blob = subprocess.run(
+            ["git", "show", f"{_SNAPSHOT_COMMIT}:data/tak_media_archive.json"],
+            cwd=Path(__file__).parents[1], capture_output=True,
+        )
+    except OSError:
+        return None
+    if blob.returncode != 0:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "snapshot.json"
+        path.write_bytes(blob.stdout)
+        return load_archive(path)
+
+
+def _snapshot_or_real_and_assert_real_is_unmodified_subset(test):
+    """스냅샷(있으면)을 돌려주고, 실제 archive의 스냅샷 레코드가 스냅샷과 완전히 같은지 확인한다."""
+    real = load_archive(PRODUCTION_ARCHIVE_PATH)
+    snapshot = _snapshot_records()
+    if snapshot is None:
+        return real
+    by_id = {r.content_id: r for r in snapshot}
+    for record in real:
+        if record.content_id in by_id:
+            test.assertEqual(record.to_dict(), by_id[record.content_id].to_dict(), record.content_id)
+    return snapshot
 TARGET_KNOWLEDGE_ID = "knowledge-scout-b28b782b2a33"
 
 
@@ -109,7 +148,7 @@ class GenerationIdTests(unittest.TestCase):
         레코드는 generation_id 없이 보존된다)를 약화시키지 않는다 - 오히려
         production archive가 앞으로 계속 자라나도(추가 promotion) 이 테스트가
         불필요하게 깨지지 않도록 만든다."""
-        records = load_archive(PRODUCTION_ARCHIVE_PATH)
+        records = _snapshot_or_real_and_assert_real_is_unmodified_subset(self)
         legacy_records = [record for record in records if record.generation_id is None]
         self.assertEqual(len(legacy_records), 9)
         for record in legacy_records:
@@ -368,7 +407,7 @@ class ExistingProductionArchiveUntouchedTests(unittest.TestCase):
         promoted)이므로, legacy 부분집합(generation_id is None)만 9건인지로
         범위를 좁힌다 - 이유는 test_real_production_archive_records_are_legacy_generations
         와 동일(6-12 참고)."""
-        records = load_archive(PRODUCTION_ARCHIVE_PATH)
+        records = _snapshot_or_real_and_assert_real_is_unmodified_subset(self)
         legacy_records = [record for record in records if record.generation_id is None]
         self.assertEqual(len(legacy_records), 9)
         for record in legacy_records:

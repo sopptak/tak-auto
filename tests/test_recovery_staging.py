@@ -374,11 +374,14 @@ class NoRealDataMutatedTests(unittest.TestCase):
         """16. no production file created - CLI를 실행해도 data/tak_media_archive.json이
         생기지 않는다."""
         archive_path = ROOT / "data" / "tak_media_archive.json"
+        # 6-50: 운영자가 복구한 실제 archive가 이미 있을 수 있다 - "만들지도, 바꾸지도 않는다"로 확인한다.
+        before = archive_path.read_bytes() if archive_path.exists() else None
         with tempfile.TemporaryDirectory() as tmp:
             buffer = io.StringIO()
             with redirect_stdout(buffer):
                 cli_module.main(["--source", tmp, "--json"])
-        self.assertFalse(archive_path.exists(), "audit_recovery_source.py가 data/tak_media_archive.json을 생성했습니다.")
+        after = archive_path.read_bytes() if archive_path.exists() else None
+        self.assertEqual(after, before, "CLI가 data/tak_media_archive.json을 만들거나 바꿨습니다.")
 
     def test_17_no_tracked_data_modified(self) -> None:
         """17. no tracked data modified - 전체 data/ 디렉터리 파일 목록이 실행 전후로 동일하다."""

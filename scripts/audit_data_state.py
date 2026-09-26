@@ -82,8 +82,8 @@ FILE_SPECS: tuple[DataFileSpec, ...] = (
         "data/tak_media_archive.json",
         "A: Production Archive (source of truth)",
         "사람이 MEDIA Dashboard에서 승인한 review_status가 이 파일에만 있다. "
-        ".gitignore가 !data/tak_media_archive.json으로 추적을 허용하지만 "
-        "이 저장소 main 브랜치 어떤 커밋에도 아직 커밋된 적이 없다(6-20/6-21 확인).",
+        ".gitignore가 !data/tak_media_archive.json으로 추적을 허용한다. 6-21까지는 main에 "
+        "커밋된 적이 없었고, 6-50에서 운영자가 승인한 복구 레코드만 처음 커밋됐다(docs/6-50).",
     ),
     DataFileSpec(
         "data/tak_brain_knowledge.json",

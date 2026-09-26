@@ -51,6 +51,45 @@ from scripts.promote_media_generation import (
 PRODUCTION_ARCHIVE_PATH = Path(__file__).parents[1] / "data" / "tak_media_archive.json"
 
 
+# 6-50: 이 PC의 Production Archive는 6-12 시점 전체 스냅샷(18건)이 아니라 운영자가 승인한 레코드만
+# 복구된 부분집합일 수 있다(docs/6-50). 스냅샷 사실(18건, legacy 9건 등)은 그 스냅샷 원본
+# (Codespace export commit)에서 확인하고, 실제 파일에는 "스냅샷 레코드를 한 글자도 바꾸지 않았다"를
+# 확인한다. export commit이 없는 환경에서는 기존과 똑같이 실제 파일로 스냅샷 사실을 확인한다.
+_SNAPSHOT_COMMIT = "0547065b4f9b65ada8af6a3c33cc636d97b43345"
+
+
+def _snapshot_records():
+    """6-12 시점 production archive 스냅샷(없으면 None)."""
+    import subprocess
+
+    try:
+        blob = subprocess.run(
+            ["git", "show", f"{_SNAPSHOT_COMMIT}:data/tak_media_archive.json"],
+            cwd=Path(__file__).parents[1], capture_output=True,
+        )
+    except OSError:
+        return None
+    if blob.returncode != 0:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "snapshot.json"
+        path.write_bytes(blob.stdout)
+        return load_archive(path)
+
+
+def _snapshot_or_real_and_assert_real_is_unmodified_subset(test):
+    """스냅샷(있으면)을 돌려주고, 실제 archive의 스냅샷 레코드가 스냅샷과 완전히 같은지 확인한다."""
+    real = load_archive(PRODUCTION_ARCHIVE_PATH)
+    snapshot = _snapshot_records()
+    if snapshot is None:
+        return real
+    by_id = {r.content_id: r for r in snapshot}
+    for record in real:
+        if record.content_id in by_id:
+            test.assertEqual(record.to_dict(), by_id[record.content_id].to_dict(), record.content_id)
+    return snapshot
+
+
 def _record(**overrides) -> MediaArchiveRecord:
     base = dict(
         content_id="content-X",
@@ -510,7 +549,7 @@ class ExistingProductionArchiveReadOnlyRegressionTests(unittest.TestCase):
     않는지 - 이 클래스는 그 파일을 읽기만 하고 절대 쓰지 않는다."""
 
     def test_real_production_archive_still_has_eighteen_records(self):
-        records = load_archive(PRODUCTION_ARCHIVE_PATH)
+        records = _snapshot_or_real_and_assert_real_is_unmodified_subset(self)
         self.assertEqual(len(records), 18)
 
     def test_real_production_archive_has_no_duplicate_content_ids(self):
@@ -526,7 +565,7 @@ class ExistingProductionArchiveReadOnlyRegressionTests(unittest.TestCase):
         """6-18 작업 지시의 절대 금지 목록에 있는 content_id 중 하나
         (content-5971ed5204437cdd)가 이 세션에서 전혀 바뀌지 않았는지 -
         읽기만 해서 확인한다(수정/승격/supersede 어느 것도 실행하지 않는다)."""
-        records = {r.content_id: r for r in load_archive(PRODUCTION_ARCHIVE_PATH)}
+        records = {r.content_id: r for r in _snapshot_or_real_and_assert_real_is_unmodified_subset(self)}
         self.assertIn("content-5971ed5204437cdd", records)
         self.assertEqual(records["content-5971ed5204437cdd"].review_status, "approved")
         self.assertEqual(records["content-5971ed5204437cdd"].generation_status, "valid")

@@ -484,6 +484,8 @@ class CliDryRunDefaultTests(_RecoveryFixture, unittest.TestCase):
 class NoRealDataMutatedTests(unittest.TestCase):
     def test_no_production_file_created_by_report_only(self) -> None:
         archive_path = ROOT / "data" / "tak_media_archive.json"
+        # 6-50: 운영자가 복구한 실제 archive가 이미 있을 수 있다 - "만들지도, 바꾸지도 않는다"로 확인한다.
+        before = archive_path.read_bytes() if archive_path.exists() else None
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "source"
             source.mkdir()
@@ -492,7 +494,8 @@ class NoRealDataMutatedTests(unittest.TestCase):
             buffer = io.StringIO()
             with redirect_stdout(buffer):
                 cli_module.main(["--source", str(source), "--production-archive", str(target), "--json"])
-        self.assertFalse(archive_path.exists())
+        after = archive_path.read_bytes() if archive_path.exists() else None
+        self.assertEqual(after, before, "CLI가 data/tak_media_archive.json을 만들거나 바꿨습니다.")
 
     def test_no_tracked_data_modified(self) -> None:
         data_dir = ROOT / "data"
