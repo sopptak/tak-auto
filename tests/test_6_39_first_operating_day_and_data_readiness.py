@@ -314,7 +314,14 @@ class GitHistoryClassificationTests(unittest.TestCase):
     def test_production_archive_was_never_committed(self) -> None:
         # docs/6-21 3장이 이미 확인한 사실: tak_media_archive.json은 main
         # 어떤 커밋에도 존재한 적이 없다(화이트리스트에는 있으나 미커밋).
-        self.assertFalse(operator_cli._ever_tracked_in_git(ROOT / "data" / "tak_media_archive.json"))
+        # 6-48: Codespace export 브랜치(codespace-silver-robot-…)를 fetch한 clone에서는 그 브랜치에
+        # 이 파일이 있으므로 ``--all`` 기준 결과가 True(STATE B)가 된다 - 그것이 정확한 동작이다.
+        # 그래서 "main에는 없음"과 "함수 결과 == git log --all 결과"를 따로 검증한다.
+        rel = "data/tak_media_archive.json"
+        _, on_main = operator_cli._run_git("log", "--oneline", "HEAD", "--", rel)
+        self.assertEqual(on_main.strip(), "")
+        _, anywhere = operator_cli._run_git("log", "--all", "--oneline", "--", rel)
+        self.assertEqual(operator_cli._ever_tracked_in_git(ROOT / rel), bool(anywhere.strip()))
 
     def test_path_outside_repo_is_unverified(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
