@@ -2851,6 +2851,7 @@ def make_handler_class(
                         os.environ.get("YOUTUBE_CLIENT_ID") and os.environ.get("YOUTUBE_CLIENT_SECRET") and os.environ.get("YOUTUBE_REFRESH_TOKEN")
                     ),
                     youtube_renderer_available=(ROOT / "content_engine" / "shorts_renderer.py").exists(),
+                    media_llm_credentials_present=all(os.environ.get(name) for name in ("TAK_MEDIA_LLM_API_KEY", "TAK_MEDIA_LLM_ENDPOINT", "TAK_MEDIA_LLM_MODEL")),
                     youtube_history=YouTubeUploadHistory(config.youtube_history_path) if config.youtube_history_path.exists() else None,
                 )
                 summary = build_operator_summary(operator_inputs)

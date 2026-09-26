@@ -171,6 +171,9 @@ class OperatorInputs:
 
     threads_token_present: bool = False
     youtube_credentials_present: bool = False
+    # 6-45: MEDIA 생성(run_media_batch.py --execute)에 필요한 TAK_MEDIA_LLM_* 3개가 모두 있는지.
+    # None = 호출부가 확인하지 않음(기존 테스트/호출부 호환 - 이 경우 아무것도 표시하지 않는다).
+    media_llm_credentials_present: bool | None = None
     # 6-43: data/youtube_publish_log.json(읽기 전용). publish audit의 ALREADY_PUBLISHED 판정과
     # "YouTube Uploads" lifecycle 행에 쓴다. None이면(파일 없음/미지정) 두 기능 모두 생략한다.
     youtube_history: YouTubeUploadHistory | None = None
@@ -263,9 +266,18 @@ def _build_knowledge_stage(inputs: OperatorInputs) -> StatusWhyAction:
     return StatusWhyAction(label="KNOWLEDGE", status=PUBLISH_READY, count=len(inputs.knowledge_records))
 
 
+MEDIA_GENERATE_ACTION = (
+    "python scripts/run_media_batch.py --execute --as-generation "
+    "--archive data/tak_media_generation_<YYYYMMDD>.json --id <knowledge_id>"
+)
+
+
 def _build_media_stage(inputs: OperatorInputs) -> StatusWhyAction:
     if not inputs.generation_pool_found:
-        return StatusWhyAction(label="MEDIA", status=NOT_PRESENT, why="아직 MEDIA generation이 없습니다.", action="python scripts/run_media_batch.py --execute --as-generation", detail_route="/media/generations")
+        why = "아직 MEDIA generation이 없습니다."
+        if inputs.media_llm_credentials_present is False:
+            why += " 생성에 필요한 TAK_MEDIA_LLM_* 환경변수가 없어 지금은 실행할 수 없습니다."
+        return StatusWhyAction(label="MEDIA", status=NOT_PRESENT, why=why, action=MEDIA_GENERATE_ACTION, detail_route="/media/generations")
     total = len(inputs.generation_pool_records)
     return StatusWhyAction(label="MEDIA", status=PUBLISH_READY, count=total, detail_route="/media/generations")
 
@@ -387,6 +399,14 @@ def build_human_actions(inputs: OperatorInputs) -> tuple[StatusWhyAction, ...]:
         actions.append(StatusWhyAction(
             label="THREADS PUBLISH", status="ACTION_REQUIRED", count=len(pending_threads),
             why="검수 대기 중인 Threads 초안이 있습니다.", action="Dashboard /threads", detail_route="/threads",
+        ))
+
+    if not inputs.generation_pool_found and not inputs.production_records and inputs.media_llm_credentials_present is False:
+        # 6-45: Shorts 후보를 만들 유일한 운영 경로(LLM 재작성 포함)가 막혀 있다 - 사람이 자격증명을 설정해야 한다.
+        actions.append(StatusWhyAction(
+            label="MEDIA LLM", status="ACTION_REQUIRED",
+            why="MEDIA generation도 Production Archive도 없고, 생성에 필요한 TAK_MEDIA_LLM_API_KEY/ENDPOINT/MODEL이 설정되지 않았습니다.",
+            action=f"환경변수 설정 후 {MEDIA_GENERATE_ACTION}",
         ))
 
     if not inputs.youtube_renderer_available:
