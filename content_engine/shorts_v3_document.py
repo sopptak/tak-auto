@@ -1,19 +1,20 @@
-"""Shorts V3(6-52) 문서 모델 - 콘텐츠 데이터(ShortsV3Document)와 화면 틀(template)을 분리한다.
+"""Shorts V3 Render Document(6-52, 6-53) - 렌더러가 읽는 유일한 콘텐츠 입력(정규화된 내부 표현).
 
-    CONTENT DATA(문서 JSON)  +  TEMPLATE(content_engine/shorts_v3_templates/<name>.json)
-                 -> 타임라인(박자 단위) -> shorts_v3_renderer(레이아웃 엔진) -> MP4
+    Shorts 콘텐츠 데이터(V3 문서 JSON / 기존 ShortsScript -> adapter)
+        -> V3RenderDocument(이 모듈: 검증 + 템플릿 해석 + 박자 타임라인)
+        -> shorts_v3_layout(레이아웃 엔진) -> shorts_v3_renderer(프레임 합성) -> MP4
 
-- 문서: 제목, 장면(이미지/헤드라인/본문/자막/출처/길이/전환/강조), 브랜드·CTA·진행 표시·오디오
-  덮어쓰기, lineage. 사람이 JSON으로 직접 고친다.
-- 템플릿: 화면 크기, 프레임 위치, 폰트 크기 범위, 레이아웃 기하(layout_type -> 영역 비율),
-  진행 표시·오디오·브랜드 기본값. 렌더러 코드에 이 값들을 하드코딩하지 않는다.
+렌더러는 Production Archive나 ShortsScript를 직접 읽지 않는다 - 이 문서만 읽는다.
+콘텐츠(제목/장면/이미지/출처/CTA)와 템플릿(화면 틀)은 분리돼 있고, 문서는 템플릿의 일부
+기본값(brand/cta/progress/audio)만 덮어쓸 수 있다.
 
+검증 실패는 ``V3Error``(code: INVALID_DOCUMENT / INVALID_DURATION / INVALID_LAYOUT /
+INVALID_TRANSITION / INVALID_IMAGE_SPEC / EMPTY_SCENE / TIMING_MISMATCH / INVALID_TEMPLATE).
 표준 라이브러리만 사용한다. ``data/``를 읽거나 쓰지 않는다.
 """
 
 from __future__ import annotations
 
-import copy
 import json
 import math
 import re
@@ -21,37 +22,18 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from content_engine.shorts_v2_scene import CHARS_PER_SECOND, ENTRANCE_SECONDS, STYLES, TRANSITIONS
+from content_engine.shorts_v2_scene import ENTRANCE_SECONDS
+from content_engine.shorts_v3_template import (  # noqa: F401 - 6-52 호환 재노출
+    TEMPLATE_DIR, V3Error, canonical_sha256, deep_merge, load_template, resolve_template,
+)
 
 SCHEMA = "shorts_v3_document/1"
-TEMPLATE_DIR = Path(__file__).resolve().parent / "shorts_v3_templates"
+TRANSITIONS = ("cut", "punch", "dissolve", "fade", "slide")  # fade = dissolve 별칭
+IMAGE_FITS = ("cover", "contain")
 _POSITIONS = {"center": (0.5, 0.5), "top": (0.5, 0.0), "bottom": (0.5, 1.0), "left": (0.0, 0.5), "right": (1.0, 0.5)}
-
-
-class V3DocumentError(ValueError):
-    """문서/템플릿이 스키마 규칙을 어길 때 발생한다."""
-
-
-def deep_merge(base: Mapping, override: Mapping | None) -> dict:
-    out = copy.deepcopy(dict(base))
-    for key, value in (override or {}).items():
-        out[key] = deep_merge(out[key], value) if isinstance(value, Mapping) and isinstance(out.get(key), Mapping) else value
-    return out
-
-
-def load_template(name_or_path: str | Path) -> dict:
-    path = Path(name_or_path)
-    if not path.suffix:
-        path = TEMPLATE_DIR / f"{name_or_path}.json"
-    if not path.exists():
-        raise V3DocumentError(f"템플릿이 없습니다: {path}")
-    template = json.loads(path.read_text(encoding="utf-8"))
-    for key in ("canvas", "frames", "text", "layouts", "progress", "audio", "brand", "timing", "look"):
-        if key not in template:
-            raise V3DocumentError(f"템플릿에 '{key}'가 없습니다: {path}")
-    if template["audio"].get("background") not in STYLES:
-        raise V3DocumentError(f"audio.background는 {STYLES} 중 하나여야 합니다.")
-    return template
+_LATIN = re.compile(r"[A-Za-z0-9]")
+# 6-52 호환: 예전 이름. 이제 모든 문서 오류는 V3Error(code)다.
+V3DocumentError = V3Error
 
 
 @dataclass(frozen=True)
@@ -59,22 +41,43 @@ class Media:
     path: str = ""
     alt: str = ""
     source: str = ""
+    fit: str = ""  # cover | contain, 비우면 템플릿 image.fit
+    position: tuple[float, float] = (0.5, 0.5)  # 기준점(focal point, 0~1)
+    scale: float = 1.0  # 기준점 주위 확대(1.0~4.0)
+
+
+@dataclass(frozen=True)
+class Source:
+    value: str
+    label: str = ""  # 비우면 템플릿 text.source.label("출처")
+
+    def display(self, template: Mapping) -> str:
+        spec = template["text"]["source"]
+        label = self.label or spec.get("label", "")
+        return f"{label}{spec.get('separator', ' · ')}{self.value}" if label else self.value
 
 
 @dataclass(frozen=True)
 class V3Scene:
     layout: str = "text_focus"
     image: Media | None = None
-    image_position: tuple[float, float] = (0.5, 0.5)  # 이미지에서 잘라낼 때 기준점(0~1)
-    image_scale: float = 1.0  # 1 이상이면 기준점 주위를 확대
     headline: str = ""
-    body: str = ""
+    body: str = ""  # 빈 줄("\n\n")로 문단을 나눌 수 있다
     subtitle: str = ""  # 하단 자막 한 줄
-    source: str = ""  # 하단 footer 출처(본문에 넣지 않는다)
+    source: Source | None = None  # footer 출처(본문에 넣지 않는다)
     duration: float | None = None  # 생략하면 글자 수로 자동(박자 단위로 올림)
-    transition: str = "punch"
+    transition: str = ""  # 비우면 템플릿 transition.default
     emphasis: tuple[str, ...] = ()  # 강조할 구절(본문/헤드라인 안에서 찾아 *구절*로 표시)
     audio: tuple[str, ...] = ("whoosh",)  # 장면 시작 효과음 cue(6-41 합성기)
+
+    # 6-52 호환 속성
+    @property
+    def image_position(self) -> tuple[float, float]:
+        return self.image.position if self.image else (0.5, 0.5)
+
+    @property
+    def image_scale(self) -> float:
+        return self.image.scale if self.image else 1.0
 
     def marked(self, text: str) -> str:
         for phrase in self.emphasis:
@@ -83,18 +86,27 @@ class V3Scene:
         return text
 
     @property
-    def readable_chars(self) -> int:
-        return len(re.sub(r"[\s*]", "", self.headline + self.body + self.subtitle))
+    def visible_text(self) -> str:
+        return re.sub(r"[\s*]", "", self.headline + self.body + self.subtitle)
 
 
 @dataclass(frozen=True)
-class ShortsV3Document:
+class V3RenderDocument:
     id: str
     title: str
     scenes: tuple[V3Scene, ...]
-    template: dict
+    template: dict  # 해석·검증이 끝난 최종 템플릿(문서 덮어쓰기 포함)
     lineage: dict = field(default_factory=dict)
     base_dir: Path = Path(".")  # 이미지 상대 경로 기준(문서 파일 위치)
+    content: dict = field(default_factory=dict, compare=False)  # 원본 문서 dict(해시/lineage용)
+
+    @property
+    def content_id(self) -> str:
+        return str(self.lineage.get("content_id") or "")
+
+    @property
+    def generation_id(self) -> str | None:
+        return self.lineage.get("generation_id")
 
     @property
     def brand(self) -> dict:
@@ -112,116 +124,172 @@ class ShortsV3Document:
     def beat_seconds(self) -> float:
         return 60.0 / float(self.audio["bpm"])
 
+    def transition_of(self, scene: V3Scene) -> str:
+        name = scene.transition or self.template["transition"].get("default", "punch")
+        return "dissolve" if name == "fade" else name
+
     def image_path(self, scene: V3Scene) -> Path | None:
         if scene.image is None or not scene.image.path:
             return None
         p = Path(scene.image.path)
         return p if p.is_absolute() else self.base_dir / p
 
+    def document_sha256(self) -> str:
+        return canonical_sha256(self.content)
+
+    def template_sha256(self) -> str:
+        return canonical_sha256(self.template)
+
     # ---- 읽기 ----
     @classmethod
-    def from_dict(cls, data: Mapping, base_dir: Path | str = ".", template: dict | None = None) -> "ShortsV3Document":
+    def from_dict(cls, data: Mapping, base_dir: Path | str = ".", template: dict | None = None) -> "V3RenderDocument":
         if not isinstance(data, Mapping):
-            raise V3DocumentError("문서는 JSON 객체여야 합니다.")
+            raise V3Error("INVALID_DOCUMENT", "문서는 JSON 객체여야 합니다.")
         if data.get("schema", SCHEMA) != SCHEMA:
-            raise V3DocumentError(f"지원하지 않는 schema: {data.get('schema')!r}")
-        base = template or load_template(data.get("template", "default"))
-        # 문서가 템플릿 기본값 일부(브랜드/CTA/진행 표시/오디오)를 덮어쓸 수 있다
-        overrides = {k: data[k] for k in ("brand", "progress", "audio") if isinstance(data.get(k), Mapping)}
+            raise V3Error("INVALID_DOCUMENT", f"지원하지 않는 schema: {data.get('schema')!r}")
+        overrides: dict = {k: data[k] for k in ("brand", "progress", "audio") if isinstance(data.get(k), Mapping)}
         if isinstance(data.get("brand"), str):
             overrides["brand"] = {"text": data["brand"]}
         if isinstance(data.get("cta"), str):
             overrides.setdefault("brand", {})["cta"] = data["cta"]
         if isinstance(data.get("progress"), bool):
             overrides["progress"] = {"enabled": data["progress"]}
-        tpl = deep_merge(base, overrides)
+        tpl = resolve_template(template if template is not None else data.get("template", "default"), overrides)
         raw_scenes = data.get("scenes")
         if not isinstance(raw_scenes, list) or not raw_scenes:
-            raise V3DocumentError("scenes는 비어 있지 않은 배열이어야 합니다.")
+            raise V3Error("INVALID_DOCUMENT", "scenes는 비어 있지 않은 배열이어야 합니다.")
+        lineage = data.get("lineage") or {}
+        if not isinstance(lineage, Mapping):
+            raise V3Error("INVALID_DOCUMENT", "lineage는 객체여야 합니다.")
         doc = cls(
             id=str(data.get("id", "")),
             title=str(data.get("title", "")).strip(),
             scenes=tuple(_scene(raw, i) for i, raw in enumerate(raw_scenes)),
             template=tpl,
-            lineage=dict(data.get("lineage") or {}),
+            lineage=dict(lineage),
             base_dir=Path(base_dir),
+            content=json.loads(json.dumps(dict(data), ensure_ascii=False)),
         )
-        validate_document(doc)
+        validate_document(doc, data.get("expected_duration"))
         return doc
 
     @classmethod
-    def load(cls, path: Path | str, template: dict | None = None) -> "ShortsV3Document":
+    def load(cls, path: Path | str, template: dict | None = None) -> "V3RenderDocument":
         path = Path(path)
-        return cls.from_dict(json.loads(path.read_text(encoding="utf-8")), base_dir=path.parent, template=template)
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise V3Error("INVALID_DOCUMENT", f"문서를 읽을 수 없습니다: {path}: {error}") from error
+        return cls.from_dict(data, base_dir=path.parent, template=template)
 
 
-def _media(raw) -> Media | None:
-    if raw in (None, ""):
-        return None
-    if isinstance(raw, str):
-        return Media(path=raw)
-    if isinstance(raw, Mapping):
-        return Media(path=str(raw.get("path", "")), alt=str(raw.get("alt", "")), source=str(raw.get("source", "")))
-    raise V3DocumentError(f"image는 경로 문자열이나 객체여야 합니다: {raw!r}")
+ShortsV3Document = V3RenderDocument  # 6-52 이름
 
 
-def _position(raw) -> tuple[float, float]:
+def _position(raw, index: int) -> tuple[float, float]:
     if raw is None:
         return (0.5, 0.5)
     if isinstance(raw, str):
         if raw not in _POSITIONS:
-            raise V3DocumentError(f"image_position은 {tuple(_POSITIONS)} 또는 [x, y]여야 합니다: {raw!r}")
+            raise V3Error("INVALID_IMAGE_SPEC", f"scene {index}: position은 {tuple(_POSITIONS)} 또는 [x, y]여야 합니다: {raw!r}")
         return _POSITIONS[raw]
+    if not (isinstance(raw, (list, tuple)) and len(raw) == 2):
+        raise V3Error("INVALID_IMAGE_SPEC", f"scene {index}: position [x, y]가 잘못됐습니다: {raw!r}")
     x, y = raw
     return (min(1.0, max(0.0, float(x))), min(1.0, max(0.0, float(y))))
 
 
+def _media(raw, scene: Mapping, index: int) -> Media | None:
+    if raw in (None, ""):
+        return None
+    if isinstance(raw, str):
+        raw = {"path": raw}
+    if not isinstance(raw, Mapping):
+        raise V3Error("INVALID_IMAGE_SPEC", f"scene {index}: image는 경로 문자열이나 객체여야 합니다: {raw!r}")
+    fit = str(raw.get("fit", scene.get("image_fit", "")))
+    if fit and fit not in IMAGE_FITS:
+        raise V3Error("INVALID_IMAGE_SPEC", f"scene {index}: image fit은 {IMAGE_FITS} 중 하나여야 합니다: {fit!r}")
+    scale = float(raw.get("scale", scene.get("image_scale", 1.0)))
+    if not 1.0 <= scale <= 4.0:
+        raise V3Error("INVALID_IMAGE_SPEC", f"scene {index}: image scale은 1.0~4.0이어야 합니다: {scale}")
+    return Media(path=str(raw.get("path", "")), alt=str(raw.get("alt", "")), source=str(raw.get("source", "")),
+                 fit=fit, position=_position(raw.get("position", scene.get("image_position")), index), scale=scale)
+
+
+def _source(raw, index: int) -> Source | None:
+    if raw in (None, ""):
+        return None
+    if isinstance(raw, str):
+        return Source(value=raw.strip())
+    if isinstance(raw, Mapping) and str(raw.get("value", "")).strip():
+        return Source(value=str(raw["value"]).strip(), label=str(raw.get("label", "")).strip())
+    raise V3Error("INVALID_DOCUMENT", f"scene {index}: source는 문자열이나 {{label, value}} 객체여야 합니다: {raw!r}")
+
+
 def _scene(raw, index: int) -> V3Scene:
     if not isinstance(raw, Mapping):
-        raise V3DocumentError(f"scene {index}는 객체여야 합니다.")
-    image = _media(raw.get("image") if "image" in raw else raw.get("media"))
+        raise V3Error("INVALID_DOCUMENT", f"scene {index}는 객체여야 합니다.")
+    image = _media(raw.get("image") if "image" in raw else raw.get("media"), raw, index)
     duration = raw.get("duration")
+    if duration is not None:
+        try:
+            duration = float(duration)
+        except (TypeError, ValueError) as error:
+            raise V3Error("INVALID_DURATION", f"scene {index}: duration이 숫자가 아닙니다: {duration!r}") from error
+    audio = raw.get("audio", ("whoosh",))
+    if isinstance(audio, str) or not all(isinstance(a, str) for a in audio):
+        raise V3Error("INVALID_DOCUMENT", f"scene {index}: audio는 효과음 이름 배열이어야 합니다: {audio!r}")
     return V3Scene(
         layout=str(raw.get("layout", "image_top" if image else "text_focus")),
         image=image,
-        image_position=_position(raw.get("image_position")),
-        image_scale=float(raw.get("image_scale", 1.0)),
         headline=str(raw.get("headline", "")).strip(),
         body=str(raw.get("body", "")).strip(),
         subtitle=str(raw.get("subtitle", "")).strip(),
-        source=str(raw.get("source", "")).strip(),
-        duration=None if duration is None else float(duration),
-        transition=str(raw.get("transition", "punch")),
+        source=_source(raw.get("source"), index),
+        duration=duration,
+        transition=str(raw.get("transition", "")),
         emphasis=tuple(str(e) for e in raw.get("emphasis", ())),
-        audio=tuple(raw.get("audio", ("whoosh",))),
+        audio=tuple(audio),
     )
 
 
-def validate_document(doc: ShortsV3Document) -> None:
+def validate_document(doc: V3RenderDocument, expected_duration=None) -> None:
     tpl = doc.template
     if not doc.title:
-        raise V3DocumentError("title이 비어 있습니다.")
-    min_scene = float(tpl["timing"]["min_scene_seconds"])
+        raise V3Error("INVALID_DOCUMENT", "title이 비어 있습니다.")
+    timing = tpl["timing"]
+    min_scene, max_scene = float(timing["min_scene_seconds"]), float(timing.get("max_scene_seconds", 60))
     for i, s in enumerate(doc.scenes):
         if s.layout not in tpl["layouts"]:
-            raise V3DocumentError(f"scene {i}: layout {s.layout!r}이 템플릿에 없습니다({tuple(tpl['layouts'])}).")
-        if s.transition not in TRANSITIONS:
-            raise V3DocumentError(f"scene {i}: transition은 {TRANSITIONS} 중 하나여야 합니다: {s.transition!r}")
+            raise V3Error("INVALID_LAYOUT", f"scene {i}: layout {s.layout!r}이 템플릿에 없습니다({tuple(tpl['layouts'])}).")
+        if s.transition and s.transition not in TRANSITIONS:
+            raise V3Error("INVALID_TRANSITION", f"scene {i}: transition은 {TRANSITIONS} 중 하나여야 합니다: {s.transition!r}")
         if not (s.image or s.headline or s.body):
-            raise V3DocumentError(f"scene {i}: image/headline/body 중 하나는 있어야 합니다.")
-        if not 1.0 <= s.image_scale <= 4.0:
-            raise V3DocumentError(f"scene {i}: image_scale은 1.0~4.0이어야 합니다: {s.image_scale}")
-        if s.duration is not None and s.duration < min_scene:
-            raise V3DocumentError(f"scene {i}: duration {s.duration}초 - 최소 {min_scene}초.")
-        if s.duration is not None and s.duration < min_read_seconds(s, tpl):
-            raise V3DocumentError(f"scene {i}: {s.duration}초로는 글을 다 읽을 수 없습니다(최소 {min_read_seconds(s, tpl):.1f}초).")
+            raise V3Error("EMPTY_SCENE", f"scene {i}: image/headline/body 중 하나는 있어야 합니다.")
+        if s.duration is not None:
+            if not math.isfinite(s.duration) or s.duration <= 0:
+                raise V3Error("INVALID_DURATION", f"scene {i}: duration은 0보다 커야 합니다: {s.duration}")
+            if not min_scene <= s.duration <= max_scene:
+                raise V3Error("INVALID_DURATION", f"scene {i}: duration {s.duration}초 - {min_scene}~{max_scene}초 범위여야 합니다.")
+            need = min_read_seconds(s, tpl)
+            if s.duration < need:
+                raise V3Error("INVALID_DURATION", f"scene {i}: {s.duration}초로는 글을 다 읽을 수 없습니다(최소 {need:.1f}초).")
+    if expected_duration is not None:  # 문서가 전체 길이를 선언했다면 장면 합계와 맞아야 한다
+        total = build_v3_timeline(doc)[-1].end
+        if abs(float(expected_duration) - total) > doc.beat_seconds:
+            raise V3Error("TIMING_MISMATCH", f"expected_duration {expected_duration}초 != 장면 합계 {total:.2f}초")
 
 
 def min_read_seconds(scene: V3Scene, template: Mapping) -> float:
+    """읽기 시간: 한글 9자/초, 라틴 문자는 더 빠르게(템플릿 timing) + 진입 애니메이션."""
     timing = template["timing"]
-    if not scene.readable_chars:
+    text = scene.visible_text
+    if not text:
         return float(timing["image_only_seconds"])
-    return max(float(timing["min_scene_seconds"]), ENTRANCE_SECONDS + scene.readable_chars / CHARS_PER_SECOND)
+    latin = len(_LATIN.findall(text))
+    seconds = ENTRANCE_SECONDS + (len(text) - latin) / float(timing.get("chars_per_second", 9.0)) \
+        + latin / float(timing.get("latin_chars_per_second", 15.0))
+    return min(float(timing.get("max_scene_seconds", 60)), max(float(timing["min_scene_seconds"]), seconds))
 
 
 @dataclass(frozen=True)
@@ -237,9 +305,10 @@ class TimedV3Scene:
         return self.start + self.duration
 
 
-def build_v3_timeline(doc: ShortsV3Document) -> tuple[TimedV3Scene, ...]:
+def build_v3_timeline(doc: V3RenderDocument) -> tuple[TimedV3Scene, ...]:
     """장면 길이를 박자 단위로 올린다 - 전환이 음악 박자 위에서 일어난다(6-41 원칙 유지)."""
     beat = doc.beat_seconds
+    min_scene = float(doc.template["timing"]["min_scene_seconds"])
     out, t = [], 0.0
     for i, s in enumerate(doc.scenes):
         seconds = s.duration if s.duration is not None else min_read_seconds(s, doc.template)
@@ -247,6 +316,7 @@ def build_v3_timeline(doc: ShortsV3Document) -> tuple[TimedV3Scene, ...]:
         out.append(TimedV3Scene(s, i, t, beats * beat, beats))
         t += beats * beat
     if doc.brand.get("end_card", True):
-        beats = max(1, math.ceil(float(doc.brand.get("end_card_seconds", 2.0)) / beat - 1e-9))
+        seconds = max(min_scene, float(doc.brand.get("end_card_seconds", 2.0)))
+        beats = max(1, math.ceil(seconds / beat - 1e-9))
         out.append(TimedV3Scene(None, len(out), t, beats * beat, beats))
     return tuple(out)

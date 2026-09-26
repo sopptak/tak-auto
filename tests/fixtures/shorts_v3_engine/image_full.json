@@ -1,0 +1,30 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-653-image_full",
+  "template": "default",
+  "title": "image_full 레이아웃",
+  "scenes": [
+    {
+      "layout": "image_full",
+      "image": {
+        "path": "images/landscape.png",
+        "source": "테스트 이미지 · 로컬 생성"
+      },
+      "headline": "전체 이미지 위 헤드라인",
+      "body": "아래쪽을 어둡게 깔고 글자를 올린다."
+    },
+    {
+      "layout": "image_full",
+      "image": {
+        "path": "images/portrait.png",
+        "position": "top"
+      },
+      "headline": "세로 이미지 전체"
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-653-image_full",
+    "generation_id": null,
+    "knowledge_id": null
+  }
+}

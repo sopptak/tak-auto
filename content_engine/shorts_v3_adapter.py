@@ -17,8 +17,9 @@ from urllib.parse import urlsplit
 
 from content_engine.shorts_script import ShortsScript
 from content_engine.shorts_v2_renderer import LOOKS
-from content_engine.shorts_v3_document import SCHEMA, load_template
-from content_engine.shorts_v3_renderer import V3LayoutError, _sub, fit_text, text_look
+from content_engine.shorts_v3_document import SCHEMA
+from content_engine.shorts_v3_layout import fit_paragraphs, sub_rect
+from content_engine.shorts_v3_template import load_template
 
 
 def source_label(takeaway: str) -> tuple[str, str]:
@@ -32,13 +33,8 @@ def source_label(takeaway: str) -> tuple[str, str]:
 
 
 def _fits(text: str, template: dict) -> bool:
-    body = template["text"]["body"]
-    rect = _sub(tuple(template["frames"]["content"]), template["layouts"]["text_focus"]["text"])
-    try:
-        fit_text(text, text_look(LOOKS[template["look"]], body), rect, body)
-        return True
-    except V3LayoutError:
-        return False
+    rect = sub_rect(tuple(template["frames"]["content"]), template["layouts"]["text_focus"]["text"])
+    return fit_paragraphs(text, LOOKS[template["look"]], rect, template["text"]["body"]) is not None
 
 
 def split_to_fit(card: str, template: dict) -> list[str]:

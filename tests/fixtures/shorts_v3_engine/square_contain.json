@@ -1,0 +1,43 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-653-square_contain",
+  "template": "default",
+  "title": "정사각형 이미지와 contain",
+  "scenes": [
+    {
+      "layout": "image_top",
+      "image": {
+        "path": "images/square.png",
+        "fit": "contain"
+      },
+      "body": "contain: 이미지 전체를 보여준다."
+    },
+    {
+      "layout": "split",
+      "image": {
+        "path": "images/square.png",
+        "fit": "cover",
+        "position": [
+          0.2,
+          0.8
+        ],
+        "scale": 1.5
+      },
+      "body": "cover + 기준점 + 확대."
+    },
+    {
+      "layout": "image_top",
+      "image": {
+        "path": "images/landscape.png",
+        "fit": "contain",
+        "position": "bottom"
+      },
+      "body": "가로 이미지 contain."
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-653-square_contain",
+    "generation_id": null,
+    "knowledge_id": null
+  }
+}

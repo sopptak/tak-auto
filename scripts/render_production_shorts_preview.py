@@ -19,7 +19,6 @@ import argparse
 import hashlib
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -28,7 +27,6 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from PIL import Image, ImageStat  # noqa: E402
 
 from content_engine.shorts_renderer import ShortsRenderError  # noqa: E402
 from content_engine.shorts_script import ShortsScript  # noqa: E402
@@ -36,6 +34,7 @@ from content_engine.shorts_v2_renderer import LOOKS, ShortsV2Renderer, layout_te
 from content_engine.shorts_v2_scene import (  # noqa: E402
     MAX_HOOK_SECONDS, MIN_TOTAL_SECONDS, Scene, ShortSpec, build_timeline, scene_beats, validate_spec,
 )
+from content_engine.shorts_qa import BLANK_STDDEV, media_checks  # noqa: E402,F401 - 6-53: 공용 모듈로 이동
 from scripts.render_shorts_v2 import extract_previews, probe  # noqa: E402
 
 PRODUCTION_ARCHIVE = ROOT / "data" / "tak_media_archive.json"
@@ -51,7 +50,6 @@ CANDIDATES = (
     ("04", "content-e3b8d986ea6db98e", "FACT_CHECK_PASSED"),
     ("05", "content-91869ed8be17f3f3", "FACT_CHECK_PARTIAL"),
 )
-BLANK_STDDEV = 6.0  # 프레임 밝기 표준편차가 이보다 낮으면 빈 화면으로 본다
 
 
 def sha256(path: Path) -> str:
@@ -167,32 +165,6 @@ def build_spec(script: ShortsScript, content_id: str) -> tuple[ShortSpec, list[l
 def spec_to_dict(spec: ShortSpec) -> dict:
     return {"id": spec.id, "style": spec.style, "bpm": spec.bpm, "idea": spec.idea, "brand": spec.brand,
             "scenes": [{k: (list(v) if isinstance(v, tuple) else v) for k, v in s.__dict__.items()} for s in spec.scenes]}
-
-
-def media_checks(ffmpeg: str, video: Path, info: dict, expected: float, scene_times: list[tuple[int, float]],
-                 frames_dir: Path, expect_audio: bool = True) -> tuple[dict, list[int], str]:
-    """렌더 결과 MP4 자체 검사(6-51, 6-52 V3 공용): 파일/디코드/길이/해상도/코덱/빈 화면.
-    ``scene_times``는 (장면 번호, 그 장면 가운데 시각) 목록 - 실제 MP4에서 프레임을 뽑아 본다."""
-    decode = subprocess.run([ffmpeg, "-v", "error", "-i", str(video), "-f", "null", "-"],
-                            capture_output=True, text=True, encoding="utf-8", errors="replace")
-    blank = []
-    frames_dir.mkdir(parents=True, exist_ok=True)
-    for index, t in scene_times:
-        png = frames_dir / f"scene{index:02d}.png"
-        subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-ss", f"{t:.3f}",
-                        "-i", str(video), "-frames:v", "1", str(png)], check=True)
-        if ImageStat.Stat(Image.open(png).convert("L")).stddev[0] < BLANK_STDDEV:
-            blank.append(index)
-    audio_ok = info["audio_codec"] == "aac" if expect_audio else info["audio_codec"] is None
-    checks = {
-        "file_exists_nonempty": video.exists() and info["size_bytes"] > 0,
-        "decode_clean": decode.returncode == 0 and not decode.stderr.strip(),
-        "duration_matches_spec": abs(info["duration"] - expected) < 0.2 and info["duration"] > 0,
-        "resolution_1080x1920": (info["width"], info["height"]) == (1080, 1920),
-        "codec_h264_aac": info["video_codec"] == "h264" and audio_ok,
-        "no_blank_scene": not blank,
-    }
-    return checks, blank, decode.stderr.strip()[:500]
 
 
 def quality(ffmpeg: str, video: Path, info: dict, spec: ShortSpec, script: ShortsScript, split: list[list[str]],

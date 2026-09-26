@@ -19,7 +19,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageStat
+from PIL import ImageStat
 
 from content_engine.shorts_v3_adapter import document_from_shorts_script, source_label, split_to_fit
 from content_engine.shorts_v3_document import (
@@ -27,7 +27,8 @@ from content_engine.shorts_v3_document import (
 )
 from content_engine.shorts_v3_renderer import ShortsV3Renderer, V3LayoutError, soundtrack_spec
 from content_engine.shorts_v2_scene import build_timeline
-from scripts.render_shorts_v3 import structure_checks
+from tests.fixtures.shorts_v3_images import make_images
+from content_engine.shorts_v3_pipeline import gate, media_issues, structure_issues  # 6-53: 오류 코드 게이트
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures" / "shorts_v3"
@@ -35,15 +36,7 @@ HAS_FONTS = Path("C:/Windows/Fonts/NotoSansKR-VF.ttf").exists()
 FFMPEG = os.environ.get("TAK_TEST_FFMPEG") or shutil.which("ffmpeg")
 
 
-def _images(folder: Path) -> None:
-    (folder / "images").mkdir(parents=True, exist_ok=True)
-    land = Image.new("RGB", (1600, 900), (40, 90, 140))
-    ImageDraw.Draw(land).ellipse((600, 200, 1000, 600), fill=(240, 180, 60))
-    land.save(folder / "images" / "landscape.png")
-    port = Image.new("RGB", (700, 1200), (120, 40, 80))
-    ImageDraw.Draw(port).rectangle((200, 300, 500, 900), fill=(60, 200, 160))
-    port.save(folder / "images" / "portrait.png")
-    (folder / "images" / "not_an_image.png").write_bytes(b"not a png")
+_images = make_images  # 6-53: tests/fixtures/shorts_v3_images.py로 옮김
 
 
 @unittest.skipUnless(HAS_FONTS, "Noto Sans KR 폰트가 없는 환경입니다.")
@@ -71,8 +64,9 @@ class FixtureTests(unittest.TestCase):
                 r = self.renderers[name]
                 report = r.layout_report()
                 self.assertEqual(report["overflow"], [])
-                checks = structure_checks(doc, report)
-                self.assertTrue(all(checks.values()), checks)
+                # 6-53: 경로를 줬는데 없는/못 읽는 이미지는 렌더는 되지만(placeholder) 게이트가 막는다
+                expected = {"IMAGE_MISSING", "IMAGE_DECODE_FAILED"} if name.startswith("03") else set()
+                self.assertEqual(set(gate(structure_issues(doc, report))["codes"]), expected)
                 for ts in r.timeline:  # 장면마다 실제 프레임을 그려 빈 화면이 아닌지 본다
                     frame = r.frame(ts.start + ts.duration * 0.6)
                     self.assertEqual(frame.size, (1080, 1920))
@@ -80,7 +74,7 @@ class FixtureTests(unittest.TestCase):
 
     def test_long_title_fits_three_lines_in_title_frame(self) -> None:
         r = self.renderers["02_long_title_image_long_body"]
-        self.assertLessEqual(r.title.lines, 3)
+        self.assertLessEqual(sum(b.lines for b in r.title), 3)  # 6-53: 제목도 문단 블록 목록
         self.assertLess(r.layout_report()["title"]["bbox"][3], r.frames["title"][3] + 1)
 
     def test_scene_counts_2_4_5_6(self) -> None:
@@ -89,7 +83,8 @@ class FixtureTests(unittest.TestCase):
 
     def test_image_fallback_does_not_fail(self) -> None:
         statuses = [s["image"] for s in self.renderers["03_no_image"].layout_report()["scenes"][:3]]
-        self.assertEqual(statuses, ["fallback:missing", "fallback:missing", "fallback:unreadable"])
+        # 6-53: 경로가 없는 빈 슬롯(fallback:empty)과 파일이 없는 경우(fallback:missing)를 구분한다
+        self.assertEqual(statuses, ["fallback:empty", "fallback:missing", "fallback:unreadable"])
 
     def test_landscape_and_portrait_images_are_cropped_to_slot(self) -> None:
         for name in ("06_image_top", "07_split"):
@@ -110,7 +105,7 @@ class FixtureTests(unittest.TestCase):
 
     def test_emphasis_field_marks_phrase(self) -> None:
         body = self.renderers["08_text_focus"].layouts[0].body
-        self.assertTrue(body.marks)
+        self.assertTrue(any(b.marks for b in body))
 
     def test_document_overrides_brand_cta_progress_audio(self) -> None:
         d10, d09 = self.docs["10_five_scenes"], self.docs["09_two_short_scenes"]
@@ -133,10 +128,10 @@ class SeparationAndSchemaTests(unittest.TestCase):
 
     def test_template_values_move_frames_without_code_change(self) -> None:
         base = load_template("default")
-        moved = deep_merge(base, {"frames": {"title": [90, 300, 910, 600]}})
+        moved = deep_merge(base, {"frames": {"title": [90, 300, 910, 560]}})  # 6-53: 프레임끼리 겹치면 INVALID_TEMPLATE
         a = ShortsV3Renderer(ShortsV3Document.from_dict(self.DOC, template=base))
         b = ShortsV3Renderer(ShortsV3Document.from_dict(self.DOC, template=moved))
-        self.assertGreater(b.title.bbox[1], a.title.bbox[1])
+        self.assertGreater(b.title[0].bbox[1], a.title[0].bbox[1])
 
     def test_schema_errors(self) -> None:
         bad = [
@@ -192,7 +187,6 @@ class EncodeTests(unittest.TestCase):
     def test_short_mp4_passes_quality_gate(self) -> None:
         from content_engine.shorts_v3_renderer import render_short_v3
         from scripts.render_shorts_v2 import probe
-        from scripts.render_shorts_v3 import quality_gate
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
@@ -205,8 +199,9 @@ class EncodeTests(unittest.TestCase):
             if not Path(ffprobe).exists() and not shutil.which(ffprobe):
                 self.skipTest("ffprobe 없음")
             info = probe(ffprobe, video)
-            gate = quality_gate(FFMPEG, video, info, doc, result.layout, tmp / "frames")
-            self.assertTrue(gate["passed"], gate["checks"])
+            post, checks = media_issues(FFMPEG, video, info, doc, result.layout, tmp / "frames")
+            verdict = gate(structure_issues(doc, result.layout) + post)
+            self.assertEqual(verdict["status"], "PASS", verdict)
 
 
 if __name__ == "__main__":

@@ -22,33 +22,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from content_engine.shorts_v2_renderer import render_short_v2  # noqa: E402
+from content_engine.shorts_qa import probe  # noqa: E402,F401 - 6-53: 공용 모듈로 이동
 from content_engine.shorts_v2_scene import SAFE_BOX, ShortSpec  # noqa: E402
 
 SPEC_DIR = ROOT / "content_engine" / "shorts_v2_specs"
 # 미리보기 추출 지점: 첫 프레임, 15%, 50%, 80%, 마지막 프레임
 PREVIEW_POINTS = (("01", 0.0), ("15", 0.15), ("mid", 0.5), ("80", 0.8), ("last", None))
-
-
-def probe(ffprobe: str, path: Path) -> dict:
-    out = subprocess.run(
-        [ffprobe, "-v", "error", "-show_entries",
-         "format=duration,size:stream=codec_type,codec_name,width,height,r_frame_rate,duration,sample_rate,channels",
-         "-of", "json", str(path)],
-        capture_output=True, text=True, check=True,
-    ).stdout
-    data = json.loads(out)
-    video = next(s for s in data["streams"] if s["codec_type"] == "video")
-    audio = next((s for s in data["streams"] if s["codec_type"] == "audio"), None)
-    return {
-        "file": str(path.resolve()),
-        "size_bytes": int(data["format"]["size"]),
-        "duration": float(data["format"]["duration"]),
-        "width": video["width"], "height": video["height"], "fps": video["r_frame_rate"],
-        "video_codec": video["codec_name"], "video_duration": float(video.get("duration", 0)),
-        "audio_codec": audio["codec_name"] if audio else None,
-        "audio_duration": float(audio.get("duration", 0)) if audio else None,
-        "audio_channels": audio.get("channels") if audio else None,
-    }
 
 
 def extract_previews(ffmpeg: str, video: Path, duration: float, preview_dir: Path, name: str, guides: bool) -> list[Path]:

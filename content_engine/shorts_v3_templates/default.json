@@ -1,6 +1,7 @@
 {
   "id": "default",
-  "description": "6-52 Shorts V3 기본 틀. 좌표는 1080x1920 px, layouts의 영역은 CONTENT 프레임 기준 비율(x0, y0, x1, y1). 이 파일만 고치면 모든 문서의 화면 틀이 바뀐다.",
+  "version": 2,
+  "description": "Shorts V3 기본 틀(6-52, 6-53). 좌표는 1080x1920 px, layouts의 영역은 CONTENT 프레임 기준 비율(x0, y0, x1, y1). 이 파일만 고치면 모든 문서의 화면 틀이 바뀐다.",
   "canvas": {"width": 1080, "height": 1920, "fps": 30},
   "safe_area": [90, 260, 910, 1360],
   "look": "ai",
@@ -9,25 +10,31 @@
     "content": [90, 572, 910, 1196],
     "footer": [90, 1212, 910, 1360]
   },
+  "footer_rows": {"progress": 40, "source": 40, "subtitle": 64, "gap": 6, "content_gap": 16},
   "text": {
-    "title":    {"size_max": 76, "size_min": 48, "max_lines": 3, "weight": 900},
-    "headline": {"size_max": 64, "size_min": 44, "max_lines": 2, "weight": 900},
-    "body":     {"size_max": 54, "size_min": 36, "max_lines": 7, "weight": 700, "color": [228, 233, 240]},
+    "title":    {"size_max": 76, "size_min": 48, "max_lines": 3, "weight": 900, "align": "center", "line_gap_min": 1.18, "top_row": 64},
+    "headline": {"size_max": 64, "size_min": 44, "max_lines": 2, "weight": 900, "line_gap_min": 1.18, "share": 0.45},
+    "body":     {"size_max": 54, "size_min": 36, "max_lines": 7, "weight": 700, "color": [228, 233, 240], "line_gap_min": 1.18, "paragraph_gap": 22},
     "subtitle": {"size_max": 40, "size_min": 30, "max_lines": 1, "weight": 700, "color": [255, 255, 255]},
-    "source":   {"size_max": 30, "size_min": 24, "max_lines": 1, "weight": 500, "color": [170, 180, 196], "prefix": "출처 · "},
+    "source":   {"size_max": 30, "size_min": 24, "max_lines": 1, "weight": 500, "color": [170, 180, 196], "label": "출처", "separator": " · "},
     "counter":  {"size": 26, "weight": 700},
     "watermark": {"size": 30, "weight": 700},
     "gap": 28
   },
   "layouts": {
-    "image_top":  {"image": [0, 0, 1, 0.52], "text": [0, 0.56, 1, 1]},
-    "split":      {"image": [0, 0, 0.47, 1], "text": [0.52, 0, 1, 1]},
+    "image_top":  {"image": [0, 0, 1, 0.52], "text": [0, 0.56, 1, 1],
+                   "fallback": {"image": [0, 0, 1, 0.38], "text": [0, 0.42, 1, 1]}},
+    "split":      {"image": [0, 0, 0.47, 1], "text": [0.52, 0, 1, 1],
+                   "fallback": {"image": [0, 0, 0.36, 1], "text": [0.40, 0, 1, 1]}},
     "text_focus": {"text": [0, 0, 1, 1]},
-    "image_full": {"image": [0, 0, 1, 1], "text": [0.05, 0.55, 0.95, 0.97], "scrim": true}
+    "image_full": {"image": [0, 0, 1, 1], "text": [0.05, 0.55, 0.95, 0.97], "scrim": true, "credit_position": "top_right",
+                   "fallback": {"image": [0, 0, 1, 1], "text": [0.05, 0.30, 0.95, 0.97], "scrim": true, "credit_position": "top_right"}}
   },
-  "image": {"radius": 28, "ken_burns": 0.04, "credit_size": 22},
-  "progress": {"enabled": true, "position": "footer", "height": 6, "counter": true},
-  "audio": {"enabled": true, "background": "ai", "bpm": 120, "volume": 1.0, "fade_in": 0.2, "fade_out": 1.5},
-  "brand": {"text": "티몽의 지혜", "watermark": true, "end_card": true, "end_card_seconds": 2.0, "cta": "다음 편에서 또 만나요"},
-  "timing": {"min_scene_seconds": 1.2, "image_only_seconds": 2.5, "hook_headstart": 0.45, "exit_seconds": 0.2}
+  "image": {"radius": 28, "ken_burns": 0.04, "credit_size": 22, "credit_position": "bottom_right", "fit": "cover"},
+  "animation": {"body_delay": 0.2, "paragraph_delay": 0.25, "subtitle_delay": 0.3, "source_delay": 0.5, "image_in": 0.35},
+  "transition": {"default": "punch", "punch_seconds": 0.3, "punch_zoom": 0.045, "dissolve_seconds": 0.5, "slide_seconds": 0.35, "slide_distance": 140},
+  "progress": {"enabled": true, "position": "footer", "mode": "time", "bar": true, "height": 6, "counter": true},
+  "audio": {"enabled": true, "background": "ai", "bpm": 120, "volume": 1.0, "fade_in": 0.2, "fade_out": 1.5, "loop": false, "ducking": {"enabled": false, "amount_db": -8}},
+  "brand": {"text": "티몽의 지혜", "watermark": true, "end_card": true, "end_card_seconds": 2.0, "end_card_size": 104, "cta_size": 40, "cta": "다음 편에서 또 만나요"},
+  "timing": {"min_scene_seconds": 1.2, "max_scene_seconds": 20.0, "image_only_seconds": 2.5, "hook_headstart": 0.45, "exit_seconds": 0.2, "chars_per_second": 9.0, "latin_chars_per_second": 15.0}
 }

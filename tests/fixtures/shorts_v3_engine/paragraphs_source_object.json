@@ -1,0 +1,46 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-653-paragraphs_source_object",
+  "template": "default",
+  "title": "문단, 출처 객체, 전환",
+  "progress": {
+    "mode": "scene",
+    "counter": true
+  },
+  "scenes": [
+    {
+      "layout": "text_focus",
+      "headline": "문단 나누기",
+      "body": "첫 번째 문단입니다.\n\n두 번째 문단은 빈 줄로 나눈다.",
+      "source": {
+        "label": "출처",
+        "value": "BBC News / 2026-09-16"
+      }
+    },
+    {
+      "layout": "text_focus",
+      "body": "fade 전환.",
+      "transition": "fade",
+      "source": {
+        "label": "자료",
+        "value": "책 「사피엔스」"
+      }
+    },
+    {
+      "layout": "text_focus",
+      "body": "slide 전환.",
+      "transition": "slide",
+      "subtitle": "자막만 있는 장면"
+    },
+    {
+      "layout": "text_focus",
+      "body": "cut 전환.",
+      "transition": "cut"
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-653-paragraphs_source_object",
+    "generation_id": null,
+    "knowledge_id": null
+  }
+}
