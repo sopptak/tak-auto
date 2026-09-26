@@ -1,0 +1,31 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-06",
+  "template": "default",
+  "title": "image_top 레이아웃",
+  "scenes": [
+    {
+      "layout": "image_top",
+      "image": "images/landscape.png",
+      "headline": "위 이미지",
+      "body": "연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받는 것도 우선해야 한다.",
+      "source": "BBC",
+      "subtitle": "아래 자막 한 줄"
+    },
+    {
+      "layout": "image_top",
+      "image": "images/portrait.png",
+      "image_position": [
+        0.5,
+        0.2
+      ],
+      "headline": "세로 이미지 위쪽 기준 크롭"
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-06",
+    "generation_id": null,
+    "knowledge_id": null,
+    "source_script": "tests/fixtures/shorts_v3"
+  }
+}

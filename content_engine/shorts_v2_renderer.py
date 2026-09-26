@@ -253,11 +253,15 @@ def _word_image(parts: list[tuple[str, bool]], font: ImageFont.FreeTypeFont, loo
 
 
 def layout_text(text: str, look: Look, center_y: int, *, size: int | None = None, max_lines: int = 3,
-                color_override: RGB | None = None) -> TextBlock:
-    """텍스트를 안전영역 폭 안에서 어절 단위로 배치한다. 3줄을 넘으면 폰트를 줄이지 않고 실패한다."""
+                color_override: RGB | None = None, max_width: int | None = None,
+                center_x: int = SAFE_CX) -> TextBlock:
+    """텍스트를 안전영역 폭 안에서 어절 단위로 배치한다. 3줄을 넘으면 폰트를 줄이지 않고 실패한다.
+    6-52: ``max_width``/``center_x``로 V3 프레임(좁은 열 등) 안에 배치할 수 있다(기본값 = V2 동작)."""
     font = _font(look.font, size or look.size, look.weight)
     boxed = look.emphasis == "box"
-    max_width = SAFE_RIGHT - SAFE_LEFT - SAFE_PAD * 2 - (_BOX_PAD * 2 if boxed else 0)
+    if max_width is None:
+        max_width = SAFE_RIGHT - SAFE_LEFT - SAFE_PAD * 2
+    max_width -= _BOX_PAD * 2 if boxed else 0
     space = font.getlength(" ")
     lines: list[list[list[tuple[str, bool]]]] = []
     for raw in text.split("\n"):
@@ -293,7 +297,7 @@ def layout_text(text: str, look: Look, center_y: int, *, size: int | None = None
     for li, line in enumerate(lines):
         rendered = [_word_image(tok, font, this_look) for tok in line]
         line_w = sum(w for _, w, _ in rendered) + space * (len(rendered) - 1)
-        x = SAFE_CX - line_w / 2
+        x = center_x - line_w / 2
         y = top + li * line_h
         run: list | None = None  # 연속된 강조 어절을 하나의 구간으로 합친다
         for img, w, spans in rendered:
@@ -315,8 +319,8 @@ def layout_text(text: str, look: Look, center_y: int, *, size: int | None = None
             x += w + space
         if run is not None:
             marks.append(Mark((run[0], run[2], run[1], run[3]), li, run[4]))
-        x_min = min(x_min, int(SAFE_CX - line_w / 2))
-        x_max = max(x_max, int(SAFE_CX + line_w / 2))
+        x_min = min(x_min, int(center_x - line_w / 2))
+        x_max = max(x_max, int(center_x + line_w / 2))
     for m in marks:  # 구간 좌표를 실제 도형 좌표로 확정
         x0, ly, x1, _ = m.rect
         if boxed:
@@ -653,50 +657,7 @@ class ShortsV2Renderer:
         return frame
 
     def _draw_text(self, frame: Image.Image, block: TextBlock, local: float, exit_p: float, simple: bool = False) -> None:
-        motion = "rise" if simple else self.look.motion
-        look = self.look
-        d = ImageDraw.Draw(frame, "RGBA")
-        fade = 1 - exit_p
-        exit_dy = -40 * ease_out_cubic(exit_p) if motion == "rise" else 0.0
-        if not simple and look.emphasis in ("box", "color_underline"):  # 강조 구간은 글자보다 먼저(뒤에) 그린다
-            for m in block.marks:
-                if look.emphasis == "box":  # 형광펜처럼 왼쪽에서 오른쪽으로 칠해진다
-                    u = ease_out_cubic((local - m.order * 0.06) / 0.22)
-                else:  # 줄이 올라온 뒤 밑줄이 그어진다
-                    u = ease_out_cubic((local - m.line * 0.12 - 0.35) / 0.3)
-                if u <= 0:
-                    continue
-                x0, y0, x1, y1 = m.rect
-                dy = exit_dy
-                radius = 14 if look.emphasis == "box" else 4
-                d.rounded_rectangle((x0, y0 + dy, x0 + max(2 * radius, (x1 - x0) * u), y1 + dy), radius=radius, fill=look.accent + (int(255 * fade),))
-        for w in block.words:
-            if motion == "rise":  # 줄 단위로 아래에서 올라오며 등장
-                q = (local - w.line * 0.12) / 0.38
-                if q <= 0:
-                    continue
-                e = ease_out_cubic(q)
-                _blit(frame, w.image, w.x, w.y + 46 * (1 - e) + exit_dy, e * fade)
-            elif motion == "pop":  # 어절 단위 팝(살짝 크게 -> 제자리)
-                q = (local - w.order * 0.06) / 0.28
-                if q <= 0:
-                    continue
-                s = 1 + 0.22 * (1 - ease_out_back(q, 2.2)) if q < 1 else 1.0
-                s *= 1 - 0.1 * exit_p
-                img = w.image
-                if abs(s - 1) > 0.01:
-                    img = img.resize((max(1, int(img.width * s)), max(1, int(img.height * s))), Image.BILINEAR)
-                _blit(frame, img, w.x + (w.image.width - img.width) / 2, w.y + (w.image.height - img.height) / 2, _clamp(q * 3) * fade)
-            else:  # blur: 흐릿하게 떠올라 선명해진다(시네마틱)
-                q = (local - w.line * 0.35) / 0.8
-                if q <= 0:
-                    continue
-                e = ease_out_cubic(q)
-                img = w.image
-                radius = 9 * (1 - e)
-                if radius > 0.6:
-                    img = _blurred(img, round(radius))
-                _blit(frame, img, w.x, w.y + 18 * (1 - e), e * fade)
+        draw_text_block(frame, block, self.look, local, exit_p, simple)
 
     def _big(self, frame: Image.Image, a: SceneAssets, local: float, exit_p: float) -> None:
         scene, look = a.timed.scene, self.look
@@ -853,6 +814,53 @@ class ShortsV2Renderer:
                 d.line((x, y, x - 6, y + 60), fill=(200, 220, 255, rng.randint(30, 80)), width=2)
 
 
+def draw_text_block(frame: Image.Image, block: TextBlock, look: Look, local: float, exit_p: float, simple: bool = False) -> None:
+    """kinetic text(rise/pop/blur) + 강조 마크. V2 장면과 6-52 V3 프레임이 같이 쓴다."""
+    motion = "rise" if simple else look.motion
+    d = ImageDraw.Draw(frame, "RGBA")
+    fade = 1 - exit_p
+    exit_dy = -40 * ease_out_cubic(exit_p) if motion == "rise" else 0.0
+    if not simple and look.emphasis in ("box", "color_underline"):  # 강조 구간은 글자보다 먼저(뒤에) 그린다
+        for m in block.marks:
+            if look.emphasis == "box":  # 형광펜처럼 왼쪽에서 오른쪽으로 칠해진다
+                u = ease_out_cubic((local - m.order * 0.06) / 0.22)
+            else:  # 줄이 올라온 뒤 밑줄이 그어진다
+                u = ease_out_cubic((local - m.line * 0.12 - 0.35) / 0.3)
+            if u <= 0:
+                continue
+            x0, y0, x1, y1 = m.rect
+            dy = exit_dy
+            radius = 14 if look.emphasis == "box" else 4
+            d.rounded_rectangle((x0, y0 + dy, x0 + max(2 * radius, (x1 - x0) * u), y1 + dy), radius=radius, fill=look.accent + (int(255 * fade),))
+    for w in block.words:
+        if motion == "rise":  # 줄 단위로 아래에서 올라오며 등장
+            q = (local - w.line * 0.12) / 0.38
+            if q <= 0:
+                continue
+            e = ease_out_cubic(q)
+            _blit(frame, w.image, w.x, w.y + 46 * (1 - e) + exit_dy, e * fade)
+        elif motion == "pop":  # 어절 단위 팝(살짝 크게 -> 제자리)
+            q = (local - w.order * 0.06) / 0.28
+            if q <= 0:
+                continue
+            s = 1 + 0.22 * (1 - ease_out_back(q, 2.2)) if q < 1 else 1.0
+            s *= 1 - 0.1 * exit_p
+            img = w.image
+            if abs(s - 1) > 0.01:
+                img = img.resize((max(1, int(img.width * s)), max(1, int(img.height * s))), Image.BILINEAR)
+            _blit(frame, img, w.x + (w.image.width - img.width) / 2, w.y + (w.image.height - img.height) / 2, _clamp(q * 3) * fade)
+        else:  # blur: 흐릿하게 떠올라 선명해진다(시네마틱)
+            q = (local - w.line * 0.35) / 0.8
+            if q <= 0:
+                continue
+            e = ease_out_cubic(q)
+            img = w.image
+            radius = 9 * (1 - e)
+            if radius > 0.6:
+                img = _blurred(img, round(radius))
+            _blit(frame, img, w.x, w.y + 18 * (1 - e), e * fade)
+
+
 @lru_cache(maxsize=32)
 def _glow_cached(radius: int, color: RGB, alpha: int) -> Image.Image:
     return _glow(radius, color, alpha)
@@ -886,19 +894,30 @@ def render_short_v2(spec: ShortSpec, output_path: Path | str, *, ffmpeg_path: st
     """spec을 MP4로 렌더링한다. 프레임은 rawvideo로 ffmpeg stdin에 흘려보낸다
     (중간 PNG 수천 장을 디스크에 쓰지 않는다). ``max_seconds``는 테스트용 부분 렌더."""
     renderer = ShortsV2Renderer(spec, fps)
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     total = renderer.total if max_seconds is None else min(renderer.total, max_seconds)
+    frames = encode_frames(renderer.frame, total, Path(output_path), ffmpeg_path=ffmpeg_path, fps=fps,
+                           soundtrack=(lambda wav: synthesize_soundtrack(spec, wav)) if audio else None)
+    return RenderResultV2(Path(output_path), frames / fps, frames, len(renderer.timeline), audio)
+
+
+LOUDNORM = "loudnorm=I=-14:TP=-1.5:LRA=11"
+
+
+def encode_frames(frame_at, total: float, output_path: Path, *, ffmpeg_path: str = "ffmpeg", fps: int = DEFAULT_FPS,
+                  soundtrack=None, audio_filter: str = LOUDNORM) -> int:
+    """``frame_at(t)`` 프레임을 rawvideo로 ffmpeg stdin에 흘려 H.264(+AAC) MP4를 만든다.
+    ``soundtrack(wav_path)``가 있으면 그 WAV를 오디오로 붙인다. 반환값은 프레임 수. (V2/V3 공용)"""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     frames = int(round(total * fps))
-    with tempfile.TemporaryDirectory(prefix="tak_shorts_v2_") as tmp:
+    with tempfile.TemporaryDirectory(prefix="tak_shorts_") as tmp:
         cmd = [ffmpeg_path, "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
                "-s", f"{WIDTH}x{HEIGHT}", "-r", str(fps), "-i", "-"]
-        if audio:
+        if soundtrack is not None:
             wav = Path(tmp) / "soundtrack.wav"
-            synthesize_soundtrack(spec, wav)
+            soundtrack(wav)
             cmd += ["-i", str(wav), "-map", "0:v", "-map", "1:a",
                     "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
-                    "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-shortest"]
+                    "-af", audio_filter, "-shortest"]
         cmd += ["-c:v", "libx264", "-preset", "medium", "-crf", "20", "-profile:v", "high",
                 "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(output_path)]
         log_path = Path(tmp) / "ffmpeg.log"
@@ -906,14 +925,14 @@ def render_short_v2(spec: ShortSpec, output_path: Path | str, *, ffmpeg_path: st
             proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=log)
             try:
                 for n in range(frames):
-                    proc.stdin.write(renderer.frame(n / fps).convert("RGB").tobytes())
+                    proc.stdin.write(frame_at(n / fps).convert("RGB").tobytes())
                 proc.stdin.close()
             except BrokenPipeError:
                 pass
             code = proc.wait()
         if code != 0:
             raise ShortsRenderError(f"ffmpeg 인코딩 실패(exit={code}): {log_path.read_text(errors='replace')[-1500:]}")
-    return RenderResultV2(output_path, frames / fps, frames, len(renderer.timeline), audio)
+    return frames
 
 
 def spec_from_shorts_script(script: ShortsScript, style: str = "finance", bpm: float = 100) -> ShortSpec:

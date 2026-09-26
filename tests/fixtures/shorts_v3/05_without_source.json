@@ -1,0 +1,38 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-05",
+  "template": "default",
+  "title": "출처 없는 장면 여섯 개",
+  "scenes": [
+    {
+      "layout": "text_focus",
+      "body": "장면 1. 출처가 없으면 본문 영역이 footer까지 내려온다."
+    },
+    {
+      "layout": "text_focus",
+      "body": "장면 2. 출처가 없으면 본문 영역이 footer까지 내려온다."
+    },
+    {
+      "layout": "text_focus",
+      "body": "장면 3. 출처가 없으면 본문 영역이 footer까지 내려온다."
+    },
+    {
+      "layout": "text_focus",
+      "body": "장면 4. 출처가 없으면 본문 영역이 footer까지 내려온다."
+    },
+    {
+      "layout": "text_focus",
+      "body": "장면 5. 출처가 없으면 본문 영역이 footer까지 내려온다."
+    },
+    {
+      "layout": "text_focus",
+      "body": "장면 6. 출처가 없으면 본문 영역이 footer까지 내려온다."
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-05",
+    "generation_id": null,
+    "knowledge_id": null,
+    "source_script": "tests/fixtures/shorts_v3"
+  }
+}

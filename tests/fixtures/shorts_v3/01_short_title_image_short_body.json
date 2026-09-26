@@ -1,0 +1,25 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-01",
+  "template": "default",
+  "title": "AI와 나",
+  "scenes": [
+    {
+      "layout": "image_top",
+      "image": "images/landscape.png",
+      "headline": "짧은 헤드라인",
+      "body": "짧은 본문."
+    },
+    {
+      "layout": "image_top",
+      "image": "images/landscape.png",
+      "body": "두 번째 장면."
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-01",
+    "generation_id": null,
+    "knowledge_id": null,
+    "source_script": "tests/fixtures/shorts_v3"
+  }
+}

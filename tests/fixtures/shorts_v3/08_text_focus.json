@@ -1,0 +1,27 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-08",
+  "template": "default",
+  "title": "text_focus 레이아웃",
+  "scenes": [
+    {
+      "layout": "text_focus",
+      "headline": "글자만",
+      "body": "나는 이런 논란을 투명한 연구와 감독 아래 제한적으로 허용하면서 사회적 논의를 이어가는 방식으로 다뤄야 한다고 생각합니다. 연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받아야 합니다.",
+      "emphasis": [
+        "독립적인 검토"
+      ]
+    },
+    {
+      "layout": "text_focus",
+      "body": "*강조* 표시도 그대로 쓴다.",
+      "subtitle": "자막"
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-08",
+    "generation_id": null,
+    "knowledge_id": null,
+    "source_script": "tests/fixtures/shorts_v3"
+  }
+}

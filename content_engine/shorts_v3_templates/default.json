@@ -1,0 +1,33 @@
+{
+  "id": "default",
+  "description": "6-52 Shorts V3 기본 틀. 좌표는 1080x1920 px, layouts의 영역은 CONTENT 프레임 기준 비율(x0, y0, x1, y1). 이 파일만 고치면 모든 문서의 화면 틀이 바뀐다.",
+  "canvas": {"width": 1080, "height": 1920, "fps": 30},
+  "safe_area": [90, 260, 910, 1360],
+  "look": "ai",
+  "frames": {
+    "title": [90, 260, 910, 540],
+    "content": [90, 572, 910, 1196],
+    "footer": [90, 1212, 910, 1360]
+  },
+  "text": {
+    "title":    {"size_max": 76, "size_min": 48, "max_lines": 3, "weight": 900},
+    "headline": {"size_max": 64, "size_min": 44, "max_lines": 2, "weight": 900},
+    "body":     {"size_max": 54, "size_min": 36, "max_lines": 7, "weight": 700, "color": [228, 233, 240]},
+    "subtitle": {"size_max": 40, "size_min": 30, "max_lines": 1, "weight": 700, "color": [255, 255, 255]},
+    "source":   {"size_max": 30, "size_min": 24, "max_lines": 1, "weight": 500, "color": [170, 180, 196], "prefix": "출처 · "},
+    "counter":  {"size": 26, "weight": 700},
+    "watermark": {"size": 30, "weight": 700},
+    "gap": 28
+  },
+  "layouts": {
+    "image_top":  {"image": [0, 0, 1, 0.52], "text": [0, 0.56, 1, 1]},
+    "split":      {"image": [0, 0, 0.47, 1], "text": [0.52, 0, 1, 1]},
+    "text_focus": {"text": [0, 0, 1, 1]},
+    "image_full": {"image": [0, 0, 1, 1], "text": [0.05, 0.55, 0.95, 0.97], "scrim": true}
+  },
+  "image": {"radius": 28, "ken_burns": 0.04, "credit_size": 22},
+  "progress": {"enabled": true, "position": "footer", "height": 6, "counter": true},
+  "audio": {"enabled": true, "background": "ai", "bpm": 120, "volume": 1.0, "fade_in": 0.2, "fade_out": 1.5},
+  "brand": {"text": "티몽의 지혜", "watermark": true, "end_card": true, "end_card_seconds": 2.0, "cta": "다음 편에서 또 만나요"},
+  "timing": {"min_scene_seconds": 1.2, "image_only_seconds": 2.5, "hook_headstart": 0.45, "exit_seconds": 0.2}
+}

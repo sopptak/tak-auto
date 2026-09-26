@@ -169,32 +169,44 @@ def spec_to_dict(spec: ShortSpec) -> dict:
             "scenes": [{k: (list(v) if isinstance(v, tuple) else v) for k, v in s.__dict__.items()} for s in spec.scenes]}
 
 
-def quality(ffmpeg: str, video: Path, info: dict, spec: ShortSpec, script: ShortsScript, split: list[list[str]],
-            frames_dir: Path) -> dict:
-    timeline = build_timeline(spec)
-    expected = timeline[-1].end
+def media_checks(ffmpeg: str, video: Path, info: dict, expected: float, scene_times: list[tuple[int, float]],
+                 frames_dir: Path, expect_audio: bool = True) -> tuple[dict, list[int], str]:
+    """렌더 결과 MP4 자체 검사(6-51, 6-52 V3 공용): 파일/디코드/길이/해상도/코덱/빈 화면.
+    ``scene_times``는 (장면 번호, 그 장면 가운데 시각) 목록 - 실제 MP4에서 프레임을 뽑아 본다."""
     decode = subprocess.run([ffmpeg, "-v", "error", "-i", str(video), "-f", "null", "-"],
                             capture_output=True, text=True, encoding="utf-8", errors="replace")
     blank = []
     frames_dir.mkdir(parents=True, exist_ok=True)
-    for ts in timeline:  # 장면마다 가운데 프레임을 실제 MP4에서 뽑아 빈 화면인지 본다
-        png = frames_dir / f"scene{ts.index:02d}.png"
-        subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-ss", f"{ts.start + ts.duration / 2:.3f}",
+    for index, t in scene_times:
+        png = frames_dir / f"scene{index:02d}.png"
+        subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-ss", f"{t:.3f}",
                         "-i", str(video), "-frames:v", "1", str(png)], check=True)
         if ImageStat.Stat(Image.open(png).convert("L")).stddev[0] < BLANK_STDDEV:
-            blank.append(ts.index)
+            blank.append(index)
+    audio_ok = info["audio_codec"] == "aac" if expect_audio else info["audio_codec"] is None
     checks = {
         "file_exists_nonempty": video.exists() and info["size_bytes"] > 0,
         "decode_clean": decode.returncode == 0 and not decode.stderr.strip(),
         "duration_matches_spec": abs(info["duration"] - expected) < 0.2 and info["duration"] > 0,
         "resolution_1080x1920": (info["width"], info["height"]) == (1080, 1920),
-        "codec_h264_aac": info["video_codec"] == "h264" and info["audio_codec"] == "aac",
+        "codec_h264_aac": info["video_codec"] == "h264" and audio_ok,
         "no_blank_scene": not blank,
+    }
+    return checks, blank, decode.stderr.strip()[:500]
+
+
+def quality(ffmpeg: str, video: Path, info: dict, spec: ShortSpec, script: ShortsScript, split: list[list[str]],
+            frames_dir: Path) -> dict:
+    timeline = build_timeline(spec)
+    expected = timeline[-1].end
+    checks, blank, stderr = media_checks(ffmpeg, video, info, expected,
+                                         [(ts.index, ts.start + ts.duration / 2) for ts in timeline], frames_dir)
+    checks |= {
         "text_verbatim": len(split) == len(script.cards) and all(same_chars("".join(c), card) for c, card in zip(split, script.cards)),
         "layout_and_safe_area_guard": True,  # build_spec의 ShortsV2Renderer 생성이 통과해야 여기까지 온다
     }
     return {"passed": all(checks.values()), "checks": checks, "expected_duration": expected, "blank_scenes": blank,
-            "decode_stderr": decode.stderr.strip()[:500]}
+            "decode_stderr": stderr}
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -1,0 +1,31 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-02",
+  "template": "default",
+  "title": "AI 의식 연구, 어디까지 허용해야 할까? 제목이 아주 길어도 세 줄 안에서 자동으로 줄어들어야 한다",
+  "scenes": [
+    {
+      "layout": "image_top",
+      "image": {
+        "path": "images/portrait.png",
+        "alt": "세로 이미지",
+        "source": "테스트 이미지 · 로컬 생성"
+      },
+      "image_position": "top",
+      "image_scale": 1.3,
+      "headline": "긴 본문도 프레임 안에서 줄바꿈과 폰트 조정으로 들어가야 한다",
+      "body": "연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받는 것도 우선해야 한다."
+    },
+    {
+      "layout": "image_top",
+      "image": "images/portrait.png",
+      "body": "나는 이런 논란을 투명한 연구와 감독 아래 제한적으로 허용하면서 사회적 논의를 이어가는 방식으로 다뤄야 한다고 생각합니다. 연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받아야 합니다."
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-02",
+    "generation_id": null,
+    "knowledge_id": null,
+    "source_script": "tests/fixtures/shorts_v3"
+  }
+}

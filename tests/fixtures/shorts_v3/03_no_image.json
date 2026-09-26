@@ -1,0 +1,31 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-03",
+  "template": "default",
+  "title": "이미지 없음",
+  "scenes": [
+    {
+      "layout": "image_top",
+      "headline": "이미지 경로 없음",
+      "body": "placeholder로 대체된다."
+    },
+    {
+      "layout": "split",
+      "image": "images/does_not_exist.png",
+      "headline": "없는 파일",
+      "body": "렌더는 실패하지 않는다."
+    },
+    {
+      "layout": "image_full",
+      "image": "images/not_an_image.png",
+      "headline": "읽을 수 없는 파일",
+      "body": "그라디언트로 대체."
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-03",
+    "generation_id": null,
+    "knowledge_id": null,
+    "source_script": "tests/fixtures/shorts_v3"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-09",
+  "template": "default",
+  "title": "짧은 장면 두 개",
+  "progress": {
+    "position": "top"
+  },
+  "scenes": [
+    {
+      "layout": "text_focus",
+      "body": "하나.",
+      "duration": 1.2
+    },
+    {
+      "layout": "text_focus",
+      "body": "둘.",
+      "duration": 1.5,
+      "transition": "cut"
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-09",
+    "generation_id": null,
+    "knowledge_id": null,
+    "source_script": "tests/fixtures/shorts_v3"
+  }
+}

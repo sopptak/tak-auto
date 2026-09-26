@@ -1,0 +1,52 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-10",
+  "template": "default",
+  "title": "다섯 장면 혼합",
+  "brand": "테스트 브랜드",
+  "cta": "구독하고 다음 편 보기",
+  "audio": {
+    "volume": 0.8,
+    "fade_out": 1.0
+  },
+  "scenes": [
+    {
+      "layout": "image_full",
+      "image": "images/landscape.png",
+      "headline": "전체 이미지 위 글자",
+      "body": "아래쪽을 어둡게 깐다.",
+      "transition": "cut",
+      "audio": [
+        "impact"
+      ]
+    },
+    {
+      "layout": "image_top",
+      "image": "images/landscape.png",
+      "body": "연구 범위와 실험 대상을 명확히 정하고, 독립적인 검토를 받는 것도 우선해야 한다.",
+      "source": "BBC",
+      "transition": "dissolve"
+    },
+    {
+      "layout": "split",
+      "image": "images/portrait.png",
+      "body": "세로 이미지 split.",
+      "subtitle": "자막 예시"
+    },
+    {
+      "layout": "text_focus",
+      "headline": "헤드라인만"
+    },
+    {
+      "layout": "image_top",
+      "image": "images/portrait.png",
+      "duration": 2.5
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-10",
+    "generation_id": null,
+    "knowledge_id": null,
+    "source_script": "tests/fixtures/shorts_v3"
+  }
+}

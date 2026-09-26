@@ -1,0 +1,35 @@
+{
+  "schema": "shorts_v3_document/1",
+  "id": "fixture-04",
+  "template": "default",
+  "title": "출처가 있는 장면",
+  "scenes": [
+    {
+      "layout": "text_focus",
+      "body": "짧은 출처.",
+      "source": "BBC"
+    },
+    {
+      "layout": "text_focus",
+      "body": "책 출처.",
+      "source": "책 「사피엔스」"
+    },
+    {
+      "layout": "image_top",
+      "image": "images/landscape.png",
+      "body": "이미지와 출처.",
+      "source": "Reuters"
+    },
+    {
+      "layout": "text_focus",
+      "body": "아주 긴 출처는 한 줄로 말줄임된다.",
+      "source": "https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss 아주 긴 출처 설명이 계속 이어진다"
+    }
+  ],
+  "lineage": {
+    "content_id": "fixture-04",
+    "generation_id": null,
+    "knowledge_id": null,
+    "source_script": "tests/fixtures/shorts_v3"
+  }
+}
