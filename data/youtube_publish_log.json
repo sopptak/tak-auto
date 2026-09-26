@@ -9,7 +9,15 @@
       "테스트",
       "tak-auto"
     ],
-    "url": "https://youtu.be/h2X1fFMDffc"
+    "url": "https://youtu.be/h2X1fFMDffc",
+    "processing_status": "",
+    "generation_id": "",
+    "upload_mode": "legacy_unlinked",
+    "artifact_sha256": "",
+    "source_ref": "",
+    "upload_status": "",
+    "processing_failure_reason": "",
+    "last_checked_at": ""
   },
   {
     "video_id": "RAZ3E4UBj6E",
@@ -26,6 +34,13 @@
     "url": "https://youtu.be/RAZ3E4UBj6E",
     "content_id": "",
     "knowledge_id": "",
-    "processing_status": "succeeded"
+    "processing_status": "succeeded",
+    "generation_id": "",
+    "upload_mode": "test",
+    "artifact_sha256": "aba5b3a8ffd8665a2f42b98c4deea5afeb29808fd2be758175ebd0e4d97944cb",
+    "source_ref": "content_engine/shorts_v2_specs/finance.json (6-41 QA 장면 설계, content_id 없음)",
+    "upload_status": "processed",
+    "processing_failure_reason": "",
+    "last_checked_at": "2026-09-26T01:22:12.100026+00:00"
   }
 ]

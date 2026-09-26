@@ -460,11 +460,11 @@ class YouTubeUploadSupersedeBlockTests(_TempDirMixin):
         self.assertEqual(exit_code, 1)
 
     def test_missing_content_id_skips_archive_check_backward_compatible(self):
-        """--content-id를 생략한 기존 호출은 archive 검사를 아예 하지 않는다
-        (기존 동작 그대로 - 판단 근거가 없기 때문)."""
+        """--content-id 없이 --test-upload로 명시한 업로드는 archive 검사를 하지 않는다
+        (판단 근거가 없기 때문). 6-43부터 --test-upload 없는 content_id 생략 업로드는 차단된다."""
         fake_client = FakeYouTubeClient()
         with mock.patch.object(YouTubeClient, "from_environment", return_value=fake_client):
-            exit_code = self._run([])
+            exit_code = self._run(["--test-upload"])  # 6-43: content_id 없는 업로드는 테스트 모드로만
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(len(fake_client.upload_short_calls), 1)

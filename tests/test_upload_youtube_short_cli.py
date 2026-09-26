@@ -189,7 +189,7 @@ class UploadYouTubeShortCLITests(unittest.TestCase):
             ),
         ):
             exit_code, _stdout, stderr = self._run(
-                ["--video", str(self.video_path), "--title", "제목", "--history", str(self.history_path)]
+                ["--video", str(self.video_path), "--title", "제목", "--history", str(self.history_path), "--test-upload"]
             )
         self.assertNotEqual(exit_code, 0)
         self.assertIn("설정 오류", stderr)
@@ -206,6 +206,7 @@ class UploadYouTubeShortCLITests(unittest.TestCase):
                     "--tags", "인생,명언",
                     "--privacy", "private",
                     "--history", str(self.history_path),
+                    "--test-upload",  # 6-43: content_id 없는 live 업로드는 테스트 모드로만 허용
                 ]
             )
 
@@ -294,7 +295,7 @@ class UploadYouTubeShortCLITests(unittest.TestCase):
         fake_client = FakeYouTubeClient(result=YouTubeUploadResult(video_id="fake_video_id"))
         with mock.patch.object(YouTubeClient, "from_environment", return_value=fake_client):
             exit_code, _stdout, _stderr = self._run(
-                ["--video", str(self.video_path), "--title", "제목", "--history", str(self.history_path)]
+                ["--video", str(self.video_path), "--title", "제목", "--history", str(self.history_path), "--test-upload"]
             )
 
         self.assertEqual(exit_code, 0)
@@ -398,7 +399,7 @@ class UploadYouTubeShortCLITests(unittest.TestCase):
         fake_client = FakeYouTubeClient(error=YouTubeAPIError("YouTube Upload HTTP 500: message=internal error"))
         with mock.patch.object(YouTubeClient, "from_environment", return_value=fake_client):
             exit_code, _stdout, stderr = self._run(
-                ["--video", str(self.video_path), "--title", "제목", "--history", str(self.history_path)]
+                ["--video", str(self.video_path), "--title", "제목", "--history", str(self.history_path), "--test-upload"]
             )
 
         self.assertNotEqual(exit_code, 0)

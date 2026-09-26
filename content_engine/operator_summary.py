@@ -57,6 +57,7 @@ from content_engine.publish_audit import (
     audit_archive,
 )
 from content_engine.threads_review import ThreadsPendingDraft
+from content_engine.youtube_upload_history import FAILED, PROCESSING, SUCCEEDED, YouTubeUploadHistory, lifecycle_state
 from tak_brain.models import KnowledgeRecord
 
 # --- 13장: 전체 시스템 상태(기존 상태가 없으므로 이번에 최소 규칙만 정의) -------
@@ -170,6 +171,9 @@ class OperatorInputs:
 
     threads_token_present: bool = False
     youtube_credentials_present: bool = False
+    # 6-43: data/youtube_publish_log.json(읽기 전용). publish audit의 ALREADY_PUBLISHED 판정과
+    # "YouTube Uploads" lifecycle 행에 쓴다. None이면(파일 없음/미지정) 두 기능 모두 생략한다.
+    youtube_history: YouTubeUploadHistory | None = None
     youtube_renderer_available: bool = False  # 6-40부터 content_engine/shorts_renderer.py 존재 -> 실제 실행에서는 True
 
 
@@ -187,6 +191,8 @@ class OperatorSummary:
     performance: StatusWhyAction = None  # type: ignore[assignment]
     insights: StatusWhyAction = None  # type: ignore[assignment]
     recovery: StatusWhyAction = None  # type: ignore[assignment]
+    # 6-43: 실제 YouTube 업로드 기록 lifecycle/lineage/중복 방지(performance/recovery와 같은 단독 필드).
+    youtube_uploads: StatusWhyAction = None  # type: ignore[assignment]
     next_actions: tuple[str, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
@@ -203,6 +209,7 @@ class OperatorSummary:
             "performance": self.performance.to_dict(),
             "insights": self.insights.to_dict(),
             "recovery": self.recovery.to_dict(),
+            "youtube_uploads": self.youtube_uploads.to_dict() if self.youtube_uploads else None,
             "next_actions": list(self.next_actions),
         }
 
@@ -441,7 +448,10 @@ def build_blocked_items(inputs: OperatorInputs) -> tuple[StatusWhyAction, ...]:
 def build_publish_status(inputs: OperatorInputs, knowledge_by_id: dict[str, KnowledgeRecord]) -> tuple[StatusWhyAction, ...]:
     results = ()
     if inputs.production_records:
-        results = audit_archive(list(inputs.production_records), inputs=PublishAuditInputs(knowledge_by_id=knowledge_by_id))
+        results = audit_archive(
+            list(inputs.production_records),
+            inputs=PublishAuditInputs(knowledge_by_id=knowledge_by_id, youtube_history=inputs.youtube_history),
+        )
 
     def _platform_summary(platform_records) -> str:
         if not platform_records:
@@ -473,6 +483,33 @@ def build_publish_status(inputs: OperatorInputs, knowledge_by_id: dict[str, Know
             why="" if inputs.youtube_renderer_available else "Shorts Renderer 없음(docs/6-30)",
         ),
     )
+
+
+def build_youtube_uploads_row(inputs: OperatorInputs) -> StatusWhyAction:
+    """6-43: 실제 YouTube 업로드 기록의 lifecycle/lineage/중복 방지 상태(읽기 전용)."""
+    records = inputs.youtube_history.load() if inputs.youtube_history is not None else []
+    if not records:
+        return StatusWhyAction(label="YouTube Uploads", status=NOT_PRESENT, why="업로드 기록이 없습니다.")
+    states = [lifecycle_state(r) for r in records]
+    status = FAILED if FAILED in states else PROCESSING if PROCESSING in states else SUCCEEDED if all(s == SUCCEEDED for s in states) else "UPLOADED"
+    modes: dict[str, int] = {}
+    for r in records:
+        mode = str(r.get("upload_mode") or "legacy_unlinked")
+        modes[mode] = modes.get(mode, 0) + 1
+    unprotected = [r.get("video_id") for r in records if not r.get("content_id") and not r.get("artifact_sha256")]
+    lines = [
+        f"{r.get('video_id')}[{r.get('upload_mode') or 'legacy_unlinked'}] content_id={r.get('content_id') or '-'} "
+        f"privacy={r.get('privacy_status') or '-'} lifecycle={lifecycle_state(r)}"
+        for r in records
+    ]
+    why = " / ".join([", ".join(f"{k} {v}건" for k, v in sorted(modes.items()))] + lines)
+    if status == FAILED:
+        action = "처리 실패 기록의 processing_failure_reason을 YouTube Studio에서 확인하세요(자동 재업로드 없음)."
+    elif unprotected:
+        action = f"중복 방지 키(content_id/MP4 hash)가 없는 legacy 기록: {unprotected} - 같은 파일 재업로드를 CLI가 감지하지 못합니다."
+    else:
+        action = ""
+    return StatusWhyAction(label="YouTube Uploads", status=status, why=why, action=action, count=len(records))
 
 
 # --- 9장: DATA HEALTH ----------------------------------------------------------------
@@ -644,5 +681,6 @@ def build_operator_summary(inputs: OperatorInputs) -> OperatorSummary:
         performance=performance,
         insights=insights,
         recovery=recovery,
+        youtube_uploads=build_youtube_uploads_row(inputs),
         next_actions=next_actions,
     )

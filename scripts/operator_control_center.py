@@ -36,6 +36,7 @@ from content_engine.performance.store import load_snapshots
 from content_engine.performance_insight import load_insights
 from content_engine.recovery_staging import validate_production_archive
 from content_engine.threads_review import load_pending
+from content_engine.youtube_upload_history import YouTubeUploadHistory
 from scripts.run_scout_dashboard import discover_generation_pool_paths
 from tak_brain import load_knowledge_records
 from tak_scout.collector import load_daily_pack
@@ -125,7 +126,13 @@ def _load_operator_inputs(args: argparse.Namespace, test_status: str) -> Operato
             os.environ.get("YOUTUBE_CLIENT_ID") and os.environ.get("YOUTUBE_CLIENT_SECRET") and os.environ.get("YOUTUBE_REFRESH_TOKEN")
         ),
         youtube_renderer_available=(ROOT / "content_engine" / "shorts_renderer.py").exists(),
+        youtube_history=_youtube_history(getattr(args, "youtube_history", None)),
     )
+
+
+def _youtube_history(path: Path | None) -> YouTubeUploadHistory | None:
+    """6-43: 업로드 기록이 있으면 읽기 전용으로 연결한다(없으면 None - 만들지 않는다)."""
+    return YouTubeUploadHistory(path) if path is not None and path.exists() else None
 
 
 def _render_row(item: StatusWhyAction) -> str:
@@ -151,6 +158,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--insights", type=Path, default=None)
     parser.add_argument("--shorts-scripts", type=Path, default=None)
     parser.add_argument("--blog-drafts", type=Path, default=None)
+    parser.add_argument("--youtube-history", type=Path, default=None)
     parser.add_argument("--test-status", choices=("PASS", "FAIL", "UNKNOWN"), default="UNKNOWN", help="최근 테스트 실행 결과(이 CLI는 테스트를 직접 실행하지 않는다)")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
@@ -164,6 +172,7 @@ def main(argv: list[str] | None = None) -> int:
     args.insights = args.insights or (data_dir / "tak_performance_insights.json")
     args.shorts_scripts = args.shorts_scripts or (data_dir / "shorts_scripts")
     args.blog_drafts = args.blog_drafts or (data_dir / "blog_drafts")
+    args.youtube_history = args.youtube_history or (data_dir / "youtube_publish_log.json")
 
     inputs = _load_operator_inputs(args, args.test_status)
     summary = build_operator_summary(inputs)
@@ -199,6 +208,8 @@ def main(argv: list[str] | None = None) -> int:
     print("\n--- PUBLISH STATUS ---")
     for item in summary.publish_status:
         print(_render_row(item))
+
+    print(_render_row(summary.youtube_uploads))
 
     print("\n--- DATA HEALTH ---")
     for item in summary.data_health:

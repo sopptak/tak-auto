@@ -15,7 +15,9 @@ MediaArchiveRecord/PerformanceRecord와 동일하게, 이미 compute_content_id(
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -23,6 +25,47 @@ from typing import Any
 
 
 DEFAULT_HISTORY_FILENAME = "youtube_publish_log.json"
+
+# 6-43: upload_mode - 이 업로드가 어떤 경로로 들어왔는가.
+#   production      : --content-id(Production Archive 승인 콘텐츠)로 올린 정식 업로드
+#   test            : --test-upload로 명시한 content_id 없는 테스트 업로드(항상 private)
+#   legacy_unlinked : 6-43 이전 기록 중 content_id도, 테스트라는 근거도 없는 기록(추측해서 채우지 않음)
+UPLOAD_MODES = ("production", "test", "legacy_unlinked")
+
+# 6-43: publish lifecycle. 기록은 업로드 성공 후에만 생기므로 UPLOAD_PENDING은 "승인됐지만
+# 아직 기록이 없는 콘텐츠"를 뜻하는 파생 상태다(publish_audit의 READY와 같은 의미).
+UPLOAD_PENDING = "UPLOAD_PENDING"
+UPLOADED = "UPLOADED"
+PROCESSING = "PROCESSING"
+SUCCEEDED = "SUCCEEDED"
+FAILED = "FAILED"
+LIFECYCLE_STATES = (UPLOAD_PENDING, UPLOADED, PROCESSING, SUCCEEDED, FAILED)
+
+_FAILED_PROCESSING = {"failed", "terminated"}
+_FAILED_UPLOAD = {"rejected", "failed", "deleted"}
+
+
+def lifecycle_state(record: Mapping[str, Any]) -> str:
+    """history 레코드 1건의 lifecycle 상태. YouTube 원본 값(processing_status/upload_status)을
+    그대로 보존하고, 이 함수는 그 값을 해석만 한다(별도 필드에 중복 저장하지 않는다)."""
+    processing = str(record.get("processing_status") or "")
+    upload = str(record.get("upload_status") or "")
+    if processing in _FAILED_PROCESSING or upload in _FAILED_UPLOAD:
+        return FAILED
+    if processing == "succeeded" or upload == "processed":
+        return SUCCEEDED
+    if processing in ("processing", "WAITING_PROCESSING"):
+        return PROCESSING
+    return UPLOADED
+
+
+def file_sha256(path: Path | str) -> str:
+    """MP4 등 로컬 산출물의 sha256(중복 업로드 판정 키, 6-43)."""
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 class YouTubeUploadHistoryError(ValueError):
@@ -47,6 +90,14 @@ class YouTubeUploadRecord:
     # 6-42: 업로드 직후 videos.list로 확인한 processingDetails.processingStatus
     # (succeeded/failed/WAITING_PROCESSING/UNKNOWN 등). 과거 기록에는 없다 - 채우지 않는다.
     processing_status: str = ""
+    # 6-43: lineage/lifecycle/중복 방지 필드(전부 선택, 과거 기록은 migration으로만 채운다).
+    generation_id: str = ""
+    upload_mode: str = ""
+    artifact_sha256: str = ""
+    source_ref: str = ""  # content_id가 없는 업로드의 출처(예: 장면 설계 파일 경로) - 사실만 기록
+    upload_status: str = ""
+    processing_failure_reason: str = ""
+    last_checked_at: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -60,7 +111,85 @@ class YouTubeUploadRecord:
             "content_id": self.content_id,
             "knowledge_id": self.knowledge_id,
             "processing_status": self.processing_status,
+            "generation_id": self.generation_id,
+            "upload_mode": self.upload_mode,
+            "artifact_sha256": self.artifact_sha256,
+            "source_ref": self.source_ref,
+            "upload_status": self.upload_status,
+            "processing_failure_reason": self.processing_failure_reason,
+            "last_checked_at": self.last_checked_at,
         }
+
+
+_NEW_FIELDS_6_43 = (
+    "processing_status", "generation_id", "upload_mode", "artifact_sha256", "source_ref",
+    "upload_status", "processing_failure_reason", "last_checked_at",
+)
+_IDENTITY_FIELDS = ("video_id", "uploaded_at", "title", "url", "content_id", "knowledge_id", "video_path", "tags")
+
+
+@dataclass(frozen=True)
+class TestUploadAnnotation:
+    """migration 시 "이 video_id는 테스트 업로드였다"는 **문서화된 근거가 있을 때만** 주는 주석.
+    artifact_sha256은 실제 파일에서 계산한 값만 넣는다(추측 금지)."""
+
+    video_id: str
+    artifact_sha256: str
+    source_ref: str
+
+
+def migrate_history_records(
+    records: list[dict[str, Any]], annotations: tuple[TestUploadAnnotation, ...] = ()
+) -> list[dict[str, Any]]:
+    """6-43 스키마로 옮긴 새 목록을 돌려준다(입력은 바꾸지 않음, 여러 번 실행해도 결과 동일).
+
+    - 없는 6-43 필드는 ""로 채운다.
+    - upload_mode: content_id가 있으면 production, 주석이 있으면 test, 둘 다 없으면 legacy_unlinked.
+    - 식별 필드(video_id/uploaded_at/title/url/content_id/knowledge_id/video_path/tags)는 절대 바꾸지 않는다.
+    - 이미 다른 값이 들어 있는 artifact_sha256/upload_mode를 덮어써야 하면 실패한다(조용한 덮어쓰기 금지).
+    """
+    by_video = {a.video_id: a for a in annotations}
+    known = {r.get("video_id") for r in records}
+    missing = sorted(set(by_video) - known)
+    if missing:
+        raise YouTubeUploadHistoryError(f"주석 대상 video_id가 이력에 없습니다: {missing}")
+    migrated = []
+    for original in records:
+        record = dict(original)
+        for name in _NEW_FIELDS_6_43:
+            record.setdefault(name, "")
+        note = by_video.get(record.get("video_id"))
+        if record.get("content_id"):
+            wanted_mode = "production"
+        elif note is not None:
+            wanted_mode = "test"
+        else:
+            wanted_mode = "legacy_unlinked"
+        if record["upload_mode"] not in ("", wanted_mode):
+            raise YouTubeUploadHistoryError(
+                f"video_id={record.get('video_id')}: upload_mode가 이미 {record['upload_mode']!r}입니다({wanted_mode!r}로 바꾸지 않음)."
+            )
+        record["upload_mode"] = wanted_mode
+        if note is not None:
+            if record["artifact_sha256"] not in ("", note.artifact_sha256):
+                raise YouTubeUploadHistoryError(f"video_id={note.video_id}: 기존 artifact_sha256과 다릅니다.")
+            record["artifact_sha256"] = note.artifact_sha256
+            record["source_ref"] = record["source_ref"] or note.source_ref
+        migrated.append(record)
+    validate_migration(records, migrated)
+    return migrated
+
+
+def validate_migration(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> None:
+    """migration 후 검증: 건수/순서/식별 필드 불변, upload_mode 유효."""
+    if len(before) != len(after):
+        raise YouTubeUploadHistoryError(f"레코드 수가 바뀌었습니다: {len(before)} -> {len(after)}")
+    for old, new in zip(before, after):
+        for name in _IDENTITY_FIELDS:
+            if old.get(name) != new.get(name):
+                raise YouTubeUploadHistoryError(f"video_id={old.get('video_id')}: 식별 필드 {name}가 바뀌었습니다.")
+        if new.get("upload_mode") not in UPLOAD_MODES:
+            raise YouTubeUploadHistoryError(f"video_id={new.get('video_id')}: upload_mode가 올바르지 않습니다.")
 
 
 class YouTubeUploadHistory:
@@ -116,6 +245,40 @@ class YouTubeUploadHistory:
         """이력을 한 건 추가하고 파일에 원자적으로(atomic) 저장한다."""
         records = self.load()
         records.append(record.to_dict())
+        self.write_records(records)
+
+    def find_by_content_id(self, content_id: str) -> dict[str, Any] | None:
+        return next((r for r in self.load() if content_id and r.get("content_id") == content_id), None)
+
+    def find_by_artifact(self, sha256: str) -> dict[str, Any] | None:
+        """같은 MP4(sha256)가 이미 올라간 기록(6-43 - 다른 content_id로 우회 등록 방지)."""
+        return next((r for r in self.load() if sha256 and r.get("artifact_sha256") == sha256), None)
+
+    def performance_targets(self) -> list[dict[str, str]]:
+        """향후 성과 수집 대상: content_id가 있는 production 업로드 중 처리 성공한 것만(6-43).
+        테스트/legacy 업로드는 성과 데이터와 연결하지 않는다."""
+        return [
+            {key: str(r.get(key) or "") for key in ("content_id", "knowledge_id", "video_id", "uploaded_at")}
+            for r in self.load()
+            if r.get("content_id") and r.get("upload_mode") == "production" and lifecycle_state(r) == SUCCEEDED
+        ]
+
+    def update_record(self, video_id: str, fields: Mapping[str, Any]) -> dict[str, Any]:
+        """video_id가 같은 레코드 1건의 필드만 갱신한다(6-43 상태 재확인/migration용).
+        식별 필드(video_id/content_id/knowledge_id/uploaded_at/url)는 바꾸지 못한다."""
+        protected = {"video_id", "content_id", "knowledge_id", "uploaded_at", "url"}
+        if protected & set(fields):
+            raise YouTubeUploadHistoryError(f"식별 필드는 갱신할 수 없습니다: {sorted(protected & set(fields))}")
+        records = self.load()
+        matches = [r for r in records if r.get("video_id") == video_id]
+        if len(matches) != 1:
+            raise YouTubeUploadHistoryError(f"video_id={video_id} 레코드가 {len(matches)}건입니다(정확히 1건이어야 함).")
+        matches[0].update(fields)
+        self.write_records(records)
+        return matches[0]
+
+    def write_records(self, records: list[dict[str, Any]]) -> None:
+        """전체 목록을 원자적으로 저장한다(append/update_record/migration 공용)."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(
             "w", encoding="utf-8", dir=self.path.parent, delete=False

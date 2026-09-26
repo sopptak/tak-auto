@@ -2012,6 +2012,7 @@ def render_operator_center_html(summary) -> str:
 {_section("HUMAN ACTION", summary.human_actions)}
 {_section("BLOCKED / RISK", summary.blocked_items)}
 {_section("PUBLISH STATUS", summary.publish_status)}
+{_swa_row_html(summary.youtube_uploads)}
 {_section("DATA HEALTH", summary.data_health)}
 
 <h2>RECOVERY</h2>
@@ -2850,6 +2851,7 @@ def make_handler_class(
                         os.environ.get("YOUTUBE_CLIENT_ID") and os.environ.get("YOUTUBE_CLIENT_SECRET") and os.environ.get("YOUTUBE_REFRESH_TOKEN")
                     ),
                     youtube_renderer_available=(ROOT / "content_engine" / "shorts_renderer.py").exists(),
+                    youtube_history=YouTubeUploadHistory(config.youtube_history_path) if config.youtube_history_path.exists() else None,
                 )
                 summary = build_operator_summary(operator_inputs)
                 self._send_html(_page("Operator Control Center", render_operator_center_html(summary)))

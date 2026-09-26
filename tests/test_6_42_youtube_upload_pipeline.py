@@ -133,12 +133,12 @@ class UploadCliPipelineTests(NoNetworkMixin, unittest.TestCase):
         self.assertFalse(self.history.exists())
 
     def test_default_privacy_is_private(self) -> None:
-        code, _ = self._run()
+        code, _ = self._run("--test-upload")
         self.assertEqual(code, 0)
         self.assertEqual(self.last_metadata["status"]["privacyStatus"], "private")
 
     def test_history_records_processing_status(self) -> None:
-        code, out = self._run()
+        code, out = self._run("--test-upload")
         self.assertEqual(code, 0)
         record = YouTubeUploadHistory(self.history).load()[0]
         self.assertEqual((record["video_id"], record["privacy_status"], record["processing_status"]),
@@ -146,7 +146,7 @@ class UploadCliPipelineTests(NoNetworkMixin, unittest.TestCase):
 
     def test_status_failure_does_not_undo_successful_upload(self) -> None:
         client = self._fake_client([YouTubeAPIError("YouTube Video Status HTTP 403: reason=insufficientPermissions")])
-        code, out = self._run(client=client)
+        code, out = self._run("--test-upload", client=client)
         self.assertEqual(code, 0)
         self.assertEqual(YouTubeUploadHistory(self.history).load()[0]["processing_status"], "UNKNOWN")
         self.assertIn("처리 상태 조회에 실패", out)

@@ -251,6 +251,8 @@ class YouTubeVideoStatus:
     upload_status: str = ""
     processing_status: str = ""
     published_at: str = ""
+    # 6-43: 처리/업로드 실패 사유(processingDetails.processingFailureReason, status.failureReason/rejectionReason)
+    failure_reason: str = ""
 
     @classmethod
     def from_response(cls, video_id: str, data: Mapping[str, object]) -> "YouTubeVideoStatus":
@@ -270,6 +272,9 @@ class YouTubeVideoStatus:
             upload_status=str(status.get("uploadStatus", "")),
             processing_status=str(processing.get("processingStatus", "")),
             published_at=str(snippet.get("publishedAt", "")),
+            failure_reason=str(
+                processing.get("processingFailureReason") or status.get("failureReason") or status.get("rejectionReason") or ""
+            ),
         )
 
 
