@@ -45,10 +45,12 @@ from content_engine.media_archive import MediaArchiveRecord, load_archive
 from content_engine.publish_eligibility import check_content_supersede, find_production_record, format_block_message
 from content_engine.shorts_adapter import shorts_script_output_path
 from content_engine.youtube_publisher import (
+    STATUS_UNKNOWN,
     VALID_PRIVACY_STATUSES,
     YouTubeAPIError,
     YouTubeClient,
     YouTubeConfigurationError,
+    YouTubeVideoStatus,
 )
 from content_engine.youtube_upload_history import YouTubeUploadHistory, YouTubeUploadRecord
 
@@ -125,6 +127,19 @@ def main(argv: list[str] | None = None) -> int:
         help="공개 상태 (기본값: private)",
     )
     parser.add_argument(
+        "--confirm-public",
+        action="store_true",
+        help=(
+            "6-42: --privacy public은 이 플래그를 함께 줄 때만 허용한다(실수로 공개 게시되는 "
+            "경로 차단). 기본값 private은 그대로다."
+        ),
+    )
+    parser.add_argument(
+        "--skip-status-check",
+        action="store_true",
+        help="6-42: 업로드 후 processingStatus 조회(videos.list)를 건너뛴다.",
+    )
+    parser.add_argument(
         "--category-id",
         type=str,
         default="22",
@@ -186,6 +201,13 @@ def main(argv: list[str] | None = None) -> int:
     # 허용한다(PerformanceRecord가 둘 다 필수로 요구하는 것과 동일한 규칙).
     # 둘 다 생략하면(기존 사용자의 기존 명령) 이전과 완전히 동일하게 동작한다 -
     # backward compatibility가 깨지지 않는다.
+    if args.privacy == "public" and not args.confirm_public:
+        print(
+            "차단: --privacy public은 --confirm-public을 함께 지정해야 합니다(6-42 공개 게시 보호).",
+            file=sys.stderr,
+        )
+        return 1
+
     if bool(content_id) != bool(knowledge_id):
         print(
             "오류: --content-id와 --knowledge-id는 둘 다 지정하거나 둘 다 생략해야 합니다.",
@@ -285,6 +307,28 @@ def main(argv: list[str] | None = None) -> int:
     print(f"성공: YouTube Shorts 업로드 완료! (Video ID: {result.video_id})")
     print(f"URL: {result.url}")
 
+    # 6-42: 업로드 직후 제한된 횟수만 processingStatus를 확인한다. 조회 실패(예: OAuth
+    # 범위가 youtube.upload뿐이라 videos.list가 거부됨)는 업로드 성공을 되돌리지 않는다 -
+    # UNKNOWN으로 기록하고 이력 저장은 계속한다.
+    processing_status = ""
+    # 상태 조회는 best-effort다 - 조회 기능이 없는 클라이언트(테스트용 대역 등)는 건너뛴다.
+    wait_for_processing = getattr(client, "wait_for_processing", None)
+    if not args.skip_status_check and wait_for_processing is not None:
+        try:
+            status = wait_for_processing(result.video_id)
+            if not isinstance(status, YouTubeVideoStatus):
+                raise ValueError(f"상태 조회 결과 형식이 올바르지 않습니다: {type(status).__name__}")
+            processing_status = status.processing_status or STATUS_UNKNOWN
+            print(f"확인: found={status.found} privacy={status.privacy_status} "
+                  f"upload={status.upload_status} processing={processing_status}")
+            if status.found and status.title != clean_title:
+                print(f"경고: YouTube에 저장된 제목이 요청과 다릅니다: {status.title!r}", file=sys.stderr)
+            if status.found and status.privacy_status != args.privacy:
+                print(f"경고: 요청한 공개 상태({args.privacy})와 실제({status.privacy_status})가 다릅니다.", file=sys.stderr)
+        except (YouTubeAPIError, ValueError) as status_err:
+            processing_status = STATUS_UNKNOWN
+            print(f"경고: 업로드는 성공했지만 처리 상태 조회에 실패했습니다: {status_err}", file=sys.stderr)
+
     try:
         history.append(
             YouTubeUploadRecord(
@@ -296,6 +340,7 @@ def main(argv: list[str] | None = None) -> int:
                 tags=tuple(tags),
                 content_id=content_id,
                 knowledge_id=knowledge_id,
+                processing_status=processing_status,
             )
         )
     except (OSError, ValueError) as history_err:

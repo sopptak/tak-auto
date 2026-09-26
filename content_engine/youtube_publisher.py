@@ -13,9 +13,10 @@ TAK BRAIN 로직은 전혀 건드리지 않는다.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 import os
+import time
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import urlencode
@@ -204,9 +205,78 @@ def _default_stats_transport(
     return data
 
 
+def _default_status_transport(
+    access_token: str,
+    video_id: str,
+    timeout_seconds: float,
+) -> Mapping[str, object]:
+    """videos.list(part=snippet,status,processingDetails)로 업로드한 영상 1건의 상태를
+    조회한다(6-42). processingDetails는 영상 소유자에게만 반환된다(공식 문서 기준).
+    """
+    query = urlencode({"part": "snippet,status,processingDetails", "id": video_id})
+    request = Request(
+        f"{VIDEOS_URL}?{query}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        method="GET",
+    )
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        raise YouTubeAPIError(_safe_http_error_message("YouTube Video Status", error)) from None
+    except Exception as error:
+        raise YouTubeAPIError(f"YouTube 영상 상태 조회 통신 실패: {type(error).__name__}") from None
+
+    if not isinstance(data, dict):
+        raise YouTubeAPIError("YouTube 영상 상태 응답 형식이 올바르지 않습니다.")
+    return data
+
+
+# 6-42: processingDetails.processingStatus 공식 값은 processing/succeeded/failed/terminated.
+# bounded polling이 끝났는데도 processing이면 이 값으로 기록한다(무한 polling 금지).
+WAITING_PROCESSING = "WAITING_PROCESSING"
+# 상태 조회 자체가 실패했을 때(권한/네트워크 등) - 업로드 성공 여부와는 별개로 기록한다.
+STATUS_UNKNOWN = "UNKNOWN"
+
+
+@dataclass(frozen=True)
+class YouTubeVideoStatus:
+    """videos.list로 다시 읽은 업로드 영상의 메타데이터/처리 상태(6-42)."""
+
+    video_id: str
+    found: bool
+    title: str = ""
+    description: str = ""
+    privacy_status: str = ""
+    upload_status: str = ""
+    processing_status: str = ""
+    published_at: str = ""
+
+    @classmethod
+    def from_response(cls, video_id: str, data: Mapping[str, object]) -> "YouTubeVideoStatus":
+        items = data.get("items") if isinstance(data, Mapping) else None
+        if not isinstance(items, list) or not items or not isinstance(items[0], dict):
+            return cls(video_id=video_id, found=False)
+        item = items[0]
+        snippet = item.get("snippet") or {}
+        status = item.get("status") or {}
+        processing = item.get("processingDetails") or {}
+        return cls(
+            video_id=video_id,
+            found=True,
+            title=str(snippet.get("title", "")),
+            description=str(snippet.get("description", "")),
+            privacy_status=str(status.get("privacyStatus", "")),
+            upload_status=str(status.get("uploadStatus", "")),
+            processing_status=str(processing.get("processingStatus", "")),
+            published_at=str(snippet.get("publishedAt", "")),
+        )
+
+
 YouTubeTokenTransport = Callable[[str, str, str, float], Mapping[str, object]]
 YouTubeUploadTransport = Callable[[str, Mapping[str, object], Path, float], Mapping[str, object]]
 YouTubeStatsTransport = Callable[[str, Sequence[str], float], Mapping[str, object]]
+YouTubeStatusTransport = Callable[[str, str, float], Mapping[str, object]]
 
 
 @dataclass(frozen=True)
@@ -220,6 +290,7 @@ class YouTubeClient:
     token_transport: YouTubeTokenTransport = _default_token_transport
     upload_transport: YouTubeUploadTransport = _default_upload_transport
     stats_transport: YouTubeStatsTransport = _default_stats_transport
+    status_transport: YouTubeStatusTransport = _default_status_transport
 
     @classmethod
     def from_environment(
@@ -276,6 +347,33 @@ class YouTubeClient:
             raise ValueError(f"video_ids는 최대 50개까지 가능합니다: {len(video_ids)}개 전달됨")
         access_token = self._get_access_token()
         return self.stats_transport(access_token, list(video_ids), self.timeout_seconds)
+
+    def get_video_status(self, video_id: str) -> YouTubeVideoStatus:
+        """업로드한 영상 1건의 제목/설명/공개 상태/처리 상태를 다시 조회한다(6-42)."""
+        if not video_id:
+            raise ValueError("video_id가 비어 있습니다.")
+        access_token = self._get_access_token()
+        return YouTubeVideoStatus.from_response(video_id, self.status_transport(access_token, video_id, self.timeout_seconds))
+
+    def wait_for_processing(
+        self,
+        video_id: str,
+        *,
+        attempts: int = 6,
+        interval_seconds: float = 10.0,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> YouTubeVideoStatus:
+        """processingStatus가 processing이 아닐 때까지 최대 ``attempts``회 조회한다.
+        끝까지 processing이면 processing_status를 WAITING_PROCESSING으로 바꿔 돌려준다."""
+        status = self.get_video_status(video_id)
+        for _ in range(attempts - 1):
+            if status.processing_status != "processing":
+                return status
+            sleep(interval_seconds)
+            status = self.get_video_status(video_id)
+        if status.processing_status == "processing":
+            return replace(status, processing_status=WAITING_PROCESSING)
+        return status
 
     def upload_short(
         self,

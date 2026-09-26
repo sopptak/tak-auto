@@ -170,7 +170,7 @@ class OperatorInputs:
 
     threads_token_present: bool = False
     youtube_credentials_present: bool = False
-    youtube_renderer_available: bool = False  # 6-30 확정 사실: 현재 항상 False
+    youtube_renderer_available: bool = False  # 6-40부터 content_engine/shorts_renderer.py 존재 -> 실제 실행에서는 True
 
 
 @dataclass(frozen=True)

@@ -44,6 +44,9 @@ class YouTubeUploadRecord:
     # 뜻이다 - 이 값을 나중에 억지로 채우지 않는다(6-02 보고서 3장 참고).
     content_id: str = ""
     knowledge_id: str = ""
+    # 6-42: 업로드 직후 videos.list로 확인한 processingDetails.processingStatus
+    # (succeeded/failed/WAITING_PROCESSING/UNKNOWN 등). 과거 기록에는 없다 - 채우지 않는다.
+    processing_status: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -56,6 +59,7 @@ class YouTubeUploadRecord:
             "url": f"https://youtu.be/{self.video_id}",
             "content_id": self.content_id,
             "knowledge_id": self.knowledge_id,
+            "processing_status": self.processing_status,
         }
 
 

@@ -29,6 +29,7 @@ from content_engine.youtube_publisher import (
     YouTubeAPIError,
     YouTubeClient,
     YouTubeConfigurationError,
+    YouTubeVideoStatus,
     YouTubeUploadResult,
 )
 from content_engine.youtube_upload_history import YouTubeUploadHistory, YouTubeUploadRecord
@@ -48,6 +49,14 @@ class FakeYouTubeClient:
         if self.error is not None:
             raise self.error
         return self.result
+
+    def wait_for_processing(self, video_id: str):
+        """6-42: 업로드 후 상태 조회도 네트워크 없이 흉내 낸다(방금 업로드한 값 그대로 반환)."""
+        call = self.upload_short_calls[-1]
+        return YouTubeVideoStatus(
+            video_id=video_id, found=True, title=str(call["title"]),
+            privacy_status=str(call["privacy_status"]), upload_status="processed", processing_status="succeeded",
+        )
 
 
 def _make_temp_mp4() -> Path:
