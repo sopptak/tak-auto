@@ -1,0 +1,1059 @@
+{
+  "id": "choice100-world",
+  "version": "g1-1",
+  "title": "선택100 WORLD",
+  "subtitle": "세계의 길 (가제)",
+  "hook": "퀴즈를 맞히면 주사위의 홀짝을 선언할 수 있다. 지식이 곧 항해 실력이다.",
+  "intro": "당신은 가상의 탐험가·상인. 12번의 항해로 코인·지식·탐험을 모아라.",
+  "disclaimer": "본 게임의 퀴즈와 교훈은 출처를 남긴 역사 사실이지만, 보드의 항로·순서·가격·사건 효과는 게임용 가상 설정이며 실제 역사와 다릅니다.",
+  "route_note": "보드 경로는 게임용 가상 항로입니다. 실제 역사적 항로·시대 순서와 다릅니다.",
+  "turns": 12,
+  "dice": {
+    "sides": 6
+  },
+  "rewards": {
+    "DICE_PARITY": {
+      "label": "주사위 특권",
+      "desc": "굴리기 전에 홀수(1·3·5) 또는 짝수(2·4·6)를 선언. 적중 확률 3/6. 적중하면 도착 칸을 한 칸 앞·그대로·한 칸 뒤 중에서 고른다.",
+      "on_hit": {
+        "steer": 1
+      }
+    },
+    "MOVE_BONUS": {
+      "status": "planned"
+    },
+    "TRADE_BONUS": {
+      "status": "planned"
+    },
+    "EXPLORE_TOKEN": {
+      "status": "planned"
+    },
+    "PROTECTION": {
+      "status": "planned"
+    },
+    "COIN": {
+      "status": "planned"
+    }
+  },
+  "quiz_reward": {
+    "knowledge": 1
+  },
+  "lap_bonus": {
+    "coin": 20
+  },
+  "stats": [
+    {
+      "key": "coin",
+      "label": "코인",
+      "icon": "💰",
+      "min": 0
+    },
+    {
+      "key": "knowledge",
+      "label": "지식",
+      "icon": "📚",
+      "min": 0
+    },
+    {
+      "key": "exploration",
+      "label": "탐험",
+      "icon": "🧭",
+      "min": 0
+    }
+  ],
+  "goods": [
+    {
+      "key": "spice",
+      "label": "향신료",
+      "icon": "🌶️"
+    },
+    {
+      "key": "silk",
+      "label": "비단",
+      "icon": "🧵"
+    }
+  ],
+  "cargo_cap": 6,
+  "start": {
+    "coin": 100,
+    "knowledge": 0,
+    "exploration": 0
+  },
+  "score_weights": {
+    "coin": 1,
+    "knowledge": 15,
+    "exploration": 20
+  },
+  "quizzes": [
+    {
+      "id": "w01",
+      "question": "산업혁명이 가장 먼저 본격적으로 시작된 나라는?",
+      "choices": [
+        "프랑스",
+        "영국",
+        "독일",
+        "미국"
+      ],
+      "correct": 1,
+      "explanation": "산업혁명은 1760년 무렵 영국(그레이트브리튼)에서 시작돼 1840년 무렵까지 유럽 대륙과 미국으로 퍼졌다.",
+      "topic": "산업혁명",
+      "era": "근대",
+      "region": "유럽",
+      "source": "Wikipedia(영문) 'Industrial Revolution' https://en.wikipedia.org/wiki/Industrial_Revolution",
+      "source_date": "2026-09-27"
+    },
+    {
+      "id": "w02",
+      "question": "희망봉을 돌아 유럽에서 인도까지 바닷길을 처음 연 바스쿠 다 가마는 어느 나라 사람일까?",
+      "choices": [
+        "스페인",
+        "네덜란드",
+        "포르투갈",
+        "영국"
+      ],
+      "correct": 2,
+      "explanation": "바스쿠 다 가마는 포르투갈의 항해가로, 아프리카 남단을 돌아 인도로 가는 첫 바닷길을 열었다.",
+      "topic": "대항해시대",
+      "era": "근세",
+      "region": "유럽·인도양",
+      "source": "Wikipedia(영문) 'Vasco da Gama' https://en.wikipedia.org/wiki/Vasco_da_Gama",
+      "source_date": "2026-09-27"
+    },
+    {
+      "id": "w03",
+      "question": "바스쿠 다 가마가 인도 코지코드(캘리컷)에 도착한 해는?",
+      "choices": [
+        "1453년",
+        "1492년",
+        "1498년",
+        "1522년"
+      ],
+      "correct": 2,
+      "explanation": "다 가마는 1498년 5월 20일 코지코드에 상륙했다.",
+      "topic": "대항해시대",
+      "era": "근세",
+      "region": "인도",
+      "source": "Wikipedia(영문) 'Vasco da Gama' https://en.wikipedia.org/wiki/Vasco_da_Gama",
+      "source_date": "2026-09-27"
+    },
+    {
+      "id": "w04",
+      "question": "1453년 콘스탄티노폴리스를 함락한 나라는?",
+      "choices": [
+        "오스만 제국",
+        "몽골 제국",
+        "베네치아 공화국",
+        "신성 로마 제국"
+      ],
+      "correct": 0,
+      "explanation": "비잔티움 제국의 수도 콘스탄티노폴리스는 1453년 5월 29일 오스만 제국에 함락됐다.",
+      "topic": "비잔티움·오스만",
+      "era": "중세 말",
+      "region": "지중해",
+      "source": "Wikipedia(영문) 'Fall of Constantinople' https://en.wikipedia.org/wiki/Fall_of_Constantinople",
+      "source_date": "2026-09-27"
+    },
+    {
+      "id": "w05",
+      "question": "수에즈 운하가 공식 개통된 해는?",
+      "choices": [
+        "1769년",
+        "1819년",
+        "1869년",
+        "1914년"
+      ],
+      "correct": 2,
+      "explanation": "수에즈 운하는 1859년부터 1869년까지 건설돼 1869년 11월 17일 공식 개통했다.",
+      "topic": "수에즈 운하",
+      "era": "근대",
+      "region": "중동·아프리카",
+      "source": "Wikipedia(영문) 'Suez Canal' https://en.wikipedia.org/wiki/Suez_Canal",
+      "source_date": "2026-09-27"
+    },
+    {
+      "id": "w06",
+      "question": "수에즈 운하가 이어 주는 두 바다는?",
+      "choices": [
+        "흑해와 카스피해",
+        "지중해와 홍해",
+        "홍해와 아라비아해",
+        "지중해와 대서양"
+      ],
+      "correct": 1,
+      "explanation": "수에즈 운하는 이집트의 수에즈 지협을 가로질러 지중해와 홍해를 잇는다.",
+      "topic": "수에즈 운하",
+      "era": "근대",
+      "region": "중동·아프리카",
+      "source": "Wikipedia(영문) 'Suez Canal' https://en.wikipedia.org/wiki/Suez_Canal",
+      "source_date": "2026-09-27"
+    },
+    {
+      "id": "w07",
+      "question": "구텐베르크가 발명해 유럽에 지식이 빠르게 퍼지게 한 것은?",
+      "choices": [
+        "나침반",
+        "활판 인쇄기",
+        "망원경",
+        "증기 기관"
+      ],
+      "correct": 1,
+      "explanation": "구텐베르크의 활판 인쇄기는 인쇄 속도를 크게 높여 유럽에 정보 혁명을 일으켰다.",
+      "topic": "인쇄술",
+      "era": "중세 말",
+      "region": "유럽",
+      "source": "Wikipedia(영문) 'Johannes Gutenberg' https://en.wikipedia.org/wiki/Johannes_Gutenberg",
+      "source_date": "2026-09-27"
+    },
+    {
+      "id": "w08",
+      "question": "마젤란 원정대의 첫 세계 일주를 마무리해 1522년 스페인으로 돌아온 지휘관은?",
+      "choices": [
+        "마젤란",
+        "엘카노",
+        "콜럼버스",
+        "바스쿠 다 가마"
+      ],
+      "correct": 1,
+      "explanation": "마젤란이 필리핀에서 숨진 뒤 엘카노가 항해를 이어 1522년 스페인으로 돌아왔다.",
+      "topic": "세계 일주",
+      "era": "근세",
+      "region": "세계",
+      "source": "Wikipedia(영문) 'Magellan expedition' https://en.wikipedia.org/wiki/Magellan_expedition",
+      "source_date": "2026-09-27"
+    },
+    {
+      "id": "w09",
+      "question": "프랑스 혁명이 시작된 해는?",
+      "choices": [
+        "1689년",
+        "1776년",
+        "1789년",
+        "1848년"
+      ],
+      "correct": 2,
+      "explanation": "프랑스 혁명은 1789년 삼부회 소집과 함께 시작돼 1799년까지 이어졌다.",
+      "topic": "프랑스 혁명",
+      "era": "근대",
+      "region": "유럽",
+      "source": "Wikipedia(영문) 'French Revolution' https://en.wikipedia.org/wiki/French_Revolution",
+      "source_date": "2026-09-27"
+    },
+    {
+      "id": "w10",
+      "question": "1405~1433년 인도양으로 일곱 차례 원정을 이끈 정화는 어느 왕조의 제독이었을까?",
+      "choices": [
+        "당나라",
+        "송나라",
+        "원나라",
+        "명나라"
+      ],
+      "correct": 3,
+      "explanation": "정화는 명나라 초기의 제독으로, 1405~1433년 일곱 차례 대원정을 이끌었다.",
+      "topic": "정화의 원정",
+      "era": "근세",
+      "region": "중국·인도양",
+      "source": "Wikipedia(영문) 'Zheng He' https://en.wikipedia.org/wiki/Zheng_He",
+      "source_date": "2026-09-27"
+    },
+    {
+      "id": "w11",
+      "question": "유럽에서 흑사병이 크게 유행한 시기는?",
+      "choices": [
+        "10세기",
+        "12세기",
+        "14세기",
+        "16세기"
+      ],
+      "correct": 2,
+      "explanation": "흑사병은 14세기 중반인 1346년부터 1353년까지 유럽을 휩쓴 대유행이었다.",
+      "topic": "흑사병",
+      "era": "중세",
+      "region": "유럽",
+      "source": "Wikipedia(영문) 'Black Death' https://en.wikipedia.org/wiki/Black_Death",
+      "source_date": "2026-09-27"
+    },
+    {
+      "id": "w12",
+      "question": "기자의 대피라미드는 어느 파라오의 무덤일까?",
+      "choices": [
+        "쿠푸",
+        "투탕카멘",
+        "람세스 2세",
+        "클레오파트라"
+      ],
+      "correct": 0,
+      "explanation": "대피라미드는 고왕국 제4왕조 파라오 쿠푸의 무덤으로, 기원전 2600년 무렵 지어졌다.",
+      "topic": "고대 이집트",
+      "era": "고대",
+      "region": "아프리카",
+      "source": "Wikipedia(영문) 'Great Pyramid of Giza' https://en.wikipedia.org/wiki/Great_Pyramid_of_Giza",
+      "source_date": "2026-09-27"
+    },
+    {
+      "id": "w13",
+      "question": "잉글랜드(뒤에 영국) 동인도 회사가 세워진 해는?",
+      "choices": [
+        "1500년",
+        "1600년",
+        "1700년",
+        "1800년"
+      ],
+      "correct": 1,
+      "explanation": "동인도 회사는 1600년 인도양 교역을 위해 세워져 1874년 해산했다.",
+      "topic": "동인도 회사",
+      "era": "근세",
+      "region": "인도·동아시아",
+      "source": "Wikipedia(영문) 'East India Company' https://en.wikipedia.org/wiki/East_India_Company",
+      "source_date": "2026-09-27"
+    },
+    {
+      "id": "w14",
+      "question": "콜럼버스가 1492년 대서양을 건넌 항해는 어느 나라 왕실의 이름으로 이루어졌을까?",
+      "choices": [
+        "포르투갈",
+        "스페인",
+        "잉글랜드",
+        "프랑스"
+      ],
+      "correct": 1,
+      "explanation": "콜럼버스는 스페인 가톨릭 공동왕의 이름으로 네 차례 대서양 항해를 했다. 첫 항해는 1492년 8월 출발했다.",
+      "topic": "대항해시대",
+      "era": "근세",
+      "region": "대서양·아메리카",
+      "source": "Wikipedia(영문) 'Christopher Columbus' https://en.wikipedia.org/wiki/Christopher_Columbus",
+      "source_date": "2026-09-27"
+    },
+    {
+      "id": "w15",
+      "question": "콘스탄티노폴리스를 세워 로마 제국의 수도로 삼은 황제는?",
+      "choices": [
+        "아우구스투스",
+        "네로",
+        "콘스탄티누스 1세",
+        "유스티니아누스 1세"
+      ],
+      "correct": 2,
+      "explanation": "콘스탄티누스 1세는 콘스탄티노폴리스를 세워 제국의 수도로 삼았다.",
+      "topic": "로마 제국",
+      "era": "고대",
+      "region": "지중해",
+      "source": "Wikipedia(영문) 'Constantine the Great' https://en.wikipedia.org/wiki/Constantine_the_Great",
+      "source_date": "2026-09-27"
+    }
+  ],
+  "board": [
+    {
+      "type": "START",
+      "name": "출발 항구",
+      "region": "유럽",
+      "icon": "⚓",
+      "id": "c00"
+    },
+    {
+      "type": "CITY",
+      "name": "리스본",
+      "region": "유럽",
+      "icon": "🏰",
+      "choices": [
+        {
+          "id": "sell_spice",
+          "text": "향신료 모두 팔기 (개당 30)",
+          "sell": {
+            "good": "spice",
+            "price": 30
+          },
+          "result_text": "향신료를 팔았다."
+        },
+        {
+          "id": "sell_silk",
+          "text": "비단 모두 팔기 (개당 26)",
+          "sell": {
+            "good": "silk",
+            "price": 26
+          },
+          "result_text": "비단을 팔았다."
+        },
+        {
+          "id": "lib",
+          "text": "도서관에서 공부 (10코인)",
+          "cost": 10,
+          "effects": {
+            "knowledge": 1
+          },
+          "result_text": "항해 기록을 읽었다. 지식이 늘었다."
+        },
+        {
+          "id": "go",
+          "text": "바로 출항",
+          "effects": {},
+          "result_text": "돛을 올렸다."
+        }
+      ],
+      "id": "c01"
+    },
+    {
+      "type": "TRADE",
+      "name": "지중해 시장",
+      "region": "지중해",
+      "icon": "⚖️",
+      "choices": [
+        {
+          "id": "sell_spice",
+          "text": "향신료 모두 팔기 (개당 26)",
+          "sell": {
+            "good": "spice",
+            "price": 26
+          },
+          "result_text": "향신료를 팔았다."
+        },
+        {
+          "id": "buy_silk",
+          "text": "비단 3개 사기 (20×3)",
+          "buy": {
+            "good": "silk",
+            "qty": 3,
+            "price": 20
+          },
+          "result_text": "비단을 실었다."
+        },
+        {
+          "id": "pass",
+          "text": "그냥 지나가기",
+          "effects": {},
+          "result_text": "시장 구경만 했다."
+        }
+      ],
+      "lesson": {
+        "text": "1453년 오스만 제국이 콘스탄티노폴리스를 함락했다.",
+        "source": "Wikipedia(영문) 'Fall of Constantinople' https://en.wikipedia.org/wiki/Fall_of_Constantinople",
+        "source_date": "2026-09-27"
+      },
+      "id": "c02"
+    },
+    {
+      "type": "EXPLORE",
+      "name": "대서양 연안",
+      "region": "대서양",
+      "icon": "🧭",
+      "lesson": {
+        "text": "콜럼버스는 1492년 스페인 왕실의 이름으로 대서양을 건넜다.",
+        "source": "Wikipedia(영문) 'Christopher Columbus' https://en.wikipedia.org/wiki/Christopher_Columbus",
+        "source_date": "2026-09-27"
+      },
+      "choices": [
+        {
+          "id": "explore",
+          "text": "탐험한다 (10코인)",
+          "cost": 10,
+          "effects": {
+            "exploration": 1
+          },
+          "result_text": "새 연안을 지도에 그렸다.",
+          "bonus_if": {
+            "stat": "knowledge",
+            "gte": 2,
+            "effects": {
+              "exploration": 1,
+              "coin": 20
+            },
+            "text": "지식 덕에 해류를 읽어 먼 연안까지 갔다! 탐험 +2, 코인 +20"
+          }
+        },
+        {
+          "id": "pass",
+          "text": "지나간다",
+          "effects": {},
+          "result_text": "멀리서 바라만 봤다."
+        }
+      ],
+      "id": "c03"
+    },
+    {
+      "type": "QUIZ",
+      "name": "학자의 배",
+      "region": "대서양",
+      "icon": "❓",
+      "quiz": {
+        "coin": 20,
+        "knowledge": 1
+      },
+      "id": "c04"
+    },
+    {
+      "type": "CITY",
+      "name": "알렉산드리아",
+      "region": "북아프리카",
+      "icon": "🕌",
+      "choices": [
+        {
+          "id": "sell_silk",
+          "text": "비단 모두 팔기 (개당 24)",
+          "sell": {
+            "good": "silk",
+            "price": 24
+          },
+          "result_text": "비단을 팔았다."
+        },
+        {
+          "id": "buy_spice",
+          "text": "향신료 3개 사기 (18×3)",
+          "buy": {
+            "good": "spice",
+            "qty": 3,
+            "price": 18
+          },
+          "result_text": "향신료를 실었다."
+        },
+        {
+          "id": "lib",
+          "text": "도서관에서 공부 (10코인)",
+          "cost": 10,
+          "effects": {
+            "knowledge": 1
+          },
+          "result_text": "고대 도서관 이야기를 들었다. 지식이 늘었다."
+        },
+        {
+          "id": "go",
+          "text": "바로 출항",
+          "effects": {},
+          "result_text": "돛을 올렸다."
+        }
+      ],
+      "id": "c05"
+    },
+    {
+      "type": "EVENT",
+      "name": "흑사병의 기억",
+      "region": "지중해",
+      "icon": "📜",
+      "effect": {
+        "coin": -15
+      },
+      "event_text": "역병 소문에 항구가 닫혔다. 발이 묶여 15코인 손해.",
+      "lesson": {
+        "text": "흑사병은 1346~1353년 유럽을 휩쓸어 인구의 30~60%가 숨진 것으로 추정된다.",
+        "source": "Wikipedia(영문) 'Black Death' https://en.wikipedia.org/wiki/Black_Death",
+        "source_date": "2026-09-27"
+      },
+      "id": "c06"
+    },
+    {
+      "type": "TRADE",
+      "name": "홍해 교역소",
+      "region": "중동",
+      "icon": "⚖️",
+      "choices": [
+        {
+          "id": "buy_spice",
+          "text": "향신료 3개 사기 (14×3)",
+          "buy": {
+            "good": "spice",
+            "qty": 3,
+            "price": 14
+          },
+          "result_text": "향신료를 실었다."
+        },
+        {
+          "id": "sell_silk",
+          "text": "비단 모두 팔기 (개당 22)",
+          "sell": {
+            "good": "silk",
+            "price": 22
+          },
+          "result_text": "비단을 팔았다."
+        },
+        {
+          "id": "pass",
+          "text": "그냥 지나가기",
+          "effects": {},
+          "result_text": "시장 구경만 했다."
+        }
+      ],
+      "lesson": {
+        "text": "수에즈 운하는 1869년 개통돼 지중해와 홍해를 이었다.",
+        "source": "Wikipedia(영문) 'Suez Canal' https://en.wikipedia.org/wiki/Suez_Canal",
+        "source_date": "2026-09-27"
+      },
+      "id": "c07"
+    },
+    {
+      "type": "BONUS",
+      "name": "순풍",
+      "region": "인도양",
+      "icon": "🌬️",
+      "effect": {
+        "coin": 25
+      },
+      "event_text": "순풍을 만나 운송 삯을 벌었다. 코인 +25",
+      "id": "c08"
+    },
+    {
+      "type": "EXPLORE",
+      "name": "아프리카 남단",
+      "region": "아프리카",
+      "icon": "🧭",
+      "lesson": {
+        "text": "바스쿠 다 가마는 아프리카 남단을 돌아 1498년 인도 코지코드에 도착했다.",
+        "source": "Wikipedia(영문) 'Vasco da Gama' https://en.wikipedia.org/wiki/Vasco_da_Gama",
+        "source_date": "2026-09-27"
+      },
+      "choices": [
+        {
+          "id": "explore",
+          "text": "탐험한다 (10코인)",
+          "cost": 10,
+          "effects": {
+            "exploration": 1
+          },
+          "result_text": "험한 곶을 돌아 항로를 기록했다.",
+          "bonus_if": {
+            "stat": "knowledge",
+            "gte": 3,
+            "effects": {
+              "exploration": 1,
+              "coin": 20
+            },
+            "text": "지식 덕에 곶을 돌아가는 길을 찾았다! 탐험 +2, 코인 +20"
+          }
+        },
+        {
+          "id": "pass",
+          "text": "지나간다",
+          "effects": {},
+          "result_text": "멀리서 바라만 봤다."
+        }
+      ],
+      "id": "c09"
+    },
+    {
+      "type": "CITY",
+      "name": "코지코드",
+      "region": "인도",
+      "icon": "🛕",
+      "choices": [
+        {
+          "id": "buy_spice",
+          "text": "향신료 3개 사기 (10×3)",
+          "buy": {
+            "good": "spice",
+            "qty": 3,
+            "price": 10
+          },
+          "result_text": "향신료를 실었다."
+        },
+        {
+          "id": "lib",
+          "text": "도서관에서 공부 (10코인)",
+          "cost": 10,
+          "effects": {
+            "knowledge": 1
+          },
+          "result_text": "후추 교역의 역사를 배웠다. 지식이 늘었다."
+        },
+        {
+          "id": "go",
+          "text": "바로 출항",
+          "effects": {},
+          "result_text": "돛을 올렸다."
+        }
+      ],
+      "id": "c10"
+    },
+    {
+      "type": "TRADE",
+      "name": "인도양 향신료 시장",
+      "region": "인도양",
+      "icon": "⚖️",
+      "choices": [
+        {
+          "id": "buy_spice",
+          "text": "향신료 3개 사기 (8×3)",
+          "buy": {
+            "good": "spice",
+            "qty": 3,
+            "price": 8
+          },
+          "result_text": "향신료를 실었다."
+        },
+        {
+          "id": "sell_silk",
+          "text": "비단 모두 팔기 (개당 18)",
+          "sell": {
+            "good": "silk",
+            "price": 18
+          },
+          "result_text": "비단을 팔았다."
+        },
+        {
+          "id": "pass",
+          "text": "그냥 지나가기",
+          "effects": {},
+          "result_text": "시장 구경만 했다."
+        }
+      ],
+      "lesson": {
+        "text": "동인도 회사는 1600년 인도양 교역을 위해 세워졌다.",
+        "source": "Wikipedia(영문) 'East India Company' https://en.wikipedia.org/wiki/East_India_Company",
+        "source_date": "2026-09-27"
+      },
+      "id": "c11"
+    },
+    {
+      "type": "REST",
+      "name": "항구 휴식",
+      "region": "인도양",
+      "icon": "🛌",
+      "effect": {
+        "coin": 10
+      },
+      "event_text": "선원들이 부두 일을 거들어 10코인을 벌었다.",
+      "id": "c12"
+    },
+    {
+      "type": "EXPLORE",
+      "name": "믈라카 해협",
+      "region": "동남아시아",
+      "icon": "🧭",
+      "lesson": {
+        "text": "명나라 정화는 1405~1433년 인도양으로 일곱 차례 원정했다.",
+        "source": "Wikipedia(영문) 'Zheng He' https://en.wikipedia.org/wiki/Zheng_He",
+        "source_date": "2026-09-27"
+      },
+      "choices": [
+        {
+          "id": "explore",
+          "text": "탐험한다 (10코인)",
+          "cost": 10,
+          "effects": {
+            "exploration": 1
+          },
+          "result_text": "좁은 해협의 물길을 익혔다.",
+          "bonus_if": {
+            "stat": "knowledge",
+            "gte": 4,
+            "effects": {
+              "exploration": 1,
+              "coin": 20
+            },
+            "text": "지식 덕에 암초를 피해 숨은 포구를 찾았다! 탐험 +2, 코인 +20"
+          }
+        },
+        {
+          "id": "pass",
+          "text": "지나간다",
+          "effects": {},
+          "result_text": "멀리서 바라만 봤다."
+        }
+      ],
+      "id": "c13"
+    },
+    {
+      "type": "EVENT",
+      "name": "인쇄술의 확산",
+      "region": "유럽",
+      "icon": "📜",
+      "effect": {
+        "knowledge": 1
+      },
+      "event_text": "배에 인쇄된 항해 안내서가 들어왔다. 지식 +1",
+      "lesson": {
+        "text": "구텐베르크의 활판 인쇄기는 유럽에 정보 혁명을 일으켰다.",
+        "source": "Wikipedia(영문) 'Johannes Gutenberg' https://en.wikipedia.org/wiki/Johannes_Gutenberg",
+        "source_date": "2026-09-27"
+      },
+      "id": "c14"
+    },
+    {
+      "type": "CITY",
+      "name": "광저우",
+      "region": "중국",
+      "icon": "🏯",
+      "choices": [
+        {
+          "id": "buy_silk",
+          "text": "비단 3개 사기 (12×3)",
+          "buy": {
+            "good": "silk",
+            "qty": 3,
+            "price": 12
+          },
+          "result_text": "비단을 실었다."
+        },
+        {
+          "id": "sell_spice",
+          "text": "향신료 모두 팔기 (개당 20)",
+          "sell": {
+            "good": "spice",
+            "price": 20
+          },
+          "result_text": "향신료를 팔았다."
+        },
+        {
+          "id": "lib",
+          "text": "도서관에서 공부 (10코인)",
+          "cost": 10,
+          "effects": {
+            "knowledge": 1
+          },
+          "result_text": "바닷길 교역 기록을 읽었다. 지식이 늘었다."
+        },
+        {
+          "id": "go",
+          "text": "바로 출항",
+          "effects": {},
+          "result_text": "돛을 올렸다."
+        }
+      ],
+      "id": "c15"
+    },
+    {
+      "type": "TRADE",
+      "name": "비단 시장",
+      "region": "중국",
+      "icon": "⚖️",
+      "choices": [
+        {
+          "id": "buy_silk",
+          "text": "비단 3개 사기 (10×3)",
+          "buy": {
+            "good": "silk",
+            "qty": 3,
+            "price": 10
+          },
+          "result_text": "비단을 실었다."
+        },
+        {
+          "id": "pass",
+          "text": "그냥 지나가기",
+          "effects": {},
+          "result_text": "시장 구경만 했다."
+        }
+      ],
+      "id": "c16"
+    },
+    {
+      "type": "QUIZ",
+      "name": "학자의 배",
+      "region": "동중국해",
+      "icon": "❓",
+      "quiz": {
+        "coin": 20,
+        "knowledge": 1
+      },
+      "id": "c17"
+    },
+    {
+      "type": "EXPLORE",
+      "name": "먼 바다",
+      "region": "태평양",
+      "icon": "🧭",
+      "lesson": {
+        "text": "마젤란 원정대는 1519년 떠나 1522년 엘카노의 지휘로 돌아와 첫 세계 일주를 마쳤다.",
+        "source": "Wikipedia(영문) 'Magellan expedition' https://en.wikipedia.org/wiki/Magellan_expedition",
+        "source_date": "2026-09-27"
+      },
+      "choices": [
+        {
+          "id": "explore",
+          "text": "탐험한다 (10코인)",
+          "cost": 10,
+          "effects": {
+            "exploration": 1
+          },
+          "result_text": "끝없는 바다를 건너 섬을 발견했다.",
+          "bonus_if": {
+            "stat": "knowledge",
+            "gte": 5,
+            "effects": {
+              "exploration": 1,
+              "coin": 20
+            },
+            "text": "지식 덕에 별을 보고 항로를 잡았다! 탐험 +2, 코인 +20"
+          }
+        },
+        {
+          "id": "pass",
+          "text": "지나간다",
+          "effects": {},
+          "result_text": "멀리서 바라만 봤다."
+        }
+      ],
+      "id": "c18"
+    },
+    {
+      "type": "BONUS",
+      "name": "좋은 거래처",
+      "region": "동아시아",
+      "icon": "🎁",
+      "effect": {
+        "coin": 30
+      },
+      "event_text": "단골 상인이 선불로 삯을 줬다. 코인 +30",
+      "id": "c19"
+    },
+    {
+      "type": "CITY",
+      "name": "나가사키",
+      "region": "일본",
+      "icon": "⛩️",
+      "choices": [
+        {
+          "id": "sell_silk",
+          "text": "비단 모두 팔기 (개당 22)",
+          "sell": {
+            "good": "silk",
+            "price": 22
+          },
+          "result_text": "비단을 팔았다."
+        },
+        {
+          "id": "sell_spice",
+          "text": "향신료 모두 팔기 (개당 24)",
+          "sell": {
+            "good": "spice",
+            "price": 24
+          },
+          "result_text": "향신료를 팔았다."
+        },
+        {
+          "id": "lib",
+          "text": "도서관에서 공부 (10코인)",
+          "cost": 10,
+          "effects": {
+            "knowledge": 1
+          },
+          "result_text": "먼 나라의 항해 이야기를 들었다. 지식이 늘었다."
+        },
+        {
+          "id": "go",
+          "text": "바로 출항",
+          "effects": {},
+          "result_text": "돛을 올렸다."
+        }
+      ],
+      "id": "c20"
+    },
+    {
+      "type": "EVENT",
+      "name": "산업혁명의 소식",
+      "region": "유럽",
+      "icon": "📜",
+      "effect": {
+        "coin": 20
+      },
+      "event_text": "공장에서 만든 물건이 싸게 들어와 운송 일감이 늘었다. 코인 +20",
+      "lesson": {
+        "text": "산업혁명은 1760년 무렵 영국에서 시작돼 1840년 무렵 유럽 대륙과 미국으로 퍼졌다.",
+        "source": "Wikipedia(영문) 'Industrial Revolution' https://en.wikipedia.org/wiki/Industrial_Revolution",
+        "source_date": "2026-09-27"
+      },
+      "id": "c21"
+    },
+    {
+      "type": "TRADE",
+      "name": "신대륙 교역소",
+      "region": "아메리카",
+      "icon": "⚖️",
+      "choices": [
+        {
+          "id": "sell_spice",
+          "text": "향신료 모두 팔기 (개당 28)",
+          "sell": {
+            "good": "spice",
+            "price": 28
+          },
+          "result_text": "향신료를 팔았다."
+        },
+        {
+          "id": "sell_silk",
+          "text": "비단 모두 팔기 (개당 30)",
+          "sell": {
+            "good": "silk",
+            "price": 30
+          },
+          "result_text": "비단을 팔았다."
+        },
+        {
+          "id": "pass",
+          "text": "그냥 지나가기",
+          "effects": {},
+          "result_text": "시장 구경만 했다."
+        }
+      ],
+      "id": "c22"
+    },
+    {
+      "type": "QUIZ",
+      "name": "학자의 배",
+      "region": "대서양",
+      "icon": "❓",
+      "quiz": {
+        "coin": 20,
+        "knowledge": 1
+      },
+      "id": "c23"
+    }
+  ],
+  "endings": [
+    {
+      "id": "legend",
+      "title": "세계사 탐험가",
+      "icon": "🏆",
+      "when": [
+        {
+          "stat": "score",
+          "op": ">=",
+          "value": 520
+        }
+      ],
+      "text": "코인·지식·탐험을 모두 챙긴 전설의 항해였다."
+    },
+    {
+      "id": "merchant",
+      "title": "대상인",
+      "icon": "💰",
+      "when": [
+        {
+          "stat": "coin",
+          "op": ">=",
+          "value": 250
+        }
+      ],
+      "text": "싸게 사서 비싸게 팔았다. 바다의 셈법을 안다."
+    },
+    {
+      "id": "scholar",
+      "title": "항해하는 학자",
+      "icon": "📚",
+      "when": [
+        {
+          "stat": "knowledge",
+          "op": ">=",
+          "value": 12
+        }
+      ],
+      "text": "가는 곳마다 배우고 기록했다."
+    },
+    {
+      "id": "explorer",
+      "title": "개척자",
+      "icon": "🧭",
+      "when": [
+        {
+          "stat": "exploration",
+          "op": ">=",
+          "value": 5
+        }
+      ],
+      "text": "아무도 가 보지 않은 물길을 지도에 그렸다."
+    },
+    {
+      "id": "wanderer",
+      "title": "떠돌이 여행자",
+      "icon": "⛵",
+      "when": [],
+      "text": "바람 부는 대로 떠돌았다. 다음 항해는 어떻게 할까?"
+    }
+  ]
+}

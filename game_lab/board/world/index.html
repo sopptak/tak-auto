@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1a24">
+<title>선택100 WORLD · 세계의 길 (G1)</title>
+<style>
+  :root {
+    --bg: #0f1a24; --panel: #172533; --panel2: #1f3142; --text: #f1f5f9; --muted: #93a7ba;
+    --accent: #ffc94d; --good: #3ddc84; --bad: #ff6b6b; --line: #2b4257; --btn: #24394d; --btn-hover: #2d4760; --sea: #1b4f72;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; font-size: 16px; line-height: 1.5;
+         overflow-wrap: anywhere; word-break: keep-all; -webkit-tap-highlight-color: transparent; }
+  #app { max-width: 480px; margin: 0 auto; padding: 12px 16px calc(24px + env(safe-area-inset-bottom)); min-height: 100vh; }
+  button { font: inherit; color: inherit; }
+  .hidden { display: none !important; }
+  .center { text-align: center; }
+  .flow { font-size: 0.82rem; color: var(--muted); }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .title-screen { text-align: center; padding-top: 8vh; }
+  .logo { font-size: 2.6rem; font-weight: 900; margin: 0; color: var(--accent); letter-spacing: -1px; }
+  .logo small { display: block; font-size: 1.1rem; color: var(--text); font-weight: 700; margin-top: 4px; letter-spacing: 0; }
+  .hook { font-weight: 700; font-size: 1.08rem; margin: 22px 0 6px; }
+  .intro { color: var(--muted); margin: 0 0 14px; }
+  .rule { background: var(--panel); border-radius: 12px; padding: 10px 12px; font-size: 0.92rem; text-align: left; margin-bottom: 18px; }
+  .big { display: block; width: 100%; padding: 17px; font-size: 1.2rem; font-weight: 900; border: 0; border-radius: 14px; background: var(--accent); color: #1a1a1a; cursor: pointer; }
+  .ghost { display: block; width: 100%; margin-top: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: transparent; cursor: pointer; }
+  .disclaimer { color: var(--muted); font-size: 0.78rem; margin-top: 22px; }
+
+  .sticky { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0 6px; margin-top: -8px; }
+  .top { display: flex; justify-content: space-between; gap: 8px; font-size: 0.9rem; color: var(--muted); }
+  .top b { color: var(--text); font-size: 1.05rem; }
+  .hud { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
+  .stat { background: var(--panel); border-radius: 10px; padding: 6px 8px; min-width: 0; }
+  .stat .k { font-size: 0.72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat .v { font-weight: 800; font-size: 1.05rem; white-space: nowrap; }
+  .stat .v.small { font-size: 0.9rem; }
+
+  .map { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; margin: 8px 0 2px; padding: 6px; background: var(--sea); border-radius: 12px; }
+  .tile { aspect-ratio: 1; border-radius: 8px; background: rgba(255,255,255,.08); display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; position: relative; }
+  .tile .ti { font-size: 1rem; line-height: 1; }
+  .tile .tn { font-size: 0.6rem; color: var(--muted); }
+  .tile.here { background: var(--accent); box-shadow: 0 0 0 2px #fff inset; }
+  .tile.here .tn { color: #1a1a1a; }
+  .tile.target { box-shadow: 0 0 0 2px var(--good) inset; }
+  .t-CITY { background: rgba(255,201,77,.18); } .t-TRADE { background: rgba(61,220,132,.16); } .t-EXPLORE { background: rgba(138,180,255,.2); }
+  .t-EVENT { background: rgba(255,107,107,.16); } .t-QUIZ { background: rgba(185,140,255,.22); }
+
+  .card { background: var(--panel); border-radius: 14px; padding: 14px; margin-top: 10px; }
+  .card.done { opacity: .92; padding: 10px 14px; }
+  .chapter { font-size: 0.8rem; color: var(--accent); font-weight: 700; }
+  .q { font-size: 1.15rem; margin: 4px 0 10px; }
+  .opts { display: grid; gap: 8px; }
+  .opts.two { grid-template-columns: 1fr 1fr; margin-top: 10px; }
+  .opt { text-align: left; padding: 14px; min-height: 54px; border-radius: 12px; border: 1px solid var(--line); background: var(--btn); font-weight: 700; font-size: 1.02rem; cursor: pointer; }
+  .opt:hover { background: var(--btn-hover); }
+  .opt:disabled { opacity: .45; cursor: not-allowed; }
+  .opt small { display: block; font-weight: 400; color: var(--muted); font-size: 0.8rem; }
+  .opt .no { color: var(--accent); margin-right: 6px; }
+  .opts.two .opt { text-align: center; font-size: 1.1rem; }
+  .reward { border: 2px solid var(--accent); text-align: center; }
+  .big-icon { font-size: 2.2rem; }
+  .verdict { font-weight: 800; margin: 4px 0; } .verdict.ok, .ok { color: var(--good); } .verdict.no, .no { color: var(--bad); }
+  .lesson { margin-top: 6px; padding: 8px 10px; border-left: 4px solid var(--accent); background: var(--panel2); border-radius: 8px; font-size: 1rem; }
+  .src { display: block; font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+  .deltas { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; }
+  .delta { padding: 3px 9px; border-radius: 99px; font-weight: 800; font-size: 0.88rem; background: var(--panel2); }
+  .delta.good { color: var(--good); } .delta.bad { color: var(--bad); }
+  .die { font-size: 2.4rem; text-align: center; line-height: 1.2; }
+  .die b { font-size: 1.8rem; }
+  .dice { text-align: center; }
+  .move { margin-top: 6px; }
+  .next { margin-top: 12px; }
+  .ending-icon { font-size: 3rem; text-align: center; }
+  .ending-title { text-align: center; font-size: 1.5rem; font-weight: 900; color: var(--accent); }
+  .rows { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin-top: 10px; }
+  .rows div:nth-child(even) { text-align: right; font-weight: 800; }
+  .sub-h { font-size: 1rem; margin: 14px 0 2px; }
+  .replay { text-align: center; font-weight: 700; margin: 14px 0 10px; }
+  .pop { animation: pop .3s ease-out; }
+  @keyframes pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .pop { animation: none; } }
+  .foot { color: var(--muted); font-size: 0.75rem; margin-top: 16px; text-align: center; }
+  .foot button { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font-size: 0.75rem; }
+</style>
+</head>
+<body>
+<main id="app" aria-live="polite"><noscript>이 게임은 자바스크립트가 필요합니다.</noscript>불러오는 중…</main>
+<script src="../engine.js?v=g1-4"></script>
+<script src="../../choice100/analytics.js?v=g1-4"></script>
+<script src="../renderer.js?v=g1-4"></script>
+<script>
+  // 엔진·화면은 도메인을 모른다. 다른 보드(금융·한국사)는 데이터 경로만 바꾼다.
+  Choice100BoardRenderer.boot(document.getElementById("app"), "world.json");
+</script>
+</body>
+</html>

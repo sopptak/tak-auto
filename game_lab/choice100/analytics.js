@@ -2,6 +2,7 @@
  * CHOICE100 로컬 플레이 기록(6-65) - "사람들이 실제로 게임을 하는가?"를 나중에 보기 위한 최소 기반.
  * 저장은 이 브라우저의 저장소에만(localStorage). 서버 전송·외부 API·개인정보 없음.
  * 이벤트: game_start, choice_made, game_completion, game_restart (+ play_time은 완료 시 계산)
+ * 6-66: 다른 게임(보드)도 쓰도록 log(이름, 필드) 추가 - 필드는 숫자·짧은 글자만 저장. complete()의 metrics도 숫자만.
  * 플레이 시간 = 이벤트 사이 간격의 합(간격마다 최대 120초 - 창을 켜 둔 채 자리를 비운 시간은 빼려고).
  */
 (function (root, factory) {
@@ -62,12 +63,19 @@
                       choice_count: summary.choice_count ?? c.choice_count, play_time_sec: Math.round(c.active_ms / 1000),
                       restart_count: o.restart_count, ending: summary.ending, style: summary.style,
                       net_worth: summary.net_worth, debt: summary.debt, happiness: summary.happiness };
+        if (summary.metrics) run.metrics = cleanNumbers(summary.metrics);
         o.completions += 1;
         o.runs.push(run);
         o.events.push({ e: "game_completion", t, ending: summary.ending });
         o.current = null;
         save(o);
         return run;
+      },
+      log(e, fields = {}) {
+        const o = load(), t = clock();
+        if (o.current) tick(o, t);
+        o.events.push({ e: String(e).slice(0, 40), t, ...cleanFields(fields) });
+        save(o);
       },
       runs() { return load().runs.slice(); },
       previous() { const r = load().runs; return r.length >= 2 ? r[r.length - 2] : null; }, // complete() 직후 호출: 바로 전 판
@@ -79,6 +87,20 @@
       },
       clear() { try { storage.set(key, JSON.stringify(empty())); } catch (e) { /* 무시 */ } },
     };
+  }
+
+  // 저장할 필드는 숫자와 40자 이하 글자만(개인정보·긴 글이 섞여 들어오지 않게)
+  function cleanFields(f) {
+    const out = {};
+    for (const [k, v] of Object.entries(f || {}).slice(0, 12)) {
+      if (typeof v === "number" && Number.isFinite(v)) out[k] = v;
+      else if (typeof v === "boolean") out[k] = v;
+      else if (typeof v === "string") out[k] = v.slice(0, 40);
+    }
+    return out;
+  }
+  function cleanNumbers(f) {
+    return Object.fromEntries(Object.entries(f || {}).filter(([, v]) => typeof v === "number" && Number.isFinite(v)).slice(0, 12));
   }
 
   function memoryStorage() {
