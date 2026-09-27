@@ -36,13 +36,23 @@ def _result(status: str, items=None, detail: str = "", asset_status=None) -> dic
 
 # ---- PanelNow: /survey 목록(로그인 없이도 공개 목록이 보인다) ---------------------------------------
 
+def panelnow_logged_out(lines: list[str]) -> bool:
+    """맨 위 메뉴에 '로그인'과 '회원가입'이 함께 있으면 로그아웃 상태."""
+    head = lines[:15]
+    return "로그인" in head and "회원가입" in head
+
+
 def parse_panelnow(raw: dict) -> dict:
     """화면 순서: [종류 '… 조사'] [제목] No. 응답시간 적립일정 포인트 [번호] [시간] [적립] [포인트] '설문 참여하기'.
-    설문별 링크가 없으므로(버튼) url은 목록 페이지."""
+    설문별 링크가 없으므로(버튼) url은 목록 페이지.
+    6-61: 로그아웃 상태에서 보이는 목록은 **비회원용 예시**다 - 페이지 HTML에서 이 목록이 번역 문구
+    (survey_visitors_title_N / _no_N / _loi_N / _reward_N)로 고정돼 있음을 확인했다. 실제 기회가 아니므로 LOGIN_REQUIRED."""
     text = raw.get("page_text", "")
     if has_captcha(text):
         return _result("CAPTCHA_REQUIRED")
     lines = _lines(text)
+    if panelnow_logged_out(lines):
+        return _result("LOGIN_REQUIRED", detail="로그아웃 상태 - 보이는 목록은 비회원용 예시(실제 설문 아님). Chrome에서 직접 로그인한 뒤 다시 실행")
     items = []
     for i, line in enumerate(lines):
         if line != "No." or lines[i + 1:i + 4] != ["응답시간", "적립일정", "포인트"] or i + 7 >= len(lines):
@@ -104,7 +114,29 @@ def parse_heypoll(raw: dict) -> dict:
                       "notes": [n for n in re.findall(r"선착순 [\d.]+배|\d+/\d+", text)]})
     if items:
         return _result("SUCCESS", items)
-    return _result("PAGE_CHANGED", detail="survey/surveys·quick-surveys·polls 링크를 찾지 못함")
+    items = _heypoll_from_text(raw.get("page_text", ""))  # 수동 붙여넣기(링크 없음)
+    if items:
+        return _result("SUCCESS", items)
+    return _result("PAGE_CHANGED", detail="survey/surveys·quick-surveys·polls 링크나 '포인트/분류/제목' 글자를 찾지 못함")
+
+
+def _heypoll_from_text(text: str) -> list[dict]:
+    """사람이 복사해 붙여 넣은 화면 글자(링크 없음)에서: 서베이 '1,400P / 분류 / 제목(코드)', 퀵서베이 '제목 / 57/60 / 46P'.
+    설문 번호가 없으므로 external_id 없이(제목+보상으로 중복 판단), url은 목록 페이지."""
+    lines = _lines(text)
+    items = []
+    for i, line in enumerate(lines):
+        if re.fullmatch(r"\d[\d,]*P", line) and i + 2 < len(lines) and "조사" in lines[i + 2] and not re.search(r"\d", lines[i + 1]):
+            items.append({"external_id": None, "title": lines[i + 2], "category": lines[i + 1], "type": "survey", "reward_text": line,
+                          "time_text": "", "url": "https://www.heypoll.co.kr/survey/surveys", "first_come": False, "notes": []})
+        elif re.fullmatch(r"\d+/\d+", line) and i >= 1 and i + 1 < len(lines):
+            reward = next((x for x in lines[i + 1:i + 3] if re.fullmatch(r"\d[\d,]*P", x)), None)
+            if reward:
+                first = any(x.startswith("선착순") for x in lines[i + 1:i + 3])
+                items.append({"external_id": None, "title": lines[i - 1], "category": "", "type": "quick_survey", "reward_text": reward,
+                              "time_text": "", "url": "https://www.heypoll.co.kr/survey/quick-surveys", "first_come": first,
+                              "notes": [line] + [x for x in lines[i + 1:i + 3] if x.startswith("선착순")]})
+    return items
 
 
 # ---- Ovey: 웹은 앱 소개 페이지뿐(설문 목록은 앱 안) ---------------------------------------------------

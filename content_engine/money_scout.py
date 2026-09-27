@@ -36,6 +36,8 @@ STATUS_TEXT = {
     "CAPTCHA_REQUIRED": "사람 확인(CAPTCHA) 화면 - 우회하지 않고 중단", "BLOCKED_TERMS": "이용약관상 자동 접근 금지 - 자동으로 읽지 않음",
     "APP_ONLY": "웹에 설문 목록 없음(앱 전용)", "BROWSER_RESTRICTED": "브라우저 도구가 이 사이트를 열 수 없음",
     "TIMEOUT": "시간 초과", "PAGE_CHANGED": "화면 구조가 바뀜 - 추측해서 저장하지 않음", "PARSE_FAILED": "해석 실패", "NOT_RUN": "이번에 확인 안 함",
+    "AGENT_UNAVAILABLE": "브라우저 에이전트(claude 명령)를 찾을 수 없음", "AGENT_FAILED": "브라우저 에이전트 실행 실패(Chrome/확장 연결 확인)",
+    "API_UNAVAILABLE": "공식 API 없음",
 }
 # 플랫폼별 스카우트 정책(2026-09-27 실제 Chrome으로 확인한 사실). point_krw: 1포인트 = 몇 원인지 **확인된 경우만**.
 PLATFORMS = {
@@ -52,6 +54,8 @@ PLATFORMS = {
                "kind": "asset", "terms_note": "Claude in Chrome이 이 사이트 열기를 거부함(safety restriction). 네이버 로그인 필요. "
                                              "수익 상태는 사람이 직접 연 화면을 붙여 넣을 때만 읽는다."},
 }
+# 6-61: 공식 API - 4곳 모두 공개된 기회 조회 API를 찾지 못했다(추측으로 만들지 않는다).
+OFFICIAL_API = {"panelnow": None, "ovey": None, "heypoll": None, "adpost": None}
 POLICY_STATUS = {"blocked_terms": "BLOCKED_TERMS", "app_only": "APP_ONLY", "browser_restricted": "BROWSER_RESTRICTED"}
 _PII = [(re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+"), "이메일"), (re.compile(r"\b01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}\b"), "전화번호"),
         (re.compile(r"\b\d{6}[-\s]?[1-4]\d{6}\b"), "주민번호"), (re.compile(r"\b\d{4}[-\s]\d{4}[-\s]\d{4}[-\s]\d{4}\b"), "카드번호")]
@@ -62,7 +66,8 @@ ITEM_KEYS = ("external_id", "title", "category", "type", "reward_text", "time_te
 def plan() -> list[dict]:
     """에이전트에게 줄 순회 계획: 자동으로 열어도 되는 곳만 visit=True."""
     return [{"platform": k, "name": p["name"], "url": p["scout_url"], "visit": p["automation"] == "allowed",
-             "skip_status": POLICY_STATUS.get(p["automation"]), "note": p["terms_note"]} for k, p in PLATFORMS.items()]
+             "skip_status": POLICY_STATUS.get(p["automation"]), "note": p["terms_note"], "official_api": OFFICIAL_API.get(k)}
+            for k, p in PLATFORMS.items()]
 
 
 # ---- 검사 / 개인정보 --------------------------------------------------------------------------
@@ -298,7 +303,7 @@ def ingest(raw: dict, *, tasks_path: Path | str, staging_path: Path | str, now: 
     with money._LOCK:
         staging = load_staging(staging_path)
         for req in staging["requests"]:
-            if req["status"] == "pending" and (raw.get("request_id") in (None, req["id"]) if isinstance(raw, dict) else False):
+            if req["status"] in ("pending", "running") and (raw.get("request_id") in (None, req["id"]) if isinstance(raw, dict) else False):
                 req.update(status="done", scout_run_id=run_id, done_at=collected_at)
         staging["runs"] = [*staging["runs"], run][-RUN_KEEP:]
         money._write(Path(staging_path), staging)
@@ -314,7 +319,8 @@ def buckets(tasks: list[dict], log: list[dict], config: dict, now: datetime | No
     """스카우트 기회를 3칸으로. 기존 6-58 등급(설정 기준) + 6-59 내 기록 보정(표본 충분할 때만)을 쓴다.
     내 기록이 모자라면 예상 시급만으로 판단(그 사실을 reason에 적는다). 플랫폼 우열을 임의로 정하지 않는다."""
     now = now or money._now()
-    rows = [t for t in money.open_tasks(tasks, config, now, statuses=("new", "open"), log=log) if t.get("source") == "browser_scout"]
+    # 6-61: 스카우트가 찾은 것뿐 아니라 빠른 등록/붙여넣기로 들어온 열린 기회·작업 모두(오늘 할 것은 출처와 무관)
+    rows = money.open_tasks(tasks, config, now, statuses=("new", "open"), log=log)
     out = {k: [] for k in BUCKETS}
     th = config["thresholds"]
     for t in rows:
@@ -336,9 +342,40 @@ def buckets(tasks: list[dict], log: list[dict], config: dict, now: datetime | No
         else:
             key, reason = "HOLD", f"{basis} {rate:,}원/시간(기준 {th['yellow']:,}원 미만)"
         out[key].append({**t, "bucket": key, "reason": reason, "priority_score": rate})
-    for key in out:
-        out[key].sort(key=lambda r: (-(r["priority_score"] or 0), r["title"]))
+    for key in out:  # 6-61: 시급(보정 우선) -> 선착순 -> 마감 임박 -> 짧은 시간 -> 신뢰도
+        out[key].sort(key=lambda r: (-(r["priority_score"] or 0), not r.get("first_come"), r.get("deadline") or "9999",
+                                     r.get("minutes") or 9999, -(r.get("confidence") or 0), r["title"]))
     return out
+
+
+def top_picks(groups: dict, n: int = 3) -> list[dict]:
+    """오늘 할 것 TOP n: 🔥 먼저, 모자라면 🟡. 보류는 넣지 않는다."""
+    return (groups["NOW"] + groups["LATER"])[:n]
+
+
+def today_money(tasks: list[dict], log: list[dict], config: dict, now: datetime | None = None) -> dict:
+    """TODAY MONEY: 예상(아직 안 번 돈)과 실제(받은 돈)를 분리한다. 목표 진행률은 실제만."""
+    now = now or money._now()
+    groups = buckets(tasks, log, config, now)
+    stats = money.period_stats(log, config, now)
+    pending = groups["NOW"] + groups["LATER"]
+    known = [t.get("reward_krw_estimate") if t.get("reward_krw_estimate") is not None else (t["reward"] * t["point_value"] if t.get("point_value") else None)
+             for t in pending]
+    return {"found_today": sum(1 for t in tasks if t.get("source") != "quick_done" and money._is_today(t.get("created_at"), config, now)),
+            "now": len(groups["NOW"]), "later": len(groups["LATER"]), "hold": len(groups["HOLD"]),
+            "expected_krw": sum(k for k in known if k is not None), "expected_unknown": sum(1 for k in known if k is None),
+            "actual_today": stats["today"]["earned"], "actual_month": stats["month"]["earned"],
+            "goal": money.goal_status(stats["total"]["earned"], config)}
+
+
+def set_request(staging_path: Path | str, req_id: str, status: str, message: str = "", *, now: datetime | None = None) -> None:
+    """버튼 실행 상태 기록(pending -> running -> done/failed)."""
+    with money._LOCK:
+        staging = load_staging(staging_path)
+        for req in staging["requests"]:
+            if req["id"] == req_id:
+                req.update(status=status, message=message[:200], updated_at=(now or money._now()).isoformat(timespec="seconds"))
+        money._write(Path(staging_path), staging)
 
 
 def record_choice(store: money.MoneyStore, task_id: str, choice: str, *, now: datetime | None = None) -> dict:

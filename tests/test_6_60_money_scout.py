@@ -22,7 +22,10 @@ from tests.test_6_57_money import KST, MoneyCase
 ROOT = Path(__file__).resolve().parents[1]
 FIX = ROOT / "tests" / "fixtures" / "money_scout"
 NOW = datetime(2026, 9, 27, 14, 30, tzinfo=KST)
-PANELNOW = (FIX / "panelnow_survey.txt").read_text(encoding="utf-8")
+PANELNOW_LOGGED_OUT = (FIX / "panelnow_survey.txt").read_text(encoding="utf-8")
+# 6-61: 위 실제 캡처는 로그아웃 화면이고 그 목록은 비회원용 예시(번역 문구 고정)였다 -> LOGIN_REQUIRED.
+# 목록 구조 해석 시험에는 같은 목록에서 로그아웃 메뉴(로그인/회원가입)만 뺀 변형을 쓴다. 실제 로그인 화면 구조는 아직 미검증.
+PANELNOW = PANELNOW_LOGGED_OUT.replace("로그인\n회원가입\n", "내 활동\n", 1)
 HEYPOLL = json.loads((FIX / "heypoll_home_links.json").read_text(encoding="utf-8"))
 OVEY = (FIX / "ovey_home.txt").read_text(encoding="utf-8")
 ADPOST_SYNTHETIC = "애드포스트 수입 현황\n이번 달 수입\n1,234원\n누적 수입\n56,780원\n지급 예정 금액\n50,000원\n공지 10월 지급일 안내"
@@ -38,6 +41,9 @@ def pn(text=PANELNOW) -> dict:
 
 class AdapterTests(unittest.TestCase):
     def test_1_panelnow_real_capture(self) -> None:
+        out = parse_panelnow({"page_text": PANELNOW_LOGGED_OUT, "page_url": "https://www.panelnow.co.kr/survey"})
+        self.assertEqual((out["status"], out["items"]), ("LOGIN_REQUIRED", []))  # 비회원 예시 목록은 기회가 아니다
+        self.assertIn("비회원용 예시", out["detail"])
         r = parse_panelnow({"page_text": PANELNOW, "page_url": "https://www.panelnow.co.kr/survey"})
         self.assertEqual(r["status"], "SUCCESS")
         got = {i["external_id"]: (i["title"], i["category"], i["time_text"], i["reward_text"]) for i in r["items"]}
@@ -312,7 +318,7 @@ class ScoutHttpTests(MoneyCase):
         self.assertIn("notice=choice_do", url)
         self.assertEqual(self.store.task(tid)["status"], "open")
         self.assertEqual(self.req("/money/scout/choice", {"task_id": tid, "choice": "SUBMIT"})[0], 400)
-        self.assertEqual(self.req("/money/scout/manual", {"platform": "heypoll", "page_text": "x"})[0], 400)
+        self.assertEqual(self.req("/money/scout/manual", {"platform": "ovey", "page_text": "x"})[0], 400)  # 6-61: 헤이폴 붙여넣기는 허용, 오베이(앱 전용)는 없음
         _, _, home = self.req("/money")
         self.assertIn("🔎 MONEY SCOUT", home)
         self.assertTrue((self.dir / "money_scout_staging.json").exists())

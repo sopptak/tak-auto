@@ -257,6 +257,9 @@ class DashboardConfig:
     money_tasks_path: Path = ROOT / "data" / "money_tasks.json"
     money_log_path: Path = ROOT / "data" / "money_log.json"
     money_config_path: Path = ROOT / "data" / "money_config.json"
+    # 6-61 - [🔎 지금 수익기회 찾기]가 실제로 브라우저 에이전트(claude --chrome -p)를 부를지. 기본 False(테스트/다른 호출부는 요청만 기록),
+    # main()은 True로 켠다(--no-money-scout-agent로 끔).
+    money_scout_agent_enabled: bool = False
     ffmpeg: str = "ffmpeg"
 
 
@@ -3384,6 +3387,10 @@ def main(argv: list[str] | None = None) -> int:
         help="Shorts Studio 미리보기 렌더용 ffmpeg 경로 (기본값: TAK_FFMPEG 또는 PATH의 ffmpeg, 6-55)",
     )
     parser.add_argument(
+        "--no-money-scout-agent", action="store_true",
+        help="MONEY [지금 수익기회 찾기]가 브라우저 에이전트를 부르지 않고 요청만 기록 (6-61)",
+    )
+    parser.add_argument(
         "--shorts-drafts", type=Path, default=ROOT / "data" / "shorts_drafts",
         help="Shorts Studio Draft 저장소 (기본값: data/shorts_drafts - Production Archive와 별개, 6-55)",
     )
@@ -3423,6 +3430,7 @@ def main(argv: list[str] | None = None) -> int:
         generation_archive_paths=generation_archive_paths,
         shorts_drafts_path=args.shorts_drafts,
         ffmpeg=args.ffmpeg,
+        money_scout_agent_enabled=not args.no_money_scout_agent,
     )
 
     # scripts/run_media_batch.py, scripts/run_daily.py, scripts/tak_auto.py와 동일한
