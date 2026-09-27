@@ -9,6 +9,9 @@
  *   scenarios  : {id, chapter, title, situation, on_enter, triggers, choices[{id, text, effects, moves, requires,
  *                 set_flags, add_per_turn, result_text, tip, next}], next}
  *   endings    : 위에서부터 조건을 보고 첫 번째로 맞는 것. 마지막은 조건 없음(기본).
+ *   style      : (6-65) 선택의 실제 변화량으로 플레이 스타일을 센다 {rules:[{style, when:[{stat, op, value}]}], labels, balanced}
+ *   score_stat : (6-65) 점수로 쓸 변수(없으면 score()는 null) - 학습게임이 별도 점수를 쓸 자리
+ * 나중에 돌아오는 선택: set_flags + 다른 시나리오의 triggers. 엔진이 "어느 선택에서 왔는지"(echo)를 기록한다.
  * 무작위 없음: 같은 선택은 항상 같은 결과(G1 원칙 - 운빨 게임 금지).
  */
 (function (root, factory) {
@@ -39,6 +42,13 @@
     if (!ids.has(data.first)) err(`first ${data.first} 없음`);
     const flagsSet = new Set();
     for (const sc of data.scenarios || []) for (const c of sc.choices || []) for (const f of c.set_flags || []) flagsSet.add(f);
+    const triggerFlags = new Set();
+    for (const sc of data.scenarios || []) for (const t of sc.triggers || []) triggerFlags.add(t.flag);
+    for (const f of flagsSet) if (!triggerFlags.has(f)) err(`flag ${f}: 켜는 선택은 있는데 돌아오는 trigger가 없음`);
+    for (const r of (data.style && data.style.rules) || []) {
+      if (!(data.style.labels || {})[r.style]) err(`style ${r.style}: labels 없음`);
+      for (const c of r.when || []) if (!known(c.stat) || !OPS[c.op]) err(`style ${r.style}: 조건 오류`);
+    }
     const checkEffects = (where, eff) => {
       for (const [k, v] of Object.entries(eff || {})) {
         if (!statKeys.has(k)) err(`${where}: 모르는 변수 ${k}`);
@@ -73,6 +83,7 @@
           if (!(m.pct > 0 && m.pct <= 100)) err(`${cw}: move pct 범위`);
         }
         for (const r of c.add_per_turn || []) if (!statKeys.has(r.stat) || !Number.isFinite(r.amount)) err(`${cw}: add_per_turn 오류`);
+        for (const st of c.style || []) if (!((data.style || {}).labels || {})[st]) err(`${cw}: style ${st} 없음`);
         const nxt = c.next || sc.next;
         if (!nxt) err(`${cw}: next 없음`);
         else if (nxt !== "END" && !ids.has(nxt)) err(`${cw}: next ${nxt} 없음`);
@@ -94,12 +105,14 @@
       this.data = data;
       this.byId = Object.fromEntries(data.scenarios.map((s) => [s.id, s]));
       this.statDef = Object.fromEntries(data.stats.map((s) => [s.key, s]));
+      this.triggerFlags = new Set(data.scenarios.flatMap((s) => (s.triggers || []).map((t) => t.flag)));
       this.start();
     }
 
     start() {
       this.state = { vars: { ...this.data.start }, flags: [], extra_per_turn: [], count: 0, current: this.data.first,
-                     history: [], enter_events: [], phase: "choose", session_start: null };
+                     history: [], enter_events: [], enter_echoes: [], phase: "choose", session_start: null,
+                     flag_origin: {}, style: {} };
       this._enter(this.data.first);
       this.state.session_start = this.snapshot();
       return this.state;
@@ -138,7 +151,16 @@
       const events = [];
       this._apply(c.effects);
       for (const m of c.moves || []) this._move(m);
-      for (const f of c.set_flags || []) if (!this.state.flags.includes(f)) this.state.flags.push(f);
+      const mid = this.snapshot();
+      const own = {};
+      for (const k of Object.keys(mid)) if (mid[k] !== before[k]) own[k] = mid[k] - before[k];
+      const styles = this._styleOf(c, own);
+      for (const st of styles) this.state.style[st] = (this.state.style[st] || 0) + 1;
+      for (const f of c.set_flags || []) {
+        if (!this.state.flags.includes(f)) this.state.flags.push(f);
+        this.state.flag_origin[f] = { n: this.state.count + 1, scenario: sc.title, choice: c.text };
+      }
+      const delayed = (c.set_flags || []).some((f) => this.triggerFlags.has(f));
       for (const r of c.add_per_turn || []) this.state.extra_per_turn.push({ ...r, source: `${sc.id}.${c.id}` });
       const flow = this._perTurn();
       events.push(...this._guards());
@@ -152,7 +174,8 @@
       this.state.pending_next = nxt;
       const size = this.data.session_size || 10;
       this.state.phase = nxt === "END" ? "end" : (this.state.count % size === 0 ? "session_end" : "result");
-      return { scenario: sc, choice: c, before, after, deltas, flow, events, result_text: c.result_text, tip: c.tip, phase: this.state.phase };
+      return { scenario: sc, choice: c, before, after, deltas, own, flow, events, styles, delayed, n: this.state.count,
+               result_text: c.result_text, tip: c.tip, phase: this.state.phase };
     }
 
     next() {
@@ -183,6 +206,25 @@
       return null; // validate()가 기본 엔딩을 보장
     }
 
+    // ---- 플레이 스타일(게임 내 선택 기준) ----
+    _styleOf(c, own) {
+      if (c.style) return c.style.slice();
+      const rules = (this.data.style && this.data.style.rules) || [];
+      return rules.filter((r) => (r.when || []).every((w) => OPS[w.op](own[w.stat] || 0, w.value))).map((r) => r.style);
+    }
+    styleResult() {
+      const st = this.data.style;
+      if (!st) return null;
+      const counts = { ...this.state.style };
+      const total = Object.values(counts).reduce((a, b) => a + b, 0);
+      const [top, n] = Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0] || [null, 0];
+      const share = total ? n / total : 0;
+      const key = !top || share < (st.balanced.max_share || 0) ? "balanced" : top;
+      const label = key === "balanced" ? st.balanced : st.labels[key];
+      return { key, title: label.title, icon: label.icon, text: label.text || "", share: Math.round(share * 100), counts };
+    }
+    score() { return this.data.score_stat ? this.value(this.data.score_stat) : null; }
+
     // ---- 저장/복원(새로고침 대비) ----
     serialize() {
       return JSON.stringify({ v: SAVE_VERSION, game: this.data.id, data_version: this.data.version, state: this.state });
@@ -210,6 +252,7 @@
       this.state.current = id;
       const before = this.snapshot();
       const events = [];
+      const echoes = [];
       if (sc.on_enter) {
         this._apply(sc.on_enter);
         if (sc.enter_text) events.push(sc.enter_text);
@@ -219,6 +262,7 @@
         this._apply(t.effects);
         for (const m of t.moves || []) this._move(m);
         events.push(t.text);
+        echoes.push({ text: t.text, flag: t.flag, origin: this.state.flag_origin[t.flag] || null });
       }
       events.push(...this._guards());
       this._normalize();
@@ -226,6 +270,7 @@
       const deltas = {};
       for (const k of Object.keys(after)) if (after[k] !== before[k]) deltas[k] = after[k] - before[k];
       this.state.enter_events = events;
+      this.state.enter_echoes = echoes;
       this.state.enter_deltas = deltas;
     }
 

@@ -36,27 +36,37 @@ function play(data, pick) {
   return { game: g, trace, ending: g.ending(), final: g.snapshot() };
 }
 
-function simulate(data, runs = 200) {
+const best = (f) => (opts) => opts.reduce((a, b) => (f(b.choice) > f(a.choice) ? b : a));
+
+// runs: 무작위 플레이 수. noisy: 전략마다 "75%는 전략대로, 25%는 아무거나" 변형 플레이 수(사람처럼 가끔 딴 선택).
+function simulate(data, runs = 200, noisy = 0) {
   const results = [];
-  for (const [name, f] of Object.entries(score)) {
-    results.push({ strategy: name, ...play(data, (opts) => opts.reduce((a, b) => (f(b.choice) > f(a.choice) ? b : a))) });
-  }
+  for (const [name, f] of Object.entries(score)) results.push({ strategy: name, ...play(data, best(f)) });
   const r = rng(42);
   for (let i = 0; i < runs; i++) results.push({ strategy: "random", ...play(data, (opts) => opts[Math.floor(r() * opts.length)]) });
+  for (const [name, f] of Object.entries(score)) {
+    const pick = best(f);
+    for (let i = 0; i < noisy; i++) results.push({ strategy: `${name}~`, ...play(data, (opts, g) => (r() < 0.25 ? opts[Math.floor(r() * opts.length)] : pick(opts, g))) });
+  }
   return results;
 }
 
 function summarize(results) {
   const endings = {};
   const byStrategy = {};
+  const noisy = {};
   const nw = [];
   for (const x of results) {
     endings[x.ending.id] = (endings[x.ending.id] || 0) + 1;
-    if (x.strategy !== "random") byStrategy[x.strategy] = { ending: x.ending.id, net_worth: x.final.net_worth, risk: x.final.risk, happiness: x.final.happiness, debt: x.final.debt };
+    if (x.strategy.endsWith("~")) {
+      const k = x.strategy.slice(0, -1);
+      noisy[k] = noisy[k] || {};
+      noisy[k][x.ending.id] = (noisy[k][x.ending.id] || 0) + 1;
+    } else if (x.strategy !== "random") byStrategy[x.strategy] = { ending: x.ending.id, style: x.game.styleResult ? (x.game.styleResult() || {}).key : null, net_worth: x.final.net_worth, risk: x.final.risk, happiness: x.final.happiness, debt: x.final.debt };
     nw.push(x.final.net_worth);
   }
   nw.sort((a, b) => a - b);
-  return { runs: results.length, endings, byStrategy, net_worth: { min: nw[0], median: nw[Math.floor(nw.length / 2)], max: nw[nw.length - 1] } };
+  return { runs: results.length, endings, byStrategy, noisy, net_worth: { min: nw[0], median: nw[Math.floor(nw.length / 2)], max: nw[nw.length - 1] } };
 }
 
 module.exports = { simulate, summarize, play, score };
@@ -64,5 +74,5 @@ module.exports = { simulate, summarize, play, score };
 if (require.main === module) {
   const file = process.argv[2] || path.join(__dirname, "data", "finance.json");
   const data = JSON.parse(fs.readFileSync(file, "utf8"));
-  console.log(JSON.stringify(summarize(simulate(data, Number(process.argv[3]) || 200)), null, 2));
+  console.log(JSON.stringify(summarize(simulate(data, Number(process.argv[3]) || 200, Number(process.argv[4]) || 0)), null, 2));
 }

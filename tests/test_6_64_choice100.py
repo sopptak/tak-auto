@@ -1,4 +1,4 @@
-"""6-64 CHOICE100 금융 G1 - 게임 데이터(파이썬으로 독립 검증) + JS 엔진 테스트(node --test) + 화면·가드레일 정적 점검.
+"""6-64 CHOICE100 금융 G1 → 6-65 V2(40선택·스타일·로컬 기록) - 게임 데이터(파이썬으로 독립 검증) + JS 엔진 테스트(node --test) + 화면·가드레일 정적 점검.
 
 게임은 game_lab/choice100/ 안에만 있다(production·MONEY와 분리). node가 없으면 JS 테스트만 건너뛴다."""
 
@@ -18,7 +18,7 @@ NODE = shutil.which("node")
 
 
 class DataTests(unittest.TestCase):
-    def test_100_choice_architecture_and_30_scenarios(self) -> None:
+    def test_100_choice_architecture_and_40_scenarios(self) -> None:
         self.assertEqual(DATA["total_choices"], 100)
         self.assertEqual(DATA["session_size"], 10)
         ranges = [tuple(c["range"]) for c in DATA["chapters"]]
@@ -26,10 +26,10 @@ class DataTests(unittest.TestCase):
         self.assertEqual([c["title"] for c in DATA["chapters"]],
                          ["돈의 흐름", "부채와 신용", "저축과 투자", "주거와 부동산", "소비와 라이프스타일", "위기와 리스크",
                           "소득과 커리어", "투자와 기회", "가족과 인생", "은퇴와 최종 선택"])
-        self.assertEqual(len(DATA["scenarios"]), 30)
-        for n in (1, 2, 3):
+        self.assertEqual(len(DATA["scenarios"]), 40)
+        for n in (1, 2, 3, 4):
             self.assertEqual(sum(s["chapter"] == n for s in DATA["scenarios"]), 10)
-        self.assertEqual([c["status"] for c in DATA["chapters"]], ["playable"] * 3 + ["planned"] * 7)
+        self.assertEqual([c["status"] for c in DATA["chapters"]], ["playable"] * 4 + ["planned"] * 6)
 
     def test_schema_links_and_tradeoffs(self) -> None:
         stats = {s["key"] for s in DATA["stats"]}
@@ -59,6 +59,7 @@ class DataTests(unittest.TestCase):
 
     def test_financial_guardrails_in_content(self) -> None:
         self.assertIn("실제 금융상품·투자·대출에 대한 조언이 아닙니다", DATA["disclaimer"])
+        self.assertIn("실제 금융 성향 진단이 아닙니다", DATA["style"]["note"])
         text = json.dumps(DATA["scenarios"], ensure_ascii=False)
         # 실제 금리·수익률 수치 단정 금지: TIP·결과문에 'N%' 없음(게임 사건 문구 on_enter만 %를 씀)
         for sc in DATA["scenarios"]:
@@ -80,11 +81,11 @@ class EngineTests(unittest.TestCase):
     @unittest.skipUnless(NODE, "node 없음")
     def test_simulation_prints_only(self) -> None:
         before = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "data").rglob("*"))
-        done = subprocess.run([NODE, str(GAME / "sim.js"), str(GAME / "data" / "finance.json"), "120"], capture_output=True, text=True,
-                              encoding="utf-8", timeout=180)
+        done = subprocess.run([NODE, str(GAME / "sim.js"), str(GAME / "data" / "finance.json"), "300", "50"], capture_output=True, text=True,
+                              encoding="utf-8", timeout=300)
         self.assertEqual(done.returncode, 0, done.stderr)
         summary = json.loads(done.stdout)
-        self.assertGreaterEqual(summary["runs"], 100)
+        self.assertGreaterEqual(summary["runs"], 500)
         self.assertEqual(set(summary["endings"]), {e["id"] for e in DATA["endings"]})
         self.assertEqual(before, sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "data").rglob("*")))  # 어디에도 저장 안 함
 
@@ -92,7 +93,7 @@ class EngineTests(unittest.TestCase):
 class UiAndIsolationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.html = (GAME / "index.html").read_text(encoding="utf-8")
-        self.js = (GAME / "renderer.js").read_text(encoding="utf-8") + (GAME / "engine.js").read_text(encoding="utf-8")
+        self.js = "".join((GAME / f).read_text(encoding="utf-8") for f in ("renderer.js", "engine.js", "analytics.js"))
 
     def test_mobile_first_markup(self) -> None:
         self.assertIn('name="viewport" content="width=device-width, initial-scale=1', self.html)
@@ -102,14 +103,21 @@ class UiAndIsolationTests(unittest.TestCase):
         self.assertRegex(self.html, r"body \{[^}]*font-size: 16px")
         self.assertRegex(self.html, r"\.choice \{[^}]*min-height: 54px")
         self.assertIn("이것은 가상의 재무 시뮬레이션입니다.", self.js)
+        self.assertIn(":focus-visible", self.html)
+        self.assertIn('aria-label="선택지', self.js)
+        self.assertIn("aria-keyshortcuts", self.js)
+        self.assertRegex(self.html, r'<script src="(engine|analytics|renderer)\.js\?v=')  # 업데이트 후 옛 스크립트 캐시 방지
 
     def test_no_ads_payments_login_or_external_calls(self) -> None:
         both = self.html + self.js
         self.assertNotRegex(both, r"(src|href)=\"https?://")
         self.assertNotRegex(both, r"fetch\(\s*[\"']https?://")
-        for word in ("adsbygoogle", "gtag(", "stripe", "payment", "checkout", "purchase(", "login", "analytics.js"):
+        for word in ("adsbygoogle", "gtag(", "stripe", "payment", "checkout", "purchase(", "login", "google-analytics", "googletagmanager"):
             self.assertNotIn(word, both.lower())
-        self.assertRegex(self.js, r"try \{\s*if \(op === \"get\"\) return window\.localStorage")  # 저장 실패해도 게임은 돈다
+        self.assertRegex(self.js, r"get\(k\) \{ try \{ return window\.localStorage\.getItem")  # 저장 실패해도 게임은 돈다
+        analytics = (GAME / "analytics.js").read_text(encoding="utf-8")
+        for net in ("fetch(", "XMLHttpRequest", "sendBeacon", "WebSocket", "http://", "https://"):
+            self.assertNotIn(net, analytics)  # 로컬 기록은 서버로 보내지 않는다
 
     def test_isolated_from_production(self) -> None:
         for py in list((ROOT / "content_engine").rglob("*.py")) + list((ROOT / "scripts").glob("*.py")) + list((ROOT / "tak_brain").glob("*.py")):

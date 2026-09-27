@@ -67,6 +67,32 @@
   .tip { margin-top: 10px; padding: 10px 12px; border-left: 4px solid var(--accent); background: var(--panel2); border-radius: 8px; font-size: 1rem; }
   .next { margin-top: 14px; }
 
+  /* 6-65 V2: 같은 화면 결과·연출 */
+  .choice.picked { border-color: var(--accent); background: #3a3420; opacity: 1; }
+  .choice.faded { opacity: .35; }
+  .choice:disabled.picked { cursor: default; }
+  .stat { position: relative; }
+  .sticky { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0 6px; margin-top: -8px; }
+  .float { position: absolute; right: 6px; top: 4px; font-size: 0.78rem; font-weight: 900; pointer-events: none; animation: floatUp 1s ease-out forwards; }
+  .float.good { color: var(--good); } .float.bad { color: var(--bad); }
+  @keyframes floatUp { from { transform: translateY(6px); opacity: 0; } 20% { opacity: 1; } to { transform: translateY(-10px); opacity: 0; } }
+  .shake { animation: shake .32s ease-in-out; }
+  @keyframes shake { 0%, 100% { transform: none; } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+  .event.echo { border-left: 4px solid #8ab4ff; }
+  .event.echo .origin { display: block; font-size: 0.8rem; color: #8ab4ff; font-weight: 700; }
+  .event.later { border-left: 4px solid #b98cff; }
+  .event.warn { border-left: 4px solid var(--bad); }
+  .style-box { margin-top: 14px; padding: 12px; border-radius: 12px; background: var(--panel2); text-align: center; }
+  .style-box .k { font-size: 0.8rem; color: var(--muted); }
+  .style-title { font-size: 1.25rem; font-weight: 900; margin: 2px 0 4px; }
+  .sub-h { font-size: 1rem; margin: 16px 0 4px; }
+  .rows.cmp div:nth-child(even) { font-weight: 400; }
+  .replay { text-align: center; font-weight: 700; margin: 16px 0 10px; }
+  .center { text-align: center; }
+  .run { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .choice:focus-visible { outline-offset: -3px; }
+
   /* 요약/엔딩 */
   .ending-icon { font-size: 3.2rem; text-align: center; }
   .ending-title { text-align: center; font-size: 1.6rem; font-weight: 900; margin: 4px 0; color: var(--accent); }
@@ -74,7 +100,7 @@
   .rows div:nth-child(even) { text-align: right; font-weight: 800; }
   .pop { animation: pop .35s ease-out; }
   @keyframes pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
-  @media (prefers-reduced-motion: reduce) { .pop { animation: none; } .bar > i, .stat, .happy-bar > i { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .pop, .shake, .float { animation: none; } .bar > i, .stat, .happy-bar > i { transition: none; } }
   .foot { color: var(--muted); font-size: 0.75rem; margin-top: 18px; text-align: center; }
   .foot button { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font-size: 0.75rem; }
 </style>
@@ -84,8 +110,9 @@
   <noscript>이 게임은 자바스크립트가 필요합니다.</noscript>
   <div id="loading">불러오는 중…</div>
 </main>
-<script src="engine.js"></script>
-<script src="renderer.js"></script>
+<script src="engine.js?v=g2-4"></script>
+<script src="analytics.js?v=g2-4"></script>
+<script src="renderer.js?v=g2-4"></script>
 <script>
   // 데이터와 엔진은 분리돼 있다: 다른 게임(한국사·한자)은 이 파일의 경로만 바꾼다.
   Choice100Renderer.boot(document.getElementById("app"), "data/finance.json");

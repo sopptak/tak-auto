@@ -1,12 +1,12 @@
 {
   "id": "choice100-finance",
-  "version": "g1-1",
+  "version": "g2-1",
   "title": "선택100",
   "subtitle": "나의 선택으로 부자 만들기",
   "tagline": "100번의 선택이 당신의 재무 인생을 바꾼다.",
   "hook": "당신에게 100번의 선택이 주어진다면?",
   "disclaimer": "본 게임은 금융 의사결정 학습을 위한 가상 시뮬레이션이며 실제 금융상품·투자·대출에 대한 조언이 아닙니다. 모든 수치는 게임 수치입니다.",
-  "intro": "30세, 월급 400만원. 현금 3,000만원과 대출 2,000만원으로 시작한다. 선택 한 번 = 한 달.",
+  "intro": "30세, 월급 400만원. 현금 3,000만원과 대출 2,000만원으로 시작한다. 선택 한 번 = 한 달. 어떤 선택은 나중에 돌아온다.",
   "money_unit": "만원",
   "total_choices": 100,
   "session_size": 10,
@@ -134,6 +134,28 @@
       "from": "investment",
       "rate": 0.004,
       "label": "투자 평가 변동(게임 가정)"
+    },
+    {
+      "stat": "happiness",
+      "from": "happiness",
+      "rate": -0.03,
+      "label": "일상(60으로 서서히)"
+    },
+    {
+      "stat": "happiness",
+      "amount": 1.8,
+      "label": "일상(60으로 서서히)"
+    },
+    {
+      "stat": "risk",
+      "from": "risk",
+      "rate": -0.04,
+      "label": "위험 노출(30으로 서서히)"
+    },
+    {
+      "stat": "risk",
+      "amount": 1.2,
+      "label": "위험 노출(30으로 서서히)"
     }
   ],
   "guards": [
@@ -183,7 +205,7 @@
         31,
         40
       ],
-      "status": "planned"
+      "status": "playable"
     },
     {
       "n": 5,
@@ -303,207 +325,237 @@
     {
       "id": "q002",
       "chapter": 1,
-      "title": "구독 7개의 습격",
-      "difficulty": 1,
+      "title": "갑자기 이가 아프다",
+      "difficulty": 2,
       "tags": [
-        "고정비"
+        "위기",
+        "미루기"
       ],
-      "situation": "카드 명세서를 보니 영상·음악·쇼핑 구독이 7개, 매달 15만원이 빠져나간다.",
+      "situation": "밤새 이가 욱신거렸다. 치과에서 제대로 치료하면 150만원이라고 한다.",
+      "enter_text": "작은 위기 발생",
       "next": "q003",
       "choices": [
         {
           "id": "a",
-          "text": "전부 해지한다",
+          "text": "지금 제대로 치료",
           "effects": {
-            "expense": -15,
-            "happiness": -5
+            "cash": -150,
+            "happiness": 2
           },
-          "result_text": "매달 15만원이 남는다. 대신 주말이 좀 심심해졌다.",
-          "tip": "고정비는 한 번 줄이면 매달 효과가 반복됩니다."
+          "result_text": "통증이 사라졌다. 통장도 조금 가벼워졌다.",
+          "tip": "당장의 비용을 치르면 나중에 커질 위험을 줄일 수 있습니다."
         },
         {
           "id": "b",
-          "text": "자주 쓰는 3개만 남긴다",
+          "text": "임시 치료만 30만원",
           "effects": {
-            "expense": -8,
-            "happiness": -1
+            "cash": -30,
+            "happiness": -2
           },
-          "result_text": "월 8만원 절약. 생활은 거의 그대로다.",
-          "tip": "안 쓰는 것부터 줄이면 만족도는 지키면서 지출을 낮출 수 있습니다."
+          "result_text": "일단 괜찮아졌다. 의사가 '나중에 꼭 오세요'라고 했다.",
+          "tip": "미룬 비용은 사라지지 않고 뒤로 옮겨질 때가 많습니다.",
+          "set_flags": [
+            "delayed_dental"
+          ]
         },
         {
           "id": "c",
-          "text": "그대로 둔다",
+          "text": "12개월 할부로 치료",
           "effects": {
+            "debt": 150,
+            "expense": 13,
             "happiness": 2
           },
-          "result_text": "편하다. 명세서는 다음 달에도 똑같다.",
-          "tip": "작은 금액의 자동결제는 눈에 잘 띄지 않아 오래 새어 나갑니다."
+          "result_text": "치료는 끝났다. 매달 13만원씩 나간다.",
+          "tip": "할부는 한 번의 큰 지출을 여러 달의 고정비로 바꿉니다."
         },
         {
           "id": "d",
-          "text": "새 구독을 하나 더 한다",
+          "text": "참아 본다",
           "effects": {
-            "expense": 3,
-            "happiness": 4
+            "happiness": -8
           },
-          "result_text": "볼 게 더 많아졌다. 고정비도 조금 더 늘었다.",
-          "tip": "구독을 늘릴 때는 해지할 것도 하나 정해 두면 총액을 관리하기 쉽습니다."
+          "result_text": "돈은 안 들었다. 밥 먹을 때마다 신경 쓰인다.",
+          "tip": "아끼는 선택에도 대가가 따를 수 있습니다.",
+          "set_flags": [
+            "delayed_dental"
+          ]
         }
       ]
     },
     {
       "id": "q003",
       "chapter": 1,
-      "title": "돈이 어디로 샜을까",
-      "difficulty": 1,
+      "title": "친구의 창업 제안",
+      "difficulty": 2,
       "tags": [
-        "지출관리"
+        "기회",
+        "관계"
       ],
-      "situation": "분명 월급을 받았는데 월말에 남은 돈이 거의 없다.",
+      "situation": "대학 동기가 작은 회사를 차렸다. '300만원만 투자해 줘. 잘되면 크게 돌려줄게.'",
       "next": "q004",
       "choices": [
         {
           "id": "a",
-          "text": "한 달 가계부를 쓴다",
+          "text": "300만원 투자",
           "effects": {
-            "expense": -10,
-            "happiness": -3
+            "cash": -300,
+            "risk": 6,
+            "happiness": 3
           },
-          "result_text": "새는 돈을 찾았다. 배달비가 생각보다 컸다.",
-          "tip": "지출을 기록하면 줄일 곳이 눈에 보입니다."
+          "result_text": "동기가 두 손을 꼭 잡았다. 결과는 아직 모른다.",
+          "tip": "작은 회사 투자는 돌아올 수도, 사라질 수도 있는 돈입니다.",
+          "set_flags": [
+            "startup_invest"
+          ]
         },
         {
           "id": "b",
-          "text": "통장을 용도별로 나눈다",
+          "text": "100만원만 응원",
           "effects": {
-            "expense": -5,
-            "risk": -3
+            "cash": -100,
+            "risk": 2,
+            "happiness": 2
           },
-          "result_text": "생활비 통장만 쓰니 과소비가 줄었다.",
-          "tip": "쓸 돈과 모을 돈을 분리하면 자연스럽게 저축이 먼저 됩니다."
+          "result_text": "부담 없는 만큼만 보탰다.",
+          "tip": "감당할 수 있는 크기로 참여하는 것도 한 방법입니다.",
+          "set_flags": [
+            "startup_small"
+          ]
         },
         {
           "id": "c",
-          "text": "신경 쓰지 않는다",
+          "text": "돈 대신 주말에 일을 돕는다",
           "effects": {
-            "expense": 5,
-            "happiness": 3
+            "happiness": -3
           },
-          "result_text": "마음은 편하다. 지출은 슬금슬금 늘었다.",
-          "tip": "관리하지 않는 지출은 보통 조금씩 늘어나는 경향이 있습니다."
+          "result_text": "주말 두 번을 동기 회사에서 보냈다.",
+          "tip": "돈 대신 시간과 기술로 참여하면 다른 형태의 인연이 생깁니다.",
+          "set_flags": [
+            "startup_mentor"
+          ]
         },
         {
           "id": "d",
-          "text": "간편결제 한도를 낮춘다",
+          "text": "정중히 거절",
           "effects": {
-            "expense": -7,
             "happiness": -2
           },
-          "result_text": "충동구매가 한 번 걸러졌다.",
-          "tip": "결제를 조금 번거롭게 만드는 것만으로도 충동 소비가 줄어듭니다."
+          "result_text": "통장은 그대로. 동기는 '괜찮아'라고 했다.",
+          "tip": "거절도 선택입니다. 기회비용이 있을 뿐입니다."
         }
       ]
     },
     {
       "id": "q004",
       "chapter": 1,
-      "title": "친구의 결혼식",
+      "title": "고정비 다이어트",
       "difficulty": 1,
       "tags": [
-        "경조사"
+        "고정비"
       ],
-      "situation": "가장 친한 친구가 결혼한다. 축의금과 옷, 교통비까지 생각해야 한다.",
+      "situation": "구독 7개, 통신비, 배달앱 멤버십… 매달 자동으로 45만원이 빠져나간다.",
       "next": "q005",
       "choices": [
         {
           "id": "a",
-          "text": "축의금 10만원만",
+          "text": "싹 다 해지",
           "effects": {
-            "cash": -10
+            "expense": -20,
+            "happiness": -7
           },
-          "result_text": "부담 없이 다녀왔다.",
-          "tip": "경조사비는 예측 가능한 지출이라 미리 예산을 잡아 두면 덜 흔들립니다."
+          "result_text": "매달 20만원이 남는다. 주말 저녁이 조용해졌다.",
+          "tip": "고정비는 줄이면 매달 효과가 반복되지만, 즐거움도 함께 줄 수 있습니다."
         },
         {
           "id": "b",
-          "text": "축의금 30 + 새 정장",
+          "text": "구독 줄이고 운동 등록",
           "effects": {
-            "cash": -80,
-            "happiness": 6
+            "expense": 5,
+            "happiness": 3
           },
-          "result_text": "멋지게 축하했다. 사진도 잘 나왔다.",
-          "tip": "관계를 위한 지출은 가치가 있지만, 전체 예산 안에서 정하는 게 좋습니다."
+          "result_text": "구독 3개를 끊고 헬스장을 끊었다. 비용은 오히려 조금 늘었다.",
+          "tip": "같은 돈을 어디에 쓰느냐에 따라 나중이 달라질 수 있습니다.",
+          "set_flags": [
+            "gym"
+          ]
         },
         {
           "id": "c",
-          "text": "못 간다고 하고 5만원 송금",
+          "text": "가족 요금제로 묶는다",
           "effects": {
-            "cash": -5,
-            "happiness": -7
+            "expense": -9,
+            "happiness": -1
           },
-          "result_text": "돈은 아꼈지만 마음이 계속 걸린다.",
-          "tip": "돈으로 측정되지 않는 비용도 있습니다. 행복도도 자산입니다."
+          "result_text": "월 9만원 절약. 가족 단톡방이 조금 시끄러워졌다.",
+          "tip": "생활은 그대로 두고 비용 구조만 바꾸는 절약도 있습니다."
         },
         {
           "id": "d",
-          "text": "축의금 50만원을 크게 쏜다",
+          "text": "이 정도는 나를 위한 비용",
           "effects": {
-            "cash": -50,
-            "happiness": 4
+            "happiness": 4,
+            "expense": 3
           },
-          "result_text": "친구가 크게 감동했다.",
-          "tip": "큰 지출을 할 때는 이번 달 남는 돈이 얼마인지 먼저 확인하세요."
+          "result_text": "그대로 두고 하나 더 구독했다.",
+          "tip": "나를 위한 고정비도 선택입니다. 총액을 알고 고르면 됩니다."
         }
       ]
     },
     {
       "id": "q005",
       "chapter": 1,
-      "title": "점심값 딜레마",
-      "difficulty": 1,
+      "title": "부모님 환갑",
+      "difficulty": 2,
       "tags": [
-        "생활비"
+        "가족",
+        "경조사"
       ],
-      "situation": "점심과 커피로 한 달에 50만원 가까이 쓴다.",
+      "situation": "다음 달이 부모님 환갑이다. 형제들이 가족 여행을 제안했다. 내 몫은 200만원.",
       "next": "q006",
       "choices": [
         {
           "id": "a",
-          "text": "매일 도시락",
+          "text": "200만원 내고 여행",
           "effects": {
-            "expense": -15,
-            "happiness": -5
+            "cash": -200,
+            "happiness": 9
           },
-          "result_text": "월 15만원 절약. 점심시간이 조금 외롭다.",
-          "tip": "작은 지출도 매일 반복되면 한 달 단위로는 큰돈이 됩니다."
+          "result_text": "오랜만에 온 가족이 웃었다.",
+          "tip": "가족을 위한 큰 지출은 미리 알고 준비할수록 부담이 줄어듭니다."
         },
         {
           "id": "b",
-          "text": "주 2회만 도시락",
+          "text": "내가 여행을 통째로 쏜다",
           "effects": {
-            "expense": -6,
-            "happiness": -1
+            "cash": -500,
+            "happiness": 12
           },
-          "result_text": "무리 없이 월 6만원을 아꼈다.",
-          "tip": "지킬 수 있는 절약이 오래갑니다."
+          "result_text": "부모님이 눈물을 보이셨다. 통장은 눈물이 났다.",
+          "tip": "큰 마음을 표현하는 지출은 전체 계획에서 어디를 줄일지 함께 정하면 좋습니다.",
+          "set_flags": [
+            "family_treat"
+          ]
         },
         {
           "id": "c",
-          "text": "지금처럼",
-          "effects": {},
-          "result_text": "변화 없음. 점심은 여전히 즐겁다.",
-          "tip": "아무것도 바꾸지 않는 것도 선택입니다. 다른 곳에서 여유를 만들면 됩니다."
+          "text": "여행 대신 선물 50만원",
+          "effects": {
+            "cash": -50,
+            "happiness": -3
+          },
+          "result_text": "선물은 좋아하셨다. 단체 사진에 내가 없다.",
+          "tip": "돈을 아끼면 다른 무언가를 내려놓게 되는 경우가 많습니다."
         },
         {
           "id": "d",
-          "text": "맛집 탐방을 시작한다",
+          "text": "그 주에 특근해서 돈을 번다",
           "effects": {
-            "expense": 10,
-            "happiness": 7
+            "cash": 60,
+            "happiness": -9
           },
-          "result_text": "점심이 하루의 낙이 됐다. 지출도 늘었다.",
-          "tip": "행복을 위한 소비는 금액을 정해 두면 죄책감 없이 즐길 수 있습니다."
+          "result_text": "특근 수당 60만원. 가족 단톡방 사진만 봤다.",
+          "tip": "시간을 돈으로 바꾸는 선택은 무엇을 포기하는지 함께 봐야 합니다."
         }
       ]
     },
@@ -687,6 +739,16 @@
           "result_text": "목돈 없이 새 차를 탄다. 매달 55만원이 나간다.",
           "tip": "초기 비용이 낮은 대신 매달 나가는 돈이 큰 구조는 오래 쓸수록 부담이 커집니다."
         }
+      ],
+      "triggers": [
+        {
+          "flag": "delayed_dental",
+          "effects": {
+            "cash": -250,
+            "happiness": -4
+          },
+          "text": "미뤄 둔 치아가 결국 탈이 났다. 치료비 250만원."
+        }
       ]
     },
     {
@@ -745,6 +807,15 @@
           },
           "result_text": "옷장이 새로워졌다.",
           "tip": "공돈처럼 느껴지는 돈도 원래 내 돈입니다."
+        }
+      ],
+      "triggers": [
+        {
+          "flag": "family_treat",
+          "effects": {
+            "happiness": 6
+          },
+          "text": "부모님이 여행 사진을 액자로 보내셨다."
         }
       ]
     },
@@ -906,6 +977,16 @@
           },
           "result_text": "조건을 비교해 보니 내 상황이 더 잘 보인다.",
           "tip": "금리는 상품마다, 사람마다 다릅니다. 여러 곳을 비교해 보세요."
+        }
+      ],
+      "triggers": [
+        {
+          "flag": "gym",
+          "effects": {
+            "happiness": 5,
+            "expense": -5
+          },
+          "text": "운동이 습관이 됐다. 배달 야식이 줄어 월 5만원 절약."
         }
       ]
     },
@@ -1141,6 +1222,16 @@
           },
           "result_text": "꿈꾸던 여행! 돌아오니 빚이 남았다.",
           "tip": "경험을 위한 지출은 소중하지만, 빚으로 하면 즐거움보다 부담이 오래 남습니다."
+        }
+      ],
+      "triggers": [
+        {
+          "flag": "startup_mentor",
+          "effects": {
+            "income": 20,
+            "happiness": 3
+          },
+          "text": "동기 회사 일을 도운 게 인연이 돼 월 20만원 외주가 들어왔다."
         }
       ]
     },
@@ -1673,6 +1764,24 @@
           "result_text": "책 두 권을 샀다. 조금씩 보인다.",
           "tip": "이해한 만큼만 투자하면 흔들릴 때 버틸 수 있습니다."
         }
+      ],
+      "triggers": [
+        {
+          "flag": "startup_invest",
+          "effects": {
+            "cash": 600,
+            "happiness": 8
+          },
+          "text": "동기 회사가 투자를 받았다! 300만원이 600만원으로 돌아왔다."
+        },
+        {
+          "flag": "startup_small",
+          "effects": {
+            "cash": 180,
+            "happiness": 4
+          },
+          "text": "동기 회사가 투자를 받았다! 100만원이 180만원으로 돌아왔다."
+        }
       ]
     },
     {
@@ -2060,7 +2169,7 @@
         "보스"
       ],
       "situation": "게임 속 시간으로 30개월이 지났다. 지금 내 돈의 모양을 정할 시간.",
-      "next": "END",
+      "next": "q031",
       "choices": [
         {
           "id": "a",
@@ -2115,6 +2224,781 @@
           "tip": "보상은 계획을 오래 지키게 해 주는 연료입니다."
         }
       ]
+    },
+    {
+      "id": "q031",
+      "chapter": 4,
+      "title": "계약 만기",
+      "difficulty": 2,
+      "tags": [
+        "주거",
+        "보증금"
+      ],
+      "situation": "전세 계약이 끝나 간다. 집주인이 보증금 1,000만원을 올려 달라고 한다.",
+      "next": "q032",
+      "choices": [
+        {
+          "id": "a",
+          "text": "현금으로 올려 준다",
+          "effects": {
+            "cash": -1000,
+            "asset": 1000
+          },
+          "result_text": "보증금이 늘었다. 2년은 걱정 없다.",
+          "tip": "보증금은 돌려받을 돈이지만 그동안 쓸 수 없는 돈이기도 합니다.",
+          "requires": {
+            "cash": 1000
+          }
+        },
+        {
+          "id": "b",
+          "text": "대출로 올려 준다",
+          "effects": {
+            "debt": 1000,
+            "asset": 1000,
+            "risk": 4
+          },
+          "result_text": "이사는 안 가도 된다. 이자가 붙는다.",
+          "tip": "빌려서 지킨 안정에는 매달 이자라는 비용이 붙습니다."
+        },
+        {
+          "id": "c",
+          "text": "월세로 일부 전환",
+          "effects": {
+            "expense": 40,
+            "happiness": -1
+          },
+          "result_text": "보증금은 그대로, 매달 40만원이 더 나간다.",
+          "tip": "목돈 대신 매달 내는 방식은 현금 여유와 고정비를 맞바꾸는 선택입니다."
+        },
+        {
+          "id": "d",
+          "text": "더 싼 집으로 이사",
+          "effects": {
+            "asset": -800,
+            "cash": 650,
+            "expense": -15,
+            "happiness": -6
+          },
+          "result_text": "이사비 150만원을 내고 좁은 집으로 옮겼다. 대신 여유 자금이 생겼다.",
+          "tip": "주거비를 줄이면 다른 곳에 쓸 돈이 생기지만 생활 만족도도 달라집니다.",
+          "set_flags": [
+            "small_home"
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "flag": "want_house",
+          "effects": {
+            "happiness": 2
+          },
+          "text": "예전에 정한 목표가 떠올랐다. '내 집 마련이 먼저.'"
+        }
+      ]
+    },
+    {
+      "id": "q032",
+      "chapter": 4,
+      "title": "더 좋은 집",
+      "difficulty": 2,
+      "tags": [
+        "주거",
+        "주거비"
+      ],
+      "situation": "지금 월 주거비는 80만원. 역 앞 새 집은 훨씬 좋지만 월 130만원이다.",
+      "next": "q033",
+      "choices": [
+        {
+          "id": "a",
+          "text": "바로 이사한다",
+          "effects": {
+            "expense": 50,
+            "happiness": 10,
+            "cash": -150
+          },
+          "result_text": "출퇴근이 30분 줄었다. 매달 50만원이 더 나간다.",
+          "tip": "편리함에는 가격이 있습니다. 매달 반복되는 가격인지가 중요합니다."
+        },
+        {
+          "id": "b",
+          "text": "지금 집에 산다",
+          "effects": {
+            "happiness": -1
+          },
+          "result_text": "변화 없음. 출퇴근은 여전히 길다.",
+          "tip": "익숙한 선택도 비용과 만족을 함께 따져 본 결과일 수 있습니다."
+        },
+        {
+          "id": "c",
+          "text": "소득이 오르면 이사",
+          "effects": {
+            "risk": -2
+          },
+          "result_text": "조건을 정해 두고 미뤘다.",
+          "tip": "조건을 정해 두고 미루는 것은 포기와 다릅니다.",
+          "set_flags": [
+            "move_later"
+          ]
+        },
+        {
+          "id": "d",
+          "text": "더 먼 곳 넓은 집",
+          "effects": {
+            "expense": 10,
+            "happiness": 4
+          },
+          "result_text": "집은 넓어졌다. 출퇴근은 더 길어졌다.",
+          "tip": "주거비와 시간 비용은 서로 바꿀 수 있는 관계입니다."
+        }
+      ]
+    },
+    {
+      "id": "q033",
+      "chapter": 4,
+      "title": "내 집 마련의 문",
+      "difficulty": 3,
+      "tags": [
+        "주거",
+        "대출"
+      ],
+      "situation": "작은 아파트 2억원. 모은 돈에 대출 1억 6천을 더하면 살 수 있다.",
+      "next": "q034",
+      "choices": [
+        {
+          "id": "a",
+          "text": "대출 받아 산다",
+          "effects": {
+            "cash": -1000,
+            "asset": 17000,
+            "debt": 16000,
+            "risk": 12,
+            "happiness": 8,
+            "expense": -40
+          },
+          "result_text": "내 집이 생겼다! 대출도 생겼다. 월세 대신 이자가 나간다.",
+          "tip": "집을 사면 주거는 안정되지만 큰 빚과 가격 변동을 함께 떠안게 됩니다.",
+          "requires": {
+            "cash": 1000,
+            "credit": 60
+          },
+          "set_flags": [
+            "homeowner"
+          ]
+        },
+        {
+          "id": "b",
+          "text": "1년 더 모은다",
+          "effects": {
+            "risk": -2
+          },
+          "result_text": "조급해하지 않기로 했다.",
+          "tip": "기다리는 동안 모으는 돈과 가격 변화 중 무엇이 클지는 아무도 모릅니다."
+        },
+        {
+          "id": "c",
+          "text": "청약을 준비한다",
+          "effects": {
+            "expense": 10,
+            "happiness": 1
+          },
+          "result_text": "매달 청약용으로 10만원씩 넣기로 했다.",
+          "tip": "긴 호흡의 준비는 당장 결과가 보이지 않아도 계속하는 게 관건입니다.",
+          "set_flags": [
+            "subscription"
+          ]
+        },
+        {
+          "id": "d",
+          "text": "집 대신 투자",
+          "effects": {
+            "cash": -1000,
+            "investment": 1000,
+            "risk": 6
+          },
+          "result_text": "집 살 돈을 투자에 넣었다.",
+          "tip": "같은 돈이라도 어디에 두느냐에 따라 위험의 모양이 달라집니다.",
+          "requires": {
+            "cash": 1000
+          }
+        }
+      ],
+      "triggers": [
+        {
+          "flag": "small_home",
+          "effects": {
+            "happiness": 3
+          },
+          "text": "작은 집으로 옮기며 모은 돈 덕에 선택지가 넓어졌다."
+        }
+      ]
+    },
+    {
+      "id": "q034",
+      "chapter": 4,
+      "title": "금리 방식 고르기",
+      "difficulty": 2,
+      "tags": [
+        "대출",
+        "금리"
+      ],
+      "situation": "은행 창구: '고정금리와 변동금리 중 고르세요. 지금은 변동이 조금 더 쌉니다.'",
+      "next": "q035",
+      "choices": [
+        {
+          "id": "a",
+          "text": "고정금리",
+          "effects": {
+            "cash": -40,
+            "risk": -6
+          },
+          "result_text": "조금 비싸도 앞으로 이자는 흔들리지 않는다.",
+          "tip": "확실함에는 비용이 듭니다. 그 비용을 낼지 정하는 선택입니다."
+        },
+        {
+          "id": "b",
+          "text": "변동금리",
+          "effects": {
+            "risk": 4,
+            "cash": 40
+          },
+          "result_text": "당장은 이자가 조금 싸다.",
+          "tip": "변동금리는 오르면 부담이, 내리면 이득이 생깁니다.",
+          "set_flags": [
+            "variable_rate"
+          ]
+        },
+        {
+          "id": "c",
+          "text": "원금 1,000만원 먼저 상환",
+          "effects": {
+            "cash": -1000,
+            "debt": -1000,
+            "risk": -4
+          },
+          "result_text": "빚 자체를 줄였다.",
+          "tip": "갚은 원금에는 어떤 금리도 붙지 않습니다.",
+          "requires": {
+            "cash": 1000,
+            "debt": 1000
+          }
+        },
+        {
+          "id": "d",
+          "text": "기간을 늘려 월 부담 줄이기",
+          "effects": {
+            "expense": -15,
+            "debt": 400,
+            "risk": 2
+          },
+          "result_text": "매달은 편해졌다. 총 이자는 늘었다.",
+          "tip": "월 부담과 총비용은 반대로 움직일 때가 많습니다."
+        }
+      ]
+    },
+    {
+      "id": "q035",
+      "chapter": 4,
+      "title": "물이 샌다",
+      "difficulty": 2,
+      "tags": [
+        "주거",
+        "수리"
+      ],
+      "situation": "새벽에 천장에서 물이 떨어졌다. 급한 대로 막는 데 100만원이 들었다.",
+      "next": "q036",
+      "choices": [
+        {
+          "id": "a",
+          "text": "전문 업체로 제대로 수리",
+          "effects": {
+            "cash": -200,
+            "asset": 80
+          },
+          "result_text": "튼튼하게 고쳤다. 집 상태도 좋아졌다.",
+          "tip": "수리는 비용이지만 자산의 가치를 지키는 일이기도 합니다."
+        },
+        {
+          "id": "b",
+          "text": "실리콘으로 임시방편",
+          "effects": {
+            "cash": -30
+          },
+          "result_text": "일단 멈췄다. 비 오는 날이 신경 쓰인다.",
+          "tip": "임시방편은 지금의 비용을 줄이고 나중의 불확실성을 늘립니다.",
+          "set_flags": [
+            "cheap_fix"
+          ]
+        },
+        {
+          "id": "c",
+          "text": "집주인·관리실과 분담",
+          "effects": {
+            "cash": -60,
+            "happiness": -3
+          },
+          "result_text": "협의 끝에 비용을 나눴다. 전화만 열 통.",
+          "tip": "책임 소재를 확인하면 비용을 나눌 수 있는 경우가 있습니다."
+        },
+        {
+          "id": "d",
+          "text": "주말에 직접 고친다",
+          "effects": {
+            "cash": -40,
+            "happiness": -4,
+            "risk": 2
+          },
+          "result_text": "유튜브 보며 고쳤다. 뿌듯하지만 불안하다.",
+          "tip": "직접 하면 돈을 아끼지만 시간과 결과의 불확실성을 감수합니다."
+        }
+      ],
+      "on_enter": {
+        "cash": -100
+      },
+      "enter_text": "긴급 수리비 100만원",
+      "triggers": [
+        {
+          "flag": "family_loan",
+          "effects": {
+            "cash": -200,
+            "happiness": 3
+          },
+          "text": "예전에 가족에게 빌린 200만원을 갚았다. 마음이 가벼워졌다."
+        }
+      ]
+    },
+    {
+      "id": "q036",
+      "chapter": 4,
+      "title": "집값이 흔들린다",
+      "difficulty": 3,
+      "tags": [
+        "주거",
+        "위기"
+      ],
+      "situation": "뉴스: '주택 가격 하락.' 주변 시세가 떨어졌다는 말이 들린다.",
+      "next": "q037",
+      "choices": [
+        {
+          "id": "a",
+          "text": "신경 쓰지 않고 산다",
+          "effects": {
+            "happiness": 1
+          },
+          "result_text": "살 집이니 괜찮다고 생각했다.",
+          "tip": "실제로 사는 집은 가격만이 아니라 생활의 기반이기도 합니다."
+        },
+        {
+          "id": "b",
+          "text": "불안해서 대출을 줄인다",
+          "effects": {
+            "cash": -500,
+            "debt": -500,
+            "risk": -5
+          },
+          "result_text": "대출 500만원을 갚았다.",
+          "tip": "가격이 흔들릴 때 빚을 줄이면 버틸 힘이 커집니다.",
+          "requires": {
+            "cash": 500,
+            "debt": 500
+          }
+        },
+        {
+          "id": "c",
+          "text": "싸졌을 때 추가로 알아본다",
+          "effects": {
+            "happiness": -1,
+            "risk": 3
+          },
+          "result_text": "급매물을 찾아보기 시작했다.",
+          "tip": "하락은 누군가에게 기회로 보이지만 바닥은 지나 봐야 압니다.",
+          "set_flags": [
+            "bargain_hunt"
+          ]
+        },
+        {
+          "id": "d",
+          "text": "투자를 일부 팔아 현금 확보",
+          "effects": {
+            "risk": -4
+          },
+          "result_text": "투자의 20%를 현금으로 바꿨다.",
+          "tip": "현금을 늘리면 불확실한 시기를 버티는 힘이 됩니다.",
+          "moves": [
+            {
+              "from": "investment",
+              "to": "cash",
+              "pct": 20
+            }
+          ]
+        }
+      ],
+      "on_enter": {
+        "asset": {
+          "pct": -8
+        }
+      },
+      "enter_text": "집·보증금 등 자산 평가 -8%",
+      "triggers": [
+        {
+          "flag": "variable_rate",
+          "effects": {
+            "debt": {
+              "pct": 2
+            },
+            "risk": 3
+          },
+          "text": "변동금리가 올랐다. 이자 부담이 커졌다."
+        },
+        {
+          "flag": "homeowner",
+          "effects": {
+            "happiness": -3
+          },
+          "text": "내 집 시세가 떨어졌다는 소식에 마음이 무겁다."
+        }
+      ]
+    },
+    {
+      "id": "q037",
+      "chapter": 4,
+      "title": "갭투자 광고",
+      "difficulty": 3,
+      "tags": [
+        "부동산",
+        "유혹"
+      ],
+      "situation": "'1,000만원이면 집 한 채! 전세 끼고 사면 됩니다.' 광고가 계속 뜬다.",
+      "next": "q038",
+      "choices": [
+        {
+          "id": "a",
+          "text": "1,000만원으로 한 채",
+          "effects": {
+            "cash": -1000,
+            "asset": 6000,
+            "debt": 5000,
+            "risk": 20
+          },
+          "result_text": "집이 한 채 더 생겼다. 빚도 5,000만원 늘었다.",
+          "tip": "적은 돈으로 큰 자산을 사면 오르내림이 모두 크게 느껴집니다.",
+          "requires": {
+            "cash": 1000
+          },
+          "set_flags": [
+            "gap_invest"
+          ]
+        },
+        {
+          "id": "b",
+          "text": "친구와 공동 투자 500만원",
+          "effects": {
+            "cash": -500,
+            "risk": 6
+          },
+          "result_text": "친구와 반반 넣었다.",
+          "tip": "함께하는 투자는 돈뿐 아니라 관계도 같이 걸립니다.",
+          "requires": {
+            "cash": 500
+          },
+          "set_flags": [
+            "coinvest"
+          ]
+        },
+        {
+          "id": "c",
+          "text": "구조부터 공부한다",
+          "effects": {
+            "happiness": -2,
+            "risk": -2
+          },
+          "result_text": "전세가 떨어지면 어떻게 되는지 계산해 봤다.",
+          "tip": "광고가 말하지 않는 부분을 스스로 따져 보는 것이 출발점입니다.",
+          "set_flags": [
+            "studied"
+          ]
+        },
+        {
+          "id": "d",
+          "text": "광고를 끈다",
+          "effects": {},
+          "result_text": "조용해졌다.",
+          "tip": "모든 기회를 잡을 필요는 없습니다."
+        }
+      ],
+      "triggers": [
+        {
+          "flag": "move_later",
+          "effects": {
+            "happiness": 5,
+            "expense": 20
+          },
+          "text": "미뤄 둔 이사: 소득이 올라 더 좋은 집으로 옮겼다. 주거비 +20만원."
+        },
+        {
+          "flag": "bargain_hunt",
+          "effects": {
+            "asset": 600,
+            "cash": -500
+          },
+          "text": "알아보던 급매물을 싸게 잡았다. 500만원으로 600만원 가치."
+        }
+      ]
+    },
+    {
+      "id": "q038",
+      "chapter": 4,
+      "title": "보증금은 안전할까",
+      "difficulty": 2,
+      "tags": [
+        "주거",
+        "보증금"
+      ],
+      "situation": "뉴스: '보증금을 제때 못 돌려받는 사례 증가.' 내 보증금이 떠올랐다.",
+      "next": "q039",
+      "choices": [
+        {
+          "id": "a",
+          "text": "보증금 보호 상품에 가입",
+          "effects": {
+            "cash": -30,
+            "risk": -8
+          },
+          "result_text": "수수료를 내고 마음을 샀다.",
+          "tip": "작은 비용으로 큰 손실 가능성을 줄이는 것이 보험의 원리입니다."
+        },
+        {
+          "id": "b",
+          "text": "설마 하고 넘어간다",
+          "effects": {
+            "risk": 5
+          },
+          "result_text": "별일 없을 거라 생각했다.",
+          "tip": "확률이 낮은 위험도 크기가 크면 한 번쯤 따져 볼 가치가 있습니다.",
+          "set_flags": [
+            "deposit_risk"
+          ]
+        },
+        {
+          "id": "c",
+          "text": "보증금 일부를 월세로 돌린다",
+          "effects": {
+            "expense": 35,
+            "risk": -4
+          },
+          "result_text": "보증금 일부를 돌려받고 월세를 내기로 했다.",
+          "tip": "묶인 돈을 줄이면 위험은 줄지만 매달 비용이 늘어납니다.",
+          "moves": [
+            {
+              "from": "asset",
+              "to": "cash",
+              "pct": 25
+            }
+          ]
+        },
+        {
+          "id": "d",
+          "text": "집주인 사정을 확인해 본다",
+          "effects": {
+            "happiness": -1,
+            "risk": -3
+          },
+          "result_text": "등기부를 떼 보고 조금 안심했다.",
+          "tip": "확인할 수 있는 정보를 먼저 보는 것만으로도 불안이 줄어듭니다."
+        }
+      ],
+      "triggers": [
+        {
+          "flag": "cheap_fix",
+          "effects": {
+            "cash": -300,
+            "happiness": -5
+          },
+          "text": "임시로 막았던 곳이 다시 샜다. 이번엔 수리비 300만원."
+        }
+      ]
+    },
+    {
+      "id": "q039",
+      "chapter": 4,
+      "title": "주택 시장 반등",
+      "difficulty": 2,
+      "tags": [
+        "부동산",
+        "회복"
+      ],
+      "situation": "몇 달 사이 분위기가 바뀌었다. 집값이 다시 오른다는 뉴스가 쏟아진다.",
+      "next": "q040",
+      "choices": [
+        {
+          "id": "a",
+          "text": "자산 일부를 현금으로",
+          "effects": {
+            "risk": -5
+          },
+          "result_text": "오른 자산 일부를 정리했다.",
+          "tip": "올랐을 때 일부를 정리하면 다음 변동에 대비할 수 있습니다.",
+          "moves": [
+            {
+              "from": "asset",
+              "to": "cash",
+              "pct": 10
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "text": "그대로 둔다",
+          "effects": {
+            "risk": 1
+          },
+          "result_text": "아무것도 하지 않았다.",
+          "tip": "오를 때도 계획대로 가는 것이 쉽지 않은 선택입니다."
+        },
+        {
+          "id": "c",
+          "text": "오른 만큼 대출을 더 받아 투자",
+          "effects": {
+            "debt": 2000,
+            "investment": 2000,
+            "risk": 15
+          },
+          "result_text": "담보 가치가 올라 2,000만원을 더 빌렸다.",
+          "tip": "오른 가격을 담보로 빌리면 다시 내릴 때의 부담도 커집니다."
+        },
+        {
+          "id": "d",
+          "text": "고생한 가족과 외식",
+          "effects": {
+            "cash": -50,
+            "happiness": 6
+          },
+          "result_text": "오랜만에 가족과 좋은 식당에 갔다.",
+          "tip": "좋은 소식을 나누는 작은 지출도 삶의 일부입니다."
+        }
+      ],
+      "on_enter": {
+        "asset": {
+          "pct": 10
+        }
+      },
+      "enter_text": "집·보증금 등 자산 평가 +10%",
+      "triggers": [
+        {
+          "flag": "gap_invest",
+          "effects": {
+            "asset": 800,
+            "happiness": -4
+          },
+          "text": "갭투자한 집값이 올랐다. 대신 세입자 수리 요청 전화가 잦다."
+        },
+        {
+          "flag": "subscription",
+          "effects": {
+            "asset": 1500,
+            "cash": -800,
+            "happiness": 6
+          },
+          "text": "청약 당첨! 계약금 800만원을 내고 새 집 권리를 얻었다."
+        },
+        {
+          "flag": "hot_tip_small",
+          "effects": {
+            "investment": 200,
+            "happiness": 3
+          },
+          "text": "재미로 산 100만원짜리 종목이 3배가 됐다."
+        }
+      ]
+    },
+    {
+      "id": "q040",
+      "chapter": 4,
+      "title": "40개월, 어디서 살까",
+      "difficulty": 3,
+      "tags": [
+        "주거",
+        "보스"
+      ],
+      "situation": "계약서와 통장, 대출 서류를 책상에 펼쳤다. 앞으로의 방향을 정할 시간.",
+      "next": "END",
+      "choices": [
+        {
+          "id": "a",
+          "text": "집을 키운다",
+          "effects": {
+            "debt": 3000,
+            "asset": 3000,
+            "risk": 8,
+            "happiness": 4
+          },
+          "result_text": "더 큰 계획을 세웠다. 빚도 커졌다.",
+          "tip": "자산을 키우는 선택은 빚과 위험도 함께 키웁니다."
+        },
+        {
+          "id": "b",
+          "text": "집을 줄이고 여유를 만든다",
+          "effects": {
+            "happiness": -4,
+            "risk": -6
+          },
+          "result_text": "작은 곳으로 옮기고 여윳돈을 확보했다.",
+          "tip": "주거를 줄이면 현금 여유가 생기지만 생활의 변화도 받아들여야 합니다.",
+          "moves": [
+            {
+              "from": "asset",
+              "to": "cash",
+              "pct": 20
+            }
+          ]
+        },
+        {
+          "id": "c",
+          "text": "지금처럼 산다",
+          "effects": {
+            "happiness": 3
+          },
+          "result_text": "익숙한 곳에서 계속 살기로 했다.",
+          "tip": "지금의 균형을 유지하는 것도 분명한 선택입니다."
+        },
+        {
+          "id": "d",
+          "text": "주거비를 줄여 빚부터 갚는다",
+          "effects": {
+            "expense": -20,
+            "happiness": -3,
+            "risk": -3
+          },
+          "result_text": "생활을 조이고 빚 갚기에 집중하기로 했다.",
+          "tip": "허리띠를 조이는 기간은 목표가 분명할 때 오래 버틸 수 있습니다."
+        }
+      ],
+      "triggers": [
+        {
+          "flag": "deposit_risk",
+          "effects": {
+            "cash": -150,
+            "happiness": -8
+          },
+          "text": "보증금 반환이 두 달 늦어졌다. 임시 숙소비 150만원."
+        },
+        {
+          "flag": "coinvest",
+          "effects": {
+            "cash": 700,
+            "happiness": 2
+          },
+          "text": "친구와 공동 투자한 집이 팔렸다. 500만원이 700만원으로."
+        },
+        {
+          "flag": "studied",
+          "effects": {
+            "risk": -5,
+            "happiness": 2
+          },
+          "text": "공부해 둔 덕에 광고 속 함정을 알아봤다. 흔들리지 않는다."
+        }
+      ]
     }
   ],
   "endings": [
@@ -2126,10 +3010,10 @@
         {
           "stat": "net_worth",
           "op": "<",
-          "value": 4000
+          "value": 6000
         }
       ],
-      "text": "시작할 때(순자산 4,000만원)보다 가난해졌다. 다음 판에서는 비상금과 고정비부터 챙겨 보자."
+      "text": "40개월 동안 월급만 그대로 모았어도 닿았을 순자산(6,000만원)에 못 미쳤다. 다음 판에서는 비상금과 고정비부터 챙겨 보자."
     },
     {
       "id": "happy",
@@ -2140,27 +3024,14 @@
           "stat": "happiness",
           "op": ">=",
           "value": 85
+        },
+        {
+          "stat": "risk",
+          "op": "<",
+          "value": 70
         }
       ],
       "text": "인생을 즐겼다. 순자산은 조금 덜 늘었지만 추억은 가득하다."
-    },
-    {
-      "id": "gambler",
-      "title": "위험한 한방형",
-      "icon": "🎲",
-      "when": [
-        {
-          "stat": "risk",
-          "op": ">=",
-          "value": 70
-        },
-        {
-          "stat": "investment",
-          "op": ">=",
-          "value": 2000
-        }
-      ],
-      "text": "크게 걸고 크게 흔들렸다. 운이 좋았다면 부자, 아니었다면… 위험도를 낮춰도 성장할 수 있을까?"
     },
     {
       "id": "aggressive",
@@ -2176,9 +3047,27 @@
           "stat": "risk",
           "op": ">=",
           "value": 40
+        },
+        {
+          "stat": "net_worth",
+          "op": ">=",
+          "value": 10000
         }
       ],
-      "text": "투자로 자산을 키웠다. 다음 하락장이 와도 버틸 수 있을까?"
+      "text": "위험을 안고 투자로 순자산 1억을 넘겼다. 다음 하락장이 와도 버틸 수 있을까?"
+    },
+    {
+      "id": "gambler",
+      "title": "위험한 한방형",
+      "icon": "🎲",
+      "when": [
+        {
+          "stat": "risk",
+          "op": ">=",
+          "value": 75
+        }
+      ],
+      "text": "위험을 크게 안고 달렸다. 운이 좋으면 부자, 아니면… 위험도를 낮춰도 성장할 수 있을까?"
     },
     {
       "id": "frugal",
@@ -2218,5 +3107,99 @@
       "when": [],
       "text": "빚·현금·투자·행복 사이에서 균형을 잡으며 성장했다."
     }
-  ]
+  ],
+  "score_stat": "net_worth",
+  "style": {
+    "note": "게임 내 선택을 기준으로 한 플레이 스타일입니다. 실제 금융 성향 진단이 아닙니다.",
+    "rules": [
+      {
+        "style": "debt_focus",
+        "when": [
+          {
+            "stat": "debt",
+            "op": "<",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "style": "investment_focus",
+        "when": [
+          {
+            "stat": "investment",
+            "op": ">",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "style": "consumption_focus",
+        "when": [
+          {
+            "stat": "happiness",
+            "op": ">=",
+            "value": 4
+          },
+          {
+            "stat": "cash",
+            "op": "<",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "style": "risk_taker",
+        "when": [
+          {
+            "stat": "risk",
+            "op": ">=",
+            "value": 8
+          }
+        ]
+      },
+      {
+        "style": "risk_averse",
+        "when": [
+          {
+            "stat": "risk",
+            "op": "<=",
+            "value": -4
+          }
+        ]
+      }
+    ],
+    "labels": {
+      "debt_focus": {
+        "icon": "💳",
+        "title": "부채 정리형",
+        "text": "빚을 줄이는 선택을 가장 자주 했습니다."
+      },
+      "investment_focus": {
+        "icon": "🚀",
+        "title": "기회 추구형",
+        "text": "돈을 불릴 기회에 자주 손을 뻗었습니다."
+      },
+      "consumption_focus": {
+        "icon": "🎉",
+        "title": "지금을 즐기는 형",
+        "text": "오늘의 행복을 위한 선택을 자주 했습니다."
+      },
+      "risk_taker": {
+        "icon": "🎲",
+        "title": "승부사형",
+        "text": "위험을 감수하는 선택을 자주 했습니다."
+      },
+      "risk_averse": {
+        "icon": "🛡️",
+        "title": "안정 추구형",
+        "text": "위험을 줄이는 선택을 자주 했습니다."
+      }
+    },
+    "balanced": {
+      "icon": "🎯",
+      "title": "균형 전략형",
+      "text": "한쪽에 치우치지 않고 골고루 선택했습니다.",
+      "max_share": 0.34
+    }
+  }
 }
