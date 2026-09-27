@@ -587,17 +587,21 @@ def _staging_path(config):
 
 
 def _today_money_html(store: money.MoneyStore) -> str:
-    """6-61 TODAY MONEY: 예상(아직 안 번 돈)과 실제(받은 돈)를 분리. 목표는 실제만."""
+    """6-61 TODAY MONEY: 예상(아직 안 번 돈)과 실제(받은 돈)를 분리. 목표는 실제만.
+    6-62: 처음 보는 사람이 바로 읽게 - 발견/지금 할 것, 실제 오늘/이번 달, 첫 목표, 버튼만 크게. 나머지는 작은 글씨."""
     tm = money_scout.today_money(store.tasks(), store.log(), store.config)
     g = tm["goal"]
-    unknown = f' <span class="hint">(+ 원 환산/시간 모름 {tm["expected_unknown"]}건)</span>' if tm["expected_unknown"] else ""
+    unknown = f' + 원 환산/시간 모름 {tm["expected_unknown"]}건' if tm["expected_unknown"] else ""
+    pending = ('<div class="hint" style="margin-top:4px">실제 수익 0원 — 아직 발생하지 않음. 설문 하나를 직접 끝내고 받은 금액·걸린 시간만 적으면 여기부터 채워집니다.</div>'
+               if tm["revenue_state"] == "REAL_REVENUE_PENDING" else
+               f'<div class="hint" style="margin-top:4px">실제 기록 {tm["actual_count"]}건 · 실제 시급 {f"{tm['actual_hourly']:,}원" if tm["actual_hourly"] is not None else "-"}</div>')
+    row = 'style="display:flex;gap:22px;flex-wrap:wrap;margin-top:6px;font-size:1.05rem"'
     return f"""<div class="goal"><b>💰 TODAY MONEY</b>
-<div class="nums" style="display:flex;gap:18px;flex-wrap:wrap;margin-top:6px"><div>오늘 발견 <b>{tm['found_today']}건</b></div>
-<div>🔥 지금 할 것 <b>{tm['now']}건</b></div><div>🟡 시간 되면 <b>{tm['later']}건</b></div><div>⚪ 보류 <b>{tm['hold']}건</b></div></div>
-<div class="nums" style="display:flex;gap:18px;flex-wrap:wrap;margin-top:6px"><div>예상 수익 <b>{tm['expected_krw']:,}원</b>{unknown}</div>
-<div>오늘 실제 수익 <b>{tm['actual_today']:,}원</b></div><div>이번 달 실제 수익 <b>{tm['actual_month']:,}원</b></div></div>
-<div style="margin-top:6px">목표 <b>{g['current']:,} / {g['first_goal']:,}원</b> ({g['first_progress']:g}%) <span class="hint">실제 받은 돈만 셉니다 — 예상 수익은 목표에 넣지 않습니다.</span></div>
-<div class="actions" style="margin-top:8px"><a class="btn primary big" href="/money/scout">🔎 수익기회 찾기 · 오늘 TOP 3</a></div></div>"""
+<div class="nums" {row}><div>오늘 발견 <b>{tm['found_today']}건</b></div><div>🔥 지금 할 것 <b>{tm['now']}건</b></div></div>
+<div class="nums" {row}><div>오늘 실제 수익 <b>{tm['actual_today']:,}원</b></div><div>이번 달 실제 수익 <b>{tm['actual_month']:,}원</b></div></div>
+<div style="margin-top:8px;font-size:1.05rem">🎯 첫 목표 <b>{g['current']:,} / {g['first_goal']:,}원</b> ({g['first_progress']:g}%)</div>{pending}
+<div class="actions" style="margin-top:8px"><a class="btn primary big" href="/money/scout">🔎 지금 수익기회 찾기 · TOP 3</a></div>
+<div class="hint" style="margin-top:6px">예상 수익 <b>{tm['expected_krw']:,}원</b>{unknown} (🔥·🟡 기준, 목표에 안 넣음) · 🟡 {tm['later']}건 · ⚪ {tm['hold']}건</div></div>"""
 
 
 def _scout_home_html(store: money.MoneyStore) -> str:
@@ -673,7 +677,7 @@ def render_scout(store: money.MoneyStore, config_obj, notice=None, error=None) -
         pending_html = ""
     top = money_scout.top_picks(groups)
     top_html = "".join(f'<div style="display:flex;gap:8px;align-items:flex-start"><div style="font-size:1.3rem;font-weight:800;min-width:34px">[{i}]</div>'
-                       f'<div style="flex:1">{_scout_card(t, config)}</div></div>' for i, t in enumerate(top, 1)) or (
+                       f'<div style="flex:1"><div class="hint">{money_scout.BUCKETS[t["bucket"]]}</div>{_scout_card(t, config)}</div></div>' for i, t in enumerate(top, 1)) or (
         '<div class="card">지금 할 만한 기회가 없습니다. 🔎 찾기를 눌러 보거나, 로그인이 필요한 곳은 직접 로그인 후 다시 찾기.</div>')
     total = sum(len(v) for v in groups.values())
     return f"""<div class="money">{NAV}<h1>🔎 MONEY SCOUT</h1>

@@ -36,6 +36,18 @@ def _result(status: str, items=None, detail: str = "", asset_status=None) -> dic
 
 # ---- PanelNow: /survey 목록(로그인 없이도 공개 목록이 보인다) ---------------------------------------
 
+_TREE_NAME = re.compile(r'"(.*)" \[ref_\d+\]')
+_PN_ID, _PN_MIN, _PN_REWARD = re.compile(r"[a-z]\d{2,}"), re.compile(r"약?\s*\d+\s*분"), re.compile(r"(문항당\s*)?\d[\d,]*\s*P")
+
+
+def tree_lines(text: str) -> list[str] | None:
+    """6-62: 회원 화면에서 get_page_text가 빈 값을 줘서(실제 확인) 에이전트는 read_page 접근성 트리를 넘길 수 있다.
+    트리 줄 `generic "c001" [ref_102]`에서 이름만 뽑는다. 트리가 아니면 None."""
+    if "[ref_" not in str(text or ""):
+        return None
+    return [m.group(1).strip() for m in map(_TREE_NAME.search, str(text).splitlines()) if m and m.group(1).strip()]
+
+
 def panelnow_logged_out(lines: list[str]) -> bool:
     """맨 위 메뉴에 '로그인'과 '회원가입'이 함께 있으면 로그아웃 상태."""
     head = lines[:15]
@@ -50,16 +62,27 @@ def parse_panelnow(raw: dict) -> dict:
     text = raw.get("page_text", "")
     if has_captcha(text):
         return _result("CAPTCHA_REQUIRED")
-    lines = _lines(text)
-    if panelnow_logged_out(lines):
+    tree = tree_lines(text)
+    lines = tree if tree is not None else _lines(text)
+    # 트리는 숨은 메뉴까지 담는다: 회원 화면이면 '로그아웃'이 있다(실제 확인). 없으면 로그인 안 된 것으로 본다(안전 쪽).
+    if panelnow_logged_out(lines) or (tree is not None and "로그아웃" not in lines):
         return _result("LOGIN_REQUIRED", detail="로그아웃 상태 - 보이는 목록은 비회원용 예시(실제 설문 아님). Chrome에서 직접 로그인한 뒤 다시 실행")
     items = []
     for i, line in enumerate(lines):
-        if line != "No." or lines[i + 1:i + 4] != ["응답시간", "적립일정", "포인트"] or i + 7 >= len(lines):
+        if line != "No." or lines[i + 1:i + 4] != ["응답시간", "적립일정", "포인트"] or i + 4 >= len(lines):
             continue
-        ext, time_text, schedule, reward_text = lines[i + 4:i + 8]
-        if not re.fullmatch(r"[a-z]\d{2,}", ext):
+        # 6-62: 자리 대신 모양으로 읽는다 - 트리는 시간·포인트 칸이 빠질 때가 있다(실제 회원 화면에서 확인). 빠지면 비워 둔다(추측 안 함).
+        cells = []
+        for cell in lines[i + 4:i + 9]:
+            if cell in ("설문 참여하기", "No."):
+                break
+            cells.append(cell)
+        ext = cells[0] if cells else ""
+        if not _PN_ID.fullmatch(ext):
             return _result("PAGE_CHANGED", detail=f"설문 번호 형식이 예상과 다름: {ext[:20]!r}")
+        time_text = next((c for c in cells[1:] if _PN_MIN.fullmatch(c)), "")
+        reward_text = next((c for c in cells[1:] if _PN_REWARD.fullmatch(c)), "")
+        schedule = next((c for c in cells[1:] if "적립" in c and c != reward_text), "")
         title = lines[i - 1] if i >= 1 else ""
         category = lines[i - 2] if i >= 2 and lines[i - 2].endswith("조사") else ""
         items.append({"external_id": ext, "title": title, "category": category, "type": "survey",

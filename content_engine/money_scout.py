@@ -233,10 +233,12 @@ def promote(items: list[dict], tasks_path: Path | str, *, run_id: str, ok_platfo
         by_fp = {t.get("fingerprint"): t for t in tasks if t.get("fingerprint")}
         seen = set()
         for n in items:
-            if n["verdict"] != "promote":
-                continue
-            seen.add(n["fingerprint"])
+            seen.add(n["fingerprint"])  # 6-62: 값이 덜 읽혀 검토로 간 것도 '보였음'(사라짐 처리 안 함)
             old = by_fp.get(n["fingerprint"])
+            if n["verdict"] != "promote":
+                if old is not None:
+                    old.update(last_seen_at=now_iso, scout_state="active", scout_run_id=run_id)
+                continue
             if old is None:
                 task = _task_from(n, now_iso)
                 tasks.append(task)
@@ -245,6 +247,9 @@ def promote(items: list[dict], tasks_path: Path | str, *, run_id: str, ok_platfo
                 continue
             old.update(last_seen_at=now_iso, scout_state="active", scout_run_id=run_id, confidence=n["confidence"])
             if old.get("status") == "new":
+                # 6-62: 이번 읽기에 빠진 값(트리 읽기의 시간 칸 등)은 전에 본 값을 지우지 않는다
+                n = {**n, **{k: old.get(o) for k, o in (("reward", "reward"), ("estimated_minutes", "minutes"),
+                                                         ("reward_krw_estimate", "reward_krw_estimate")) if n[k] is None}}
                 changed = (old.get("title"), old.get("reward"), old.get("minutes")) != (n["title"], n["reward"], n["estimated_minutes"])
                 old.update(title=n["title"], reward=n["reward"], minutes=n["estimated_minutes"], url=n["url"],
                            reward_krw_estimate=n["reward_krw_estimate"], first_come=n["first_come"], scout_notes=n["notes"])
@@ -349,8 +354,11 @@ def buckets(tasks: list[dict], log: list[dict], config: dict, now: datetime | No
 
 
 def top_picks(groups: dict, n: int = 3) -> list[dict]:
-    """오늘 할 것 TOP n: 🔥 먼저, 모자라면 🟡. 보류는 넣지 않는다."""
-    return (groups["NOW"] + groups["LATER"])[:n]
+    """오늘 할 것 TOP n: 🔥 먼저, 모자라면 🟡, 그래도 모자라면 ⚪(보류 표시 그대로).
+    6-62: 실제 회원 설문 2건이 모두 기준 시급 미만(⚪)이라 TOP이 비었다 - 첫 수익이 목표일 때 '할 것 없음'보다
+    가장 나은 보류를 보여 주는 게 맞다. 안 보이게 된(마감 가능) 것은 넣지 않는다."""
+    hold = [t for t in groups["HOLD"] if t.get("scout_state") != "disappeared" and not t.get("expired")]
+    return (groups["NOW"] + groups["LATER"] + hold)[:n]
 
 
 def today_money(tasks: list[dict], log: list[dict], config: dict, now: datetime | None = None) -> dict:
@@ -365,7 +373,10 @@ def today_money(tasks: list[dict], log: list[dict], config: dict, now: datetime 
             "now": len(groups["NOW"]), "later": len(groups["LATER"]), "hold": len(groups["HOLD"]),
             "expected_krw": sum(k for k in known if k is not None), "expected_unknown": sum(1 for k in known if k is None),
             "actual_today": stats["today"]["earned"], "actual_month": stats["month"]["earned"],
-            "goal": money.goal_status(stats["total"]["earned"], config)}
+            "goal": money.goal_status(stats["total"]["earned"], config),
+            # 6-62: 실제로 받은 돈이 한 번도 기록되지 않았으면 PENDING(가짜 수익으로 채우지 않는다)
+            "revenue_state": "REAL_REVENUE_RECORDED" if stats["total"]["earned"] > 0 else "REAL_REVENUE_PENDING",
+            "actual_hourly": stats["total"]["hourly"], "actual_count": stats["total"]["count"]}
 
 
 def set_request(staging_path: Path | str, req_id: str, status: str, message: str = "", *, now: datetime | None = None) -> None:

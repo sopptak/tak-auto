@@ -209,7 +209,7 @@ class LoopHttpTests(LoopCase):
     def test_full_loop_over_http(self) -> None:
         _, _, home = self.req("/money")
         for t in ("💰 TODAY MONEY", "오늘 발견 <b>0건", "예상 수익 <b>0원", "오늘 실제 수익 <b>0원", "이번 달 실제 수익 <b>0원", "목표 <b>0 / 10,000원</b> (0%)",
-                  "🔎 수익기회 찾기"):
+                  "🔎 지금 수익기회 찾기"):
             self.assertIn(t, home)
         self.assertLess(home.index("💰 TODAY MONEY"), home.index("① 오늘의 수익"))
         _, url, _ = self.req("/money/scout/run", {})  # 에이전트 실행 꺼진 설정(기본) -> 요청만

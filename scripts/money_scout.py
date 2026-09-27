@@ -42,6 +42,7 @@ def main(argv: list[str] | None = None) -> int:
     ing.add_argument("--data-dir", type=Path, default=ROOT / "data")
     ing.add_argument("--dry-run", action="store_true", help="staging에만 기록하고 money_tasks에는 넣지 않음")
     args = parser.parse_args(argv)
+    sys.stdout.reconfigure(encoding="utf-8")  # 6-62: 파일로 돌리면 cp949로 나가던 것
     if args.command == "plan":
         print(json.dumps(money_scout.plan(), ensure_ascii=False, indent=2))
         return 0

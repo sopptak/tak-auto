@@ -2,7 +2,7 @@
 
     run_scout()
       -> run_agent(): `claude --chrome -p <지시>` (Claude Code + Claude in Chrome, 헤드리스)
-           허용 도구는 탭 열기/이동/화면 글자 읽기/탭 닫기뿐 - 클릭·입력·폼 도구가 없어 로그인·응답·제출이 불가능하다.
+           허용 도구는 탭 열기/이동/화면 글자 읽기(get_page_text, 비면 read_page 접근성 트리)/탭 닫기뿐 - 클릭·입력·폼 도구가 없어 로그인·응답·제출이 불가능하다.
            plan()이 자동 방문을 허용한 플랫폼(PanelNow)만 연다. 결과는 표준출력의 JSON 한 개.
       -> money_scout.ingest(): 검사·개인정보 제거·정규화·중복 병합·staging (6-60 파이프라인 그대로)
 
@@ -21,7 +21,7 @@ from pathlib import Path
 from content_engine import money, money_scout
 
 AGENT_TOOLS = ("mcp__claude-in-chrome__tabs_context_mcp", "mcp__claude-in-chrome__tabs_create_mcp", "mcp__claude-in-chrome__navigate",
-               "mcp__claude-in-chrome__get_page_text", "mcp__claude-in-chrome__tabs_close_mcp")
+               "mcp__claude-in-chrome__get_page_text", "mcp__claude-in-chrome__read_page", "mcp__claude-in-chrome__tabs_close_mcp")
 TIMEOUT_SECONDS = 300
 
 
@@ -32,7 +32,10 @@ def build_prompt(plan: list[dict]) -> str:
         "절대 금지: 클릭, 입력, 로그인, 인증, 설문 참여/응답/제출, 포인트 교환, 광고 클릭, 목록에 없는 주소 방문.\n"
         "로그인 화면이나 사람 확인(CAPTCHA) 화면이 나오면 아무것도 하지 말고 그대로 보고해라.\n"
         f"{targets}\n"
-        "각 주소마다 get_page_text로 읽은 글자를 그대로(요약·수정 없이) 담아, 마지막에 JSON 한 개만 출력해라(다른 글 없이):\n"
+        "각 주소마다 get_page_text로 읽은 글자를 그대로(요약·수정 없이) 담아라. get_page_text가 글자를 못 찾으면 "
+        "read_page(filter=\"all\")를 한 번 부르고 그 트리 출력 전체를 그대로 page_text에 담아라(버튼은 누르지 마라). "
+        "약관 동의 같은 팝업이 떠 있어도 누르지 말고 note에 적어라.\n"
+        "마지막에 JSON 한 개만 출력해라(다른 글 없이):\n"
         '{"platforms": [{"platform": "<위 platform>", "page_url": "<연 주소>", "observed_at": "<ISO 시각>", '
         '"page_text": "<읽은 글자>", "note": "<로그인/CAPTCHA/오류가 있었다면 짧게>"}]}\n'
         "연 탭은 닫아라."
