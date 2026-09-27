@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#11161f">
+<title>선택100 · 나의 선택으로 부자 만들기</title>
+<style>
+  :root {
+    --bg: #11161f; --panel: #1b2230; --panel2: #232c3d; --text: #f3f5f9; --muted: #9aa6ba;
+    --accent: #ffcc33; --good: #3ddc84; --bad: #ff6b6b; --line: #2e3a50; --btn: #2a3448; --btn-hover: #34405a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; font-size: 16px; line-height: 1.5;
+         overflow-wrap: anywhere; word-break: keep-all; -webkit-tap-highlight-color: transparent; }
+  #app { max-width: 480px; margin: 0 auto; padding: 12px 16px calc(24px + env(safe-area-inset-bottom)); min-height: 100vh; }
+  button { font: inherit; color: inherit; }
+  .hidden { display: none !important; }
+
+  /* 타이틀 */
+  .title-screen { text-align: center; padding-top: 12vh; }
+  .logo { font-size: 3.4rem; font-weight: 900; letter-spacing: -2px; margin: 0; color: var(--accent); }
+  .logo small { display: block; font-size: 1.15rem; letter-spacing: 0; color: var(--text); font-weight: 700; margin-top: 4px; }
+  .hook { font-size: 1.2rem; margin: 28px 0 8px; font-weight: 700; }
+  .intro { color: var(--muted); margin: 0 0 28px; }
+  .big { display: block; width: 100%; padding: 18px; font-size: 1.25rem; font-weight: 900; border: 0; border-radius: 14px;
+         background: var(--accent); color: #1a1a1a; cursor: pointer; }
+  .big:active { transform: scale(0.98); }
+  .ghost { display: block; width: 100%; margin-top: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: transparent; cursor: pointer; }
+  .disclaimer { color: var(--muted); font-size: 0.8rem; margin-top: 28px; }
+
+  /* HUD */
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 0.9rem; color: var(--muted); }
+  .top b { color: var(--text); font-size: 1.05rem; }
+  .bar { height: 6px; background: var(--panel2); border-radius: 99px; overflow: hidden; margin: 6px 0 10px; position: relative; }
+  .bar > i { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 99px; transition: width .3s; }
+  .hud { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .stat { background: var(--panel); border-radius: 10px; padding: 7px 8px; min-width: 0; transition: background .4s; }
+  .stat .k { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+  .stat .v { font-weight: 800; font-size: 0.98rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat.wide { grid-column: span 2; }
+  .stat.up { background: #1f3b2c; } .stat.down { background: #402127; }
+  .happy-bar { height: 5px; background: var(--panel2); border-radius: 99px; margin-top: 4px; overflow: hidden; }
+  .happy-bar > i { display: block; height: 100%; background: var(--good); transition: width .4s; }
+
+  /* 카드 */
+  .card { background: var(--panel); border-radius: 16px; padding: 16px; margin-top: 12px; }
+  .chapter { font-size: 0.8rem; color: var(--accent); font-weight: 700; }
+  .scene-title { font-size: 1.3rem; font-weight: 900; margin: 2px 0 8px; }
+  .situation { font-size: 1.05rem; margin: 0; }
+  .event { margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: var(--panel2); font-size: 1rem; }
+  .choices { display: grid; gap: 8px; margin-top: 12px; }
+  .choice { text-align: left; padding: 15px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--btn);
+            font-size: 1.05rem; font-weight: 700; cursor: pointer; min-height: 54px; }
+  .choice:hover { background: var(--btn-hover); }
+  .choice:disabled { opacity: .45; cursor: not-allowed; }
+  .choice .why { display: block; font-size: 0.8rem; font-weight: 400; color: var(--muted); }
+  .choice .no { color: var(--accent); margin-right: 6px; }
+
+  /* 결과 */
+  .result h3 { margin: 0 0 6px; font-size: 1.15rem; }
+  .deltas { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .delta { padding: 5px 10px; border-radius: 99px; font-weight: 800; font-size: 0.92rem; background: var(--panel2); }
+  .delta.good { color: var(--good); } .delta.bad { color: var(--bad); }
+  .flow { font-size: 0.82rem; color: var(--muted); }
+  .tip { margin-top: 10px; padding: 10px 12px; border-left: 4px solid var(--accent); background: var(--panel2); border-radius: 8px; font-size: 1rem; }
+  .next { margin-top: 14px; }
+
+  /* 요약/엔딩 */
+  .ending-icon { font-size: 3.2rem; text-align: center; }
+  .ending-title { text-align: center; font-size: 1.6rem; font-weight: 900; margin: 4px 0; color: var(--accent); }
+  .rows { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin-top: 12px; }
+  .rows div:nth-child(even) { text-align: right; font-weight: 800; }
+  .pop { animation: pop .35s ease-out; }
+  @keyframes pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .pop { animation: none; } .bar > i, .stat, .happy-bar > i { transition: none; } }
+  .foot { color: var(--muted); font-size: 0.75rem; margin-top: 18px; text-align: center; }
+  .foot button { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font-size: 0.75rem; }
+</style>
+</head>
+<body>
+<main id="app" aria-live="polite">
+  <noscript>이 게임은 자바스크립트가 필요합니다.</noscript>
+  <div id="loading">불러오는 중…</div>
+</main>
+<script src="engine.js"></script>
+<script src="renderer.js"></script>
+<script>
+  // 데이터와 엔진은 분리돼 있다: 다른 게임(한국사·한자)은 이 파일의 경로만 바꾼다.
+  Choice100Renderer.boot(document.getElementById("app"), "data/finance.json");
+</script>
+</body>
+</html>

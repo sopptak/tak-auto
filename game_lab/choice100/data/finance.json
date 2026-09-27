@@ -1,0 +1,2222 @@
+{
+  "id": "choice100-finance",
+  "version": "g1-1",
+  "title": "선택100",
+  "subtitle": "나의 선택으로 부자 만들기",
+  "tagline": "100번의 선택이 당신의 재무 인생을 바꾼다.",
+  "hook": "당신에게 100번의 선택이 주어진다면?",
+  "disclaimer": "본 게임은 금융 의사결정 학습을 위한 가상 시뮬레이션이며 실제 금융상품·투자·대출에 대한 조언이 아닙니다. 모든 수치는 게임 수치입니다.",
+  "intro": "30세, 월급 400만원. 현금 3,000만원과 대출 2,000만원으로 시작한다. 선택 한 번 = 한 달.",
+  "money_unit": "만원",
+  "total_choices": 100,
+  "session_size": 10,
+  "stats": [
+    {
+      "key": "cash",
+      "label": "현금",
+      "icon": "💰",
+      "unit": "money"
+    },
+    {
+      "key": "debt",
+      "label": "부채",
+      "icon": "💳",
+      "unit": "money",
+      "min": 0,
+      "bad": true
+    },
+    {
+      "key": "investment",
+      "label": "투자",
+      "icon": "📈",
+      "unit": "money",
+      "min": 0
+    },
+    {
+      "key": "asset",
+      "label": "자산",
+      "icon": "🏠",
+      "unit": "money",
+      "min": 0
+    },
+    {
+      "key": "income",
+      "label": "월소득",
+      "icon": "💼",
+      "unit": "money",
+      "min": 0
+    },
+    {
+      "key": "expense",
+      "label": "월지출",
+      "icon": "🧾",
+      "unit": "money",
+      "min": 0,
+      "bad": true
+    },
+    {
+      "key": "credit",
+      "label": "신용",
+      "icon": "🪪",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "key": "risk",
+      "label": "위험도",
+      "icon": "⚠️",
+      "min": 0,
+      "max": 100,
+      "bad": true
+    },
+    {
+      "key": "happiness",
+      "label": "행복도",
+      "icon": "😊",
+      "min": 0,
+      "max": 100
+    }
+  ],
+  "derived": {
+    "net_worth": {
+      "label": "순자산",
+      "icon": "🏦",
+      "unit": "money",
+      "plus": [
+        "cash",
+        "investment",
+        "asset"
+      ],
+      "minus": [
+        "debt"
+      ]
+    }
+  },
+  "hud": [
+    "cash",
+    "debt",
+    "investment",
+    "net_worth",
+    "happiness"
+  ],
+  "start": {
+    "cash": 3000,
+    "debt": 2000,
+    "investment": 0,
+    "asset": 3000,
+    "income": 400,
+    "expense": 250,
+    "credit": 70,
+    "risk": 30,
+    "happiness": 70
+  },
+  "per_turn": [
+    {
+      "stat": "cash",
+      "from": "income",
+      "rate": 1,
+      "label": "월급"
+    },
+    {
+      "stat": "cash",
+      "from": "expense",
+      "rate": -1,
+      "label": "생활비"
+    },
+    {
+      "stat": "debt",
+      "from": "debt",
+      "rate": 0.004,
+      "label": "대출 이자"
+    },
+    {
+      "stat": "investment",
+      "from": "investment",
+      "rate": 0.004,
+      "label": "투자 평가 변동(게임 가정)"
+    }
+  ],
+  "guards": [
+    {
+      "stat": "cash",
+      "below": 0,
+      "move_to": "debt",
+      "effects": {
+        "credit": -5,
+        "risk": 5
+      },
+      "text": "현금이 바닥나 부족한 {gap}을 마이너스 대출로 메웠다. 신용 -5"
+    }
+  ],
+  "chapters": [
+    {
+      "n": 1,
+      "title": "돈의 흐름",
+      "range": [
+        1,
+        10
+      ],
+      "status": "playable"
+    },
+    {
+      "n": 2,
+      "title": "부채와 신용",
+      "range": [
+        11,
+        20
+      ],
+      "status": "playable"
+    },
+    {
+      "n": 3,
+      "title": "저축과 투자",
+      "range": [
+        21,
+        30
+      ],
+      "status": "playable"
+    },
+    {
+      "n": 4,
+      "title": "주거와 부동산",
+      "range": [
+        31,
+        40
+      ],
+      "status": "planned"
+    },
+    {
+      "n": 5,
+      "title": "소비와 라이프스타일",
+      "range": [
+        41,
+        50
+      ],
+      "status": "planned"
+    },
+    {
+      "n": 6,
+      "title": "위기와 리스크",
+      "range": [
+        51,
+        60
+      ],
+      "status": "planned"
+    },
+    {
+      "n": 7,
+      "title": "소득과 커리어",
+      "range": [
+        61,
+        70
+      ],
+      "status": "planned"
+    },
+    {
+      "n": 8,
+      "title": "투자와 기회",
+      "range": [
+        71,
+        80
+      ],
+      "status": "planned"
+    },
+    {
+      "n": 9,
+      "title": "가족과 인생",
+      "range": [
+        81,
+        90
+      ],
+      "status": "planned"
+    },
+    {
+      "n": 10,
+      "title": "은퇴와 최종 선택",
+      "range": [
+        91,
+        100
+      ],
+      "status": "planned"
+    }
+  ],
+  "first": "q001",
+  "scenarios": [
+    {
+      "id": "q001",
+      "chapter": 1,
+      "title": "뜻밖의 보너스",
+      "difficulty": 1,
+      "tags": [
+        "여윳돈"
+      ],
+      "situation": "월급날이다. 예상보다 100만원이 더 들어왔다.",
+      "on_enter": {
+        "cash": 100
+      },
+      "enter_text": "보너스 100만원 입금",
+      "next": "q002",
+      "choices": [
+        {
+          "id": "a",
+          "text": "대출을 갚는다",
+          "effects": {
+            "cash": -100,
+            "debt": -100,
+            "risk": -3
+          },
+          "result_text": "대출이 100만원 줄었다. 매달 붙는 이자도 조금 줄어든다.",
+          "tip": "금리가 높은 부채를 줄이면 확정적인 이자 비용 감소 효과가 생깁니다."
+        },
+        {
+          "id": "b",
+          "text": "통장에 넣어 둔다",
+          "effects": {
+            "risk": -2
+          },
+          "result_text": "현금이 두둑해졌다. 급한 일이 생겨도 버틸 수 있다.",
+          "tip": "현금은 수익률이 낮더라도 예상치 못한 지출에 대응하는 역할이 있습니다."
+        },
+        {
+          "id": "c",
+          "text": "투자한다",
+          "effects": {
+            "cash": -100,
+            "investment": 100,
+            "risk": 3
+          },
+          "result_text": "첫 투자를 시작했다. 오를 수도, 내릴 수도 있다.",
+          "tip": "투자는 수익뿐 아니라 손실 가능성과 기간을 함께 고려해야 합니다."
+        },
+        {
+          "id": "d",
+          "text": "나에게 선물한다",
+          "effects": {
+            "cash": -100,
+            "happiness": 8
+          },
+          "result_text": "갖고 싶던 걸 샀다. 기분 최고!",
+          "tip": "계획된 소비는 동기를 유지하는 힘이 됩니다. 문제는 계획에 없던 소비가 반복될 때입니다."
+        }
+      ]
+    },
+    {
+      "id": "q002",
+      "chapter": 1,
+      "title": "구독 7개의 습격",
+      "difficulty": 1,
+      "tags": [
+        "고정비"
+      ],
+      "situation": "카드 명세서를 보니 영상·음악·쇼핑 구독이 7개, 매달 15만원이 빠져나간다.",
+      "next": "q003",
+      "choices": [
+        {
+          "id": "a",
+          "text": "전부 해지한다",
+          "effects": {
+            "expense": -15,
+            "happiness": -5
+          },
+          "result_text": "매달 15만원이 남는다. 대신 주말이 좀 심심해졌다.",
+          "tip": "고정비는 한 번 줄이면 매달 효과가 반복됩니다."
+        },
+        {
+          "id": "b",
+          "text": "자주 쓰는 3개만 남긴다",
+          "effects": {
+            "expense": -8,
+            "happiness": -1
+          },
+          "result_text": "월 8만원 절약. 생활은 거의 그대로다.",
+          "tip": "안 쓰는 것부터 줄이면 만족도는 지키면서 지출을 낮출 수 있습니다."
+        },
+        {
+          "id": "c",
+          "text": "그대로 둔다",
+          "effects": {
+            "happiness": 2
+          },
+          "result_text": "편하다. 명세서는 다음 달에도 똑같다.",
+          "tip": "작은 금액의 자동결제는 눈에 잘 띄지 않아 오래 새어 나갑니다."
+        },
+        {
+          "id": "d",
+          "text": "새 구독을 하나 더 한다",
+          "effects": {
+            "expense": 3,
+            "happiness": 4
+          },
+          "result_text": "볼 게 더 많아졌다. 고정비도 조금 더 늘었다.",
+          "tip": "구독을 늘릴 때는 해지할 것도 하나 정해 두면 총액을 관리하기 쉽습니다."
+        }
+      ]
+    },
+    {
+      "id": "q003",
+      "chapter": 1,
+      "title": "돈이 어디로 샜을까",
+      "difficulty": 1,
+      "tags": [
+        "지출관리"
+      ],
+      "situation": "분명 월급을 받았는데 월말에 남은 돈이 거의 없다.",
+      "next": "q004",
+      "choices": [
+        {
+          "id": "a",
+          "text": "한 달 가계부를 쓴다",
+          "effects": {
+            "expense": -10,
+            "happiness": -3
+          },
+          "result_text": "새는 돈을 찾았다. 배달비가 생각보다 컸다.",
+          "tip": "지출을 기록하면 줄일 곳이 눈에 보입니다."
+        },
+        {
+          "id": "b",
+          "text": "통장을 용도별로 나눈다",
+          "effects": {
+            "expense": -5,
+            "risk": -3
+          },
+          "result_text": "생활비 통장만 쓰니 과소비가 줄었다.",
+          "tip": "쓸 돈과 모을 돈을 분리하면 자연스럽게 저축이 먼저 됩니다."
+        },
+        {
+          "id": "c",
+          "text": "신경 쓰지 않는다",
+          "effects": {
+            "expense": 5,
+            "happiness": 3
+          },
+          "result_text": "마음은 편하다. 지출은 슬금슬금 늘었다.",
+          "tip": "관리하지 않는 지출은 보통 조금씩 늘어나는 경향이 있습니다."
+        },
+        {
+          "id": "d",
+          "text": "간편결제 한도를 낮춘다",
+          "effects": {
+            "expense": -7,
+            "happiness": -2
+          },
+          "result_text": "충동구매가 한 번 걸러졌다.",
+          "tip": "결제를 조금 번거롭게 만드는 것만으로도 충동 소비가 줄어듭니다."
+        }
+      ]
+    },
+    {
+      "id": "q004",
+      "chapter": 1,
+      "title": "친구의 결혼식",
+      "difficulty": 1,
+      "tags": [
+        "경조사"
+      ],
+      "situation": "가장 친한 친구가 결혼한다. 축의금과 옷, 교통비까지 생각해야 한다.",
+      "next": "q005",
+      "choices": [
+        {
+          "id": "a",
+          "text": "축의금 10만원만",
+          "effects": {
+            "cash": -10
+          },
+          "result_text": "부담 없이 다녀왔다.",
+          "tip": "경조사비는 예측 가능한 지출이라 미리 예산을 잡아 두면 덜 흔들립니다."
+        },
+        {
+          "id": "b",
+          "text": "축의금 30 + 새 정장",
+          "effects": {
+            "cash": -80,
+            "happiness": 6
+          },
+          "result_text": "멋지게 축하했다. 사진도 잘 나왔다.",
+          "tip": "관계를 위한 지출은 가치가 있지만, 전체 예산 안에서 정하는 게 좋습니다."
+        },
+        {
+          "id": "c",
+          "text": "못 간다고 하고 5만원 송금",
+          "effects": {
+            "cash": -5,
+            "happiness": -7
+          },
+          "result_text": "돈은 아꼈지만 마음이 계속 걸린다.",
+          "tip": "돈으로 측정되지 않는 비용도 있습니다. 행복도도 자산입니다."
+        },
+        {
+          "id": "d",
+          "text": "축의금 50만원을 크게 쏜다",
+          "effects": {
+            "cash": -50,
+            "happiness": 4
+          },
+          "result_text": "친구가 크게 감동했다.",
+          "tip": "큰 지출을 할 때는 이번 달 남는 돈이 얼마인지 먼저 확인하세요."
+        }
+      ]
+    },
+    {
+      "id": "q005",
+      "chapter": 1,
+      "title": "점심값 딜레마",
+      "difficulty": 1,
+      "tags": [
+        "생활비"
+      ],
+      "situation": "점심과 커피로 한 달에 50만원 가까이 쓴다.",
+      "next": "q006",
+      "choices": [
+        {
+          "id": "a",
+          "text": "매일 도시락",
+          "effects": {
+            "expense": -15,
+            "happiness": -5
+          },
+          "result_text": "월 15만원 절약. 점심시간이 조금 외롭다.",
+          "tip": "작은 지출도 매일 반복되면 한 달 단위로는 큰돈이 됩니다."
+        },
+        {
+          "id": "b",
+          "text": "주 2회만 도시락",
+          "effects": {
+            "expense": -6,
+            "happiness": -1
+          },
+          "result_text": "무리 없이 월 6만원을 아꼈다.",
+          "tip": "지킬 수 있는 절약이 오래갑니다."
+        },
+        {
+          "id": "c",
+          "text": "지금처럼",
+          "effects": {},
+          "result_text": "변화 없음. 점심은 여전히 즐겁다.",
+          "tip": "아무것도 바꾸지 않는 것도 선택입니다. 다른 곳에서 여유를 만들면 됩니다."
+        },
+        {
+          "id": "d",
+          "text": "맛집 탐방을 시작한다",
+          "effects": {
+            "expense": 10,
+            "happiness": 7
+          },
+          "result_text": "점심이 하루의 낙이 됐다. 지출도 늘었다.",
+          "tip": "행복을 위한 소비는 금액을 정해 두면 죄책감 없이 즐길 수 있습니다."
+        }
+      ]
+    },
+    {
+      "id": "q006",
+      "chapter": 1,
+      "title": "성과급 300만원",
+      "difficulty": 2,
+      "tags": [
+        "여윳돈"
+      ],
+      "situation": "회사 실적이 좋아 성과급 300만원을 받았다.",
+      "on_enter": {
+        "cash": 300
+      },
+      "enter_text": "성과급 300만원 입금",
+      "next": "q007",
+      "choices": [
+        {
+          "id": "a",
+          "text": "전액 대출 상환",
+          "effects": {
+            "cash": -300,
+            "debt": -300,
+            "risk": -5
+          },
+          "result_text": "대출이 300만원 줄었다. 마음이 가볍다.",
+          "tip": "부채를 갚는 것은 그 이자율만큼의 확실한 수익과 비슷한 효과가 있습니다."
+        },
+        {
+          "id": "b",
+          "text": "비상금으로 모은다",
+          "effects": {
+            "risk": -6,
+            "happiness": 1
+          },
+          "result_text": "비상금이 넉넉해졌다. 든든하다.",
+          "tip": "비상금은 위기 때 빚을 지지 않게 해 주는 방패입니다."
+        },
+        {
+          "id": "c",
+          "text": "반은 상환, 반은 투자",
+          "effects": {
+            "cash": -300,
+            "debt": -150,
+            "investment": 150,
+            "risk": -1
+          },
+          "result_text": "빚도 줄이고 투자도 시작했다.",
+          "tip": "한 가지에 몰지 않고 나누는 것도 위험을 관리하는 방법입니다."
+        },
+        {
+          "id": "d",
+          "text": "최신 노트북을 산다",
+          "effects": {
+            "cash": -250,
+            "happiness": 7
+          },
+          "result_text": "새 노트북! 일이 즐거워졌다.",
+          "tip": "전자제품은 사는 순간부터 가치가 떨어지는 소비재입니다."
+        }
+      ]
+    },
+    {
+      "id": "q007",
+      "chapter": 1,
+      "title": "비상금은 얼마나?",
+      "difficulty": 2,
+      "tags": [
+        "비상금"
+      ],
+      "situation": "선배가 말한다. '비상금 없는 투자는 모래성이야.' 통장을 다시 본다.",
+      "next": "q008",
+      "choices": [
+        {
+          "id": "a",
+          "text": "비상금 통장을 따로 만든다",
+          "effects": {
+            "risk": -8,
+            "happiness": -1
+          },
+          "result_text": "생활비 몇 달치를 따로 떼어 두었다.",
+          "tip": "보통 생활비 몇 달치를 비상금으로 두라고 합니다. 기준은 사람마다 다릅니다."
+        },
+        {
+          "id": "b",
+          "text": "500만원을 전부 투자",
+          "requires": {
+            "cash": 500
+          },
+          "effects": {
+            "cash": -500,
+            "investment": 500,
+            "risk": 10
+          },
+          "result_text": "투자금이 확 늘었다. 통장은 얇아졌다.",
+          "tip": "비상금 없이 투자하면 급할 때 손해를 보고 팔아야 할 수 있습니다."
+        },
+        {
+          "id": "c",
+          "text": "500만원으로 대출 상환",
+          "requires": {
+            "cash": 500
+          },
+          "effects": {
+            "cash": -500,
+            "debt": -500,
+            "risk": -4
+          },
+          "result_text": "대출이 500만원 줄었다.",
+          "tip": "빚을 줄이는 것과 현금을 남기는 것 사이의 균형이 중요합니다."
+        },
+        {
+          "id": "d",
+          "text": "나중에 생각한다",
+          "effects": {
+            "risk": 2
+          },
+          "result_text": "미뤘다. 아직은 별일 없다.",
+          "tip": "위기는 대비가 끝난 뒤에 오지 않습니다."
+        }
+      ]
+    },
+    {
+      "id": "q008",
+      "chapter": 1,
+      "title": "자동차가 필요해",
+      "difficulty": 2,
+      "tags": [
+        "큰지출",
+        "할부"
+      ],
+      "situation": "출퇴근이 점점 힘들다. 영업사원이 신차 할부를 권한다.",
+      "next": "q009",
+      "choices": [
+        {
+          "id": "a",
+          "text": "3,000만원 신차 할부",
+          "effects": {
+            "debt": 3000,
+            "asset": 2200,
+            "expense": 40,
+            "happiness": 12,
+            "risk": 8
+          },
+          "result_text": "새 차! 출고하는 순간 중고 시세는 2,200만원이 됐다.",
+          "tip": "차는 사는 순간부터 가치가 떨어지고, 할부는 매달 고정비를 늘립니다."
+        },
+        {
+          "id": "b",
+          "text": "1,200만원 중고차 현금 구매",
+          "requires": {
+            "cash": 1200
+          },
+          "effects": {
+            "cash": -1200,
+            "asset": 1000,
+            "expense": 20,
+            "happiness": 6
+          },
+          "result_text": "빚 없이 차를 샀다. 유지비는 든다.",
+          "tip": "현금 구매는 이자가 없지만 비상금이 줄어드는지 확인해야 합니다."
+        },
+        {
+          "id": "c",
+          "text": "대중교통으로 버틴다",
+          "effects": {
+            "happiness": -3,
+            "expense": -3
+          },
+          "result_text": "피곤하지만 돈은 모인다.",
+          "tip": "차 한 대의 비용은 할부금만이 아니라 보험·기름·주차·수리까지입니다."
+        },
+        {
+          "id": "d",
+          "text": "차량 구독 서비스",
+          "effects": {
+            "expense": 55,
+            "happiness": 9
+          },
+          "result_text": "목돈 없이 새 차를 탄다. 매달 55만원이 나간다.",
+          "tip": "초기 비용이 낮은 대신 매달 나가는 돈이 큰 구조는 오래 쓸수록 부담이 커집니다."
+        }
+      ]
+    },
+    {
+      "id": "q009",
+      "chapter": 1,
+      "title": "연말정산 환급",
+      "difficulty": 1,
+      "tags": [
+        "여윳돈"
+      ],
+      "situation": "연말정산으로 80만원을 돌려받았다.",
+      "on_enter": {
+        "cash": 80
+      },
+      "enter_text": "환급금 80만원 입금",
+      "next": "q010",
+      "choices": [
+        {
+          "id": "a",
+          "text": "노후 대비 계좌에 넣는다",
+          "effects": {
+            "cash": -80,
+            "investment": 80,
+            "happiness": -1
+          },
+          "result_text": "미래의 나에게 80만원을 보냈다.",
+          "tip": "노후 자금은 일찍 시작할수록 시간의 힘을 빌릴 수 있습니다. 세제 조건은 상품·시기마다 다릅니다."
+        },
+        {
+          "id": "b",
+          "text": "부모님께 용돈",
+          "effects": {
+            "cash": -80,
+            "happiness": 7
+          },
+          "result_text": "부모님이 정말 좋아하셨다.",
+          "tip": "가족을 위한 지출도 재무 계획의 한 항목으로 두면 흔들리지 않습니다."
+        },
+        {
+          "id": "c",
+          "text": "대출 상환",
+          "effects": {
+            "cash": -80,
+            "debt": -80,
+            "risk": -1
+          },
+          "result_text": "대출이 80만원 줄었다.",
+          "tip": "작은 금액의 상환도 쌓이면 이자 부담을 확실히 줄입니다."
+        },
+        {
+          "id": "d",
+          "text": "쇼핑",
+          "effects": {
+            "cash": -80,
+            "happiness": 5
+          },
+          "result_text": "옷장이 새로워졌다.",
+          "tip": "공돈처럼 느껴지는 돈도 원래 내 돈입니다."
+        }
+      ]
+    },
+    {
+      "id": "q010",
+      "chapter": 1,
+      "title": "스카우트 제안",
+      "difficulty": 3,
+      "tags": [
+        "커리어",
+        "보스"
+      ],
+      "situation": "경쟁사가 연봉 20% 인상을 제안했다. 대신 회사가 작고 불안정하다.",
+      "next": "q011",
+      "choices": [
+        {
+          "id": "a",
+          "text": "이직한다",
+          "effects": {
+            "income": 80,
+            "risk": 8,
+            "happiness": 3
+          },
+          "result_text": "월급이 80만원 올랐다. 새 회사는 분위기가 빠르다.",
+          "tip": "소득이 늘면 저축 여력이 커집니다. 고용 안정성과 함께 따져 보세요."
+        },
+        {
+          "id": "b",
+          "text": "남아서 연봉 협상",
+          "effects": {
+            "income": 25,
+            "happiness": 2
+          },
+          "result_text": "월 25만원 인상에 성공했다.",
+          "tip": "다른 선택지가 있을 때 협상력이 생깁니다."
+        },
+        {
+          "id": "c",
+          "text": "남고 주말 부업 시작",
+          "effects": {
+            "income": 40,
+            "happiness": -7,
+            "expense": 5
+          },
+          "set_flags": [
+            "side_job"
+          ],
+          "result_text": "월 40만원 부수입. 주말이 사라졌다.",
+          "tip": "부업은 소득을 늘리지만 체력과 시간이라는 비용이 있습니다."
+        },
+        {
+          "id": "d",
+          "text": "지금이 좋다",
+          "effects": {
+            "happiness": 2,
+            "risk": -2
+          },
+          "result_text": "익숙한 자리에서 안정감을 택했다.",
+          "tip": "안정도 가치입니다. 다만 소득을 늘릴 다른 길은 열어 두세요."
+        }
+      ]
+    },
+    {
+      "id": "q011",
+      "chapter": 2,
+      "title": "리볼빙의 유혹",
+      "difficulty": 2,
+      "tags": [
+        "카드",
+        "신용"
+      ],
+      "situation": "이번 달 카드값이 300만원 나왔다. 카드사 문자: '이번 달은 10%만 내셔도 됩니다.'",
+      "next": "q012",
+      "choices": [
+        {
+          "id": "a",
+          "text": "전액 결제",
+          "effects": {
+            "cash": -300,
+            "credit": 2
+          },
+          "result_text": "깔끔하게 끝냈다. 통장은 가벼워졌다.",
+          "tip": "카드값을 제때 전액 내는 것이 신용 관리의 기본입니다."
+        },
+        {
+          "id": "b",
+          "text": "리볼빙 신청",
+          "effects": {
+            "debt": 300,
+            "credit": -8,
+            "risk": 6
+          },
+          "result_text": "당장은 편하다. 남은 금액엔 높은 이자가 붙는다.",
+          "tip": "일부만 내고 넘기는 결제는 보통 이자가 높아 빚이 빠르게 불어날 수 있습니다."
+        },
+        {
+          "id": "c",
+          "text": "절반만 결제하고 할부 전환",
+          "effects": {
+            "cash": -150,
+            "debt": 150,
+            "credit": -2
+          },
+          "result_text": "부담을 나눴다. 할부 수수료가 붙는다.",
+          "tip": "할부도 빚입니다. 수수료까지 합친 총액을 보세요."
+        },
+        {
+          "id": "d",
+          "text": "현금서비스로 막는다",
+          "effects": {
+            "debt": 300,
+            "credit": -12,
+            "risk": 9
+          },
+          "result_text": "급한 불은 껐다. 신용이 흔들린다.",
+          "tip": "카드로 현금을 빌리는 방식은 비용이 크고 신용에도 부담이 될 수 있습니다."
+        }
+      ]
+    },
+    {
+      "id": "q012",
+      "chapter": 2,
+      "title": "대출 갈아타기",
+      "difficulty": 2,
+      "tags": [
+        "대출",
+        "금리"
+      ],
+      "situation": "지금 대출보다 금리가 낮은 대출이 있다고 한다. 중도상환 수수료가 30만원이다.",
+      "next": "q013",
+      "choices": [
+        {
+          "id": "a",
+          "text": "수수료 내고 갈아탄다",
+          "requires": {
+            "debt": 500
+          },
+          "effects": {
+            "cash": -30,
+            "debt": -120,
+            "credit": 1
+          },
+          "result_text": "앞으로 낼 이자가 120만원어치 줄었다.",
+          "tip": "갈아타기는 줄어드는 이자와 수수료·부대비용을 함께 비교해야 합니다."
+        },
+        {
+          "id": "b",
+          "text": "수수료 아까워서 그대로",
+          "effects": {},
+          "result_text": "변화 없음. 이자는 계속 나간다.",
+          "tip": "남은 기간이 짧으면 갈아타도 이득이 작을 수 있습니다. 계산이 먼저입니다."
+        },
+        {
+          "id": "c",
+          "text": "상담만 받아 본다",
+          "effects": {
+            "happiness": -1,
+            "risk": -2
+          },
+          "result_text": "조건을 비교해 보니 내 상황이 더 잘 보인다.",
+          "tip": "금리는 상품마다, 사람마다 다릅니다. 여러 곳을 비교해 보세요."
+        }
+      ]
+    },
+    {
+      "id": "q013",
+      "chapter": 2,
+      "title": "친구의 부탁",
+      "difficulty": 3,
+      "tags": [
+        "관계",
+        "보증"
+      ],
+      "situation": "오랜 친구가 급하다며 500만원을 빌려 달라고 한다. '다음 달에 꼭 갚을게.'",
+      "next": "q014",
+      "choices": [
+        {
+          "id": "a",
+          "text": "500만원 빌려준다",
+          "requires": {
+            "cash": 500
+          },
+          "effects": {
+            "cash": -500,
+            "happiness": 4
+          },
+          "set_flags": [
+            "lent_friend"
+          ],
+          "result_text": "친구가 몇 번이고 고맙다고 했다.",
+          "tip": "빌려주는 돈은 못 받아도 괜찮은 금액인지 먼저 생각해 보세요."
+        },
+        {
+          "id": "b",
+          "text": "100만원만 준다",
+          "effects": {
+            "cash": -100,
+            "happiness": 1
+          },
+          "result_text": "갚지 않아도 되는 돈이라고 말했다.",
+          "tip": "빌려주기보다 줄 수 있는 만큼 주는 방법도 있습니다."
+        },
+        {
+          "id": "c",
+          "text": "정중히 거절",
+          "effects": {
+            "happiness": -6
+          },
+          "result_text": "통장은 지켰다. 친구 목소리가 서운했다.",
+          "tip": "거절도 관계를 지키는 방법이 될 수 있습니다."
+        },
+        {
+          "id": "d",
+          "text": "대신 대출 보증을 서 준다",
+          "effects": {
+            "happiness": 3,
+            "risk": 15
+          },
+          "set_flags": [
+            "guarantor"
+          ],
+          "result_text": "돈은 안 나갔다. 서류에 내 이름이 들어갔다.",
+          "tip": "보증은 남의 빚을 대신 갚을 수도 있다는 약속입니다."
+        }
+      ]
+    },
+    {
+      "id": "q014",
+      "chapter": 2,
+      "title": "신용점수 관리",
+      "difficulty": 1,
+      "tags": [
+        "신용"
+      ],
+      "situation": "은행 앱이 신용점수를 보여 준다. 생각보다 낮다.",
+      "next": "q015",
+      "choices": [
+        {
+          "id": "a",
+          "text": "모든 결제일을 자동이체로",
+          "effects": {
+            "credit": 5
+          },
+          "result_text": "깜빡 연체할 일이 사라졌다.",
+          "tip": "작은 연체가 반복되지 않게 하는 것이 신용 관리의 출발점입니다."
+        },
+        {
+          "id": "b",
+          "text": "체크카드 위주로 바꾼다",
+          "effects": {
+            "expense": -8,
+            "happiness": -2,
+            "credit": 2
+          },
+          "result_text": "있는 돈만 쓰게 됐다.",
+          "tip": "쓰는 방식이 바뀌면 지출 습관도 함께 바뀝니다."
+        },
+        {
+          "id": "c",
+          "text": "혜택 좋은 카드 3장 추가",
+          "effects": {
+            "happiness": 3,
+            "credit": -4,
+            "expense": 6
+          },
+          "result_text": "혜택은 많아졌는데 관리가 헷갈린다.",
+          "tip": "혜택을 받으려고 쓰는 돈이 늘어나면 절약이 아니게 됩니다."
+        },
+        {
+          "id": "d",
+          "text": "신경 안 쓴다",
+          "effects": {
+            "credit": -2
+          },
+          "result_text": "점수는 그대로… 아니, 조금 내려갔다.",
+          "tip": "신용은 필요할 때 만들기 어렵습니다. 평소에 쌓입니다."
+        }
+      ]
+    },
+    {
+      "id": "q015",
+      "chapter": 2,
+      "title": "목돈 1,000만원의 행방",
+      "difficulty": 2,
+      "tags": [
+        "상환",
+        "투자"
+      ],
+      "situation": "통장에 목돈이 쌓였다. 1,000만원을 어디에 둘까?",
+      "next": "q016",
+      "choices": [
+        {
+          "id": "a",
+          "text": "대출 1,000만원 상환",
+          "requires": {
+            "cash": 1000,
+            "debt": 1000
+          },
+          "effects": {
+            "cash": -1000,
+            "debt": -1000,
+            "risk": -8
+          },
+          "result_text": "대출이 1,000만원 줄었다. 매달 이자가 확 줄었다.",
+          "tip": "상환은 수익률이 확정된 선택입니다. 그 대신 현금 여유가 줄어듭니다."
+        },
+        {
+          "id": "b",
+          "text": "1,000만원 투자",
+          "requires": {
+            "cash": 1000
+          },
+          "effects": {
+            "cash": -1000,
+            "investment": 1000,
+            "risk": 8
+          },
+          "result_text": "투자금이 1,000만원 늘었다. 시장 뉴스가 신경 쓰인다.",
+          "tip": "기대수익이 대출 이자보다 높을 수 있지만 확정된 것은 아닙니다."
+        },
+        {
+          "id": "c",
+          "text": "반반 나눈다",
+          "requires": {
+            "cash": 1000
+          },
+          "effects": {
+            "cash": -1000,
+            "debt": -500,
+            "investment": 500
+          },
+          "result_text": "빚도 줄이고 투자도 늘렸다.",
+          "tip": "정답이 하나가 아닐 때는 나눠서 후회를 줄이는 방법도 있습니다."
+        },
+        {
+          "id": "d",
+          "text": "그냥 둔다",
+          "effects": {
+            "risk": -2
+          },
+          "result_text": "현금이 넉넉하다. 대신 이자는 계속 나간다.",
+          "tip": "현금은 안전하지만 물가가 오르면 실제 가치가 줄 수 있습니다."
+        }
+      ]
+    },
+    {
+      "id": "q016",
+      "chapter": 2,
+      "title": "마이너스 통장 제안",
+      "difficulty": 3,
+      "tags": [
+        "대출",
+        "레버리지"
+      ],
+      "situation": "은행에서 1,000만원 한도 마이너스 통장을 만들어 준다고 한다.",
+      "next": "q017",
+      "choices": [
+        {
+          "id": "a",
+          "text": "만들기만 하고 안 쓴다",
+          "effects": {
+            "credit": -1,
+            "risk": -2
+          },
+          "result_text": "비상시 쓸 수 있는 줄 하나가 생겼다.",
+          "tip": "한도 대출은 쓰지 않아도 한도 자체가 신용에 반영될 수 있습니다."
+        },
+        {
+          "id": "b",
+          "text": "1,000만원 빌려서 투자",
+          "effects": {
+            "debt": 1000,
+            "investment": 1000,
+            "risk": 15,
+            "credit": -3
+          },
+          "result_text": "빌린 돈으로 투자금이 두 배가 됐다.",
+          "tip": "빌린 돈으로 투자하면 이익도 손실도 커집니다. 이자는 손실이 나도 나갑니다."
+        },
+        {
+          "id": "c",
+          "text": "필요 없다",
+          "effects": {},
+          "result_text": "제안을 거절했다.",
+          "tip": "쓸 계획이 없는 빚은 만들지 않는 것도 방법입니다."
+        },
+        {
+          "id": "d",
+          "text": "300만원 빌려 여행",
+          "effects": {
+            "debt": 300,
+            "happiness": 11,
+            "credit": -3
+          },
+          "result_text": "꿈꾸던 여행! 돌아오니 빚이 남았다.",
+          "tip": "경험을 위한 지출은 소중하지만, 빚으로 하면 즐거움보다 부담이 오래 남습니다."
+        }
+      ]
+    },
+    {
+      "id": "q017",
+      "chapter": 2,
+      "title": "새 휴대폰",
+      "difficulty": 1,
+      "tags": [
+        "할부"
+      ],
+      "situation": "휴대폰 신모델이 나왔다. 가격은 150만원.",
+      "next": "q018",
+      "choices": [
+        {
+          "id": "a",
+          "text": "일시불로 산다",
+          "effects": {
+            "cash": -150,
+            "happiness": 5
+          },
+          "result_text": "새 폰! 할부 없이 깔끔하다.",
+          "tip": "살 거라면 이자 없는 방식이 총비용이 가장 낮습니다."
+        },
+        {
+          "id": "b",
+          "text": "24개월 할부",
+          "effects": {
+            "debt": 150,
+            "expense": 7,
+            "happiness": 5
+          },
+          "result_text": "월 7만원씩. 부담이 안 느껴진다.",
+          "tip": "할부는 월 부담을 낮추지만 총액과 수수료는 그대로이거나 더 큽니다."
+        },
+        {
+          "id": "c",
+          "text": "쓰던 폰을 더 쓴다",
+          "effects": {
+            "happiness": -2
+          },
+          "result_text": "배터리가 좀 빨리 닳지만 쓸 만하다.",
+          "tip": "교체 주기를 늘리는 것만으로도 큰 지출을 줄일 수 있습니다."
+        },
+        {
+          "id": "d",
+          "text": "상태 좋은 중고폰",
+          "effects": {
+            "cash": -50,
+            "happiness": 2
+          },
+          "result_text": "합리적인 가격에 바꿨다.",
+          "tip": "최신이 꼭 필요한지, 기능이 필요한지 구분해 보세요."
+        }
+      ]
+    },
+    {
+      "id": "q018",
+      "chapter": 2,
+      "title": "지출이 겹친 달",
+      "difficulty": 2,
+      "tags": [
+        "위기",
+        "비상금"
+      ],
+      "situation": "경조사 두 건에 보일러 수리까지. 이번 달에만 200만원이 더 나갔다.",
+      "on_enter": {
+        "cash": -200
+      },
+      "enter_text": "예상 밖 지출 200만원",
+      "triggers": [
+        {
+          "flag": "lent_friend",
+          "effects": {
+            "cash": 300,
+            "happiness": 3
+          },
+          "text": "친구가 빌린 돈 중 300만원을 먼저 갚았다. 나머지 200은 아직…"
+        }
+      ],
+      "next": "q019",
+      "choices": [
+        {
+          "id": "a",
+          "text": "비상금으로 해결",
+          "effects": {
+            "risk": 2
+          },
+          "result_text": "비상금이 제 역할을 했다.",
+          "tip": "비상금은 이럴 때 쓰라고 있는 돈입니다. 쓴 뒤에는 다시 채워 두세요."
+        },
+        {
+          "id": "b",
+          "text": "카드 할부로 돌린다",
+          "effects": {
+            "cash": 200,
+            "debt": 200,
+            "credit": -2
+          },
+          "result_text": "현금은 지켰다. 대신 갚을 돈이 생겼다.",
+          "tip": "현금을 지키려고 빚을 늘리면 이자라는 비용이 붙습니다."
+        },
+        {
+          "id": "c",
+          "text": "가족에게 잠시 빌린다",
+          "effects": {
+            "cash": 200,
+            "happiness": -5
+          },
+          "set_flags": [
+            "family_loan"
+          ],
+          "result_text": "가족이 도와줬다. 마음이 무겁다.",
+          "tip": "가족 간 돈 거래도 갚을 계획을 분명히 해야 관계가 지켜집니다."
+        },
+        {
+          "id": "d",
+          "text": "공과금을 한 달 미룬다",
+          "effects": {
+            "cash": 200,
+            "credit": -15,
+            "risk": 10
+          },
+          "result_text": "현금은 남았다. 연체 기록이 남았다.",
+          "tip": "연체는 작은 금액이라도 신용에 오래 흔적을 남길 수 있습니다."
+        }
+      ]
+    },
+    {
+      "id": "q019",
+      "chapter": 2,
+      "title": "금리가 오른다",
+      "difficulty": 3,
+      "tags": [
+        "금리",
+        "위기"
+      ],
+      "situation": "뉴스: '금리 인상.' 대출 이자가 늘었다는 문자가 왔다.",
+      "on_enter": {
+        "debt": {
+          "pct": 3
+        }
+      },
+      "enter_text": "대출 이자 부담 +3%",
+      "triggers": [
+        {
+          "flag": "guarantor",
+          "effects": {
+            "debt": 1000,
+            "credit": -10,
+            "happiness": -15,
+            "risk": 10
+          },
+          "text": "보증을 서 준 친구가 대출을 못 갚았다. 1,000만원이 내 빚이 됐다."
+        }
+      ],
+      "next": "q020",
+      "choices": [
+        {
+          "id": "a",
+          "text": "금리 고정으로 바꾼다",
+          "effects": {
+            "cash": -50,
+            "risk": -6
+          },
+          "result_text": "수수료를 냈지만 더 오를 걱정은 덜었다.",
+          "tip": "변동금리와 고정금리는 어느 쪽이 항상 유리하지 않습니다. 불확실성을 줄이는 비용이 있습니다."
+        },
+        {
+          "id": "b",
+          "text": "500만원 추가 상환",
+          "requires": {
+            "cash": 500,
+            "debt": 500
+          },
+          "effects": {
+            "cash": -500,
+            "debt": -500,
+            "risk": -4
+          },
+          "result_text": "원금을 줄여 이자 인상 충격을 줄였다.",
+          "tip": "금리가 오를 때는 원금을 줄이는 효과가 더 커집니다."
+        },
+        {
+          "id": "c",
+          "text": "버틴다",
+          "effects": {
+            "risk": 4
+          },
+          "result_text": "이자가 조금 더 나간다. 아직은 괜찮다.",
+          "tip": "내 소득에서 이자가 차지하는 비중을 알고 있어야 버틸지 판단할 수 있습니다."
+        },
+        {
+          "id": "d",
+          "text": "투자 수익으로 갚겠다",
+          "effects": {
+            "risk": 8,
+            "happiness": 1
+          },
+          "result_text": "계획은 있다. 시장이 따라와 준다면.",
+          "tip": "불확실한 수익으로 확정된 비용을 갚는 계획은 위험합니다."
+        }
+      ]
+    },
+    {
+      "id": "q020",
+      "chapter": 2,
+      "title": "우대 대출 5,000만원",
+      "difficulty": 3,
+      "tags": [
+        "레버리지",
+        "보스"
+      ],
+      "situation": "신용이 좋아서인지 은행이 5,000만원 우대 대출을 제안한다.",
+      "next": "q021",
+      "choices": [
+        {
+          "id": "a",
+          "text": "받아서 전부 투자",
+          "requires": {
+            "credit": 60
+          },
+          "effects": {
+            "debt": 5000,
+            "investment": 5000,
+            "risk": 20
+          },
+          "result_text": "투자금이 크게 불었다. 이자도 커졌다.",
+          "tip": "큰 빚을 내 투자하면 작은 하락에도 재무 전체가 흔들릴 수 있습니다."
+        },
+        {
+          "id": "b",
+          "text": "받아서 현금으로 보관",
+          "requires": {
+            "credit": 60
+          },
+          "effects": {
+            "debt": 5000,
+            "cash": 5000,
+            "risk": 4,
+            "happiness": 2
+          },
+          "result_text": "현금이 넉넉해졌다. 그런데 이자는 매달 나간다.",
+          "tip": "쓰지 않는 대출에도 이자는 붙습니다."
+        },
+        {
+          "id": "c",
+          "text": "필요 없다",
+          "effects": {
+            "risk": -2
+          },
+          "result_text": "제안을 거절했다. 지금 페이스를 지킨다.",
+          "tip": "빌릴 수 있는 것과 빌려야 하는 것은 다릅니다."
+        },
+        {
+          "id": "d",
+          "text": "1,000만원만 받아 대출 갈아타기",
+          "requires": {
+            "credit": 60,
+            "debt": 1000
+          },
+          "effects": {
+            "debt": -150,
+            "credit": 2
+          },
+          "result_text": "기존 비싼 대출을 싼 대출로 바꿨다.",
+          "tip": "같은 빚이라도 이자가 낮은 쪽으로 옮기면 부담이 줄어듭니다."
+        }
+      ]
+    },
+    {
+      "id": "q021",
+      "chapter": 3,
+      "title": "첫 투자 방식",
+      "difficulty": 2,
+      "tags": [
+        "투자",
+        "분산"
+      ],
+      "situation": "600만원으로 본격적으로 투자를 해 보기로 했다. 어떻게 할까?",
+      "next": "q022",
+      "choices": [
+        {
+          "id": "a",
+          "text": "안전한 적금에 넣는다",
+          "effects": {
+            "risk": -4,
+            "happiness": 1
+          },
+          "result_text": "원금 걱정 없이 차곡차곡.",
+          "tip": "안전한 저축은 원금이 지켜지는 대신 기대수익이 낮습니다."
+        },
+        {
+          "id": "b",
+          "text": "여러 곳에 나눠 투자",
+          "requires": {
+            "cash": 600
+          },
+          "effects": {
+            "cash": -600,
+            "investment": 600,
+            "risk": 4
+          },
+          "result_text": "한 곳이 흔들려도 전체는 덜 흔들린다.",
+          "tip": "분산 투자는 한 종목이 크게 떨어지는 위험을 줄여 줍니다."
+        },
+        {
+          "id": "c",
+          "text": "한 종목에 몰빵",
+          "requires": {
+            "cash": 600
+          },
+          "effects": {
+            "cash": -600,
+            "investment": 600,
+            "risk": 12
+          },
+          "set_flags": [
+            "single_stock"
+          ],
+          "result_text": "확신이 있다. 차트가 계속 눈에 밟힌다.",
+          "tip": "집중 투자는 크게 오를 수도, 크게 잃을 수도 있습니다."
+        },
+        {
+          "id": "d",
+          "text": "요즘 뜨는 코인",
+          "requires": {
+            "cash": 600
+          },
+          "effects": {
+            "cash": -600,
+            "investment": 600,
+            "risk": 20
+          },
+          "set_flags": [
+            "crypto"
+          ],
+          "result_text": "하루에도 10%씩 오르내린다. 심장이 뛴다.",
+          "tip": "변동성이 큰 자산은 잃어도 되는 금액 안에서만 하는 것이 좋습니다."
+        }
+      ]
+    },
+    {
+      "id": "q022",
+      "chapter": 3,
+      "title": "급등주 정보",
+      "difficulty": 3,
+      "tags": [
+        "투자",
+        "유혹"
+      ],
+      "situation": "지인이 속삭인다. '이 종목 곧 두 배 간대. 나만 알려 주는 거야.'",
+      "next": "q023",
+      "choices": [
+        {
+          "id": "a",
+          "text": "1,000만원 올인",
+          "requires": {
+            "cash": 1000
+          },
+          "effects": {
+            "cash": -1000,
+            "investment": 1000,
+            "risk": 20
+          },
+          "set_flags": [
+            "hot_tip"
+          ],
+          "result_text": "두 배가 되면 2,000만원이다!",
+          "tip": "'나만 아는 정보'는 대부분 이미 알려졌거나 사실이 아닙니다."
+        },
+        {
+          "id": "b",
+          "text": "100만원만 재미로",
+          "effects": {
+            "cash": -100,
+            "investment": 100,
+            "risk": 3
+          },
+          "set_flags": [
+            "hot_tip_small"
+          ],
+          "result_text": "잃어도 괜찮은 만큼만 넣었다.",
+          "tip": "호기심은 잃어도 되는 금액으로 해결하는 것이 안전합니다."
+        },
+        {
+          "id": "c",
+          "text": "무시한다",
+          "effects": {},
+          "result_text": "아무 일도 없었다. 아직까지는.",
+          "tip": "하지 않은 투자는 잃지도 않습니다."
+        },
+        {
+          "id": "d",
+          "text": "그 회사를 직접 공부한다",
+          "effects": {
+            "happiness": -2,
+            "risk": -2
+          },
+          "set_flags": [
+            "studied"
+          ],
+          "result_text": "재무제표를 읽어 보니 이야기와 다르다.",
+          "tip": "투자하기 전에 무엇에 투자하는지 설명할 수 있어야 합니다."
+        }
+      ]
+    },
+    {
+      "id": "q023",
+      "chapter": 3,
+      "title": "자동 투자 설정",
+      "difficulty": 2,
+      "tags": [
+        "적립식"
+      ],
+      "situation": "매달 일정 금액을 자동으로 투자하는 기능이 있다.",
+      "next": "q024",
+      "choices": [
+        {
+          "id": "a",
+          "text": "매달 50만원 자동 투자",
+          "effects": {
+            "happiness": -1
+          },
+          "add_per_turn": [
+            {
+              "stat": "cash",
+              "amount": -50
+            },
+            {
+              "stat": "investment",
+              "amount": 50
+            }
+          ],
+          "result_text": "이제 매달 50만원이 알아서 투자된다.",
+          "tip": "정해진 금액을 꾸준히 넣으면 사는 시점을 고민하지 않아도 됩니다."
+        },
+        {
+          "id": "b",
+          "text": "매달 20만원",
+          "effects": {},
+          "add_per_turn": [
+            {
+              "stat": "cash",
+              "amount": -20
+            },
+            {
+              "stat": "investment",
+              "amount": 20
+            }
+          ],
+          "result_text": "부담 없이 시작했다.",
+          "tip": "금액보다 꾸준함이 먼저입니다. 금액은 나중에 늘리면 됩니다."
+        },
+        {
+          "id": "c",
+          "text": "안 한다",
+          "effects": {},
+          "result_text": "투자는 그때그때 하기로 했다.",
+          "tip": "그때그때 하는 투자는 시장 분위기에 휩쓸리기 쉽습니다."
+        },
+        {
+          "id": "d",
+          "text": "여윳돈 생길 때 한 번에",
+          "effects": {
+            "happiness": 1
+          },
+          "result_text": "자유롭게 하기로 했다.",
+          "tip": "목돈 투자는 시점에 따라 결과 차이가 커질 수 있습니다."
+        }
+      ]
+    },
+    {
+      "id": "q024",
+      "chapter": 3,
+      "title": "수익률 자랑하는 동료",
+      "difficulty": 3,
+      "tags": [
+        "FOMO"
+      ],
+      "situation": "동료가 올해만 50% 벌었다고 자랑한다. 나는 뭘 하고 있었나?",
+      "next": "q025",
+      "choices": [
+        {
+          "id": "a",
+          "text": "나도 빚내서 크게 들어간다",
+          "effects": {
+            "debt": 1000,
+            "investment": 1000,
+            "risk": 18
+          },
+          "result_text": "이번엔 나도 탄다!",
+          "tip": "남의 수익률을 보고 서두르면 이미 오른 뒤에 사는 경우가 많습니다."
+        },
+        {
+          "id": "b",
+          "text": "내 계획대로 간다",
+          "effects": {
+            "happiness": -1,
+            "risk": -2
+          },
+          "result_text": "조금 배 아프지만 흔들리지 않았다.",
+          "tip": "투자는 남과 비교하는 경기가 아니라 내 목표를 향한 계획입니다."
+        },
+        {
+          "id": "c",
+          "text": "불안해서 투자를 전부 정리",
+          "effects": {
+            "risk": -8
+          },
+          "moves": [
+            {
+              "from": "investment",
+              "to": "cash",
+              "pct": 100
+            }
+          ],
+          "result_text": "다 팔고 현금으로 돌아왔다. 속은 편하다.",
+          "tip": "감정에 따라 사고파는 것은 장기 수익을 해치기 쉽습니다."
+        },
+        {
+          "id": "d",
+          "text": "투자 공부를 시작한다",
+          "effects": {
+            "happiness": -2
+          },
+          "set_flags": [
+            "studied"
+          ],
+          "result_text": "책 두 권을 샀다. 조금씩 보인다.",
+          "tip": "이해한 만큼만 투자하면 흔들릴 때 버틸 수 있습니다."
+        }
+      ]
+    },
+    {
+      "id": "q025",
+      "chapter": 3,
+      "title": "시장 급락",
+      "difficulty": 3,
+      "tags": [
+        "위기",
+        "투자"
+      ],
+      "situation": "뉴스 속보: 시장이 크게 하락했다. 계좌가 온통 파랗다.",
+      "on_enter": {
+        "investment": {
+          "pct": -25
+        }
+      },
+      "enter_text": "투자 평가액 -25%",
+      "triggers": [
+        {
+          "flag": "crypto",
+          "effects": {
+            "investment": {
+              "pct": -15
+            }
+          },
+          "text": "코인은 더 크게 떨어졌다."
+        },
+        {
+          "flag": "hot_tip",
+          "effects": {
+            "investment": -500,
+            "happiness": -8
+          },
+          "text": "그 '급등주'는 반토막이 났다."
+        },
+        {
+          "flag": "single_stock",
+          "effects": {
+            "investment": -150
+          },
+          "text": "몰빵한 종목이 시장보다 더 떨어졌다."
+        }
+      ],
+      "next": "q026",
+      "choices": [
+        {
+          "id": "a",
+          "text": "500만원 추가 매수",
+          "requires": {
+            "cash": 500
+          },
+          "effects": {
+            "cash": -500,
+            "investment": 500,
+            "risk": 5
+          },
+          "set_flags": [
+            "bought_dip"
+          ],
+          "result_text": "모두가 팔 때 샀다. 무섭다.",
+          "tip": "하락장에서 사는 것은 싸게 살 기회일 수 있지만 더 떨어질 수도 있습니다."
+        },
+        {
+          "id": "b",
+          "text": "버틴다",
+          "effects": {
+            "happiness": -5
+          },
+          "result_text": "앱을 열 때마다 마음이 아프다.",
+          "tip": "장기 계획이라면 일시적인 하락은 과정의 일부일 수 있습니다."
+        },
+        {
+          "id": "c",
+          "text": "전부 판다",
+          "effects": {
+            "risk": -10,
+            "happiness": -3
+          },
+          "moves": [
+            {
+              "from": "investment",
+              "to": "cash",
+              "pct": 100
+            }
+          ],
+          "set_flags": [
+            "sold_bottom"
+          ],
+          "result_text": "손실을 확정하고 현금으로 돌아왔다.",
+          "tip": "하락 중에 팔면 손실이 확정됩니다. 그 돈이 곧 필요한지가 판단 기준입니다."
+        },
+        {
+          "id": "d",
+          "text": "앱을 지운다",
+          "effects": {
+            "happiness": 2
+          },
+          "result_text": "안 보니까 괜찮다. 정말로?",
+          "tip": "매일 보지 않는 것도 감정적 매매를 줄이는 방법입니다."
+        }
+      ]
+    },
+    {
+      "id": "q026",
+      "chapter": 3,
+      "title": "보험 점검",
+      "difficulty": 2,
+      "tags": [
+        "보험",
+        "리스크"
+      ],
+      "situation": "보험료로 매달 30만원이 나간다. 뭐가 들어 있는지 잘 모르겠다.",
+      "next": "q027",
+      "choices": [
+        {
+          "id": "a",
+          "text": "필요한 보장만 남긴다",
+          "effects": {
+            "expense": -10,
+            "risk": -2
+          },
+          "result_text": "월 10만원 줄이고 핵심 보장은 지켰다.",
+          "tip": "보험은 감당하기 어려운 큰 위험을 대비하는 도구입니다."
+        },
+        {
+          "id": "b",
+          "text": "보장을 더 늘린다",
+          "effects": {
+            "expense": 20,
+            "risk": -6
+          },
+          "result_text": "든든하다. 월 지출도 늘었다.",
+          "tip": "보장이 많을수록 안심이지만 보험료도 매달 고정비가 됩니다."
+        },
+        {
+          "id": "c",
+          "text": "전부 해지한다",
+          "effects": {
+            "expense": -30,
+            "risk": 14
+          },
+          "result_text": "월 30만원이 남는다. 아프면 어쩌지?",
+          "tip": "모든 보장을 없애면 큰 사고 한 번에 모은 돈이 사라질 수 있습니다."
+        },
+        {
+          "id": "d",
+          "text": "모르겠으니 그대로",
+          "effects": {},
+          "result_text": "변화 없음.",
+          "tip": "내가 무엇에 돈을 내는지 아는 것이 첫걸음입니다."
+        }
+      ]
+    },
+    {
+      "id": "q027",
+      "chapter": 3,
+      "title": "노후 준비는 언제?",
+      "difficulty": 2,
+      "tags": [
+        "노후",
+        "시간"
+      ],
+      "situation": "30대인데 벌써 노후를 준비해야 할까?",
+      "next": "q028",
+      "choices": [
+        {
+          "id": "a",
+          "text": "매달 30만원 노후 적립",
+          "effects": {
+            "happiness": -1,
+            "risk": -2
+          },
+          "add_per_turn": [
+            {
+              "stat": "cash",
+              "amount": -30
+            },
+            {
+              "stat": "investment",
+              "amount": 30
+            }
+          ],
+          "result_text": "미래의 나를 위한 자동이체를 걸었다.",
+          "tip": "일찍 시작할수록 같은 금액으로 더 긴 시간을 쌓을 수 있습니다."
+        },
+        {
+          "id": "b",
+          "text": "목돈 500만원 한 번에",
+          "requires": {
+            "cash": 500
+          },
+          "effects": {
+            "cash": -500,
+            "investment": 500
+          },
+          "result_text": "노후 계좌에 500만원을 넣었다.",
+          "tip": "노후 자금은 오래 꺼내 쓰지 않을 돈으로 준비하는 게 좋습니다."
+        },
+        {
+          "id": "c",
+          "text": "아직 이르다",
+          "effects": {
+            "happiness": 1,
+            "risk": 3
+          },
+          "result_text": "지금을 즐기기로 했다.",
+          "tip": "미루는 동안 잃는 것은 돈보다 시간입니다."
+        },
+        {
+          "id": "d",
+          "text": "집부터 사는 게 먼저",
+          "effects": {},
+          "set_flags": [
+            "want_house"
+          ],
+          "result_text": "내 집 마련을 다음 목표로 정했다.",
+          "tip": "목표에 순서를 정하면 돈의 쓰임이 분명해집니다."
+        }
+      ]
+    },
+    {
+      "id": "q028",
+      "chapter": 3,
+      "title": "재테크 강의 광고",
+      "difficulty": 2,
+      "tags": [
+        "교육",
+        "부업"
+      ],
+      "situation": "'한 달 만에 월 300 부수입!' 강의가 100만원이다.",
+      "triggers": [
+        {
+          "flag": "side_job",
+          "effects": {
+            "income": 10,
+            "happiness": 2
+          },
+          "text": "주말 부업이 자리를 잡아 월 수입이 10만원 늘었다."
+        }
+      ],
+      "next": "q029",
+      "choices": [
+        {
+          "id": "a",
+          "text": "강의를 결제한다",
+          "effects": {
+            "cash": -100,
+            "happiness": 1
+          },
+          "result_text": "뻔한 얘기가 절반이었다.",
+          "tip": "쉽고 빠른 수익을 약속하는 광고일수록 한 번 더 의심해 보세요."
+        },
+        {
+          "id": "b",
+          "text": "무료 자료로 공부",
+          "effects": {
+            "happiness": -2,
+            "risk": -2
+          },
+          "set_flags": [
+            "studied"
+          ],
+          "result_text": "시간은 들었지만 돈은 안 들었다.",
+          "tip": "기초 금융 지식은 공공기관 자료로도 충분히 배울 수 있습니다."
+        },
+        {
+          "id": "c",
+          "text": "무시한다",
+          "effects": {},
+          "result_text": "광고를 닫았다.",
+          "tip": "시간과 돈을 지키는 것도 재테크입니다."
+        },
+        {
+          "id": "d",
+          "text": "내 기술로 부업 시작",
+          "effects": {
+            "income": 20,
+            "happiness": -5
+          },
+          "result_text": "작지만 매달 20만원이 더 들어온다.",
+          "tip": "내가 가진 기술로 버는 소득은 가장 확실한 투자 수익입니다."
+        }
+      ]
+    },
+    {
+      "id": "q029",
+      "chapter": 3,
+      "title": "시장 회복",
+      "difficulty": 3,
+      "tags": [
+        "투자",
+        "회복"
+      ],
+      "situation": "몇 달이 지나 시장이 크게 반등했다.",
+      "on_enter": {
+        "investment": {
+          "pct": 35
+        }
+      },
+      "enter_text": "투자 평가액 +35%",
+      "triggers": [
+        {
+          "flag": "sold_bottom",
+          "effects": {
+            "happiness": -8
+          },
+          "text": "바닥에서 판 뒤에 올랐다. 속이 쓰리다."
+        },
+        {
+          "flag": "bought_dip",
+          "effects": {
+            "happiness": 6
+          },
+          "text": "급락 때 추가로 산 게 크게 올랐다!"
+        }
+      ],
+      "next": "q030",
+      "choices": [
+        {
+          "id": "a",
+          "text": "수익 일부를 현금으로",
+          "effects": {
+            "risk": -5
+          },
+          "moves": [
+            {
+              "from": "investment",
+              "to": "cash",
+              "pct": 30
+            }
+          ],
+          "result_text": "투자의 30%를 현금으로 챙겼다.",
+          "tip": "오른 자산의 일부를 정리하면 비중이 한쪽으로 쏠리는 것을 막을 수 있습니다."
+        },
+        {
+          "id": "b",
+          "text": "전부 그대로 둔다",
+          "effects": {
+            "risk": 2
+          },
+          "result_text": "더 오를 거라 믿는다.",
+          "tip": "오를 때 계속 들고 가는 것도, 내릴 때 버티는 것도 같은 원칙에서 나와야 합니다."
+        },
+        {
+          "id": "c",
+          "text": "수익으로 대출 상환",
+          "effects": {
+            "risk": -6
+          },
+          "moves": [
+            {
+              "from": "investment",
+              "to": "debt",
+              "pct": 30,
+              "reduce": true
+            }
+          ],
+          "result_text": "투자 수익으로 빚을 줄였다.",
+          "tip": "불확실한 이익을 확정된 부채 감소로 바꾸는 선택입니다."
+        },
+        {
+          "id": "d",
+          "text": "500만원 더 투자",
+          "requires": {
+            "cash": 500
+          },
+          "effects": {
+            "cash": -500,
+            "investment": 500,
+            "risk": 6
+          },
+          "result_text": "상승장에 더 올라탔다.",
+          "tip": "오른 뒤에 늘리는 투자는 다음 하락에도 더 크게 노출됩니다."
+        }
+      ]
+    },
+    {
+      "id": "q030",
+      "chapter": 3,
+      "title": "30개월 재무 점검",
+      "difficulty": 3,
+      "tags": [
+        "점검",
+        "보스"
+      ],
+      "situation": "게임 속 시간으로 30개월이 지났다. 지금 내 돈의 모양을 정할 시간.",
+      "next": "END",
+      "choices": [
+        {
+          "id": "a",
+          "text": "균형 있게 재조정",
+          "effects": {
+            "risk": -8,
+            "happiness": 2
+          },
+          "result_text": "빚·현금·투자의 비율을 다시 맞췄다.",
+          "tip": "정기적으로 비율을 점검하면 한쪽으로 쏠린 위험을 줄일 수 있습니다."
+        },
+        {
+          "id": "b",
+          "text": "더 공격적으로",
+          "effects": {
+            "risk": 12
+          },
+          "moves": [
+            {
+              "from": "cash",
+              "to": "investment",
+              "pct": 50
+            }
+          ],
+          "result_text": "현금 절반을 투자로 옮겼다.",
+          "tip": "성장을 원할수록 견딜 수 있는 하락의 크기도 커져야 합니다."
+        },
+        {
+          "id": "c",
+          "text": "안정 모드로 전환",
+          "effects": {
+            "risk": -10
+          },
+          "moves": [
+            {
+              "from": "investment",
+              "to": "cash",
+              "pct": 50
+            }
+          ],
+          "result_text": "투자 절반을 현금으로 돌렸다.",
+          "tip": "목표 시점이 가까워질수록 안정성을 높이는 것이 일반적인 원칙입니다."
+        },
+        {
+          "id": "d",
+          "text": "3년 버틴 나에게 선물",
+          "effects": {
+            "cash": -300,
+            "happiness": 12
+          },
+          "result_text": "여행 예약 완료. 수고했어, 나.",
+          "tip": "보상은 계획을 오래 지키게 해 주는 연료입니다."
+        }
+      ]
+    }
+  ],
+  "endings": [
+    {
+      "id": "crisis",
+      "title": "재무 위기형",
+      "icon": "🧯",
+      "when": [
+        {
+          "stat": "net_worth",
+          "op": "<",
+          "value": 4000
+        }
+      ],
+      "text": "시작할 때(순자산 4,000만원)보다 가난해졌다. 다음 판에서는 비상금과 고정비부터 챙겨 보자."
+    },
+    {
+      "id": "happy",
+      "title": "소비 행복형",
+      "icon": "🎉",
+      "when": [
+        {
+          "stat": "happiness",
+          "op": ">=",
+          "value": 85
+        }
+      ],
+      "text": "인생을 즐겼다. 순자산은 조금 덜 늘었지만 추억은 가득하다."
+    },
+    {
+      "id": "gambler",
+      "title": "위험한 한방형",
+      "icon": "🎲",
+      "when": [
+        {
+          "stat": "risk",
+          "op": ">=",
+          "value": 70
+        },
+        {
+          "stat": "investment",
+          "op": ">=",
+          "value": 2000
+        }
+      ],
+      "text": "크게 걸고 크게 흔들렸다. 운이 좋았다면 부자, 아니었다면… 위험도를 낮춰도 성장할 수 있을까?"
+    },
+    {
+      "id": "aggressive",
+      "title": "공격적 성장형",
+      "icon": "🚀",
+      "when": [
+        {
+          "stat": "investment",
+          "op": ">=",
+          "value": 4000
+        },
+        {
+          "stat": "risk",
+          "op": ">=",
+          "value": 40
+        }
+      ],
+      "text": "투자로 자산을 키웠다. 다음 하락장이 와도 버틸 수 있을까?"
+    },
+    {
+      "id": "frugal",
+      "title": "짠돌이 생존형",
+      "icon": "🪙",
+      "when": [
+        {
+          "stat": "happiness",
+          "op": "<=",
+          "value": 40
+        }
+      ],
+      "text": "돈은 지켰지만 즐거움을 많이 포기했다. 오래 가려면 나를 위한 예산도 필요하다."
+    },
+    {
+      "id": "stable",
+      "title": "재무 안정형",
+      "icon": "🛡️",
+      "when": [
+        {
+          "stat": "debt",
+          "op": "<=",
+          "value": 1000
+        },
+        {
+          "stat": "risk",
+          "op": "<=",
+          "value": 30
+        }
+      ],
+      "text": "빚을 거의 없애고 흔들리지 않는 기반을 만들었다."
+    },
+    {
+      "id": "balanced",
+      "title": "균형 성장형",
+      "icon": "⚖️",
+      "when": [],
+      "text": "빚·현금·투자·행복 사이에서 균형을 잡으며 성장했다."
+    }
+  ]
+}
