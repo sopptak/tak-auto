@@ -54,6 +54,7 @@ STYLE = """<style>
   .tbl { border-collapse: collapse; width: 100%; background: #fff; font-size: 0.88rem; }
   .tbl th, .tbl td { border-bottom: 1px solid #eee; padding: 7px 8px; text-align: left; }
   .tbl td.num, .tbl th.num { text-align: right; white-space: nowrap; }
+  .tbl th, .tbl td:first-child { white-space: nowrap; }
   .scroll { overflow-x: auto; }
   .hint { font-size: 0.78rem; color: #777; } .up { color: #1a5c3a; } .down { color: #b3261e; }
   .btn.big { padding: 10px 16px; font-size: 0.95rem; }
@@ -149,10 +150,11 @@ def _task_card(t: dict, config: dict) -> str:
         else:
             left = t["minutes_left"]
             deadline = f'<div>⏰ 마감 {escape(_local(t["deadline"], config))} (남은 {_minutes(left) if left < 2880 else f"{left // 1440}일"})</div>'
-    learned = ""
-    if t.get("learned_hourly") is not None:  # 예상 시급만 보지 않게: 이 플랫폼 내 실제 기록
-        learned = (f'<div class="hint">내 기록: {escape(t["platform"])} 실제 {_rate(t["platform_actual_hourly"])} '
-                   f'(예상 대비 {t["platform_gap_pct"]:+g}%, {t["learned_basis"]}건) → 이 작업 약 <b>{t["learned_hourly"]:,}원</b></div>')
+    if t.get("learned_hourly") is not None:  # 예상 시급만 보지 않게: 이 플랫폼 내 실제 기록(표본 충분할 때만)
+        learned = (f'<div class="hint">내 기록 기준 보정 약 <b>{t["learned_hourly"]:,}원/시간</b> '
+                   f'({escape(t["platform"])} 실제 {_rate(t["platform_actual_hourly"])}, 예상 대비 {t["platform_gap_pct"]:+g}%, {t["learned_basis"]}건)</div>')
+    else:
+        learned = f'<div class="hint">내 기록 보정: 데이터 부족 ({t.get("learned_basis", 0)}/{t.get("learned_needed", 3)}건)</div>'
     memo = f'<div class="hint">📝 {escape(t["memo"])}</div>' if t.get("memo") else ""
     tid = quote(t["id"])
     accept = (f'<form method="post" action="/money/task/{tid}/accept"><button class="btn primary" type="submit">할래요</button></form>'
@@ -175,15 +177,90 @@ def _platform_state(r: dict, config: dict) -> str:
     return f'● 오늘 확인함 · {"작업 있음" if r["today_outcome"] == "found" else "작업 없음"}'
 
 
-def _routine_card(r: dict, config: dict) -> str:
+def _pct(value) -> str:
+    return "-" if value is None else f"{value:g}%"
+
+
+def _gap_cell(p: dict) -> str:
+    """예상 대비 실제 시급 차이. 표본이 모자라면 숫자 옆에 '데이터 부족'을 붙인다(결론으로 쓰지 말라는 표시)."""
+    if p["gap_pct"] is None:
+        return "-"
+    text = f"{p['gap_pct']:+g}%"
+    if not p["hourly_sufficient"]:
+        text += f' <span class="hint">({p["hourly_samples"]}/{p["hourly_needed"]}건 · 데이터 부족)</span>'
+    return text
+
+
+def _perf_line(pf: dict | None) -> str:
+    """루틴 카드 한 줄: 표본이 모자라면 비율 대신 '데이터 수집 중'."""
+    if not pf or not pf["checks"]:
+        return "확인 기록 없음 · 데이터 수집 중"
+    base = f"확인 {pf['checks']}회 · 발견률 {_pct(pf['discovery_rate'])} · 실제 시급 {_rate(pf['actual_hourly'])}"
+    return base if pf["priority_ready"] else base + f" · 데이터 수집 중({pf['checks']}/{pf['checks_needed']})"
+
+
+def _routine_card(r: dict, config: dict, pf: dict | None = None, rank: int | None = None) -> str:
     name = escape(r["name"])
     buttons = f"""{_ext_link(r['url'], '다시 확인 ↗' if r['checked_today'] else '확인하기 ↗', 'btn' if r['checked_today'] else 'btn primary')}
 <form method="post" action="/money/check"><input type="hidden" name="platform" value="{name}"><input type="hidden" name="outcome" value="none"><button class="btn" type="submit">작업 없었음</button></form>
 <form method="post" action="/money/check"><input type="hidden" name="platform" value="{name}"><input type="hidden" name="outcome" value="found"><button class="btn" type="submit">작업 있음 → 등록</button></form>"""
-    return f"""<div class="plat{' checked' if r['checked_today'] else ''}"><div class="name">{name} <span class="hint">{escape(r['kind_label'])}</span></div>
+    badge = f"{'①②③④⑤⑥⑦⑧⑨'[rank]} " if rank is not None and rank < 9 else ""
+    return f"""<div class="plat{' checked' if r['checked_today'] else ''}"><div class="name">{badge}{name} <span class="hint">{escape(r['kind_label'])}</span></div>
 <div class="state">{_platform_state(r, config)}</div>
 <div class="actions">{buttons}</div>
-<div class="hint" style="margin-top:6px">누적 {_won(r['earned'])} · 실제 시급 {_rate(r['actual_hourly'])} · 최근 확인 {escape(_local(r['last_checked_at'], config, '%m-%d %H:%M'))}</div></div>"""
+<div class="hint" style="margin-top:6px">누적 {_won(r['earned'])} · 최근 확인 {escape(_local(r['last_checked_at'], config, '%m-%d %H:%M'))}<br>{escape(_perf_line(pf))}</div></div>"""
+
+
+def _quick_done_form(platforms: list[str]) -> str:
+    return f"""<form method="post" action="/money/quick-done" class="card" id="quick-done" style="display:block;max-width:none">
+<div class="row"><div><label class="f">플랫폼</label><select name="platform">{_options([(p, p) for p in platforms], platforms[0])}</select></div>
+<div><label class="f">받은 수익 (원 또는 P)</label><input type="text" name="actual_reward" inputmode="numeric" required placeholder="1200"></div>
+<div><label class="f">걸린 시간 (분)</label><input type="text" name="actual_minutes" inputmode="numeric" required placeholder="20"></div>
+<div style="flex:2 1 200px"><label class="f">작업명 (선택)</label><input type="text" name="title" maxlength="120" placeholder="쇼핑 조사"></div></div>
+<div class="actions" style="margin-top:10px"><button class="btn primary big" type="submit">기록</button></div>
+<div class="hint">등록 없이 이미 끝낸 작업을 바로 기록합니다. 예상값을 모르므로 '예상 대비' 분석에서는 빠지고, 수익·시간·완료 통계에는 들어갑니다.</div></form>"""
+
+
+EVENT_TEXT = {"check_none": "확인 → 작업 없음", "check_found": "확인 → 작업 있음", "registered": "기회 등록", "accepted": "할래요",
+              "completed": "완료", "income": "수익"}
+
+
+def _event_html(ev: dict) -> str:
+    detail = ""
+    if ev["type"] == "registered":
+        detail = f" · {escape(ev['title'])} ({ev['reward']:,} / {_minutes(ev['minutes'])})"
+    elif ev["type"] == "accepted":
+        detail = f" · {escape(ev['title'])}"
+    elif ev["type"] in ("completed", "income"):
+        est = (f" <span class='hint'>(예상 {ev['estimated_reward']:,} / {_minutes(ev['estimated_minutes'])})</span>"
+               if ev.get("estimated_reward") is not None else "")
+        detail = (f" · {escape(ev['title'])} → 실제 <b>{ev['earned']:,}원</b> / {_minutes(ev['minutes'])}{est}"
+                  f" · 누적 <b>{ev['cumulative']:,}원</b>")
+    return f'<li><span class="hint">{ev["time"]}</span> {escape(ev["platform"])} {EVENT_TEXT[ev["type"]]}{detail}</li>'
+
+
+def _timeline_html(days: list[dict]) -> str:
+    if not days:
+        return '<div class="card">아직 기록이 없습니다. 플랫폼 확인·등록·완료가 쌓이면 여기에 날짜별로 남습니다.</div>'
+    return "".join(f'<div class="card" style="max-width:none"><b>{d["date"]}</b> <span class="hint">수익 {d["earned"]:,}원</span>'
+                   f'<ul style="margin:6px 0 0;padding-left:18px">{"".join(_event_html(ev) for ev in d["events"])}</ul></div>' for d in days)
+
+
+def _summary_html(summ: dict, title: str) -> str:
+    plats = " · ".join(f"{escape(p['platform'])} {p['earned']:,}원" for p in summ["by_platform"]) or "-"
+    return f"""<div class="today"><b>{title}</b>
+<div class="nums"><div>확인 <b>{summ['checks']}회</b></div><div>발견 <b>{summ['found']}회</b></div><div>등록한 기회 <b>{summ['opportunities']}건</b></div><div>완료 <b>{summ['completed']}건</b></div>
+<div>수익 <b>{summ['earned']:,}원</b></div><div>투자 <b>{escape(_minutes(summ['minutes']))}</b></div><div>실제 시급 <b>{escape(_rate(summ['hourly']))}</b></div></div>
+<div class="hint" style="margin-top:4px">확인한 곳: {escape(', '.join(summ['checked_platforms']) or '-')} · 안 한 곳: {escape(', '.join(summ['unchecked_platforms']) or '-')}<br>플랫폼별 수익: {plats}</div></div>"""
+
+
+def _recent_html(recent: dict, goal: dict) -> str:
+    if not recent["sufficient"]:
+        return (f'<div class="hint" style="margin-top:6px">최근 {recent["days"]}일 평균: 데이터 부족 '
+                f'(기록 {recent["entries"]}/{recent["needed"]}건 — 쌓이면 일평균 수익·작업시간을 보여줍니다)</div>')
+    eta = f" · 이 속도면 다음 목표까지 약 <b>{recent['eta_days']}일</b>" if recent["eta_days"] else ""
+    return (f'<div style="margin-top:6px">최근 {recent["days"]}일: 일평균 수익 <b>{recent["avg_daily_earned"]:,}원</b> · '
+            f'일평균 작업 <b>{recent["avg_daily_minutes"]:g}분</b> · 실제 시급 <b>{_rate(recent["hourly"])}</b>{eta}</div>')
 
 
 def _quick_form(text: str = "", platform: str = "") -> str:
@@ -196,13 +273,31 @@ def _quick_form(text: str = "", platform: str = "") -> str:
 
 # ---- /money --------------------------------------------------------------------------------
 
+def _priority_html(prio: dict) -> str:
+    if prio["ready"]:
+        order = " ".join(f"{'①②③④⑤⑥⑦⑧⑨'[i]} {escape(n)}" for i, n in enumerate(prio["order"]))
+        basis = " · ".join(f"{escape(n)} {'-' if v is None else f'{v:,}원'}" for n, v in prio["basis"].items())
+        return (f'<div class="today"><b>오늘 추천 확인 순서</b> <span class="hint">내 기록 기준(확인 1회당 작업 수익) — 플랫폼 평가가 아니라 지금까지 내 기록</span>'
+                f'<div style="margin-top:4px">{order}</div><div class="hint">확인 1회당 수익: {basis}</div></div>')
+    prog = " · ".join(f"{escape(n)} {c}/{need}" for n, (c, need) in prio["progress"].items())
+    return (f'<div class="hint" style="margin-bottom:6px">추천 확인 순서: <b>데이터 수집 중</b> — 모든 플랫폼이 확인 {prio["needed"]}회 이상 쌓이면 '
+            f'내 기록 기준 순서를 계산합니다(지금: {prog}). 그 전에는 기본 순서.</div>')
+
+
 def render_home(store: money.MoneyStore, query: dict, notice=None, error=None, quick_text="") -> str:
     config = store.config
     tasks, log, checks = store.tasks(), store.log(), store.checks()
     stats = money.period_stats(log, config)
     goal = money.goal_status(stats["total"]["earned"], config)
     today = money.today_summary(tasks, log, checks, config)
-    routine = [r for r in money.routine(tasks, log, checks, config) if r.get("active") and r.get("url")]
+    perf = {p["platform"]: p for p in money.performance(tasks, log, checks, config)}
+    prio = money.learned_priority(list(perf.values()), config)
+    by_name = {r["name"]: r for r in money.routine(tasks, log, checks, config) if r.get("active") and r.get("url")}
+    routine = [by_name[n] for n in prio["order"] if n in by_name]  # 표본이 충분할 때만 내 기록 순서, 아니면 설정 순서
+    recent = money.recent_stats(log, config)
+    day = money.activity_summary(tasks, log, checks, config, "today")
+    today_events = [d for d in money.timeline(tasks, log, checks, config, limit_days=1)
+                    if d["date"] == datetime.now(money.local_tz(config)).strftime("%Y-%m-%d")]
     get = lambda k: (query.get(k) or [""])[0]  # noqa: E731
     sort, grade_filter, platform_filter = get("sort") or "hourly", get("grade"), get("platform")
 
@@ -229,7 +324,7 @@ def render_home(store: money.MoneyStore, query: dict, notice=None, error=None, q
 <div><select name="platform">{_options([("", "모든 플랫폼")] + [(p, p) for p in platforms], platform_filter)}</select></div>
 <div style="flex:0 0 auto"><button class="btn" type="submit">보기</button></div></form>"""
     checklist = "".join(f'<span>{"■" if r["checked_today"] else "□"} {escape(r["name"])}</span>' for r in routine)
-    recent = "".join(
+    recent_rows = "".join(
         f'<tr><td>{escape(_local(e["completed_at"], config, "%m-%d %H:%M"))}</td><td>{escape(e["platform"])}</td><td>{escape(e["title"])}</td>'
         f'<td class="num">{money.won(e):,}원</td><td class="num">{_rate(e["actual_hourly"])}</td></tr>'
         for e in sorted(log, key=lambda e: e["completed_at"], reverse=True)[:5]) or '<tr><td colspan="5">아직 수익 기록이 없습니다.</td></tr>'
@@ -237,20 +332,26 @@ def render_home(store: money.MoneyStore, query: dict, notice=None, error=None, q
     return f"""<div class="money">{NAV}
 <h1>💰 TAK AUTO MONEY</h1><div class="sub">온라인 수익 노가다 관제판 — 기회(OPPORTUNITY) · 수익성 · 우선순위 · 직접 실행 · 기록 · 학습</div>
 {_banner(notice, error)}
-<div class="today"><b>① 오늘의 수익</b><div class="nums"><div>오늘 수익 <b>{t['earned']:,}원</b></div><div>투자 <b>{escape(_minutes(t['minutes']))}</b></div>
-<div>시급 <b>{escape(_rate(t['hourly']))}</b></div><div>완료 <b>{today['completed_today']}건</b></div></div></div>
-{_goal_html(goal)}
+<div class="today"><b>① 오늘의 수익 · 📊 오늘의 MONEY 활동</b><div class="nums"><div>오늘 수익 <b>{t['earned']:,}원</b></div><div>투자 <b>{escape(_minutes(t['minutes']))}</b></div>
+<div>시급 <b>{escape(_rate(t['hourly']))}</b></div><div>완료 <b>{today['completed_today']}건</b></div><div>발견 기회 <b>{day['opportunities']}건</b></div></div>
+<div class="hint" style="margin-top:4px">확인한 곳: {escape(', '.join(today['checked_names']) or '-')} · 안 한 곳: {escape(', '.join(today['unchecked']) or '-')}</div>
+{('<details><summary class="hint">오늘 한 일 ' + str(len(today_events[0]['events'])) + '개</summary><ul style="margin:4px 0 0;padding-left:18px">' + ''.join(_event_html(ev) for ev in today_events[0]['events']) + '</ul></details>') if today_events else ''}</div>
+{_goal_html(goal).removesuffix('</div>')}{_recent_html(recent, goal)}</div>
 <div class="today"><b>🔥 오늘의 MONEY ROUTINE</b> <span class="hint">오늘 할 일</span>
 <div class="checklist" style="margin-top:6px">오늘 확인할 곳 ({today['checked']}/{today['platforms']}): {checklist}</div>
 <div class="nums"><div>오늘 발견한 기회 <b>{today['found_today']}건</b></div><div>오늘 완료한 작업 <b>{today['completed_today']}건</b></div><div>오늘 수익 <b>{today['earned_today']:,}원</b></div></div>
 <details style="margin-top:6px"><summary class="hint">하루 사용법</summary><ol class="hint">{"".join(f"<li>{escape(s)}</li>" for s in HOW_TO)}</ol></details></div>
 
 <h2 id="routine">④ 지금 확인할 플랫폼 <span class="hint"><a href="/money/platforms">💰 수익 플랫폼 전체 →</a></span></h2>
-<div class="routine">{"".join(_routine_card(r, config) for r in routine)}</div>
+{_priority_html(prio)}
+<div class="routine">{"".join(_routine_card(r, config, perf.get(r["name"]), i if prio["ready"] else None) for i, r in enumerate(routine))}</div>
 <div class="hint" style="margin-top:6px">"확인함"은 내가 공식 사이트를 직접 봤다는 기록일 뿐, 작업이 있다는 뜻이 아닙니다. 확인했지만 작업이 없던 날도 기록됩니다.</div>
 
 <h2>⚡ 빠른 등록</h2>
 {_quick_form(quick_text, get('found'))}
+
+<details class="card" style="max-width:none"{' open' if get('done') else ''}><summary><b>💵 빠른 수익 기록</b> (이미 끝낸 작업: 오베이 · 1200 · 20분)</summary>
+{_quick_done_form(platforms)}</details>
 
 <h2>💡 수익 기회 <span class="hint">({len(opp_all)}건 · 발견만 한 것, [할래요]로 작업이 됩니다)</span></h2>
 {legend}{filters}
@@ -260,7 +361,7 @@ def render_home(store: money.MoneyStore, query: dict, notice=None, error=None, q
 <div class="tasks">{task_cards}</div>
 
 <h2>📒 최근 수익 기록 <span class="hint"><a href="/money/log">전체·분석 →</a></span></h2>
-<div class="scroll"><table class="tbl"><tr><th>완료</th><th>플랫폼</th><th>작업</th><th class="num">수익</th><th class="num">실제 시급</th></tr>{recent}</table></div>
+<div class="scroll"><table class="tbl"><tr><th>완료</th><th>플랫폼</th><th>작업</th><th class="num">수익</th><th class="num">실제 시급</th></tr>{recent_rows}</table></div>
 
 <details class="card" style="margin-top:12px;max-width:none"><summary><b>📈 기간별 통계</b> (오늘·이번 주·이번 달·누적)</summary>{_kpis(stats)}</details>
 
@@ -357,6 +458,19 @@ def render_log(store: money.MoneyStore, notice=None) -> str:
     log = store.log()
     stats = money.period_stats(log, config)
     plat = money.platform_stats(log, config)
+    tasks, checks = store.tasks(), store.checks()
+    week = money.activity_summary(tasks, log, checks, config, "week")
+    perf = money.performance(tasks, log, checks, config)
+    days = money.timeline(tasks, log, checks, config)
+    perf_rows = "".join(
+        f'<tr><td>{escape(p["platform"])}</td><td class="num">{p["checks"]}</td><td class="num">{p["found"]}</td><td class="num">{p["no_task"]}</td>'
+        f'<td class="num">{p["registered"]}</td><td class="num">{p["accepted"]}</td><td class="num">{p["completed"]}</td>'
+        f'<td class="num">{_won(p["earned"])}</td><td class="num">{_minutes(p["minutes"])}</td><td class="num">{_rate(p["actual_hourly"])}</td>'
+        f'<td class="num">{_pct(p["discovery_rate"])}</td><td class="num">{_pct(p["completion_rate"])}</td><td class="num">{_pct(p["revenue_rate"])}</td>'
+        f'<td class="num">{_won(p["earned_per_check"])}</td>'
+        f'<td class="num">{_rate(p["avg_estimated_hourly"])}</td><td class="num">{_rate(p["avg_actual_hourly"])}</td>'
+        f'<td class="num">{_gap_cell(p)}</td></tr>'
+        for p in perf)
     prow = "".join(
         f'<tr><td>{escape(p["platform"])}</td><td class="num">{p["count"]}</td><td class="num">{_won(p["earned"])}</td><td class="num">{_minutes(p["minutes"])}</td>'
         f'<td class="num">{(money.GRADES[p["grade"]][0] + " ") if p["grade"] else ""}{_rate(p["actual_hourly"])}</td><td class="num">{_rate(p["estimated_hourly"])}</td>'
@@ -364,8 +478,10 @@ def render_log(store: money.MoneyStore, notice=None) -> str:
         for p in plat)
     entries = []
     for e in sorted(log, key=lambda e: e["completed_at"], reverse=True):
-        est = (f'{e["estimated_reward"]:,}원 / {_minutes(e["estimated_minutes"])} ({_rate(e["estimated_hourly"])})'
-               if e.get("kind") == "task" else "작업 없이 들어온 수익")
+        if e.get("estimated_reward") is not None:
+            est = f'{e["estimated_reward"]:,}원 / {_minutes(e["estimated_minutes"])} ({_rate(e["estimated_hourly"])})'
+        else:  # 빠른 수익 기록(예상 모름) / 작업 없는 수익
+            est = "예상 없이 바로 기록(빠른 수익 기록)" if e.get("kind") == "task" else "작업 없이 들어온 수익"
         gap = ""
         if e.get("kind") == "task" and e.get("estimated_hourly") and e.get("actual_hourly") is not None:
             pct = (e["actual_hourly"] - e["estimated_hourly"]) * 100 / e["estimated_hourly"]
@@ -375,10 +491,19 @@ def render_log(store: money.MoneyStore, notice=None) -> str:
 실제 시급: <b>{_rate(e['actual_hourly'])}</b>{gap}<br><span class="hint">완료: {escape(_local(e['completed_at'], config))}</span>
 {f'<div class="hint">📝 {escape(e["memo"])}</div>' if e.get('memo') else ''}</div></div>""")
     return f"""<div class="money">{NAV}<h1>📒 수익 기록 · 분석</h1>{_banner(notice, None)}
+{_summary_html(week, "📅 이번 주 MONEY summary <span class='hint'>(월요일 KST 시작)</span>")}
 {_kpis(stats)}
-<h2>📊 플랫폼별</h2>
+<h2>📊 플랫폼별 — 확인 대비 성과</h2>
+<div class="scroll"><table class="tbl"><tr><th>플랫폼</th><th class="num">확인</th><th class="num">발견</th><th class="num">작업 없음</th><th class="num">등록</th>
+<th class="num">수락</th><th class="num">완료</th><th class="num">수익</th><th class="num">투자</th><th class="num">실제 시급</th><th class="num">발견률</th>
+<th class="num">완료율</th><th class="num">수익 발생률</th><th class="num">확인 1회당</th><th class="num">평균 예상 시급</th><th class="num">평균 실제 시급</th><th class="num">예상 대비</th></tr>{perf_rows}</table></div>
+<div class="hint">발견률 = 발견/확인 · 완료율 = 완료/등록 · 수익 발생률 = 보상 있는 완료/확인 · 확인 1회당 = 작업 수익/확인. 확인 기록 없이 기회를 등록한 날은 "확인·발견 1회"로 셉니다.
+평균 예상/실제 시급은 예상값을 알던 완료 기록만의 시간 가중 평균(Σ보상×60/Σ분). 표본이 {config["learning"]["min_samples_for_hourly"]}건 미만이면 "데이터 부족".</div>
+<h2>💴 수익 · 투자시간 (전체 기록)</h2>
 <div class="scroll"><table class="tbl"><tr><th>플랫폼</th><th class="num">건수</th><th class="num">누적 수익</th><th class="num">투자</th><th class="num">실제 시급</th><th class="num">예상 시급</th><th class="num">예상 대비</th></tr>{prow}</table></div>
 <div class="hint">예상 대비 = (실제 시급 − 예상 시급) ÷ 예상 시급. 기록이 쌓일수록 어느 플랫폼이 실제로 나은지 보입니다.</div>
+<h2>🧭 첫 10,000원까지의 운영 로그</h2><div class="hint" style="margin-bottom:6px">확인 · 등록 · 할래요 · 완료를 날짜별로(최신 날짜 먼저). 누적은 그 시점까지의 총 수익.</div>
+{_timeline_html(days)}
 <h2>최근 완료</h2>{"".join(entries) or '<div class="card">아직 기록이 없습니다.</div>'}</div>"""
 
 
@@ -386,19 +511,27 @@ def render_log(store: money.MoneyStore, notice=None) -> str:
 
 def render_platforms(store: money.MoneyStore, notice=None, error=None) -> str:
     config = store.config
-    rows = money.routine(store.tasks(), store.log(), store.checks(), config)
+    tasks, log, checks = store.tasks(), store.log(), store.checks()
+    rows = money.routine(tasks, log, checks, config)
+    perf = {p["platform"]: p for p in money.performance(tasks, log, checks, config)}
     cards = []
     for r in rows:
+        pf = perf.get(r["name"], {})
         noti = {True: "알림 있음", False: "알림 없음", None: "알림 여부 미확인"}[r.get("notification_available")]
         cards.append(f"""<div class="plat{' checked' if r['checked_today'] else ''}"><div class="name">{escape(r['name'])} <span class="hint">{escape(r['kind_label'])}</span></div>
 <div class="hint">{escape(r.get('description') or '')}{' · 오늘 루틴 제외' if not r.get('active') else ''} · {noti}</div>
 <div class="state">{_platform_state(r, config)}</div>
 <div class="actions">{_ext_link(r.get('url', ''), '공식 사이트 ↗') or '<span class="hint">공식 링크 없음</span>'}</div>
 <table class="kv hint" style="margin-top:6px"><tr><td>누적 수익</td><td>{_won(r['earned'])}</td></tr><tr><td>실제 시급</td><td>{_rate(r['actual_hourly'])}</td></tr>
-<tr><td>예상 대비</td><td>{'-' if r['hourly_gap_pct'] is None else f"{r['hourly_gap_pct']:+g}%"}</td></tr>
+<tr><td>예상 대비</td><td>{_gap_cell(pf) if pf else '-'}</td></tr>
 <tr><td>최근 확인</td><td>{escape(_local(r['last_checked_at'], config))}</td></tr>
 <tr><td>확인 / 작업 없음</td><td>{r['check_count']}회 / {r['no_task_count']}회</td></tr>
-<tr><td>발견 / 완료</td><td>{r['found_count']}건 / {r['completed_count']}건 (열린 것 {r['open_count']})</td></tr></table>
+<tr><td>발견 / 완료</td><td>{r['found_count']}건 / {r['completed_count']}건 (열린 것 {r['open_count']})</td></tr>
+<tr><td>발견률 / 완료율</td><td>{_pct(pf.get('discovery_rate'))} / {_pct(pf.get('completion_rate'))}</td></tr>
+<tr><td>수익 발생률</td><td>{_pct(pf.get('revenue_rate'))}</td></tr>
+<tr><td>확인 1회당 수익</td><td>{_won(pf.get('earned_per_check'))}</td></tr>
+<tr><td>평균 예상 → 실제</td><td>{_rate(pf.get('avg_estimated_hourly'))} → {_rate(pf.get('avg_actual_hourly'))}{'' if pf.get('hourly_sufficient') else f" (데이터 부족 {pf.get('hourly_samples', 0)}/{pf.get('hourly_needed', 3)}건)"}</td></tr>
+<tr><td>순서 추천</td><td>{'사용 가능' if pf.get('priority_ready') else f"데이터 수집 중 ({pf.get('checks', 0)}/{pf.get('checks_needed', 5)})"}</td></tr></table>
 <form method="post" action="/money/platforms/note" style="display:block;margin-top:6px"><input type="hidden" name="platform" value="{escape(r['name'])}">
 <input type="text" name="note" maxlength="500" value="{escape(r['note'])}" placeholder="메모(예: 알림 오면 30분 안에 마감)"><button class="btn" type="submit" style="margin-top:6px">메모 저장</button></form></div>""")
     return f"""<div class="money">{NAV}<h1>💰 수익 플랫폼</h1>{_banner(notice, error)}
@@ -486,6 +619,13 @@ def handle(config, method: str, path: str, query: dict, body: bytes = b""):
                     return "html", 400, _page("등록 전 확인", render_confirm(store, {**draft, "missing": []}, error=error.text))
                 return home_error(error)
             return "redirect", f"/money?notice={'opportunity' if status == 'new' else 'added'}"
+        if method == "POST" and path == "/money/quick-done":
+            try:
+                store.quick_complete(platform=get("platform"), actual_reward=get("actual_reward"), actual_minutes=get("actual_minutes"),
+                                     title=get("title"))
+            except money.MoneyError as error:
+                return "html", 400, _page("TAK AUTO MONEY", render_home(store, {"done": ["1"]}, error=error.text))
+            return "redirect", "/money/log?notice=done"
         if method == "POST" and path == "/money/income":
             try:
                 store.record_income(platform=get("platform"), amount=get("amount"), minutes=get("minutes"), title=get("title"))

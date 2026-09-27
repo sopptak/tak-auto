@@ -3,6 +3,8 @@
     6-57: DISCOVER(작업 등록) -> FILTER(예상 시급 등급) -> DO(사람이 공식 사이트에서 직접) -> RECORD(실제 보상/시간) -> LEARN(통계)
     6-58: OPPORTUNITY(기회 status=new) -> PROFITABILITY(예상 시급·등급) -> PRIORITY(추천 행동·정렬) -> ACTION(accept -> status=open)
           -> RECORD(complete -> 로그) -> LEARN(플랫폼별 실제/예상, 확인 기록)
+    6-59: 쌓인 기록만으로 확인 대비 성과(발견률·완료율·수익 발생률·확인 1회당 수익), 표본이 충분할 때만 개인화 확인 순서와
+          예상 시급 보정, 일일/주간 summary, 최근 7일 평균, 첫 10,000원까지의 운영 로그(timeline). 새 저장 파일 없음.
 
 저장:
     data/money_tasks.json   기회와 작업(같은 목록, status로 구분: new=기회, open=하기로 한 작업, done, skipped).
@@ -57,7 +59,10 @@ DEFAULT_CONFIG = {
          "notification_available": None},
     ],
     "platform_notes": {},  # 사람이 적는 플랫폼 메모 {이름: 메모}
+    # 6-59: 표본이 이보다 적으면 추천/보정/평균을 만들지 않고 "데이터 수집 중/부족"으로 보여준다(가짜 결론 방지).
+    "learning": {"min_checks_for_priority": 5, "min_samples_for_hourly": 3, "recent_days": 7, "min_recent_entries": 3},
 }
+MIN_CHECKS_FOR_LEARNED_PRIORITY = DEFAULT_CONFIG["learning"]["min_checks_for_priority"]
 KIND_LABELS = {"survey": "설문", "affiliate": "제휴 마케팅", "content": "콘텐츠 수익", "digital_product": "디지털 상품",
                "asset": "장기 수익자산", "other": "기타"}
 # 등급 -> 추천 행동. 등급은 사용자가 정한 시급 기준(thresholds)으로 매번 다시 계산되므로 기준을 바꾸면 추천도 바뀐다.
@@ -111,9 +116,9 @@ def load_config(path: Path | str | None) -> dict:
             data = json.loads(Path(path).read_text(encoding="utf-8"))
         except (OSError, ValueError) as error:
             raise MoneyError("DATA_UNREADABLE", str(path)) from error
-        for key in ("goals", "thresholds", "platforms", "utc_offset_hours", "currency", "platform_notes"):
+        for key in ("goals", "thresholds", "platforms", "utc_offset_hours", "currency", "platform_notes", "learning"):
             if key in data:
-                config[key] = {**config[key], **data[key]} if key == "thresholds" else data[key]
+                config[key] = {**config[key], **data[key]} if key in ("thresholds", "learning") else data[key]
     validate_goals(config["goals"])
     validate_thresholds(config["thresholds"])
     return config
@@ -469,6 +474,33 @@ class MoneyStore:
             _write(self._checks_path(), checks)
         return entry
 
+    def quick_complete(self, *, platform, actual_reward, actual_minutes, title="", memo="", now: datetime | None = None) -> dict:
+        """작업을 끝낸 뒤 '오베이 1200원 20분'만 적는 빠른 수익 기록.
+        작업(status=done, source=quick_done)과 로그(kind=task)를 함께 남겨 발견·완료·수익 통계에 그대로 들어간다.
+        예상값을 몰랐으므로 estimated_*는 None - 예상 대비 실제 분석(보정)에서는 빠진다."""
+        platform = _text(platform, "platform", "PLATFORM_REQUIRED")
+        info = platform_info(self.config, platform)
+        if info is None:
+            raise MoneyError("PLATFORM_UNKNOWN", platform[:40])
+        reward, minutes = parse_reward(actual_reward), parse_minutes(actual_minutes)
+        title, memo = _text(title, "title") or f"{platform} 작업", _text(memo, "memo")
+        at = (now or _now()).isoformat(timespec="seconds")
+        pv = info.get("point_value", 1)
+        task = {"schema": TASKS_SCHEMA, "id": f"task-{uuid.uuid4().hex[:12]}", "platform": platform, "title": title,
+                "reward": reward, "minutes": minutes, "point_value": pv, "url": info.get("url", ""), "memo": memo, "deadline": None,
+                "status": "done", "source": "quick_done", "estimate_known": False, "created_at": at, "closed_at": at, "accepted_at": at}
+        entry = {"schema": LOG_SCHEMA, "id": f"log-{uuid.uuid4().hex[:12]}", "kind": "task", "task_id": task["id"],
+                 "platform": platform, "title": title, "estimated_reward": None, "estimated_minutes": None, "estimated_hourly": None,
+                 "actual_reward": reward, "actual_minutes": minutes, "actual_hourly": hourly(reward * pv, minutes),
+                 "point_value": pv, "memo": memo, "completed_at": at}
+        with _LOCK:
+            tasks, log = self.tasks(), self.log()
+            log.append(entry)
+            tasks.append(task)
+            _write(Path(self.log_path), log)
+            _write(Path(self.tasks_path), tasks)
+        return entry
+
     def record_income(self, *, platform, amount, minutes=0, title="", memo="", now: datetime | None = None) -> dict:
         """작업 카드 없이 들어온 수익(예: 애드포스트 월 정산, 장기 수익자산). 시간은 선택(0 = 시급 계산에서 제외)."""
         platform = _text(platform, "platform", "PLATFORM_REQUIRED")
@@ -532,16 +564,18 @@ def platform_stats(log: list[dict], config: dict) -> list[dict]:
     out = []
     for name in names:
         rows = [e for e in log if e["platform"] == name]
-        tasks = [e for e in rows if e.get("kind") == "task"]
+        tasks = [e for e in rows if e.get("kind") == "task" and e.get("estimated_reward") is not None]  # 빠른 수익 기록은 예상값 없음
         timed = [e for e in rows if e.get("actual_minutes")]
         est_won = sum(e["estimated_reward"] * e.get("point_value", 1) for e in tasks)
         est_min = sum(e["estimated_minutes"] for e in tasks)
         act_hourly = hourly(sum(won(e) for e in timed), sum(e["actual_minutes"] for e in timed))
         est_hourly = hourly(est_won, est_min)
-        out.append({"platform": name, "count": len(rows), "earned": sum(won(e) for e in rows),
+        # 예상 대비는 같은 기록끼리(예상값을 알던 완료)만 비교한다 - 예상 없는 빠른 기록/정산이 섞이면 차이가 왜곡된다(6-59)
+        paired = hourly(sum(won(e) for e in tasks), sum(e["actual_minutes"] for e in tasks))
+        out.append({"platform": name, "count": len(rows), "earned": sum(won(e) for e in rows), "samples": len(tasks),
                     "minutes": sum(e["actual_minutes"] for e in rows), "actual_hourly": act_hourly,
                     "estimated_hourly": est_hourly,
-                    "hourly_gap_pct": round((act_hourly - est_hourly) * 100 / est_hourly, 1) if act_hourly is not None and est_hourly else None,
+                    "hourly_gap_pct": round((paired - est_hourly) * 100 / est_hourly, 1) if paired is not None and est_hourly else None,
                     "grade": grade(act_hourly, config["thresholds"]) if act_hourly is not None else None})
     return out
 
@@ -551,7 +585,7 @@ def open_tasks(tasks: list[dict], config: dict, now: datetime | None = None, *, 
     """열린 작업/기회 + 계산값(예상 시급, 등급, 추천 행동, 마감 지남/남은 시간, 내 기록 반영 시급). 저장값은 바꾸지 않는다.
     log를 주면 같은 플랫폼의 실제/예상 비율로 learned_hourly(내 기록 기준 예상 시급)를 붙인다."""
     now = now or _now()
-    learned = {p["platform"]: p for p in platform_stats(log, config)} if log else {}
+    learned = {p["platform"]: p for p in calibration(log, config)} if log else {}
     rows = []
     for t in tasks:
         if t.get("status") not in statuses:
@@ -560,13 +594,13 @@ def open_tasks(tasks: list[dict], config: dict, now: datetime | None = None, *, 
         deadline = datetime.fromisoformat(t["deadline"]) if t.get("deadline") else None
         g = grade(rate, config["thresholds"])
         p = learned.get(t["platform"]) or {}
-        ratio = (p["actual_hourly"] / p["estimated_hourly"]) if p.get("actual_hourly") is not None and p.get("estimated_hourly") else None
+        ratio = p.get("ratio") if p.get("sufficient") else None  # 표본이 모자라면 보정하지 않는다
         rows.append({**t, "estimated_hourly": rate, "grade": g, "recommended": recommend(g),
                      "expired": bool(deadline and deadline <= now),
                      "minutes_left": int((deadline - now).total_seconds() // 60) if deadline and deadline > now else None,
-                     "platform_actual_hourly": p.get("actual_hourly"), "platform_gap_pct": p.get("hourly_gap_pct"),
+                     "platform_actual_hourly": p.get("actual_hourly"), "platform_gap_pct": p.get("gap_pct"),
                      "learned_hourly": int(round(rate * ratio)) if ratio is not None and rate is not None else None,
-                     "learned_basis": p.get("count", 0)})
+                     "learned_basis": p.get("samples", 0), "learned_needed": p.get("needed", _learning(config)["min_samples_for_hourly"])})
     order = {g: i for i, g in enumerate(GRADES)}
     if sort == "new":
         rows.sort(key=lambda r: r["created_at"], reverse=True)
@@ -622,11 +656,188 @@ def today_summary(tasks: list[dict], log: list[dict], checks: list[dict], config
     now = now or _now()
     rows = [r for r in routine(tasks, log, checks, config, now) if r.get("active") and r.get("url")]
     today_log = [e for e in log if _is_today(e["completed_at"], config, now)]
+    timed = [e for e in today_log if e.get("actual_minutes")]
     return {"platforms": len(rows), "checked": sum(r["checked_today"] for r in rows),
+            "checked_names": [r["name"] for r in rows if r["checked_today"]],
             "unchecked": [r["name"] for r in rows if not r["checked_today"]],
-            "found_today": sum(1 for t in tasks if _is_today(t["created_at"], config, now)),
+            "found_today": sum(1 for t in tasks if _is_today(t["created_at"], config, now) and t.get("source") != "quick_done"),
             "completed_today": sum(1 for e in today_log if e.get("kind") == "task"),
-            "earned_today": sum(won(e) for e in today_log)}
+            "earned_today": sum(won(e) for e in today_log), "minutes_today": sum(e["actual_minutes"] for e in today_log),
+            "hourly_today": hourly(sum(won(e) for e in timed), sum(e["actual_minutes"] for e in timed))}
+
+
+# ---- 6-59: 실제 기록 분석 ------------------------------------------------------------------------
+
+def _learning(config: dict) -> dict:
+    return {**DEFAULT_CONFIG["learning"], **(config.get("learning") or {})}
+
+
+def _local_dt(ts: str, config: dict) -> datetime:
+    return datetime.fromisoformat(ts).astimezone(local_tz(config))
+
+
+def _rate_pct(part: int, whole: int) -> float | None:
+    return round(part * 100 / whole, 1) if whole else None
+
+
+def calibration(log: list[dict], config: dict, *, start: datetime | None = None, end: datetime | None = None) -> list[dict]:
+    """플랫폼별 예상 대비 실제(예상값을 알던 완료 기록만). 시간 가중 평균:
+    평균 예상 시급 = Σ예상보상×60/Σ예상시간, 평균 실제 시급 = 같은 기록의 Σ실제보상×60/Σ실제시간, 보정 비율 = 실제/예상.
+    samples < learning.min_samples_for_hourly 이면 sufficient=False(보정·결론을 만들지 않는다)."""
+    need = _learning(config)["min_samples_for_hourly"]
+    names = [p["name"] for p in config["platforms"]] + sorted({e["platform"] for e in log} - {p["name"] for p in config["platforms"]})
+    out = []
+    for name in names:
+        rows = [e for e in log if e["platform"] == name and e.get("kind") == "task" and e.get("estimated_reward") is not None
+                and (start is None or _local_dt(e["completed_at"], config) >= start) and (end is None or _local_dt(e["completed_at"], config) < end)]
+        est = hourly(sum(e["estimated_reward"] * e.get("point_value", 1) for e in rows), sum(e["estimated_minutes"] for e in rows))
+        act = hourly(sum(won(e) for e in rows), sum(e["actual_minutes"] for e in rows))
+        ok = len(rows) >= need and est and act is not None
+        out.append({"platform": name, "samples": len(rows), "needed": need, "sufficient": bool(ok),
+                    "estimated_hourly": est, "actual_hourly": act,
+                    "gap_pct": round((act - est) * 100 / est, 1) if est and act is not None else None,
+                    "ratio": act / est if ok else None})
+    return out
+
+
+def performance(tasks: list[dict], log: list[dict], checks: list[dict], config: dict, *,
+                start: datetime | None = None, end: datetime | None = None) -> list[dict]:
+    """플랫폼별 확인 대비 성과(기간 [start, end), None이면 전체). 저장된 기록만 센다.
+    - 확인 = 확인 기록 수 + (확인 기록 없이 기회를 등록한 날 수: 등록했다는 건 그날 확인해서 발견했다는 뜻)
+    - 발견 = '작업 있음' 확인 + 위의 암묵적 확인 날 / 작업 없음 = '작업 없음' 확인
+    - 등록 = 기회/작업 등록 수(빠른 수익 기록 포함) / 수락 = 할래요(또는 완료로 수락된 것) / 완료 = 등록한 것 중 done
+    - 발견률 = 발견/확인, 완료율 = 완료/등록, 수익 발생률 = 보상>0 완료 기록/확인, 확인 1회당 수익 = 작업 수익/확인
+    분모가 0이면 None(화면 "-")."""
+    inside = lambda ts: ts and (start is None or _local_dt(ts, config) >= start) and (end is None or _local_dt(ts, config) < end)  # noqa: E731
+    cal = {c["platform"]: c for c in calibration(log, config, start=start, end=end)}
+    need = _learning(config)["min_checks_for_priority"]
+    names = [p["name"] for p in config["platforms"]] + sorted(({t["platform"] for t in tasks} | {e["platform"] for e in log}) - {p["name"] for p in config["platforms"]})
+    out = []
+    for name in names:
+        mine = [c for c in checks if c["platform"] == name and inside(c["checked_at"])]
+        regs = [t for t in tasks if t["platform"] == name and inside(t["created_at"])]
+        explicit_days = {_local_dt(c["checked_at"], config).date() for c in mine}
+        implicit_days = {_local_dt(t["created_at"], config).date() for t in regs} - explicit_days
+        entries = [e for e in log if e["platform"] == name and inside(e["completed_at"])]
+        work = [e for e in entries if e.get("kind") == "task"]
+        n_checks = len(mine) + len(implicit_days)
+        found = sum(c["outcome"] == "found" for c in mine) + len(implicit_days)
+        completed = sum(1 for t in regs if t.get("status") == "done")
+        earned_work = sum(won(e) for e in work)
+        minutes = sum(e["actual_minutes"] for e in work)
+        c = cal.get(name, {})
+        out.append({"platform": name, "checks": n_checks, "found": found, "no_task": sum(c2["outcome"] == "none" for c2 in mine),
+                    "implicit_checks": len(implicit_days), "registered": len(regs),
+                    "accepted": sum(1 for t in regs if t.get("accepted_at")), "completed": completed,
+                    "completed_entries": len(work), "paid": sum(1 for e in work if won(e) > 0),
+                    "earned": sum(won(e) for e in entries), "earned_work": earned_work, "minutes": minutes,
+                    "actual_hourly": hourly(earned_work, minutes),
+                    "discovery_rate": _rate_pct(found, n_checks), "completion_rate": _rate_pct(completed, len(regs)),
+                    "revenue_rate": _rate_pct(sum(1 for e in work if won(e) > 0), n_checks),
+                    "earned_per_check": int(round(earned_work / n_checks)) if n_checks else None,
+                    "priority_ready": n_checks >= need, "checks_needed": need,
+                    "hourly_samples": c.get("samples", 0), "hourly_needed": c.get("needed"), "hourly_sufficient": c.get("sufficient", False),
+                    "avg_estimated_hourly": c.get("estimated_hourly"), "avg_actual_hourly": c.get("actual_hourly"), "gap_pct": c.get("gap_pct")})
+    return out
+
+
+def learned_priority(perf: list[dict], config: dict) -> dict:
+    """내 기록 기준 확인 순서. 루틴 플랫폼 **모두**가 확인 min_checks_for_priority회 이상일 때만 계산하고,
+    아니면 기존(설정) 순서를 그대로 쓴다(일부만 데이터가 있을 때 섞어서 추천하지 않는다).
+    점수 = 확인 1회당 작업 수익(발견률·완료율·보상이 모두 반영된 값), 같으면 실제 시급, 그다음 설정 순서."""
+    routine_names = [p["name"] for p in config["platforms"] if p.get("active") and p.get("url")]
+    by = {p["platform"]: p for p in perf}
+    rows = [by.get(n, {"platform": n, "checks": 0, "earned_per_check": None, "actual_hourly": None}) for n in routine_names]
+    need = _learning(config)["min_checks_for_priority"]
+    progress = {r["platform"]: (r["checks"], need) for r in rows}
+    ready = bool(rows) and all(r["checks"] >= need for r in rows)
+    order = routine_names
+    if ready:
+        order = [r["platform"] for r in sorted(rows, key=lambda r: (-(r["earned_per_check"] or 0), -(r["actual_hourly"] or 0),
+                                                                    routine_names.index(r["platform"])))]
+    return {"ready": ready, "order": order, "default_order": routine_names, "progress": progress, "needed": need,
+            "basis": {r["platform"]: r.get("earned_per_check") for r in rows}}
+
+
+def _range(now: datetime, config: dict, period: str) -> tuple[datetime, datetime]:
+    now_local = now.astimezone(local_tz(config))
+    start = _period_start(now_local, period)
+    return start, start + (timedelta(days=1) if period == "today" else timedelta(days=7))
+
+
+def activity_summary(tasks: list[dict], log: list[dict], checks: list[dict], config: dict, period: str = "today",
+                     now: datetime | None = None) -> dict:
+    """일일(today) / 주간(week, 월요일 KST 시작) MONEY summary."""
+    now = now or _now()
+    start, end = _range(now, config, period)
+    perf = performance(tasks, log, checks, config, start=start, end=end)
+    entries = [e for e in log if start <= _local_dt(e["completed_at"], config) < end]
+    timed = [e for e in entries if e.get("actual_minutes")]
+    routine_names = [p["name"] for p in config["platforms"] if p.get("active") and p.get("url")]
+    checked = [p["platform"] for p in perf if p["checks"] and p["platform"] in routine_names]
+    return {"period": period, "start": start.isoformat(), "end": end.isoformat(),
+            "checks": sum(p["checks"] for p in perf), "checked_platforms": checked,
+            "unchecked_platforms": [n for n in routine_names if n not in checked],
+            "found": sum(p["found"] for p in perf),
+            "opportunities": sum(1 for t in tasks if t.get("source") != "quick_done" and start <= _local_dt(t["created_at"], config) < end),
+            "completed": sum(1 for e in entries if e.get("kind") == "task"), "earned": sum(won(e) for e in entries),
+            "minutes": sum(e["actual_minutes"] for e in entries),
+            "hourly": hourly(sum(won(e) for e in timed), sum(e["actual_minutes"] for e in timed)),
+            "by_platform": [{"platform": p["platform"], "earned": p["earned"], "checks": p["checks"], "completed": p["completed_entries"]}
+                            for p in perf if p["earned"] or p["checks"] or p["completed_entries"]]}
+
+
+def recent_stats(log: list[dict], config: dict, now: datetime | None = None) -> dict:
+    """최근 N일(오늘 포함, KST 날짜) 평균. 기록이 learning.min_recent_entries건 미만이면 sufficient=False(평균을 보여주지 않는다).
+    일평균 = 기간 수익 ÷ N일(기록 없는 날도 0원으로 센다 - 부풀리지 않게). 목표까지 예상 일수 = 남은 금액 ÷ 일평균(올림)."""
+    lc = _learning(config)
+    days, need = int(lc["recent_days"]), int(lc["min_recent_entries"])
+    now = now or _now()
+    start = _period_start(now.astimezone(local_tz(config)), "today") - timedelta(days=days - 1)
+    rows = [e for e in log if _local_dt(e["completed_at"], config) >= start]
+    timed = [e for e in rows if e.get("actual_minutes")]
+    earned = sum(won(e) for e in rows)
+    total = sum(won(e) for e in log)
+    goal = goal_status(total, config)
+    ok = len(rows) >= need
+    avg = earned / days
+    return {"days": days, "entries": len(rows), "needed": need, "sufficient": ok, "earned": earned,
+            "minutes": sum(e["actual_minutes"] for e in rows), "active_days": len({_local_dt(e["completed_at"], config).date() for e in rows}),
+            "avg_daily_earned": int(round(avg)) if ok else None,
+            "avg_daily_minutes": round(sum(e["actual_minutes"] for e in rows) / days, 1) if ok else None,
+            "hourly": hourly(sum(won(e) for e in timed), sum(e["actual_minutes"] for e in timed)) if ok else None,
+            "eta_days": -(-goal["remaining"] // int(round(avg))) if ok and avg >= 1 and not goal["all_achieved"] else None}
+
+
+def timeline(tasks: list[dict], log: list[dict], checks: list[dict], config: dict, *, limit_days: int | None = None) -> list[dict]:
+    """첫 10,000원까지의 운영 로그: 확인(작업 없음/있음) · 기회 등록 · 할래요 · 완료(예상 vs 실제) · 수익 기록을 시간순으로,
+    완료/수익마다 누적 수익. 새 저장 파일 없이 checks + tasks + log를 합쳐 계산한다. 날짜별로 묶어 최신 날짜가 먼저."""
+    events = [{"at": c["checked_at"], "type": "check_" + c["outcome"], "platform": c["platform"], "title": ""} for c in checks]
+    for t in tasks:
+        if t.get("source") == "quick_done":
+            continue  # 빠른 수익 기록은 완료 이벤트 하나로 보인다
+        events.append({"at": t["created_at"], "type": "registered", "platform": t["platform"], "title": t["title"],
+                       "reward": t["reward"], "minutes": t["minutes"], "status": t.get("status")})
+        if t.get("accepted_at") and t["accepted_at"] != t["created_at"] and t.get("accepted_at") != t.get("closed_at"):
+            events.append({"at": t["accepted_at"], "type": "accepted", "platform": t["platform"], "title": t["title"]})
+    for e in log:
+        events.append({"at": e["completed_at"], "type": "completed" if e.get("kind") == "task" else "income", "platform": e["platform"],
+                       "title": e["title"], "earned": won(e), "minutes": e["actual_minutes"], "estimated_reward": e.get("estimated_reward"),
+                       "estimated_minutes": e.get("estimated_minutes"), "actual_hourly": e.get("actual_hourly")})
+    order = {"check_none": 0, "check_found": 0, "registered": 1, "accepted": 2, "completed": 3, "income": 3}
+    events.sort(key=lambda ev: (ev["at"], order[ev["type"]]))
+    total = 0
+    for ev in events:
+        if "earned" in ev:
+            total += ev["earned"]
+            ev["cumulative"] = total
+        ev["date"] = _local_dt(ev["at"], config).strftime("%Y-%m-%d")
+        ev["time"] = _local_dt(ev["at"], config).strftime("%H:%M")
+    days: dict[str, list] = {}
+    for ev in events:
+        days.setdefault(ev["date"], []).append(ev)
+    out = [{"date": d, "events": evs, "earned": sum(ev.get("earned", 0) for ev in evs)} for d, evs in sorted(days.items(), reverse=True)]
+    return out[:limit_days] if limit_days else out
 
 
 def operator_status(tasks: list[dict], log: list[dict], config: dict, now: datetime | None = None,
@@ -635,7 +846,9 @@ def operator_status(tasks: list[dict], log: list[dict], config: dict, now: datet
     stats = period_stats(log, config, now)
     goal = goal_status(stats["total"]["earned"], config)
     today = today_summary(tasks, log, checks or [], config, now)
+    recent = recent_stats(log, config, now)
     return {"today": stats["today"]["earned"], "month": stats["month"]["earned"], "total": stats["total"]["earned"],
+            "recent_hourly": recent["hourly"], "recent_days": recent["days"],
             "open_tasks": sum(1 for t in open_tasks(tasks, config, now) if not t["expired"]),
             "opportunities": sum(1 for t in open_tasks(tasks, config, now, statuses=("new",)) if not t["expired"]),
             "unchecked_platforms": len(today["unchecked"]), "routine_platforms": today["platforms"],

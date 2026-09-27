@@ -138,9 +138,14 @@ class OpportunityTests(MoneyCase):
         self.assertEqual(ids("grade"), ["a", "c", "b"])
 
     def test_learned_hourly_uses_my_platform_history(self) -> None:
-        done = self.opp(title="지난 설문")
-        self.store.complete(done["id"], actual_reward=850, actual_minutes=25, now=NOW)  # 예상 2550 -> 실제 2040(-20%)
-        self.opp(title="새 설문", reward=1000, minutes=20)
+        # 6-59: 보정은 표본(learning.min_samples_for_hourly=3)이 모일 때만 - 1건일 때는 "데이터 부족"(learned_hourly None)
+        for i in range(3):
+            done = self.opp(title=f"지난 설문 {i}")
+            self.store.complete(done["id"], actual_reward=850, actual_minutes=25, now=NOW)  # 예상 2550 -> 실제 2040(-20%)
+            if i == 0:
+                self.opp(title="새 설문", reward=1000, minutes=20)
+                row = money.open_tasks(self.store.tasks(), self.config, NOW, statuses=("new",), log=self.store.log())[0]
+                self.assertEqual((row["learned_hourly"], row["learned_basis"], row["learned_needed"]), (None, 1, 3))
         row = money.open_tasks(self.store.tasks(), self.config, NOW, statuses=("new",), log=self.store.log())[0]
         self.assertEqual((row["estimated_hourly"], row["platform_actual_hourly"], row["platform_gap_pct"], row["learned_hourly"]), (3000, 2040, -20.0, 2400))
 
