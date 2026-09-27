@@ -2948,7 +2948,7 @@ def make_handler_class(
             path = parsed.path
             length = int(self.headers.get("Content-Length") or 0)
             if path.startswith("/money/"):
-                if length > 100_000:  # MONEY 폼은 작다
+                if length > 1_000_000:  # MONEY 폼은 작다(스카우트 결과 붙여넣기 포함 1MB)
                     self._send_html(_page("너무 큼", "<p>입력이 너무 깁니다.</p>"), status=413)
                     return
                 self._money("POST", path, {}, self.rfile.read(length) if length else b"")

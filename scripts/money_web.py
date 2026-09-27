@@ -12,10 +12,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from html import escape
 from urllib.parse import parse_qs, quote, unquote
 
 from content_engine import money
+from content_engine import money_scout
 
 STYLE = """<style>
   .money { max-width: 1100px; }
@@ -60,7 +62,7 @@ STYLE = """<style>
   .btn.big { padding: 10px 16px; font-size: 0.95rem; }
   .legend span { margin-right: 10px; font-size: 0.8rem; }
 </style>"""
-NAV = ('<div class="nav-links"><a href="/">← Dashboard</a><a href="/money">💰 MONEY</a><a href="/money/platforms">🏪 수익 플랫폼</a>'
+NAV = ('<div class="nav-links"><a href="/">← Dashboard</a><a href="/money">💰 MONEY</a><a href="/money/scout">🔎 SCOUT</a><a href="/money/platforms">🏪 수익 플랫폼</a>'
        '<a href="/money/log">📒 수익 기록·분석</a><a href="/money/settings">⚙️ 목표·기준</a><a href="/operator">🧭 Operator Center</a></div>')
 HOW_TO = ["오늘 확인할 플랫폼을 본다.", "[확인하기 ↗]로 공식 사이트에 직접 들어가 본다(로그인·설문은 그 사이트에서).",
           "할 만한 작업이 있으면 ⚡ 빠른 등록에 적는다(예: 패널나우 20분 850P 일반인 의견 조사). 없으면 [작업 없었음].",
@@ -142,7 +144,8 @@ def _goal_html(goal: dict) -> str:
 def _task_card(t: dict, config: dict) -> str:
     icon, desc = money.GRADES[t["grade"]]
     pv = t.get("point_value", 1)
-    reward = f"{t['reward']:,}P" if pv != 1 else f"{t['reward']:,}원"
+    unit = t.get("reward_unit") or ("P" if pv != 1 else "원")
+    reward = f"{t['reward']:,}{unit}" + (f" (≈{t['reward'] * pv:,}원)" if unit == "P" and pv else "")
     deadline = ""
     if t.get("deadline"):
         if t["expired"]:
@@ -162,7 +165,7 @@ def _task_card(t: dict, config: dict) -> str:
     return f"""<div class="task {t['grade']}{' expired' if t['expired'] else ''}" id="{escape(t['id'])}">
 <div class="p">{icon} {escape(t['platform'])} <span class="rec {t['grade']}">{escape(t['recommended'])}</span></div>
 <div class="t">{escape(t['title'])}</div>
-<div class="n">예상시간 {_minutes(t['minutes'])}<br>예상보상 {escape(reward)}<br>예상 시급 <span class="rate">{t['estimated_hourly'] or 0:,}원</span> <span class="hint">{escape(desc)}</span>{deadline}</div>
+<div class="n">예상시간 {_minutes(t['minutes']) if t.get('minutes') else '표시 없음'}<br>예상보상 {escape(reward)}{'' if t.get('point_value') is not None else ' <span class="hint">(원 환산 미확인)</span>'}<br>예상 시급 {f'<span class="rate">{t["estimated_hourly"]:,}원</span> <span class="hint">{escape(desc)}</span>' if t.get('estimated_hourly') is not None else '<span class="hint">계산 안 함(시간 또는 원 환산 모름)</span>'}{deadline}</div>
 {learned}{memo}
 <div class="actions" style="margin-top:10px">{accept}{_ext_link(t.get('url', ''), '바로가기 ↗', 'btn' if accept else 'btn primary') or '<span class="hint">링크 없음</span>'}
 <a class="btn" href="/money/task/{tid}/complete">완료 기록</a>
@@ -228,7 +231,7 @@ EVENT_TEXT = {"check_none": "확인 → 작업 없음", "check_found": "확인 �
 def _event_html(ev: dict) -> str:
     detail = ""
     if ev["type"] == "registered":
-        detail = f" · {escape(ev['title'])} ({ev['reward']:,} / {_minutes(ev['minutes'])})"
+        detail = f" · {escape(ev['title'])} ({ev['reward']:,} / {_minutes(ev['minutes']) if ev.get('minutes') else '시간 표시 없음'})"
     elif ev["type"] == "accepted":
         detail = f" · {escape(ev['title'])}"
     elif ev["type"] in ("completed", "income"):
@@ -342,6 +345,7 @@ def render_home(store: money.MoneyStore, query: dict, notice=None, error=None, q
 <div class="nums"><div>오늘 발견한 기회 <b>{today['found_today']}건</b></div><div>오늘 완료한 작업 <b>{today['completed_today']}건</b></div><div>오늘 수익 <b>{today['earned_today']:,}원</b></div></div>
 <details style="margin-top:6px"><summary class="hint">하루 사용법</summary><ol class="hint">{"".join(f"<li>{escape(s)}</li>" for s in HOW_TO)}</ol></details></div>
 
+{_scout_home_html(store)}
 <h2 id="routine">④ 지금 확인할 플랫폼 <span class="hint"><a href="/money/platforms">💰 수익 플랫폼 전체 →</a></span></h2>
 {_priority_html(prio)}
 <div class="routine">{"".join(_routine_card(r, config, perf.get(r["name"]), i if prio["ready"] else None) for i, r in enumerate(routine))}</div>
@@ -437,12 +441,12 @@ def render_complete(store: money.MoneyStore, task: dict, error=None, form=None) 
     form = form or {}
     val = lambda k, d="": escape((form.get(k) or [d])[0])  # noqa: E731
     pv = task.get("point_value", 1)
-    est = money.hourly(task["reward"] * pv, task["minutes"])
+    est = money.hourly(task["reward"] * pv, task["minutes"]) if pv is not None and task.get("minutes") else None
     done = task["status"] not in ("open", "new")
     body = (f'<div class="error">{escape(money.ERROR_TEXT["ALREADY_COMPLETED" if task["status"] == "done" else "TASK_CLOSED"])}</div>' if done else f"""
 <form method="post" action="/money/task/{quote(task['id'])}/complete" class="card" style="display:block">
 <div class="row"><div><label class="f">실제 받은 보상 (원 또는 P)</label><input type="text" name="actual_reward" inputmode="numeric" required value="{val('actual_reward', str(task['reward']))}"></div>
-<div><label class="f">실제 소요시간 (분)</label><input type="text" name="actual_minutes" inputmode="numeric" required value="{val('actual_minutes')}" placeholder="{task['minutes']:g}"></div></div>
+<div><label class="f">실제 소요시간 (분)</label><input type="text" name="actual_minutes" inputmode="numeric" required value="{val('actual_minutes')}" placeholder="{f"{task['minutes']:g}" if task.get('minutes') else '분'}"></div></div>
 <label class="f">완료 메모 (선택)</label><input type="text" name="memo" maxlength="500" value="{val('memo')}">
 <div style="margin-top:10px"><button class="btn primary big" type="submit">완료 기록 저장</button></div>
 <div class="hint">예상값은 그대로 남고, 실제값이 따로 기록됩니다. 같은 작업은 한 번만 기록됩니다.</div></form>""")
@@ -539,6 +543,96 @@ def render_platforms(store: money.MoneyStore, notice=None, error=None) -> str:
 <div class="routine">{"".join(cards)}</div></div>"""
 
 
+# ---- /money/scout ---------------------------------------------------------------------------
+
+def _staging_path(config):
+    """staging은 항상 money_tasks.json 옆(data/money_scout_staging.json) - 테스트/샌드박스 경로가 실제 data/로 새지 않게."""
+    return Path(config.money_tasks_path).with_name("money_scout_staging.json")
+
+
+def _scout_home_html(store: money.MoneyStore) -> str:
+    try:
+        run = money_scout.latest_run(money_scout.load_staging(Path(store.tasks_path).with_name("money_scout_staging.json")))
+        now_count = len(money_scout.buckets(store.tasks(), store.log(), store.config)["NOW"])
+    except money.MoneyError:
+        return ""
+    last = f"마지막 확인 {escape(_local(run['collected_at'], store.config, '%m-%d %H:%M'))} · {escape(run['overall'])}" if run else "아직 스카우트 기록 없음"
+    return f'<div class="today"><b>🔎 MONEY SCOUT</b> <span class="hint">{last}</span> · 🔥 지금 할 것 <b>{now_count}건</b> <a class="btn" href="/money/scout">열기</a></div>'
+
+
+def _scout_card(t: dict, config: dict) -> str:
+    unit = t.get("reward_unit") or "원"
+    krw = f" (≈{t['reward_krw_estimate']:,}원)" if unit == "P" and t.get("reward_krw_estimate") is not None else (" (원 환산 미확인)" if unit == "P" else "")
+    minutes = _minutes(t["minutes"]) if t.get("minutes") else "시간 표시 없음"
+    rate = f'예상 시급 <span class="rate">{t["estimated_hourly"]:,}원</span>' if t.get("estimated_hourly") is not None else "예상 시급 -"
+    learned = f' · 내 기록 보정 약 {t["learned_hourly"]:,}원' if t.get("learned_hourly") is not None else ""
+    tid = escape(t["id"])
+    flags = " · ".join(x for x in (t.get("category"), "선착순" if t.get("first_come") else "", *(t.get("scout_notes") or [])) if x)
+    state = {"open": "할 작업", "new": "기회"}.get(t["status"], t["status"])
+    choice = {"DO": "한다", "LATER": "나중에", "SKIP": "안 한다"}.get(t.get("user_choice"), "")
+    buttons = "".join(f'<form method="post" action="/money/scout/choice"><input type="hidden" name="task_id" value="{tid}"><input type="hidden" name="choice" value="{c}">'
+                      f'<button class="btn{" primary" if c == "DO" else " ghost" if c == "SKIP" else ""}" type="submit">{label}</button></form>'
+                      for c, label in (("DO", "한다"), ("LATER", "나중에"), ("SKIP", "안 한다")) if not (c == "DO" and t["status"] == "open"))
+    return f"""<div class="task {t['grade'] if t.get('estimated_hourly') is not None else ''}">
+<div class="p">{escape(t['platform'])} <span class="hint">{escape(state)}{(' · 내 선택: ' + choice) if choice else ''}</span></div>
+<div class="t">{escape(t['title'])}</div>
+<div class="n">{escape(minutes)} / {t['reward']:,}{escape(unit)}{escape(krw)}<br>{rate}{escape(learned)}<br><span class="hint">{escape(t['reason'])}</span>
+<br><span class="hint">{escape(flags)}{' · ' if flags else ''}신뢰도 {t.get('confidence', '-')} · 마지막 발견 {escape(_local(t.get('last_seen_at'), config, '%m-%d %H:%M'))}</span></div>
+<div class="actions" style="margin-top:8px">{_ext_link(t.get('url', ''), '열기 ↗')}{buttons}
+<a class="btn" href="/money/task/{quote(t['id'])}/complete">완료 기록</a></div></div>"""
+
+
+def render_scout(store: money.MoneyStore, config_obj, notice=None, error=None) -> str:
+    config = store.config
+    staging = money_scout.load_staging(_staging_path(config_obj))
+    run = money_scout.latest_run(staging)
+    pending = next((r for r in staging["requests"] if r["status"] == "pending"), None)
+    groups = money_scout.buckets(store.tasks(), store.log(), config)
+    age = money_scout.scout_age_hours(run)
+    last = (f'{escape(_local(run["collected_at"], config))} ({age:g}시간 전) · 결과 <b>{escape(run["overall"])}</b> · <span class="hint">{escape(run["scout_run_id"])}</span>'
+            if run else "아직 없음")
+    rows = []
+    for key, pol in money_scout.PLATFORMS.items():
+        r = (run or {}).get("platforms", {}).get(key)
+        status = r["status"] if r else "NOT_RUN"
+        counts = f'{r["found"]} / {r["promotable"]} / {r["review"]}' if r else "-"
+        rows.append(f'<tr><td>{escape(pol["name"])}</td><td><b>{escape(status)}</b><div class="hint">{escape(money_scout.STATUS_TEXT[status])}</div></td>'
+                    f'<td class="num">{counts}</td><td class="hint" style="white-space:normal;min-width:220px">{escape(pol["terms_note"])}</td></tr>')
+    sections = []
+    for key, label in money_scout.BUCKETS.items():
+        cards = "".join(_scout_card(t, config) for t in groups[key]) or '<div class="card">없음</div>'
+        sections.append(f'<h2>{label} <span class="hint">({len(groups[key])}건)</span></h2><div class="tasks">{cards}</div>')
+    review = [i for i in (run or {}).get("items", []) if i["verdict"] == "review"]
+    review_html = "".join(f'<li>{escape(i["platform_name"])} · {escape(i["title"] or "(제목 없음)")} — {escape(", ".join(i["issues"]) or "정보 부족")} '
+                          f'<span class="hint">(신뢰도 {i["confidence"]})</span></li>' for i in review) or "<li>없음</li>"
+    asset = ((run or {}).get("platforms", {}).get("adpost") or {}).get("asset_status")
+    adpost = (" · ".join(f"{label} {_won(asset.get(k))}" for k, label in (("current_revenue", "이번 달"), ("total_revenue", "누적"), ("payable", "지급 가능/예정")))
+              if asset else f'읽은 적 없음 — {escape(money_scout.PLATFORMS["adpost"]["terms_note"])}')
+    plan = "".join(f'<li>{escape(p["name"])}: {"<b>자동으로 읽음</b> " + escape(p["url"]) if p["visit"] else escape(money_scout.STATUS_TEXT[p["skip_status"]])}</li>'
+                   for p in money_scout.plan())
+    pending_html = (f'<div class="banner">요청 대기 중({escape(_local(pending["requested_at"], config))}) — 브라우저 에이전트가 아래 순서로 읽어 오면 결과가 여기에 표시됩니다.</div>'
+                    if pending else "")
+    return f"""<div class="money">{NAV}<h1>🔎 MONEY SCOUT</h1>
+<div class="sub">브라우저가 공개 설문 목록 화면을 <b>읽기만</b> 해서 기회를 모읍니다. 설문 응답·제출·로그인·CAPTCHA·포인트 교환·광고 클릭은 하지 않습니다. 실제 참여는 [열기 ↗]로 직접.</div>
+{_banner(notice, error)}{pending_html}
+<div class="today"><b>마지막 확인</b>: {last}
+<form method="post" action="/money/scout/request" style="display:block;margin-top:8px"><button class="btn primary big" type="submit">🔎 지금 수익기회 찾기</button></form>
+<div class="hint">버튼은 실행 요청을 남깁니다. 실제 읽기는 브라우저 에이전트(Claude in Chrome)가 합니다 — 이 대시보드 서버는 사용자의 브라우저를 직접 조종하지 않습니다.</div></div>
+{"".join(sections)}
+<h2>🧐 확인 필요 <span class="hint">(신뢰도 0.5 이하 또는 보상 모름 — 자동 등록 안 함)</span></h2><ul class="hint">{review_html}</ul>
+<h2>📈 네이버 애드포스트 수익 상태</h2><div class="card" style="max-width:none">{adpost}</div>
+<h2>플랫폼별 이번 결과</h2>
+<div class="scroll"><table class="tbl"><tr><th>플랫폼</th><th>상태</th><th class="num">발견 / 등록 / 검토</th><th>자동 접근 정책(2026-09-27 확인)</th></tr>{"".join(rows)}</table></div>
+<details class="card" style="max-width:none;margin-top:12px"><summary><b>직접 연 화면 붙여넣기</b> (수동 · 로그인 후 내가 연 목록/수익 화면)</summary>
+<form method="post" action="/money/scout/manual" style="display:block">
+<div class="row"><div><label class="f">플랫폼</label><select name="platform">{_options([(k, p["name"]) for k, p in money_scout.PLATFORMS.items() if k in ("panelnow", "adpost")], "panelnow")}</select></div></div>
+<label class="f">화면 글자 (전체 선택 → 복사 → 붙여넣기)</label><textarea name="page_text" rows="6" required></textarea>
+<div style="margin-top:8px"><button class="btn big" type="submit">읽기</button></div>
+<div class="hint">화면 원문은 저장하지 않고(해시만) 기회 정보만 뽑습니다. 이름·전화·이메일 모양 글자는 지웁니다. 헤이폴 설문은 링크 정보가 필요해 ⚡ 빠른 등록을 쓰세요.</div></form></details>
+<details class="card" style="max-width:none"><summary><b>에이전트 실행 순서</b></summary><ol class="hint">{plan}</ol>
+<div class="hint">결과 형식: {{"mode":"agent","platforms":[{{"platform":"panelnow","page_url":…,"page_text":…,"links":[{{"text","href"}}]}}]}} → <code>py scripts/money_scout.py ingest 결과.json</code></div></details></div>"""
+
+
 # ---- 설정 ----------------------------------------------------------------------------------
 
 def render_settings(store: money.MoneyStore, notice=None, error=None) -> str:
@@ -559,7 +653,9 @@ def render_settings(store: money.MoneyStore, notice=None, error=None) -> str:
 NOTICES = {"added": "작업을 등록했습니다.", "opportunity": "기회를 저장했습니다. 할 거면 [할래요]를 누르세요.",
            "accepted": "할 작업으로 옮겼습니다.", "done": "완료 기록을 저장했습니다(예상값과 실제값을 따로 보관).",
            "skipped": "목록에서 내렸습니다(기록은 남습니다).", "income": "수익을 기록했습니다.", "saved": "저장했습니다.",
-           "checked": "오늘 확인함으로 기록했습니다(작업 없음).", "found": "오늘 확인함(작업 있음) — 아래 빠른 등록에 적어 주세요."}
+           "checked": "오늘 확인함으로 기록했습니다(작업 없음).", "requested": "스카우트 요청을 남겼습니다.",
+           "choice_do": "'한다'로 기록 — 할 작업으로 옮겼습니다. [열기 ↗]로 직접 참여하세요.", "choice_later": "'나중에'로 기록했습니다.",
+           "choice_skip": "'안 한다'로 기록했습니다.", "scouted": "붙여 넣은 화면을 읽었습니다.", "found": "오늘 확인함(작업 있음) — 아래 빠른 등록에 적어 주세요."}
 
 
 def handle(config, method: str, path: str, query: dict, body: bytes = b""):
@@ -619,6 +715,25 @@ def handle(config, method: str, path: str, query: dict, body: bytes = b""):
                     return "html", 400, _page("등록 전 확인", render_confirm(store, {**draft, "missing": []}, error=error.text))
                 return home_error(error)
             return "redirect", f"/money?notice={'opportunity' if status == 'new' else 'added'}"
+        if method == "GET" and path == "/money/scout":
+            return "html", 200, _page("MONEY SCOUT", render_scout(store, config, notice))
+        if method == "POST" and path == "/money/scout/request":
+            money_scout.request_scout(_staging_path(config))
+            return "redirect", "/money/scout?notice=requested"
+        if method == "POST" and path == "/money/scout/choice":
+            try:
+                money_scout.record_choice(store, get("task_id"), get("choice"))
+            except money.MoneyError as error:
+                return "html", 400, _page("MONEY SCOUT", render_scout(store, config, error=error.text))
+            return "redirect", f"/money/scout?notice=choice_{get('choice').lower()}"
+        if method == "POST" and path == "/money/scout/manual":
+            platform = get("platform")
+            if platform not in ("panelnow", "adpost") or not get("page_text").strip():
+                return "html", 400, _page("MONEY SCOUT", render_scout(store, config, error="플랫폼을 고르고 화면 글자를 붙여 넣어 주세요."))
+            run = money_scout.ingest({"mode": "manual", "platforms": [{"platform": platform, "page_text": get("page_text"),
+                                                                       "page_url": money_scout.PLATFORMS[platform]["scout_url"]}]},
+                                     tasks_path=config.money_tasks_path, staging_path=_staging_path(config))
+            return "redirect", f"/money/scout?notice=scouted&status={run['platforms'][platform]['status']}"
         if method == "POST" and path == "/money/quick-done":
             try:
                 store.quick_complete(platform=get("platform"), actual_reward=get("actual_reward"), actual_minutes=get("actual_minutes"),

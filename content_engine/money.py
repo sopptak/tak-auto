@@ -419,11 +419,14 @@ class MoneyStore:
                 raise MoneyError("TASK_CLOSED", task["title"][:40])
             at = (now or _now()).isoformat(timespec="seconds")
             pv = task.get("point_value", 1)
+            # 6-60: 스카우트 기회는 포인트→원 환산이 확인되지 않으면 point_value=None - 예상은 모름으로, 실제는 사람이 적은 원화로
+            known = pv is not None and task.get("minutes")
+            pv = 1 if pv is None else pv
             entry = {
                 "schema": LOG_SCHEMA, "id": f"log-{uuid.uuid4().hex[:12]}", "kind": "task", "task_id": task_id,
                 "platform": task["platform"], "title": task["title"],
-                "estimated_reward": task["reward"], "estimated_minutes": task["minutes"],
-                "estimated_hourly": hourly(task["reward"] * pv, task["minutes"]),
+                "estimated_reward": task["reward"] if known else None, "estimated_minutes": task["minutes"] if known else None,
+                "estimated_hourly": hourly(task["reward"] * pv, task["minutes"]) if known else None,
                 "actual_reward": actual_reward, "actual_minutes": actual_minutes,
                 "actual_hourly": hourly(actual_reward * pv, actual_minutes),
                 "point_value": pv, "memo": memo, "completed_at": at,
@@ -564,7 +567,7 @@ def platform_stats(log: list[dict], config: dict) -> list[dict]:
     out = []
     for name in names:
         rows = [e for e in log if e["platform"] == name]
-        tasks = [e for e in rows if e.get("kind") == "task" and e.get("estimated_reward") is not None]  # 빠른 수익 기록은 예상값 없음
+        tasks = [e for e in rows if e.get("kind") == "task" and e.get("estimated_reward") is not None and e.get("estimated_minutes")]  # 빠른 수익 기록은 예상값 없음
         timed = [e for e in rows if e.get("actual_minutes")]
         est_won = sum(e["estimated_reward"] * e.get("point_value", 1) for e in tasks)
         est_min = sum(e["estimated_minutes"] for e in tasks)
@@ -590,7 +593,8 @@ def open_tasks(tasks: list[dict], config: dict, now: datetime | None = None, *, 
     for t in tasks:
         if t.get("status") not in statuses:
             continue
-        rate = hourly(t["reward"] * t.get("point_value", 1), t["minutes"])
+        pv = t.get("point_value", 1)
+        rate = hourly(t["reward"] * pv, t["minutes"]) if pv is not None and t.get("reward") is not None and t.get("minutes") else None
         deadline = datetime.fromisoformat(t["deadline"]) if t.get("deadline") else None
         g = grade(rate, config["thresholds"])
         p = learned.get(t["platform"]) or {}
@@ -688,7 +692,7 @@ def calibration(log: list[dict], config: dict, *, start: datetime | None = None,
     names = [p["name"] for p in config["platforms"]] + sorted({e["platform"] for e in log} - {p["name"] for p in config["platforms"]})
     out = []
     for name in names:
-        rows = [e for e in log if e["platform"] == name and e.get("kind") == "task" and e.get("estimated_reward") is not None
+        rows = [e for e in log if e["platform"] == name and e.get("kind") == "task" and e.get("estimated_reward") is not None and e.get("estimated_minutes")
                 and (start is None or _local_dt(e["completed_at"], config) >= start) and (end is None or _local_dt(e["completed_at"], config) < end)]
         est = hourly(sum(e["estimated_reward"] * e.get("point_value", 1) for e in rows), sum(e["estimated_minutes"] for e in rows))
         act = hourly(sum(won(e) for e in rows), sum(e["actual_minutes"] for e in rows))
