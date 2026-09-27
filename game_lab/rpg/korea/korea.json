@@ -1,0 +1,1363 @@
+{
+ "id": "choice100-korea",
+ "version": "vs1-1",
+ "title": "대한민국 통일",
+ "subtitle": "100번의 선택으로 역사를 바꿔라",
+ "tagline": "역사를 따라 성장하는 RPG",
+ "disclaimer": "퀴즈·지식은 출처를 남긴 역사 기록이며, 기록·전승·게임 설정을 구분해 표시합니다. 시간의 문, 영웅들의 만남, 대화, 아이템, 통일·대결 같은 목표는 게임 설정(가상 시뮬레이션)입니다.",
+ "historical_status_labels": {
+  "historical_fact": "역사적 사실",
+  "historical_record": "역사 기록",
+  "legend": "전승·신화",
+  "game_setting": "게임 설정"
+ },
+ "relation_types": [
+  "FRIEND",
+  "COMPANION",
+  "MENTOR",
+  "RIVAL",
+  "ALLY",
+  "NEUTRAL"
+ ],
+ "item_types": [
+  "ARTIFACT",
+  "KNOWLEDGE",
+  "POLICY",
+  "SKILL"
+ ],
+ "levels": [
+  0,
+  100,
+  220,
+  400,
+  650,
+  1000,
+  1500,
+  2200,
+  3000,
+  4000
+ ],
+ "stats": [
+  "exp",
+  "military",
+  "admin",
+  "exploration",
+  "food",
+  "lore"
+ ],
+ "stat_labels": {
+  "exp": [
+   "EXP",
+   "✨"
+  ],
+  "military": [
+   "군사",
+   "⚔️"
+  ],
+  "admin": [
+   "내정",
+   "🏛️"
+  ],
+  "exploration": [
+   "탐험",
+   "🧭"
+  ],
+  "food": [
+   "식량",
+   "🌾"
+  ],
+  "lore": [
+   "지식",
+   "📚"
+  ]
+ },
+ "player": {
+  "id": "takmeong",
+  "name": "탁멍",
+  "start": {
+   "exp": 0,
+   "military": 0,
+   "admin": 0,
+   "exploration": 0,
+   "food": 50,
+   "lore": 0
+  },
+  "regions": [
+   "timehall"
+  ],
+  "relations": {}
+ },
+ "stages": [
+  {
+   "id": "korea",
+   "title": "STAGE 1 · 한반도",
+   "goal": "대한민국 통일(게임 속 목표)",
+   "status": "current"
+  },
+  {
+   "id": "china_japan",
+   "title": "STAGE 2 · 중국·일본",
+   "goal": "탐험·교역·외교·문화·역사·지리·전투",
+   "status": "planned"
+  },
+  {
+   "id": "eurasia",
+   "title": "STAGE 3 · 유라시아",
+   "goal": "최종 이벤트: 칭기즈 칸과의 대결(대체역사)",
+   "status": "planned"
+  }
+ ],
+ "main_story": [
+  {
+   "id": "m1",
+   "title": "과거로",
+   "desc": "낡은 서고에서 빛나는 문을 발견한 탁멍.",
+   "stage": "hub",
+   "status": "playable",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "m2",
+   "title": "첫 영웅을 만나다",
+   "desc": "졸본에서 주몽과 만나 함께 걷는다.",
+   "stage": "korea",
+   "status": "playable",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "m3",
+   "title": "역사 세계의 균열",
+   "desc": "시대가 서로 섞이는 이상 현상을 발견한다.",
+   "stage": "korea",
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "m4",
+   "title": "시간의 문 열쇠",
+   "desc": "영웅들의 이야기를 끝낼수록 더 많은 문이 열린다.",
+   "stage": "korea",
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "m5",
+   "title": "모여드는 영웅들",
+   "desc": "동료가 된 영웅들의 능력이 탁멍의 나라를 키운다.",
+   "stage": "korea",
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "m_korea",
+   "title": "대한민국 통일",
+   "desc": "한반도 전체를 하나의 나라로 만드는 게임 속 목표(가상 시뮬레이션).",
+   "stage": "korea",
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "m_cj",
+   "title": "바다 건너, 대륙으로",
+   "desc": "중국·일본에서 탐험·교역·외교·문화·전투 중 길을 고른다.",
+   "stage": "china_japan",
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "m_eurasia",
+   "title": "유라시아",
+   "desc": "중앙아시아·몽골·유럽으로.",
+   "stage": "eurasia",
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "m_genghis",
+   "title": "초원의 대결",
+   "desc": "칭기즈 칸과의 대결 - 역사적 사실이 아닌 대체역사 판타지 이벤트.",
+   "stage": "eurasia",
+   "status": "planned",
+   "historical_status": "game_setting"
+  }
+ ],
+ "regions": [
+  {
+   "id": "timehall",
+   "name": "시간의 서고",
+   "era": "시대 없음",
+   "stage": "hub",
+   "recommended_level": 1,
+   "difficulty": 0,
+   "hero_stories": [],
+   "events": [],
+   "cities": [],
+   "trade": [],
+   "exploration": [],
+   "quests": [],
+   "status": "playable",
+   "historical_status": "game_setting",
+   "desc": "탁멍이 시간의 문을 여는 곳(게임 설정)."
+  },
+  {
+   "id": "gojoseon",
+   "name": "고조선",
+   "era": "고조선",
+   "stage": "korea",
+   "recommended_level": 2,
+   "difficulty": 1,
+   "hero_stories": [],
+   "events": [],
+   "cities": [],
+   "trade": [],
+   "exploration": [],
+   "quests": [],
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "joljbon",
+   "name": "졸본",
+   "era": "고구려 건국기(기원전 1세기)",
+   "stage": "korea",
+   "recommended_level": 1,
+   "difficulty": 1,
+   "hero_stories": [
+    "jumong_story"
+   ],
+   "events": [
+    "비류수 물가"
+   ],
+   "cities": [
+    "졸본"
+   ],
+   "trade": [],
+   "exploration": [
+    "사슴 사냥터",
+    "숲속 길"
+   ],
+   "quests": [],
+   "status": "playable",
+   "historical_status": "historical_record",
+   "desc": "『삼국사기』에 주몽이 도읍을 정했다고 기록된 곳."
+  },
+  {
+   "id": "samguk",
+   "name": "삼국 항쟁",
+   "era": "삼국시대",
+   "stage": "korea",
+   "recommended_level": 3,
+   "difficulty": 2,
+   "hero_stories": [],
+   "events": [],
+   "cities": [],
+   "trade": [],
+   "exploration": [],
+   "quests": [],
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "cheonghae",
+   "name": "남해 바닷길",
+   "era": "통일신라",
+   "stage": "korea",
+   "recommended_level": 4,
+   "difficulty": 2,
+   "hero_stories": [],
+   "events": [],
+   "cities": [],
+   "trade": [],
+   "exploration": [],
+   "quests": [],
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "balhae",
+   "name": "발해",
+   "era": "남북국시대",
+   "stage": "korea",
+   "recommended_level": 4,
+   "difficulty": 3,
+   "hero_stories": [],
+   "events": [],
+   "cities": [],
+   "trade": [],
+   "exploration": [],
+   "quests": [],
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "goryeo",
+   "name": "고려",
+   "era": "고려",
+   "stage": "korea",
+   "recommended_level": 5,
+   "difficulty": 3,
+   "hero_stories": [],
+   "events": [],
+   "cities": [],
+   "trade": [],
+   "exploration": [],
+   "quests": [],
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "hanyang",
+   "name": "한양",
+   "era": "조선",
+   "stage": "korea",
+   "recommended_level": 5,
+   "difficulty": 3,
+   "hero_stories": [],
+   "events": [],
+   "cities": [],
+   "trade": [],
+   "exploration": [],
+   "quests": [],
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "hansan",
+   "name": "남해 바다",
+   "era": "조선",
+   "stage": "korea",
+   "recommended_level": 6,
+   "difficulty": 4,
+   "hero_stories": [],
+   "events": [],
+   "cities": [],
+   "trade": [],
+   "exploration": [],
+   "quests": [],
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "modern",
+   "name": "근현대",
+   "era": "근현대",
+   "stage": "korea",
+   "recommended_level": 8,
+   "difficulty": 5,
+   "hero_stories": [],
+   "events": [],
+   "cities": [],
+   "trade": [],
+   "exploration": [],
+   "quests": [],
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "china",
+   "name": "중국",
+   "era": "여러 시대",
+   "stage": "china_japan",
+   "recommended_level": 10,
+   "difficulty": 6,
+   "hero_stories": [],
+   "events": [],
+   "cities": [],
+   "trade": [],
+   "exploration": [],
+   "quests": [],
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "japan",
+   "name": "일본",
+   "era": "여러 시대",
+   "stage": "china_japan",
+   "recommended_level": 10,
+   "difficulty": 6,
+   "hero_stories": [],
+   "events": [],
+   "cities": [],
+   "trade": [],
+   "exploration": [],
+   "quests": [],
+   "status": "planned",
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "eurasia",
+   "name": "유라시아 초원",
+   "era": "여러 시대",
+   "stage": "eurasia",
+   "recommended_level": 15,
+   "difficulty": 8,
+   "hero_stories": [],
+   "events": [],
+   "cities": [],
+   "trade": [],
+   "exploration": [],
+   "quests": [],
+   "status": "planned",
+   "historical_status": "game_setting"
+  }
+ ],
+ "time_gates": [
+  {
+   "id": "gate_joljbon",
+   "name": "시간의 문 · 졸본",
+   "to_region": "joljbon",
+   "era": "기원전 1세기",
+   "requires_level": 1,
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "gate_hanyang",
+   "name": "시간의 문 · 한양",
+   "to_region": "hanyang",
+   "era": "15세기",
+   "requires_level": 5,
+   "historical_status": "game_setting",
+   "status": "planned"
+  }
+ ],
+ "heroes": [
+  {
+   "id": "jumong",
+   "name": "주몽",
+   "era": "고구려 건국기",
+   "region": "joljbon",
+   "role": [
+    "warrior",
+    "founder"
+   ],
+   "tagline": "활을 잘 쏜다는 이름의 고구려 시조",
+   "playable": true,
+   "stats": {
+    "military": 5
+   },
+   "skills": [
+    "gungsul"
+   ],
+   "items": [
+    "jumong_bow"
+   ],
+   "relationships": [
+    {
+     "with": "takmeong",
+     "type": "COMPANION",
+     "when": "jumong_c1 완료"
+    }
+   ],
+   "knowledge": [
+    "k_jumong_name",
+    "k_goguryeo_founding"
+   ],
+   "sources": [
+    "한국민족문화대백과사전 '동명성왕' https://encykorea.aks.ac.kr/Article/E0016431",
+    "한국민족문화대백과사전 '동명왕 신화' https://encykorea.aks.ac.kr/Article/E0016436",
+    "한국민족문화대백과사전 '유화부인' https://encykorea.aks.ac.kr/Article/E0042024"
+   ],
+   "historical_status": "historical_record",
+   "icon": "🏹",
+   "story": "jumong_story",
+   "chapters": [
+    "jumong_c1"
+   ],
+   "style": [
+    "전투",
+    "탐험",
+    "궁술"
+   ],
+   "unlock": {
+    "level": 1
+   }
+  },
+  {
+   "id": "sejong",
+   "name": "세종",
+   "era": "조선",
+   "region": "hanyang",
+   "role": [
+    "ruler",
+    "scholar"
+   ],
+   "tagline": "조선의 제4대 왕(재위 1418~1450)",
+   "playable": false,
+   "stats": {},
+   "skills": [
+    "jiphyeon"
+   ],
+   "items": [
+    "hunmin"
+   ],
+   "relationships": [
+    {
+     "with": "takmeong",
+     "type": "MENTOR",
+     "when": "예정"
+    }
+   ],
+   "knowledge": [],
+   "sources": [
+    "한국민족문화대백과사전 '세종' https://encykorea.aks.ac.kr/Article/E0029857"
+   ],
+   "historical_status": "historical_record",
+   "icon": "📜",
+   "story": null,
+   "chapters": [],
+   "style": [
+    "지식",
+    "내정",
+    "기술"
+   ],
+   "unlock": {
+    "level": 5
+   },
+   "locked_reason": "레벨 5 · 준비 중"
+  },
+  {
+   "id": "yisunsin",
+   "name": "이순신",
+   "era": "조선",
+   "region": "hansan",
+   "role": [
+    "admiral",
+    "strategist"
+   ],
+   "tagline": "바다의 전략가",
+   "playable": false,
+   "stats": {},
+   "skills": [
+    "haejeon"
+   ],
+   "items": [
+    "turtle_ship_model"
+   ],
+   "relationships": [
+    {
+     "with": "takmeong",
+     "type": "ALLY",
+     "when": "예정"
+    }
+   ],
+   "knowledge": [],
+   "sources": [],
+   "historical_status": "historical_record",
+   "icon": "⚓",
+   "story": null,
+   "chapters": [],
+   "style": [
+    "해전",
+    "방어",
+    "전략"
+   ],
+   "unlock": {
+    "level": 6
+   },
+   "locked_reason": "레벨 6 · 준비 중"
+  },
+  {
+   "id": "jangbogo",
+   "name": "장보고",
+   "era": "통일신라",
+   "region": "cheonghae",
+   "role": [
+    "merchant",
+    "admiral"
+   ],
+   "tagline": "해상 무역의 개척자",
+   "playable": false,
+   "stats": {},
+   "skills": [
+    "haesang"
+   ],
+   "items": [],
+   "relationships": [
+    {
+     "with": "takmeong",
+     "type": "FRIEND",
+     "when": "예정"
+    }
+   ],
+   "knowledge": [],
+   "sources": [],
+   "historical_status": "historical_record",
+   "icon": "⛵",
+   "story": null,
+   "chapters": [],
+   "style": [
+    "교역",
+    "해상",
+    "외교"
+   ],
+   "unlock": {
+    "level": 4
+   },
+   "locked_reason": "레벨 4 · 준비 중"
+  }
+ ],
+ "npcs": [
+  {
+   "id": "songyang",
+   "name": "송양왕",
+   "desc": "비류국의 왕. 『삼국사기』에 기원전 36년 주몽에게 항복했다고 기록.",
+   "historical_status": "historical_record",
+   "source": "한국민족문화대백과사전 '동명성왕' https://encykorea.aks.ac.kr/Article/E0016431"
+  }
+ ],
+ "items": [
+  {
+   "id": "jumong_bow",
+   "name": "주몽의 활",
+   "icon": "🏹",
+   "type": "ARTIFACT",
+   "effects": {
+    "military": 3
+   },
+   "historical_status": "game_setting",
+   "note": "게임 속 상징 아이템. 실제 유물이나 주몽의 실제 소유물이 아니다(이름의 뜻 ‘활을 잘 쏘는 사람’에서 착안)."
+  },
+  {
+   "id": "samguk_sagi",
+   "name": "삼국사기",
+   "icon": "📕",
+   "type": "KNOWLEDGE",
+   "effects": {},
+   "historical_status": "historical_record",
+   "status": "planned",
+   "note": "1145년경 김부식 등이 고려 인종의 명으로 편찬한 삼국시대 역사서(김부식 이야기에서 획득 예정).",
+   "source": "한국민족문화대백과사전 '동명성왕' https://encykorea.aks.ac.kr/Article/E0016431"
+  },
+  {
+   "id": "hunmin",
+   "name": "훈민정음",
+   "icon": "📜",
+   "type": "KNOWLEDGE",
+   "effects": {},
+   "historical_status": "game_setting",
+   "status": "planned",
+   "note": "세종 이야기에서 얻을 상징 아이템(예정)."
+  },
+  {
+   "id": "turtle_ship_model",
+   "name": "거북선 모형",
+   "icon": "🐢",
+   "type": "ARTIFACT",
+   "effects": {},
+   "historical_status": "game_setting",
+   "status": "planned",
+   "note": "이순신 이야기의 상징 아이템(게임 제작물, 예정)."
+  },
+  {
+   "id": "jindae_scroll",
+   "name": "진대법 두루마리",
+   "icon": "🌾",
+   "type": "POLICY",
+   "effects": {},
+   "historical_status": "game_setting",
+   "status": "planned",
+   "note": "정책 카드(예정)."
+  }
+ ],
+ "skills": [
+  {
+   "id": "gungsul",
+   "name": "궁술",
+   "icon": "🎯",
+   "hero": "jumong",
+   "use": [
+    "explore",
+    "battle"
+   ],
+   "historical_status": "game_setting",
+   "desc": "탐험·사냥·겨루기에서 추가 효과. 기록 속 ‘활을 잘 쏘는 사람’에서 착안한 게임 스킬."
+  },
+  {
+   "id": "jiphyeon",
+   "name": "집현",
+   "icon": "📚",
+   "hero": "sejong",
+   "use": [
+    "knowledge",
+    "admin"
+   ],
+   "historical_status": "game_setting",
+   "status": "planned",
+   "desc": "지식·내정 보너스(예정)."
+  },
+  {
+   "id": "haejeon",
+   "name": "해전 지휘",
+   "icon": "⚓",
+   "hero": "yisunsin",
+   "use": [
+    "battle",
+    "defense"
+   ],
+   "historical_status": "game_setting",
+   "status": "planned",
+   "desc": "바다 전투·방어(예정)."
+  },
+  {
+   "id": "haesang",
+   "name": "해상 교역",
+   "icon": "⛵",
+   "hero": "jangbogo",
+   "use": [
+    "trade",
+    "diplomacy"
+   ],
+   "historical_status": "game_setting",
+   "status": "planned",
+   "desc": "교역·외교(예정)."
+  }
+ ],
+ "knowledge": [
+  {
+   "id": "k_jumong_name",
+   "text": "부여에서는 활을 잘 쏘는 사람을 ‘주몽’이라 했다고 『삼국사기』 등에 전한다.",
+   "historical_status": "historical_record",
+   "source": "한국민족문화대백과사전 '동명성왕' https://encykorea.aks.ac.kr/Article/E0016431",
+   "source_date": "2026-09-27"
+  },
+  {
+   "id": "k_egg_legend",
+   "text": "주몽이 알에서 태어났다는 이야기는 건국 신화(설화)다.",
+   "historical_status": "legend",
+   "source": "한국민족문화대백과사전 '동명왕 신화' https://encykorea.aks.ac.kr/Article/E0016436",
+   "source_date": "2026-09-27"
+  },
+  {
+   "id": "k_goguryeo_founding",
+   "text": "『삼국사기』 기록상 주몽은 기원전 37년 졸본에서 고구려를 세웠다.",
+   "historical_status": "historical_record",
+   "source": "한국민족문화대백과사전 '동명성왕' https://encykorea.aks.ac.kr/Article/E0016431",
+   "source_date": "2026-09-27"
+  },
+  {
+   "id": "k_songyang",
+   "text": "『삼국사기』에는 기원전 36년 비류국 송양왕이 항복했다고 기록돼 있다.",
+   "historical_status": "historical_record",
+   "source": "한국민족문화대백과사전 '동명성왕' https://encykorea.aks.ac.kr/Article/E0016431",
+   "source_date": "2026-09-27"
+  },
+  {
+   "id": "k_jindae",
+   "text": "194년 고구려 고국천왕 때, 봄에 곡식을 빌려주고 10월에 갚게 하는 진대법이 시행됐다.",
+   "historical_status": "historical_record",
+   "source": "한국민족문화대백과사전 '진대법' https://encykorea.aks.ac.kr/Article/E0054628",
+   "source_date": "2026-09-27"
+  }
+ ],
+ "policies": [
+  {
+   "id": "jindae",
+   "name": "진대법",
+   "requires_knowledge": "k_jindae",
+   "effects": {
+    "food": 20
+   },
+   "status": "interface",
+   "desc": "식량 위기 때 곡식을 빌려주는 정책(다음 장에서 사용 예정).",
+   "historical_status": "historical_record"
+  }
+ ],
+ "quizzes": [
+  {
+   "id": "jq1",
+   "question": "‘주몽’이라는 이름은 부여 말로 어떤 사람을 뜻한다고 기록돼 있을까?",
+   "choices": [
+    "말을 잘 타는 사람",
+    "활을 잘 쏘는 사람",
+    "나라를 세운 사람",
+    "물을 다스리는 사람"
+   ],
+   "correct": 1,
+   "explanation": "『삼국사기』 등에는 부여에서 활을 잘 쏘는 사람을 ‘주몽’이라 했기 때문에 그 이름이 붙었다고 전한다.",
+   "topic": "주몽의 이름",
+   "era": "고구려 건국기",
+   "region": "부여·졸본",
+   "source": "한국민족문화대백과사전 '동명성왕' https://encykorea.aks.ac.kr/Article/E0016431",
+   "source_date": "2026-09-27",
+   "historical_status": "historical_record"
+  },
+  {
+   "id": "jq2",
+   "question": "『삼국사기』 기록에 따르면 주몽이 고구려를 세운 해는?",
+   "choices": [
+    "기원전 57년",
+    "기원전 37년",
+    "기원전 18년",
+    "서기 313년"
+   ],
+   "correct": 1,
+   "explanation": "주몽은 졸본에 도읍을 정하고 기원전 37년 나라를 세워 고구려라 했다고 기록돼 있다(재위 기원전 37~19년).",
+   "topic": "고구려 건국",
+   "era": "고구려 건국기",
+   "region": "졸본",
+   "source": "한국민족문화대백과사전 '동명성왕' https://encykorea.aks.ac.kr/Article/E0016431",
+   "source_date": "2026-09-27",
+   "historical_status": "historical_record"
+  },
+  {
+   "id": "jq4",
+   "question": "주몽이 알에서 태어났다는 이야기는 무엇에 가까울까?",
+   "choices": [
+    "확인된 역사적 사실",
+    "건국 신화(설화)",
+    "외국 기록의 오류",
+    "조선 시대 소설"
+   ],
+   "correct": 1,
+   "explanation": "알에서 태어났다는 이야기는 고구려 건국 신화(동명왕 신화)의 내용이다. 신화는 역사적 사실과 구별해 읽는다.",
+   "topic": "건국 신화",
+   "era": "고구려 건국기",
+   "region": "부여",
+   "source": "한국민족문화대백과사전 '동명왕 신화' https://encykorea.aks.ac.kr/Article/E0016436",
+   "source_date": "2026-09-27",
+   "historical_status": "legend"
+  }
+ ],
+ "stories": [
+  {
+   "id": "jumong_story",
+   "hero": "jumong",
+   "title": "주몽 이야기",
+   "chapters": [
+    {
+     "id": "jumong_c1",
+     "title": "1장 · 활 잘 쏘는 젊은이",
+     "steps": [
+      {
+       "type": "narration",
+       "speaker": "",
+       "text": "기원전 1세기, 졸본 들판. 부여를 떠나 남쪽으로 내려왔다는 젊은이가 활을 메고 서 있다.",
+       "historical_status": "legend"
+      },
+      {
+       "type": "narration",
+       "speaker": "주몽",
+       "text": "낯선 차림이로군. 어디서 왔소? …시간의 문? 믿기 어렵지만, 좋소. 내 이름의 뜻부터 맞혀 보시오.",
+       "historical_status": "game_setting"
+      },
+      {
+       "type": "quiz",
+       "quiz": "jq1",
+       "correct": {
+        "exp": 60,
+        "knowledge": [
+         "k_jumong_name"
+        ],
+        "stats": {
+         "lore": 1
+        }
+       },
+       "wrong": {
+        "exp": 20
+       }
+      },
+      {
+       "type": "reward",
+       "items": [
+        "jumong_bow"
+       ],
+       "text": "주몽이 활 한 자루를 건넨다. (게임 속 상징 아이템)"
+      },
+      {
+       "type": "narration",
+       "speaker": "주몽",
+       "text": "사람들은 내가 알에서 태어났다고들 하더군. 당신 시대에서는 이 이야기를 어떻게 부르오?",
+       "historical_status": "game_setting"
+      },
+      {
+       "type": "quiz",
+       "quiz": "jq4",
+       "correct": {
+        "exp": 50,
+        "knowledge": [
+         "k_egg_legend"
+        ],
+        "stats": {
+         "lore": 1
+        }
+       },
+       "wrong": {
+        "exp": 15
+       }
+      },
+      {
+       "type": "board",
+       "board": "joljbon_hunt",
+       "text": "졸본 들판 사냥 — 퀴즈를 맞히면 주사위 특권!"
+      },
+      {
+       "type": "narration",
+       "speaker": "",
+       "text": "비류수 위쪽의 나라, 비류국의 송양왕이 새로 온 세력을 경계한다.",
+       "historical_status": "historical_record"
+      },
+      {
+       "type": "relation",
+       "hero": "songyang",
+       "to": "RIVAL"
+      },
+      {
+       "type": "choice",
+       "text": "송양왕이 사신을 보내왔다. 어떻게 할까?",
+       "options": [
+        {
+         "id": "archery",
+         "text": "🎯 활쏘기로 실력을 보인다 (군사 3 이상)",
+         "requires_stat": {
+          "stat": "military",
+          "gte": 3
+         },
+         "effects": {
+          "military": 2
+         },
+         "exp": 40,
+         "relation": {
+          "hero": "songyang",
+          "to": "ALLY"
+         },
+         "knowledge": [
+          "k_songyang"
+         ],
+         "result": "과녁 한가운데를 꿰뚫자 사신들이 술렁였다. 송양왕이 손을 내민다.",
+         "lesson": "『삼국사기』에는 기원전 36년 송양왕이 항복했다고 기록돼 있다. 겨루기 장면은 게임 창작이다.",
+         "historical_status": "game_setting"
+        },
+        {
+         "id": "talk",
+         "text": "🤝 말로 설득한다",
+         "effects": {
+          "admin": 2
+         },
+         "exp": 30,
+         "relation": {
+          "hero": "songyang",
+          "to": "ALLY"
+         },
+         "knowledge": [
+          "k_songyang"
+         ],
+         "result": "밤새 이야기를 나눈 끝에 송양왕이 뜻을 함께하기로 했다.",
+         "lesson": "『삼국사기』에는 기원전 36년 송양왕이 항복했다고 기록돼 있다. 설득 장면은 게임 창작이다.",
+         "historical_status": "game_setting"
+        },
+        {
+         "id": "wait",
+         "text": "⏳ 지켜본다",
+         "effects": {},
+         "exp": 10,
+         "result": "서로 경계한 채 계절이 지나간다. 송양왕은 여전히 라이벌이다.",
+         "historical_status": "game_setting"
+        }
+       ]
+      },
+      {
+       "type": "quiz",
+       "quiz": "jq2",
+       "correct": {
+        "exp": 80,
+        "knowledge": [
+         "k_goguryeo_founding"
+        ],
+        "stats": {
+         "admin": 1,
+         "lore": 1
+        }
+       },
+       "wrong": {
+        "exp": 25
+       }
+      },
+      {
+       "type": "companion",
+       "hero": "jumong",
+       "exp": 50,
+       "text": "🏹 주몽이 동료로 합류했다!"
+      },
+      {
+       "type": "region",
+       "region": "samguk"
+      },
+      {
+       "type": "choice",
+       "text": "새 나라의 첫 겨울. 창고의 곡식이 모자란다.",
+       "options": [
+        {
+         "id": "share",
+         "text": "🌾 창고를 열어 백성에게 나눈다",
+         "effects": {
+          "food": -20,
+          "admin": 3
+         },
+         "exp": 30,
+         "knowledge": [
+          "k_jindae"
+         ],
+         "result": "백성들이 겨울을 버텼다. 이 고민은 훗날 제도가 된다.",
+         "lesson": "훗날 194년 고국천왕 때 봄에 곡식을 빌려주고 가을에 갚게 하는 진대법이 시행됐다.",
+         "historical_status": "game_setting"
+        },
+        {
+         "id": "hunt",
+         "text": "🏹 사냥으로 식량을 채운다",
+         "effects": {
+          "food": 10,
+          "military": 1
+         },
+         "exp": 20,
+         "skill_bonus": {
+          "skill": "gungsul",
+          "effects": {
+           "food": 20
+          },
+          "exp": 20,
+          "text": "궁술로 큰 사슴을 잡았다! 식량이 넉넉해졌다. (궁술 보너스)"
+         },
+         "result": "사냥으로 식량을 조금 채웠다.",
+         "historical_status": "game_setting"
+        },
+        {
+         "id": "endure",
+         "text": "😣 그대로 버틴다",
+         "effects": {
+          "food": -10
+         },
+         "exp": 10,
+         "result": "힘든 겨울이었다.",
+         "historical_status": "game_setting"
+        }
+       ]
+      },
+      {
+       "type": "main",
+       "main": "m2"
+      },
+      {
+       "type": "end",
+       "text": "주몽 이야기 1장 완료"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "boards": {
+  "joljbon_hunt": {
+   "title": "졸본 들판 사냥",
+   "data": {
+    "id": "joljbon-hunt",
+    "version": "g1-1",
+    "title": "졸본 들판 사냥",
+    "turns": 1,
+    "dice": {
+     "sides": 6
+    },
+    "rewards": {
+     "DICE_PARITY": {
+      "label": "주사위 특권",
+      "desc": "홀짝 선언(적중 3/6) → 도착 칸 선택",
+      "on_hit": {
+       "steer": 1
+      }
+     }
+    },
+    "quiz_reward": {
+     "knowledge": 1
+    },
+    "lap_bonus": {
+     "coin": 5
+    },
+    "stats": [
+     {
+      "key": "coin",
+      "label": "군량",
+      "icon": "🌾",
+      "min": 0
+     },
+     {
+      "key": "knowledge",
+      "label": "지식",
+      "icon": "📚",
+      "min": 0
+     },
+     {
+      "key": "exploration",
+      "label": "탐험",
+      "icon": "🧭",
+      "min": 0
+     }
+    ],
+    "goods": [],
+    "cargo_cap": 0,
+    "start": {
+     "coin": 20,
+     "knowledge": 0,
+     "exploration": 0
+    },
+    "score_weights": {
+     "coin": 1,
+     "knowledge": 10,
+     "exploration": 20
+    },
+    "quizzes": [
+     {
+      "id": "bq1",
+      "question": "주몽이 처음 도읍을 정한 곳은?",
+      "choices": [
+       "졸본",
+       "평양",
+       "한성",
+       "서라벌"
+      ],
+      "correct": 0,
+      "explanation": "주몽은 졸본(일설에는 흘승골성)에 이르러 도읍을 정했다고 기록돼 있다.",
+      "topic": "도읍",
+      "era": "고구려 건국기",
+      "region": "졸본",
+      "source": "한국민족문화대백과사전 '동명성왕' https://encykorea.aks.ac.kr/Article/E0016431",
+      "source_date": "2026-09-27"
+     },
+     {
+      "id": "bq2",
+      "question": "기원전 36년 주몽에게 항복했다고 기록된 비류국의 왕은?",
+      "choices": [
+       "송양왕",
+       "금와왕",
+       "해모수",
+       "온조"
+      ],
+      "correct": 0,
+      "explanation": "『삼국사기』에는 기원전 36년(동명성왕 2) 비류국 송양왕이 항복했다고 기록돼 있다.",
+      "topic": "비류국",
+      "era": "고구려 건국기",
+      "region": "졸본",
+      "source": "한국민족문화대백과사전 '동명성왕' https://encykorea.aks.ac.kr/Article/E0016431",
+      "source_date": "2026-09-27"
+     },
+     {
+      "id": "bq3",
+      "question": "고구려 고국천왕 때 봄에 곡식을 빌려주고 가을에 갚게 한 제도는?",
+      "choices": [
+       "진대법",
+       "균전제",
+       "과거제",
+       "대동법"
+      ],
+      "correct": 0,
+      "explanation": "진대법은 194년 고국천왕 때 봄 3월부터 7월까지 관곡을 빌려주고 10월에 갚게 한 고구려의 빈민 구호 제도다.",
+      "topic": "진대법",
+      "era": "고구려",
+      "region": "고구려",
+      "source": "한국민족문화대백과사전 '진대법' https://encykorea.aks.ac.kr/Article/E0054628",
+      "source_date": "2026-09-27"
+     }
+    ],
+    "board": [
+     {
+      "id": "b0",
+      "type": "START",
+      "name": "졸본 어귀",
+      "region": "졸본",
+      "icon": "⛺"
+     },
+     {
+      "id": "b1",
+      "type": "EXPLORE",
+      "name": "사슴 사냥터",
+      "region": "졸본",
+      "icon": "🦌",
+      "choices": [
+       {
+        "id": "explore",
+        "text": "사냥에 나선다 (군량 5)",
+        "cost": 5,
+        "effects": {
+         "exploration": 1,
+         "coin": 10
+        },
+        "result_text": "사슴 한 마리를 잡았다.",
+        "bonus_if": {
+         "stat": "knowledge",
+         "gte": 1,
+         "effects": {
+          "exploration": 1,
+          "coin": 5
+         },
+         "text": "지식 덕에 짐승이 다니는 길을 읽었다! 탐험 +2"
+        }
+       },
+       {
+        "id": "pass",
+        "text": "지나간다",
+        "effects": {},
+        "result_text": "숲을 돌아갔다."
+       }
+      ],
+      "lesson": {
+       "text": "부여에서는 활을 잘 쏘는 사람을 ‘주몽’이라 했다고 전한다.",
+       "source": "한국민족문화대백과사전 '동명성왕' https://encykorea.aks.ac.kr/Article/E0016431",
+       "source_date": "2026-09-27"
+      }
+     },
+     {
+      "id": "b2",
+      "type": "CITY",
+      "name": "졸본 마을",
+      "region": "졸본",
+      "icon": "🏘️",
+      "choices": [
+       {
+        "id": "lib",
+        "text": "원로에게 옛이야기를 듣는다 (군량 5)",
+        "cost": 5,
+        "effects": {
+         "knowledge": 1
+        },
+        "result_text": "지식이 늘었다."
+       },
+       {
+        "id": "go",
+        "text": "그냥 지나간다",
+        "effects": {},
+        "result_text": "발길을 재촉했다."
+       }
+      ]
+     },
+     {
+      "id": "b3",
+      "type": "BONUS",
+      "name": "산딸기 숲",
+      "region": "졸본",
+      "icon": "🍓",
+      "effect": {
+       "coin": 10
+      },
+      "event_text": "산딸기를 잔뜩 땄다. 군량 +10"
+     },
+     {
+      "id": "b4",
+      "type": "EVENT",
+      "name": "비류수 물가",
+      "region": "졸본",
+      "icon": "🌊",
+      "effect": {
+       "knowledge": 1
+      },
+      "event_text": "강가에서 옛 도읍 이야기를 들었다. 지식 +1",
+      "lesson": {
+       "text": "주몽은 졸본에 도읍을 정하고 비류수 위에 집을 짓고 살았다고 기록돼 있다.",
+       "source": "한국민족문화대백과사전 '동명성왕' https://encykorea.aks.ac.kr/Article/E0016431",
+       "source_date": "2026-09-27"
+      }
+     },
+     {
+      "id": "b5",
+      "type": "REST",
+      "name": "모닥불",
+      "region": "졸본",
+      "icon": "🔥",
+      "effect": {
+       "coin": 3
+      },
+      "event_text": "쉬어 가며 군량을 아꼈다. 군량 +3"
+     },
+     {
+      "id": "b6",
+      "type": "QUIZ",
+      "name": "원로의 질문",
+      "region": "졸본",
+      "icon": "❓",
+      "quiz": {
+       "coin": 5,
+       "knowledge": 1
+      }
+     },
+     {
+      "id": "b7",
+      "type": "EXPLORE",
+      "name": "숲속 길",
+      "region": "졸본",
+      "icon": "🌲",
+      "choices": [
+       {
+        "id": "explore",
+        "text": "숲을 탐험한다 (군량 5)",
+        "cost": 5,
+        "effects": {
+         "exploration": 1
+        },
+        "result_text": "새 길을 찾았다.",
+        "bonus_if": {
+         "stat": "knowledge",
+         "gte": 1,
+         "effects": {
+          "exploration": 1,
+          "coin": 5
+         },
+         "text": "지식 덕에 지름길을 찾았다! 탐험 +2"
+        }
+       },
+       {
+        "id": "pass",
+        "text": "지나간다",
+        "effects": {},
+        "result_text": "큰길로 갔다."
+       }
+      ],
+      "lesson": {
+       "text": "주몽이 알에서 태어났다는 이야기는 건국 신화다.",
+       "source": "한국민족문화대백과사전 '동명왕 신화' https://encykorea.aks.ac.kr/Article/E0016436",
+       "source_date": "2026-09-27"
+      }
+     }
+    ],
+    "endings": [
+     {
+      "id": "done",
+      "title": "사냥 끝",
+      "icon": "🏹",
+      "when": []
+     }
+    ]
+   },
+   "merge": [
+    {
+     "from": "coin",
+     "to": "food",
+     "rate": 1
+    },
+    {
+     "from": "knowledge",
+     "to": "lore",
+     "rate": 1
+    },
+    {
+     "from": "exploration",
+     "to": "exploration",
+     "rate": 1
+    },
+    {
+     "from": "exploration",
+     "to": "exp",
+     "rate": 30
+    },
+    {
+     "from": "knowledge",
+     "to": "exp",
+     "rate": 10
+    }
+   ],
+   "skill_bonus": {
+    "skill": "gungsul",
+    "stats": {
+     "food": 10
+    }
+   }
+  }
+ }
+}

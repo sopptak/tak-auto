@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#161219">
+<title>대한민국 통일 · 선택100 RPG (Vertical Slice)</title>
+<style>
+  :root { --bg: #161219; --panel: #221c27; --panel2: #2d2534; --text: #f5f1f7; --muted: #a99bb3; --accent: #f2c14e; --good: #3ddc84; --bad: #ff6b6b;
+          --line: #3b3145; --btn: #2f2738; --btn-hover: #3a3044; --rec: #7fb2ff; --leg: #d08cff; --gs: #9aa0a6; --fact: #3ddc84; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; font-size: 16px; line-height: 1.55;
+         overflow-wrap: anywhere; word-break: keep-all; -webkit-tap-highlight-color: transparent; }
+  #app { max-width: 480px; margin: 0 auto; padding: 12px 16px calc(24px + env(safe-area-inset-bottom)); min-height: 100vh; }
+  button { font: inherit; color: inherit; }
+  .hidden { display: none !important; } .center { text-align: center; }
+  .flow { font-size: 0.82rem; color: var(--muted); display: block; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .title-screen { text-align: center; padding-top: 10vh; } .flag { font-size: 3rem; }
+  .logo { font-size: 2.5rem; font-weight: 900; margin: 6px 0 0; color: var(--accent); letter-spacing: -1px; }
+  .logo small { display: block; font-size: 1.05rem; color: var(--text); font-weight: 700; letter-spacing: 0; margin-top: 6px; }
+  .hook { font-weight: 700; margin: 18px 0 22px; }
+  .big { display: block; width: 100%; padding: 16px; font-size: 1.15rem; font-weight: 900; border: 0; border-radius: 14px; background: var(--accent); color: #1a1a1a; cursor: pointer; margin-top: 12px; }
+  .ghost { display: block; width: 100%; margin-top: 10px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: transparent; cursor: pointer; }
+  .disclaimer { color: var(--muted); font-size: 0.78rem; margin-top: 20px; }
+  .sticky { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0 6px; margin-top: -8px; }
+  .top { display: flex; justify-content: space-between; gap: 8px; align-items: center; } .top b { font-size: 1.1rem; }
+  .party span { font-size: 1.2rem; }
+  .xp { position: relative; height: 18px; background: var(--panel2); border-radius: 99px; overflow: hidden; margin: 6px 0; }
+  .xp i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #f2c14e, #ffdf8a); transition: width .6s; }
+  .xp span { position: relative; font-size: 0.72rem; font-weight: 800; color: #1a1a1a; padding-left: 8px; line-height: 18px; }
+  .hud { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .stat { background: var(--panel); border-radius: 10px; padding: 5px 8px; min-width: 0; } .stat .k { font-size: 0.72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat .v { font-weight: 800; }
+  .card { background: var(--panel); border-radius: 14px; padding: 14px; margin-top: 10px; } .card.done { opacity: .95; padding: 10px 14px; }
+  .chapter, .qhead { font-size: 0.82rem; color: var(--accent); font-weight: 700; }
+  .line { font-size: 1.05rem; margin: 8px 0; } .q { font-size: 1.15rem; margin: 6px 0 10px; } .sec { font-size: 1.2rem; margin: 10px 0 2px; }
+  .hs { display: inline-block; font-size: 0.72rem; font-weight: 800; padding: 1px 8px; border-radius: 99px; border: 1px solid; vertical-align: middle; }
+  .hs-historical_fact { color: var(--fact); } .hs-historical_record { color: var(--rec); } .hs-legend { color: var(--leg); } .hs-game_setting { color: var(--gs); }
+  .opts { display: grid; gap: 8px; } .opts.two { grid-template-columns: 1fr 1fr; }
+  .opt { text-align: left; padding: 13px 14px; min-height: 54px; border-radius: 12px; border: 1px solid var(--line); background: var(--btn); font-weight: 700; font-size: 1.02rem; cursor: pointer; }
+  .opt:hover { background: var(--btn-hover); } .opt:disabled { opacity: .45; cursor: not-allowed; } .opt small { display: block; font-weight: 400; color: var(--muted); font-size: 0.8rem; }
+  .opt .no { color: var(--accent); margin-right: 6px; }
+  .verdict { font-weight: 800; } .ok { color: var(--good); } .no { color: var(--bad); } .verdict.ok { color: var(--good); } .verdict.no { color: var(--bad); }
+  .lesson { margin-top: 6px; padding: 8px 10px; border-left: 4px solid var(--accent); background: var(--panel2); border-radius: 8px; font-size: 1rem; }
+  .src { display: block; font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip { padding: 3px 9px; border-radius: 99px; font-weight: 800; font-size: 0.86rem; background: var(--panel2); }
+  .chip.good { color: var(--good); } .chip.bad { color: var(--bad); } .chip.item { color: var(--accent); } .chip.skill { color: #7fe3ff; } .chip.know { color: var(--rec); } .chip.policy { color: #b8f28a; }
+  .reward { text-align: center; } .big-icon { font-size: 2.6rem; } .join { border: 2px solid var(--accent); border-radius: 12px; padding: 10px; }
+  .skillcard { margin-top: 8px; background: var(--panel2); border-radius: 10px; padding: 8px; }
+  .levelup { margin: 8px auto 0; font-weight: 900; color: #1a1a1a; background: var(--accent); border-radius: 99px; padding: 4px 12px; display: inline-block; }
+  .gate { text-align: center; } .gate-ring { font-size: 3.4rem; animation: spin 6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .heroes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .hero { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 150px; position: relative; }
+  .hero .hi { font-size: 1.9rem; } .hero small { color: var(--muted); } .hero .tag { font-size: 0.84rem; }
+  .hero .style i { font-style: normal; font-size: 0.72rem; background: var(--panel2); border-radius: 99px; padding: 1px 6px; margin: 2px 2px 0 0; display: inline-block; }
+  .hero .play { color: #1a1a1a; background: var(--accent); font-weight: 900; border-radius: 8px; padding: 2px 8px; align-self: flex-start; margin-top: 4px; }
+  .hero .lock, .hero .done { font-size: 0.78rem; color: var(--muted); margin-top: 4px; } .hero .done { color: var(--good); }
+  .hero.locked { opacity: .7; } .hero.open { border-color: var(--accent); opacity: 1; }
+  .bhud { font-size: 0.9rem; margin: 6px 0; } .bmap { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; background: #203a2a; padding: 6px; border-radius: 10px; }
+  .tile { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.08); border-radius: 7px; min-width: 0; }
+  .tile.here { background: var(--accent); } .tile.target { box-shadow: 0 0 0 2px var(--good) inset; }
+  .blog { font-size: 0.92rem; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+  .rows { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin-top: 10px; } .rows div:nth-child(even) { text-align: right; font-weight: 800; }
+  .regions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .region { background: var(--panel); border-radius: 10px; padding: 8px; min-width: 0; } .region.open { outline: 2px solid var(--good); } .region small { display: block; color: var(--muted); }
+  .sub-h { font-size: 1rem; margin: 14px 0 6px; } .mains { padding-left: 18px; } .mains li.ok { color: var(--good); }
+  .pop { animation: pop .3s ease-out; } @keyframes pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .pop, .gate-ring { animation: none; } .xp i { transition: none; } }
+  .foot { color: var(--muted); font-size: 0.75rem; margin-top: 16px; text-align: center; }
+  .foot button { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font-size: 0.75rem; }
+</style>
+</head>
+<body>
+<main id="app" aria-live="polite"><noscript>이 게임은 자바스크립트가 필요합니다.</noscript>불러오는 중…</main>
+<script src="../../board/engine.js?v=vs1-2"></script>
+<script src="../../choice100/analytics.js?v=vs1-2"></script>
+<script src="../engine.js?v=vs1-2"></script>
+<script src="../renderer.js?v=vs1-2"></script>
+<script>
+  Choice100RpgRenderer.boot(document.getElementById("app"), "korea.json");
+</script>
+</body>
+</html>
