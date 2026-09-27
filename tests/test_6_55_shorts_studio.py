@@ -483,7 +483,9 @@ class DashboardRouteTests(StudioCase):
         import re
         controls = " ".join(re.findall(r'(?:action|name|type)="([^"]*)"', html)).lower()
         self.assertIn("/save", controls)
-        for word in ("approve", "publish", "upload", "api_key", "token", "password", "secret", "dismiss"):
+        # 6-56: 사람 승인(Draft 저장소 기록)과 이미지 업로드는 요구사항이 됐다. 승인은 Draft 범위 route만 허용.
+        self.assertEqual(re.findall(r'action="([^"]*approve[^"]*)"', html), ["/shorts-studio/draft-content-studio-test01/approve"])
+        for word in ("publish", "youtube", "threads", "naver", "api_key", "token", "password", "secret", "dismiss"):
             with self.subTest(word):
                 self.assertNotIn(word, controls)
 

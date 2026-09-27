@@ -36,13 +36,14 @@ def editable_fields(template: dict | str = "default") -> dict:
 
 
 def check_document(data: dict, base_dir: Path | str = ".") -> dict:
-    """렌더 없이 검사: {"ok", "codes", "errors", "warnings", "scenes": [{index, start, duration, layout}], "total"}."""
+    """렌더 없이 검사: {"ok", "codes", "errors", "warnings", "issues", "scenes": [{index, start, duration, layout}], "total"}."""
     try:
         doc = V3RenderDocument.from_dict(data, base_dir=base_dir)
     except V3Error as error:
-        return {"ok": False, "codes": [error.code], "errors": [error.message], "warnings": [], "scenes": [], "total": None}
+        return {"ok": False, "codes": [error.code], "errors": [error.message], "warnings": [], "issues": [], "scenes": [], "total": None}
     layout = LayoutEngine(doc).report()
     verdict = quality_gate(structure_issues(doc, layout))
     return {"ok": verdict["status"] == "PASS", "codes": verdict["codes"], "errors": [e["message"] for e in verdict["errors"]],
             "warnings": [w["code"] for w in verdict["warnings"]], "total": layout["total"],
+            "issues": verdict["errors"] + verdict["warnings"],  # 6-56: 장면 번호가 있는 원본 이슈(편집기가 사람 말로 보여준다)
             "scenes": [{k: s[k] for k in ("index", "start", "duration", "layout")} for s in layout["scenes"]]}
