@@ -1,7 +1,10 @@
-"""TAK AUTO MONEY 화면(6-57) - scripts/run_scout_dashboard.py가 /money 요청을 여기로 넘긴다.
+"""TAK AUTO MONEY 화면(6-57, 6-58) - scripts/run_scout_dashboard.py가 /money 요청을 여기로 넘긴다.
 
-화면은 계산·기록·공식 링크만 한다. 외부 사이트 로그인/응답/제출 기능이 없고, 비밀번호·토큰·개인정보 입력칸이 없다.
-공식 링크는 새 탭(rel="noopener noreferrer")으로 사람이 직접 연다.
+첫 화면은 "통계판"보다 "오늘 무엇을 할까"가 먼저 보이게 한다:
+    ① 오늘의 수익 ② 첫 10,000원 ③ 오늘의 MONEY ROUTINE(오늘 할 일) ④ 지금 확인할 플랫폼 ⑤ 수익 기회 ⑥ 할 작업 ⑦ 최근 수익 기록
+
+화면은 계산·기록·공식 링크만 한다. 외부 사이트 로그인/응답/제출/스크래핑 기능이 없고, 비밀번호·토큰·개인정보 입력칸이 없다.
+공식 링크는 설정의 주소만, 새 탭(rel="noopener noreferrer")으로 사람이 직접 연다.
 
     handle(config, method, path, query, body) -> ("html", status, bytes) | ("redirect", url)
 """
@@ -16,6 +19,7 @@ from content_engine import money
 
 STYLE = """<style>
   .money { max-width: 1100px; }
+  .money .btn { min-height: 40px; }
   .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
   .kpi { background: #fff; border: 1px solid #e2e2e0; border-radius: 10px; padding: 10px 12px; }
   .kpi .k { font-size: 0.75rem; color: #6b6b6b; } .kpi .v { font-size: 1.15rem; font-weight: 800; }
@@ -26,25 +30,41 @@ STYLE = """<style>
   .bar { height: 14px; background: #eee; border-radius: 999px; overflow: hidden; margin: 8px 0; }
   .bar > div { height: 100%; background: #1a5c3a; }
   .tasks { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .tasks > .card { grid-column: 1 / -1; max-width: none; }
   .task { background: #fff; border: 1px solid #e2e2e0; border-left: 6px solid #ccc; border-radius: 10px; padding: 12px 14px; }
   .task.GREEN { border-left-color: #2e9e4f; } .task.YELLOW { border-left-color: #e0b400; }
   .task.ORANGE { border-left-color: #e57a1f; } .task.RED { border-left-color: #cf3b3b; } .task.expired { opacity: 0.55; }
-  .tasks > .card { grid-column: 1 / -1; max-width: none; }
   .task .p { font-weight: 700; } .task .t { font-size: 1.02rem; margin: 2px 0 8px; }
   .task .n { font-size: 0.88rem; line-height: 1.7; } .task .rate { font-size: 1.2rem; font-weight: 800; }
+  .rec { display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #eef0f7; color: #33415c; }
+  .rec.GREEN { background: #dff3e3; color: #1a5c3a; } .rec.YELLOW { background: #fff4de; color: #6b4a00; }
+  .rec.ORANGE { background: #fde8d7; color: #8a4a12; } .rec.RED { background: #f9e0e0; color: #7a2626; }
+  .routine { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .plat { background: #fff; border: 1px solid #e2e2e0; border-radius: 10px; padding: 12px 14px; }
+  .plat.checked { border-color: #b6e0c1; background: #f4fbf5; }
+  .plat .name { font-weight: 800; font-size: 1.02rem; } .plat .state { margin: 4px 0 8px; font-size: 0.9rem; }
+  .today { background: #fff; border: 1px solid #e2e2e0; border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; }
+  .today .nums { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 6px; } .today .nums b { font-size: 1.15rem; }
+  .checklist span { display: inline-block; margin: 2px 12px 2px 0; }
   .money input[type=text], .money input[type=number], .money input[type=url], .money input[type=datetime-local], .money select, .money textarea {
-    width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 1rem; font-family: inherit; }
+    width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 1rem; font-family: inherit; }
   .money label.f { display: block; font-size: 0.8rem; color: #555; margin: 8px 0 3px; font-weight: 600; }
+  .money .missing { border-color: #cf3b3b !important; background: #fff6f6; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; } .row > div { flex: 1 1 150px; min-width: 0; }
   .tbl { border-collapse: collapse; width: 100%; background: #fff; font-size: 0.88rem; }
   .tbl th, .tbl td { border-bottom: 1px solid #eee; padding: 7px 8px; text-align: left; }
   .tbl td.num, .tbl th.num { text-align: right; white-space: nowrap; }
+  .scroll { overflow-x: auto; }
   .hint { font-size: 0.78rem; color: #777; } .up { color: #1a5c3a; } .down { color: #b3261e; }
   .btn.big { padding: 10px 16px; font-size: 0.95rem; }
   .legend span { margin-right: 10px; font-size: 0.8rem; }
 </style>"""
-NAV = ('<div class="nav-links"><a href="/">← Dashboard</a><a href="/money">💰 MONEY</a><a href="/money/log">📒 수익 기록·분석</a>'
-       '<a href="/money/settings">⚙️ 목표·기준</a><a href="/operator">🧭 Operator Center</a></div>')
+NAV = ('<div class="nav-links"><a href="/">← Dashboard</a><a href="/money">💰 MONEY</a><a href="/money/platforms">🏪 수익 플랫폼</a>'
+       '<a href="/money/log">📒 수익 기록·분석</a><a href="/money/settings">⚙️ 목표·기준</a><a href="/operator">🧭 Operator Center</a></div>')
+HOW_TO = ["오늘 확인할 플랫폼을 본다.", "[확인하기 ↗]로 공식 사이트에 직접 들어가 본다(로그인·설문은 그 사이트에서).",
+          "할 만한 작업이 있으면 ⚡ 빠른 등록에 적는다(예: 패널나우 20분 850P 일반인 의견 조사). 없으면 [작업 없었음].",
+          "확인 화면에서 예상 시급·추천 행동을 보고 등록한다.", "직접 작업한다.", "끝나면 [완료 기록]에 실제 보상과 걸린 시간을 적는다.",
+          "MONEY가 실제 시급과 누적 수익, 첫 10,000원까지 남은 금액을 계산한다."]
 
 
 def _page(title: str, body: str) -> bytes:
@@ -69,15 +89,16 @@ def _rate(value) -> str:
     return "-" if value is None else f"{value:,}원/시간"
 
 
-def _local(ts: str | None, config: dict) -> str:
+def _local(ts: str | None, config: dict, fmt: str = "%Y-%m-%d %H:%M") -> str:
     try:
-        return datetime.fromisoformat(ts).astimezone(money.local_tz(config)).strftime("%Y-%m-%d %H:%M")
+        return datetime.fromisoformat(ts).astimezone(money.local_tz(config)).strftime(fmt)
     except (TypeError, ValueError):
         return "-"
 
 
 def _store(config) -> money.MoneyStore:
-    return money.MoneyStore(config.money_tasks_path, config.money_log_path, money.load_config(config.money_config_path))
+    return money.MoneyStore(config.money_tasks_path, config.money_log_path, money.load_config(config.money_config_path),
+                            getattr(config, "money_checks_path", None))
 
 
 def _options(values, current) -> str:
@@ -89,7 +110,11 @@ def _banner(notice: str | None, error: str | None) -> str:
     return (f'<div class="banner">{escape(notice)}</div>' if notice else "") + (f'<div class="error">{escape(error)}</div>' if error else "")
 
 
-# ---- /money --------------------------------------------------------------------------------
+def _ext_link(url: str, label: str, css: str = "btn") -> str:
+    return f'<a class="{css}" href="{escape(url)}" target="_blank" rel="noopener noreferrer">{escape(label)}</a>' if url else ""
+
+
+# ---- 공통 조각 ------------------------------------------------------------------------------
 
 def _kpis(stats: dict) -> str:
     names = (("today", "오늘"), ("week", "이번 주"), ("month", "이번 달"), ("total", "누적"))
@@ -103,7 +128,7 @@ def _kpis(stats: dict) -> str:
 def _goal_html(goal: dict) -> str:
     first = goal["first_goal"]
     if not goal["first_achieved"]:
-        return f"""<div class="goal"><b>🎯 첫 온라인 수익 목표</b> <span style="font-size:1.3rem;font-weight:800">{first:,}원</span>
+        return f"""<div class="goal"><b>🎯 첫 {first:,}원까지</b> <span class="hint">첫 온라인 수익 목표</span>
 <div class="bar"><div style="width:{goal['first_progress']}%"></div></div>
 <div class="row"><div>현재: <b>{goal['current']:,}원</b></div><div>남은 금액: <b>{first - goal['current']:,}원</b></div><div>진행률: <b>{goal['first_progress']:g}%</b></div></div></div>"""
     nxt = "" if goal["all_achieved"] else (
@@ -124,69 +149,125 @@ def _task_card(t: dict, config: dict) -> str:
         else:
             left = t["minutes_left"]
             deadline = f'<div>⏰ 마감 {escape(_local(t["deadline"], config))} (남은 {_minutes(left) if left < 2880 else f"{left // 1440}일"})</div>'
-    link = (f'<a class="btn primary" href="{escape(t["url"])}" target="_blank" rel="noopener noreferrer">바로가기 ↗</a>'
-            if t.get("url") else '<span class="hint">링크 없음</span>')
+    learned = ""
+    if t.get("learned_hourly") is not None:  # 예상 시급만 보지 않게: 이 플랫폼 내 실제 기록
+        learned = (f'<div class="hint">내 기록: {escape(t["platform"])} 실제 {_rate(t["platform_actual_hourly"])} '
+                   f'(예상 대비 {t["platform_gap_pct"]:+g}%, {t["learned_basis"]}건) → 이 작업 약 <b>{t["learned_hourly"]:,}원</b></div>')
     memo = f'<div class="hint">📝 {escape(t["memo"])}</div>' if t.get("memo") else ""
+    tid = quote(t["id"])
+    accept = (f'<form method="post" action="/money/task/{tid}/accept"><button class="btn primary" type="submit">할래요</button></form>'
+              if t["status"] == "new" else "")
     return f"""<div class="task {t['grade']}{' expired' if t['expired'] else ''}" id="{escape(t['id'])}">
-<div class="p">{icon} {escape(t['platform'])} <span class="hint">{escape(desc)}</span></div>
+<div class="p">{icon} {escape(t['platform'])} <span class="rec {t['grade']}">{escape(t['recommended'])}</span></div>
 <div class="t">{escape(t['title'])}</div>
-<div class="n">예상시간 {_minutes(t['minutes'])}<br>예상보상 {escape(reward)}<br>예상 시급 <span class="rate">{t['estimated_hourly'] or 0:,}원</span>{deadline}</div>
-{memo}
-<div class="actions" style="margin-top:10px">{link}
-<a class="btn" href="/money/task/{quote(t['id'])}/complete">완료 기록</a>
-<form method="post" action="/money/task/{quote(t['id'])}/skip"><button class="btn ghost" type="submit">안 함</button></form></div></div>"""
+<div class="n">예상시간 {_minutes(t['minutes'])}<br>예상보상 {escape(reward)}<br>예상 시급 <span class="rate">{t['estimated_hourly'] or 0:,}원</span> <span class="hint">{escape(desc)}</span>{deadline}</div>
+{learned}{memo}
+<div class="actions" style="margin-top:10px">{accept}{_ext_link(t.get('url', ''), '바로가기 ↗', 'btn' if accept else 'btn primary') or '<span class="hint">링크 없음</span>'}
+<a class="btn" href="/money/task/{tid}/complete">완료 기록</a>
+<form method="post" action="/money/task/{tid}/skip"><button class="btn ghost" type="submit">안 함</button></form></div></div>"""
 
+
+def _platform_state(r: dict, config: dict) -> str:
+    if not r.get("active"):
+        return "— 오늘 루틴 제외"
+    if not r["checked_today"]:
+        return '○ 오늘 미확인'
+    return f'● 오늘 확인함 · {"작업 있음" if r["today_outcome"] == "found" else "작업 없음"}'
+
+
+def _routine_card(r: dict, config: dict) -> str:
+    name = escape(r["name"])
+    buttons = f"""{_ext_link(r['url'], '다시 확인 ↗' if r['checked_today'] else '확인하기 ↗', 'btn' if r['checked_today'] else 'btn primary')}
+<form method="post" action="/money/check"><input type="hidden" name="platform" value="{name}"><input type="hidden" name="outcome" value="none"><button class="btn" type="submit">작업 없었음</button></form>
+<form method="post" action="/money/check"><input type="hidden" name="platform" value="{name}"><input type="hidden" name="outcome" value="found"><button class="btn" type="submit">작업 있음 → 등록</button></form>"""
+    return f"""<div class="plat{' checked' if r['checked_today'] else ''}"><div class="name">{name} <span class="hint">{escape(r['kind_label'])}</span></div>
+<div class="state">{_platform_state(r, config)}</div>
+<div class="actions">{buttons}</div>
+<div class="hint" style="margin-top:6px">누적 {_won(r['earned'])} · 실제 시급 {_rate(r['actual_hourly'])} · 최근 확인 {escape(_local(r['last_checked_at'], config, '%m-%d %H:%M'))}</div></div>"""
+
+
+def _quick_form(text: str = "", platform: str = "") -> str:
+    value = text or (f"{platform} " if platform else "")
+    return f"""<form method="post" action="/money/quick" class="card" id="quick" style="display:block;max-width:none">
+<div class="row"><div style="flex:3 1 260px"><input type="text" name="text" value="{escape(value)}" placeholder="예: 패널나우 20분 850P 일반인 의견 조사" required{' autofocus' if platform else ''}></div>
+<div style="flex:0 0 auto"><button class="btn primary big" type="submit">확인</button></div></div>
+<div class="hint">플랫폼 · 시간 · 보상을 적으면 예상 시급을 계산해 <b>저장 전에 확인 화면</b>을 보여줍니다. 캡처에서 읽은 여러 줄 글은 <a href="/money/capture">📷 캡처 텍스트로 등록</a>.</div></form>"""
+
+
+# ---- /money --------------------------------------------------------------------------------
 
 def render_home(store: money.MoneyStore, query: dict, notice=None, error=None, quick_text="") -> str:
     config = store.config
-    tasks, log = store.tasks(), store.log()
+    tasks, log, checks = store.tasks(), store.log(), store.checks()
     stats = money.period_stats(log, config)
     goal = money.goal_status(stats["total"]["earned"], config)
+    today = money.today_summary(tasks, log, checks, config)
+    routine = [r for r in money.routine(tasks, log, checks, config) if r.get("active") and r.get("url")]
     get = lambda k: (query.get(k) or [""])[0]  # noqa: E731
     sort, grade_filter, platform_filter = get("sort") or "hourly", get("grade"), get("platform")
-    rows = money.open_tasks(tasks, config, sort=sort)
-    shown = [t for t in rows if (not grade_filter or t["grade"] == grade_filter) and (not platform_filter or t["platform"] == platform_filter)]
-    cards = "".join(_task_card(t, config) for t in shown) or (
-        '<div class="card">아직 등록된 작업이 없습니다. 위 <b>빠른 등록</b>에 "패널나우 20분 850P"처럼 적어 보세요.</div>' if not rows
+
+    def pick(statuses):
+        rows = money.open_tasks(tasks, config, sort=sort, statuses=statuses, log=log)
+        return rows, [t for t in rows if (not grade_filter or t["grade"] == grade_filter) and (not platform_filter or t["platform"] == platform_filter)]
+
+    opp_all, opps = pick(("new",))
+    task_all, open_rows = pick(("open",))
+    opp_cards = "".join(_task_card(t, config) for t in opps) or (
+        '<div class="card">아직 발견한 기회가 없습니다. 플랫폼을 확인하고 할 만한 작업이 있으면 위에 적어 보세요.</div>' if not opp_all
+        else '<div class="card">조건에 맞는 기회가 없습니다.</div>')
+    task_cards = "".join(_task_card(t, config) for t in open_rows) or (
+        '<div class="card">하기로 한 작업이 없습니다. 기회 카드에서 [할래요]를 누르면 여기로 옵니다.</div>' if not task_all
         else '<div class="card">조건에 맞는 작업이 없습니다.</div>')
     th = config["thresholds"]
-    legend = (f'<div class="legend hint"><span>🟢 {th["green"]:,}원/시간 이상</span><span>🟡 {th["yellow"]:,}~{th["green"] - 1:,}</span>'
-              f'<span>🟠 {th["orange"]:,}~{th["yellow"] - 1:,}</span><span>🔴 {th["orange"]:,} 미만</span>'
+    legend = (f'<div class="legend hint"><span>🟢 {th["green"]:,}원/시간 이상 · 지금 확인</span><span>🟡 {th["yellow"]:,}~{th["green"] - 1:,} · 시간 여유 있을 때</span>'
+              f'<span>🟠 {th["orange"]:,}~{th["yellow"] - 1:,} · 다른 작업 없을 때</span><span>🔴 {th["orange"]:,} 미만 · 보류</span>'
               '<span>(초기 실험용 기준 · <a href="/money/settings">바꾸기</a>)</span></div>')
     platforms = [p["name"] for p in config["platforms"]]
-    filters = f"""<form method="get" action="/money" class="row" style="max-width:720px;margin:6px 0 10px">
-<div><select name="sort">{_options([("hourly", "예상 시급 높은 순"), ("deadline", "마감 빠른 순"), ("new", "최근 등록 순")], sort)}</select></div>
-<div><select name="grade">{_options([("", "모든 등급")] + [(g, f"{i} {d}") for g, (i, d) in money.GRADES.items()], grade_filter)}</select></div>
+    filters = f"""<form method="get" action="/money" class="row" style="max-width:820px;margin:6px 0 10px">
+<div><select name="sort">{_options([("hourly", "예상 시급 높은 순"), ("deadline", "마감 임박 순"), ("new", "최근 등록 순"), ("platform", "플랫폼 순"), ("grade", "등급 순")], sort)}</select></div>
+<div><select name="grade">{_options([("", "전체 등급")] + [(g, f"{i} {g}") for g, (i, d) in money.GRADES.items()], grade_filter)}</select></div>
 <div><select name="platform">{_options([("", "모든 플랫폼")] + [(p, p) for p in platforms], platform_filter)}</select></div>
 <div style="flex:0 0 auto"><button class="btn" type="submit">보기</button></div></form>"""
-    official = " · ".join(f'<a href="{escape(p["url"])}" target="_blank" rel="noopener noreferrer">{escape(p["name"])} ↗</a>'
-                          for p in config["platforms"] if p.get("url"))
+    checklist = "".join(f'<span>{"■" if r["checked_today"] else "□"} {escape(r["name"])}</span>' for r in routine)
+    recent = "".join(
+        f'<tr><td>{escape(_local(e["completed_at"], config, "%m-%d %H:%M"))}</td><td>{escape(e["platform"])}</td><td>{escape(e["title"])}</td>'
+        f'<td class="num">{money.won(e):,}원</td><td class="num">{_rate(e["actual_hourly"])}</td></tr>'
+        for e in sorted(log, key=lambda e: e["completed_at"], reverse=True)[:5]) or '<tr><td colspan="5">아직 수익 기록이 없습니다.</td></tr>'
+    t = stats["today"]
     return f"""<div class="money">{NAV}
-<h1>💰 TAK AUTO MONEY</h1><div class="sub">온라인 수익 노가다 관제판 — 찾고(DISCOVER) · 거르고(FILTER) · 직접 하고(DO) · 기록하고(RECORD) · 배운다(LEARN)</div>
+<h1>💰 TAK AUTO MONEY</h1><div class="sub">온라인 수익 노가다 관제판 — 기회(OPPORTUNITY) · 수익성 · 우선순위 · 직접 실행 · 기록 · 학습</div>
 {_banner(notice, error)}
+<div class="today"><b>① 오늘의 수익</b><div class="nums"><div>오늘 수익 <b>{t['earned']:,}원</b></div><div>투자 <b>{escape(_minutes(t['minutes']))}</b></div>
+<div>시급 <b>{escape(_rate(t['hourly']))}</b></div><div>완료 <b>{today['completed_today']}건</b></div></div></div>
 {_goal_html(goal)}
-{_kpis(stats)}
+<div class="today"><b>🔥 오늘의 MONEY ROUTINE</b> <span class="hint">오늘 할 일</span>
+<div class="checklist" style="margin-top:6px">오늘 확인할 곳 ({today['checked']}/{today['platforms']}): {checklist}</div>
+<div class="nums"><div>오늘 발견한 기회 <b>{today['found_today']}건</b></div><div>오늘 완료한 작업 <b>{today['completed_today']}건</b></div><div>오늘 수익 <b>{today['earned_today']:,}원</b></div></div>
+<details style="margin-top:6px"><summary class="hint">하루 사용법</summary><ol class="hint">{"".join(f"<li>{escape(s)}</li>" for s in HOW_TO)}</ol></details></div>
+
+<h2 id="routine">④ 지금 확인할 플랫폼 <span class="hint"><a href="/money/platforms">💰 수익 플랫폼 전체 →</a></span></h2>
+<div class="routine">{"".join(_routine_card(r, config) for r in routine)}</div>
+<div class="hint" style="margin-top:6px">"확인함"은 내가 공식 사이트를 직접 봤다는 기록일 뿐, 작업이 있다는 뜻이 아닙니다. 확인했지만 작업이 없던 날도 기록됩니다.</div>
+
 <h2>⚡ 빠른 등록</h2>
-<form method="post" action="/money/quick" class="card" style="display:block">
-<div class="row"><div style="flex:3 1 260px"><input type="text" name="text" value="{escape(quick_text)}" placeholder="예: 패널나우 20분 850P 일반인 의견 조사" required></div>
-<div style="flex:0 0 auto"><button class="btn primary big" type="submit">등록</button></div></div>
-<div class="hint">플랫폼 · 시간 · 보상만 적으면 예상 시급을 계산해 등록합니다(링크는 플랫폼 공식 주소).</div></form>
-<h2>🔥 지금 할 만한 온라인 작업 <span class="hint">({len(rows)}건)</span></h2>
+{_quick_form(quick_text, get('found'))}
+
+<h2>💡 수익 기회 <span class="hint">({len(opp_all)}건 · 발견만 한 것, [할래요]로 작업이 됩니다)</span></h2>
 {legend}{filters}
-<div class="tasks">{cards}</div>
+<div class="tasks">{opp_cards}</div>
 
-<details class="card"><summary><b>✍️ 자세히 등록</b> (링크·메모·마감시간)</summary>
-<form method="post" action="/money/tasks" style="display:block">
-<div class="row"><div><label class="f">플랫폼</label><select name="platform">{_options([(p, p) for p in platforms], platforms[0])}</select></div>
-<div style="flex:2 1 240px"><label class="f">작업명</label><input type="text" name="title" required maxlength="120" placeholder="일반인 의견 조사"></div></div>
-<div class="row"><div><label class="f">예상 보상 (원 또는 P)</label><input type="text" name="reward" inputmode="numeric" required placeholder="850"></div>
-<div><label class="f">예상 소요시간 (분)</label><input type="text" name="minutes" inputmode="numeric" required placeholder="20"></div>
-<div><label class="f">마감시간 (선택)</label><input type="datetime-local" name="deadline"></div></div>
-<label class="f">공식 링크 (비우면 플랫폼 공식 주소)</label><input type="url" name="url" placeholder="https://">
-<label class="f">메모 (선택 · 비밀번호/개인정보는 적지 마세요)</label><input type="text" name="memo" maxlength="500">
-<div style="margin-top:10px"><button class="btn primary big" type="submit">저장</button></div></form></details>
+<h2>🔥 지금 할 만한 온라인 작업 <span class="hint">({len(task_all)}건 · 하기로 한 작업)</span></h2>
+<div class="tasks">{task_cards}</div>
 
-<details class="card"><summary><b>💵 작업 없이 들어온 수익 기록</b> (애드포스트 정산 등)</summary>
+<h2>📒 최근 수익 기록 <span class="hint"><a href="/money/log">전체·분석 →</a></span></h2>
+<div class="scroll"><table class="tbl"><tr><th>완료</th><th>플랫폼</th><th>작업</th><th class="num">수익</th><th class="num">실제 시급</th></tr>{recent}</table></div>
+
+<details class="card" style="margin-top:12px;max-width:none"><summary><b>📈 기간별 통계</b> (오늘·이번 주·이번 달·누적)</summary>{_kpis(stats)}</details>
+
+<details class="card" style="max-width:none"><summary><b>✍️ 자세히 등록</b> (링크·메모·마감시간)</summary>
+{_detail_form(platforms)}</details>
+
+<details class="card" style="max-width:none"><summary><b>💵 작업 없이 들어온 수익 기록</b> (애드포스트 정산 등)</summary>
 <form method="post" action="/money/income" style="display:block">
 <div class="row"><div><label class="f">플랫폼</label><select name="platform">{_options([(p, p) for p in platforms], "네이버 애드포스트")}</select></div>
 <div><label class="f">금액 (원)</label><input type="text" name="amount" inputmode="numeric" required></div>
@@ -195,20 +276,68 @@ def render_home(store: money.MoneyStore, query: dict, notice=None, error=None, q
 <div style="margin-top:10px"><button class="btn big" type="submit">기록</button></div>
 <div class="hint">시간을 비우면 수익에는 더하고 시간당 수익 계산에서는 뺍니다.</div></form></details>
 
-<div class="sub" style="margin-top:14px">공식 사이트: {official}<br>
-TAK AUTO는 계산·기록·공식 링크만 합니다. 로그인·설문 응답·본인인증은 각 사이트에서 직접 하세요. 비밀번호/인증번호/개인정보는 여기에 저장하지 않습니다.</div>
+<div class="sub" style="margin-top:14px">TAK AUTO는 계산·기록·공식 링크만 합니다. 로그인·설문 응답·본인인증은 각 사이트에서 직접 하세요. 비밀번호/인증번호/개인정보는 여기에 저장하지 않습니다.</div>
 </div>"""
+
+
+def _detail_form(platforms: list[str], draft: dict | None = None, *, confirm: bool = False) -> str:
+    d = draft or {}
+    miss = set(d.get("missing") or [])
+    cls = lambda k: ' class="missing"' if k in miss else ""  # noqa: E731
+    val = lambda k: escape("" if d.get(k) is None else f"{d[k]:g}" if isinstance(d.get(k), float) else str(d[k]))  # noqa: E731
+    buttons = ('<button class="btn primary big" type="submit" name="status" value="new">💡 기회로 저장</button> '
+               '<button class="btn big" type="submit" name="status" value="open">🔥 바로 할 작업으로 등록</button> '
+               '<a class="btn" href="/money">취소</a>') if confirm else '<button class="btn primary big" type="submit" name="status" value="open">저장</button>'
+    choices = ([("", "플랫폼 선택")] if "platform" in miss else []) + [(p, p) for p in platforms]
+    platform_opts = _options(choices, d.get("platform") or ("" if "platform" in miss else platforms[0]))
+    return f"""<form method="post" action="/money/tasks" style="display:block">
+<input type="hidden" name="source" value="{escape(d.get('source', 'manual'))}">
+<div class="row"><div><label class="f">플랫폼</label><select name="platform"{cls('platform')}>{platform_opts}</select></div>
+<div style="flex:2 1 240px"><label class="f">작업명</label><input type="text" name="title" required maxlength="120" value="{val('title')}" placeholder="일반인 의견 조사"></div></div>
+<div class="row"><div><label class="f">예상 보상 (원 또는 P)</label><input type="text" name="reward" inputmode="numeric" required value="{val('reward')}" placeholder="850"{cls('reward')}></div>
+<div><label class="f">예상 소요시간 (분)</label><input type="text" name="minutes" inputmode="numeric" required value="{val('minutes')}" placeholder="20"{cls('minutes')}></div>
+<div><label class="f">마감시간 (선택)</label><input type="datetime-local" name="deadline"></div></div>
+<label class="f">공식 링크 (비우면 플랫폼 공식 주소)</label><input type="url" name="url" placeholder="https://">
+<label class="f">메모 (선택 · 비밀번호/개인정보는 적지 마세요)</label><input type="text" name="memo" maxlength="500">
+<div class="actions" style="margin-top:10px">{buttons}</div></form>"""
+
+
+def render_confirm(store: money.MoneyStore, draft: dict, error=None) -> str:
+    """빠른 등록/캡처 텍스트 -> 저장 전 확인 화면(고칠 수 있음)."""
+    platforms = [p["name"] for p in store.config["platforms"]]
+    if draft.get("estimated_hourly") is not None:
+        icon, _ = money.GRADES[draft["grade"]]
+        summary = (f'<div class="task {draft["grade"]}" style="max-width:520px"><div class="p">{icon} {escape(draft["platform"] or "-")} '
+                   f'<span class="rec {draft["grade"]}">{escape(draft["recommended"])}</span></div><div class="t">{escape(draft["title"])}</div>'
+                   f'<div class="n">시간 {_minutes(draft["minutes"])} · 보상 {draft["reward"]:,} → 예상 시급 <span class="rate">{draft["estimated_hourly"]:,}원</span></div></div>')
+    else:
+        summary = ""
+    missing = ""
+    if draft.get("missing"):
+        names = {"platform": "플랫폼", "minutes": "시간", "reward": "보상"}
+        missing = f'<div class="error">읽지 못한 값: {", ".join(names[k] for k in draft["missing"])} — 빨간 칸을 채워 주세요.</div>'
+    source = f'<details class="hint"><summary>입력한 원문</summary><pre style="white-space:pre-wrap">{escape(draft.get("source_text", ""))}</pre></details>'
+    return f"""<div class="money">{NAV}<h1>등록 전 확인</h1>{_banner(None, error)}{missing}
+<div class="sub">읽은 값이 맞는지 확인하고 고친 뒤 등록하세요. 아직 저장되지 않았습니다.</div>
+{summary}<div class="card" style="max-width:720px">{_detail_form(platforms, draft, confirm=True)}</div>{source}</div>"""
+
+
+def render_capture() -> str:
+    return f"""<div class="money">{NAV}<h1>📷 캡처 텍스트로 등록</h1>
+<div class="sub">설문 알림/목록 화면을 캡처해 글자만 복사(휴대폰의 '텍스트 복사' 등)해서 붙여 넣으세요. TAK AUTO는 이미지를 읽거나 외부 OCR을 부르지 않습니다.</div>
+<form method="post" action="/money/quick" class="card" style="display:block;max-width:720px">
+<textarea name="text" rows="7" placeholder="패널나우&#10;일반인 의견 조사&#10;약 20분&#10;850P" required></textarea>
+<div style="margin-top:10px"><button class="btn primary big" type="submit">읽기 → 확인 화면</button></div></form></div>"""
 
 
 # ---- 완료 기록 ------------------------------------------------------------------------------
 
 def render_complete(store: money.MoneyStore, task: dict, error=None, form=None) -> str:
-    config = store.config
     form = form or {}
     val = lambda k, d="": escape((form.get(k) or [d])[0])  # noqa: E731
     pv = task.get("point_value", 1)
     est = money.hourly(task["reward"] * pv, task["minutes"])
-    done = task["status"] != "open"
+    done = task["status"] not in ("open", "new")
     body = (f'<div class="error">{escape(money.ERROR_TEXT["ALREADY_COMPLETED" if task["status"] == "done" else "TASK_CLOSED"])}</div>' if done else f"""
 <form method="post" action="/money/task/{quote(task['id'])}/complete" class="card" style="display:block">
 <div class="row"><div><label class="f">실제 받은 보상 (원 또는 P)</label><input type="text" name="actual_reward" inputmode="numeric" required value="{val('actual_reward', str(task['reward']))}"></div>
@@ -237,16 +366,44 @@ def render_log(store: money.MoneyStore, notice=None) -> str:
     for e in sorted(log, key=lambda e: e["completed_at"], reverse=True):
         est = (f'{e["estimated_reward"]:,}원 / {_minutes(e["estimated_minutes"])} ({_rate(e["estimated_hourly"])})'
                if e.get("kind") == "task" else "작업 없이 들어온 수익")
+        gap = ""
+        if e.get("kind") == "task" and e.get("estimated_hourly") and e.get("actual_hourly") is not None:
+            pct = (e["actual_hourly"] - e["estimated_hourly"]) * 100 / e["estimated_hourly"]
+            gap = f' <span class="{"up" if pct >= 0 else "down"}">(예상 대비 {pct:+.1f}%)</span>'
         entries.append(f"""<div class="card"><b>{escape(e['platform'])}</b> · {escape(e['title'])}
 <div class="n">예상: {escape(est)}<br>실제: <b>{money.won(e):,}원 / {_minutes(e['actual_minutes'])}</b><br>
-실제 시급: <b>{_rate(e['actual_hourly'])}</b><br><span class="hint">완료: {escape(_local(e['completed_at'], config))}</span>
+실제 시급: <b>{_rate(e['actual_hourly'])}</b>{gap}<br><span class="hint">완료: {escape(_local(e['completed_at'], config))}</span>
 {f'<div class="hint">📝 {escape(e["memo"])}</div>' if e.get('memo') else ''}</div></div>""")
     return f"""<div class="money">{NAV}<h1>📒 수익 기록 · 분석</h1>{_banner(notice, None)}
 {_kpis(stats)}
 <h2>📊 플랫폼별</h2>
-<table class="tbl"><tr><th>플랫폼</th><th class="num">건수</th><th class="num">누적 수익</th><th class="num">투자</th><th class="num">실제 시급</th><th class="num">예상 시급</th><th class="num">예상 대비</th></tr>{prow}</table>
+<div class="scroll"><table class="tbl"><tr><th>플랫폼</th><th class="num">건수</th><th class="num">누적 수익</th><th class="num">투자</th><th class="num">실제 시급</th><th class="num">예상 시급</th><th class="num">예상 대비</th></tr>{prow}</table></div>
 <div class="hint">예상 대비 = (실제 시급 − 예상 시급) ÷ 예상 시급. 기록이 쌓일수록 어느 플랫폼이 실제로 나은지 보입니다.</div>
 <h2>최근 완료</h2>{"".join(entries) or '<div class="card">아직 기록이 없습니다.</div>'}</div>"""
+
+
+# ---- /money/platforms -----------------------------------------------------------------------
+
+def render_platforms(store: money.MoneyStore, notice=None, error=None) -> str:
+    config = store.config
+    rows = money.routine(store.tasks(), store.log(), store.checks(), config)
+    cards = []
+    for r in rows:
+        noti = {True: "알림 있음", False: "알림 없음", None: "알림 여부 미확인"}[r.get("notification_available")]
+        cards.append(f"""<div class="plat{' checked' if r['checked_today'] else ''}"><div class="name">{escape(r['name'])} <span class="hint">{escape(r['kind_label'])}</span></div>
+<div class="hint">{escape(r.get('description') or '')}{' · 오늘 루틴 제외' if not r.get('active') else ''} · {noti}</div>
+<div class="state">{_platform_state(r, config)}</div>
+<div class="actions">{_ext_link(r.get('url', ''), '공식 사이트 ↗') or '<span class="hint">공식 링크 없음</span>'}</div>
+<table class="kv hint" style="margin-top:6px"><tr><td>누적 수익</td><td>{_won(r['earned'])}</td></tr><tr><td>실제 시급</td><td>{_rate(r['actual_hourly'])}</td></tr>
+<tr><td>예상 대비</td><td>{'-' if r['hourly_gap_pct'] is None else f"{r['hourly_gap_pct']:+g}%"}</td></tr>
+<tr><td>최근 확인</td><td>{escape(_local(r['last_checked_at'], config))}</td></tr>
+<tr><td>확인 / 작업 없음</td><td>{r['check_count']}회 / {r['no_task_count']}회</td></tr>
+<tr><td>발견 / 완료</td><td>{r['found_count']}건 / {r['completed_count']}건 (열린 것 {r['open_count']})</td></tr></table>
+<form method="post" action="/money/platforms/note" style="display:block;margin-top:6px"><input type="hidden" name="platform" value="{escape(r['name'])}">
+<input type="text" name="note" maxlength="500" value="{escape(r['note'])}" placeholder="메모(예: 알림 오면 30분 안에 마감)"><button class="btn" type="submit" style="margin-top:6px">메모 저장</button></form></div>""")
+    return f"""<div class="money">{NAV}<h1>💰 수익 플랫폼</h1>{_banner(notice, error)}
+<div class="sub">공식 사이트 링크와 내 기록만 보여줍니다. 외부 사이트의 작업 목록을 가져오지 않습니다(로그인·약관·개인정보 문제). 플랫폼 추가는 money_config.json의 platforms 목록으로.</div>
+<div class="routine">{"".join(cards)}</div></div>"""
 
 
 # ---- 설정 ----------------------------------------------------------------------------------
@@ -257,17 +414,19 @@ def render_settings(store: money.MoneyStore, notice=None, error=None) -> str:
 <form method="post" action="/money/settings" class="card" style="display:block">
 <label class="f">목표 금액 (원, 쉼표로 여러 개 — 가장 작은 값이 첫 목표)</label>
 <input type="text" name="goals" value="{escape(', '.join(str(g) for g in c['goals']))}">
-<div class="row"><div><label class="f">🟢 적극 검토 (원/시간 이상)</label><input type="text" name="green" inputmode="numeric" value="{c['thresholds']['green']}"></div>
-<div><label class="f">🟡 검토 (이상)</label><input type="text" name="yellow" inputmode="numeric" value="{c['thresholds']['yellow']}"></div>
-<div><label class="f">🟠 낮음 (이상, 그 아래는 🔴)</label><input type="text" name="orange" inputmode="numeric" value="{c['thresholds']['orange']}"></div></div>
+<div class="row"><div><label class="f">🟢 지금 확인 (원/시간 이상)</label><input type="text" name="green" inputmode="numeric" value="{c['thresholds']['green']}"></div>
+<div><label class="f">🟡 시간 여유 있을 때 (이상)</label><input type="text" name="yellow" inputmode="numeric" value="{c['thresholds']['yellow']}"></div>
+<div><label class="f">🟠 다른 작업 없을 때 (이상, 그 아래는 🔴 보류)</label><input type="text" name="orange" inputmode="numeric" value="{c['thresholds']['orange']}"></div></div>
 <div style="margin-top:10px"><button class="btn primary big" type="submit">저장</button></div>
-<div class="hint">초기 실험용 기준입니다. 실제 기록을 보고 바꾸세요. 저장 위치: money_config.json</div></form></div>"""
+<div class="hint">초기 실험용 기준입니다. 기준을 바꾸면 모든 카드의 등급과 추천 행동이 바로 다시 계산됩니다. 저장 위치: money_config.json</div></form></div>"""
 
 
 # ---- 요청 처리 ------------------------------------------------------------------------------
 
-NOTICES = {"added": "작업을 등록했습니다.", "done": "완료 기록을 저장했습니다(예상값과 실제값을 따로 보관).",
-           "skipped": "작업을 목록에서 내렸습니다(기록은 남습니다).", "income": "수익을 기록했습니다.", "saved": "저장했습니다."}
+NOTICES = {"added": "작업을 등록했습니다.", "opportunity": "기회를 저장했습니다. 할 거면 [할래요]를 누르세요.",
+           "accepted": "할 작업으로 옮겼습니다.", "done": "완료 기록을 저장했습니다(예상값과 실제값을 따로 보관).",
+           "skipped": "목록에서 내렸습니다(기록은 남습니다).", "income": "수익을 기록했습니다.", "saved": "저장했습니다.",
+           "checked": "오늘 확인함으로 기록했습니다(작업 없음).", "found": "오늘 확인함(작업 있음) — 아래 빠른 등록에 적어 주세요."}
 
 
 def handle(config, method: str, path: str, query: dict, body: bytes = b""):
@@ -276,10 +435,21 @@ def handle(config, method: str, path: str, query: dict, body: bytes = b""):
     notice = NOTICES.get((query.get("notice") or [""])[0])
     try:
         store = _store(config)
+        home_error = lambda e, text="": ("html", 400, _page("TAK AUTO MONEY", render_home(store, {}, error=e.text, quick_text=text)))  # noqa: E731
         if method == "GET" and path == "/money":
             return "html", 200, _page("TAK AUTO MONEY", render_home(store, query, notice))
         if method == "GET" and path == "/money/log":
             return "html", 200, _page("MONEY 기록", render_log(store, notice))
+        if method == "GET" and path == "/money/capture":
+            return "html", 200, _page("캡처 텍스트로 등록", render_capture())
+        if method == "GET" and path == "/money/platforms":
+            return "html", 200, _page("수익 플랫폼", render_platforms(store, notice))
+        if method == "POST" and path == "/money/platforms/note":
+            try:
+                money.save_platform_note(config.money_config_path, get("platform"), get("note"))
+            except money.MoneyError as error:
+                return "html", 400, _page("수익 플랫폼", render_platforms(store, error=error.text))
+            return "redirect", "/money/platforms?notice=saved"
         if path == "/money/settings":
             if method == "POST":
                 try:
@@ -289,26 +459,38 @@ def handle(config, method: str, path: str, query: dict, body: bytes = b""):
                     return "html", 400, _page("MONEY 설정", render_settings(store, error=error.text))
                 return "redirect", "/money/settings?notice=saved"
             return "html", 200, _page("MONEY 설정", render_settings(store, notice))
-        if method == "POST" and path == "/money/quick":
+        if method == "POST" and path == "/money/check":
             try:
-                parsed = money.quick_parse(get("text"), store.config)
-                store.add_task(platform=parsed["platform"], title=parsed["title"], reward=parsed["reward"],
-                               minutes=parsed["minutes"], source="quick")
+                store.record_check(get("platform"), get("outcome"))
             except money.MoneyError as error:
-                return "html", 400, _page("TAK AUTO MONEY", render_home(store, {}, error=error.text, quick_text=get("text")))
-            return "redirect", "/money?notice=added"
+                return home_error(error)
+            if get("outcome") == "found":
+                return "redirect", f"/money?notice=found&found={quote(get('platform'))}#quick"
+            return "redirect", "/money?notice=checked#routine"
+        if method == "POST" and path == "/money/quick":
+            text = get("text")
+            if not text.strip():
+                return home_error(money.MoneyError("QUICK_PARSE_FAILED"), text)
+            draft = money.parse_opportunity(text, store.config)
+            draft["source"] = "ocr" if "\n" in text.strip() else "quick"
+            return "html", 200, _page("등록 전 확인", render_confirm(store, draft))  # 저장하지 않는다 - 확인 화면만
         if method == "POST" and path == "/money/tasks":
+            status = get("status") or "open"
             try:
                 store.add_task(platform=get("platform"), title=get("title"), reward=get("reward"), minutes=get("minutes"),
-                               url=get("url"), memo=get("memo"), deadline=get("deadline"))
+                               url=get("url"), memo=get("memo"), deadline=get("deadline"), status=status,
+                               source=get("source") if get("source") in ("manual", "quick", "ocr") else "manual", dedupe=True)
             except money.MoneyError as error:
-                return "html", 400, _page("TAK AUTO MONEY", render_home(store, {}, error=error.text))
-            return "redirect", "/money?notice=added"
+                draft = {k: get(k) for k in ("platform", "title", "reward", "minutes", "source")}
+                if get("source") in ("quick", "ocr"):  # 확인 화면에서 온 입력은 확인 화면으로 되돌려 값을 잃지 않게
+                    return "html", 400, _page("등록 전 확인", render_confirm(store, {**draft, "missing": []}, error=error.text))
+                return home_error(error)
+            return "redirect", f"/money?notice={'opportunity' if status == 'new' else 'added'}"
         if method == "POST" and path == "/money/income":
             try:
                 store.record_income(platform=get("platform"), amount=get("amount"), minutes=get("minutes"), title=get("title"))
             except money.MoneyError as error:
-                return "html", 400, _page("TAK AUTO MONEY", render_home(store, {}, error=error.text))
+                return home_error(error)
             return "redirect", "/money/log?notice=income"
         parts = path.split("/")  # ["", "money", "task", id, action]
         if len(parts) == 5 and parts[2] == "task":
@@ -326,12 +508,12 @@ def handle(config, method: str, path: str, query: dict, body: bytes = b""):
                     status = 409 if error.code in ("ALREADY_COMPLETED", "TASK_CLOSED") else 400
                     return "html", status, _page("완료 기록", render_complete(store, store.task(task_id), error=error.text, form=form))
                 return "redirect", "/money/log?notice=done"
-            if action == "skip" and method == "POST":
+            if action in ("skip", "accept") and method == "POST":
                 try:
-                    store.skip(task_id)
+                    store.skip(task_id) if action == "skip" else store.accept(task_id)
                 except money.MoneyError as error:
                     return "html", 409, _page("TAK AUTO MONEY", render_home(store, {}, error=error.text))
-                return "redirect", "/money?notice=skipped"
+                return "redirect", f"/money?notice={'skipped' if action == 'skip' else 'accepted'}"
     except money.MoneyError as error:  # 데이터 파일을 읽을 수 없음 - 덮어쓰지 않고 알린다
         return "html", 500, _page("MONEY 오류", f'<div class="money">{NAV}<div class="error">{escape(error.text)}</div></div>')
     return "html", 404, _page("페이지 없음", "<p>페이지를 찾을 수 없습니다.</p>")

@@ -682,9 +682,12 @@ def build_money_row(inputs: OperatorInputs) -> StatusWhyAction:
     goal = "달성 🎉" if m["first_achieved"] else f"{m['first_goal_progress']:g}%"
     why = (f"오늘 {m['today']:,}원 · 이번 달 {m['month']:,}원 · 열린 작업 {m['open_tasks']}건 · "
            f"첫 목표({m['first_goal']:,}원) {goal}")
+    if "unchecked_platforms" in m:  # 6-58: 새 기회 수, 오늘 확인 안 한 플랫폼 수
+        why += f" · 새 기회 {m['opportunities']}건 · 오늘 미확인 플랫폼 {m['unchecked_platforms']}/{m['routine_platforms']}곳"
     status = EMPTY if not (m["total"] or m["open_tasks"]) else ("GOAL_REACHED" if m["first_achieved"] else "IN_PROGRESS")
     return StatusWhyAction(label="MONEY", status=status, why=why, count=m["open_tasks"],
-                           action="" if m["open_tasks"] else "/money에서 할 만한 작업을 등록하세요.", detail_route="/money")
+                           action=("/money에서 오늘 확인할 플랫폼을 확인하세요." if m.get("unchecked_platforms")
+                                   else "" if m["open_tasks"] else "/money에서 할 만한 작업을 등록하세요."), detail_route="/money")
 
 
 def build_operator_summary(inputs: OperatorInputs) -> OperatorSummary:

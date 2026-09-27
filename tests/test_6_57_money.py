@@ -248,7 +248,7 @@ class MoneyHttpTests(MoneyCase):
             return error.code, path, error.read().decode("utf-8")
 
     def test_empty_home_log_settings(self) -> None:
-        for path, texts in (("/money", ("💰 TAK AUTO MONEY", "온라인 수익 노가다 관제판", "🎯 첫 온라인 수익 목표", "10,000원", "남은 금액: <b>10,000원", "진행률: <b>0%",
+        for path, texts in (("/money", ("💰 TAK AUTO MONEY", "온라인 수익 노가다 관제판", "🎯 첫 10,000원까지", "첫 온라인 수익 목표", "10,000원", "남은 금액: <b>10,000원", "진행률: <b>0%",
                                          "오늘 수익", "누적 투자시간", "이번 달 실제 시간당 수익", "🔥 지금 할 만한 온라인 작업", "빠른 등록",
                                          "https://www.panelnow.co.kr/", "https://ovey.io/", "https://www.heypoll.co.kr/", "https://adpost.naver.com/")),
                             ("/money/log", ("📊 플랫폼별", "패널나우", "헤이폴", "아직 기록이 없습니다")),
@@ -261,7 +261,11 @@ class MoneyHttpTests(MoneyCase):
         self.assertFalse((self.dir / "money_tasks.json").exists())
 
     def test_full_flow_over_http(self) -> None:
-        _, url, html = self.req("/money/quick", {"text": "패널나우 20분 850P 일반인 의견 조사"})
+        status, _, html = self.req("/money/quick", {"text": "패널나우 20분 850P 일반인 의견 조사"})
+        self.assertEqual((status, self.store.tasks()), (200, []))  # 6-58: 확인 화면만, 아직 저장 안 됨
+        self.assertIn("등록 전 확인", html)
+        _, url, html = self.req("/money/tasks", {"platform": "패널나우", "title": "일반인 의견 조사", "reward": "850", "minutes": "20",
+                                                  "source": "quick", "status": "open", "url": "", "memo": "", "deadline": ""})
         self.assertIn("notice=added", url)
         for t in ("일반인 의견 조사", "예상시간 20분", "예상보상 850원", "2,550원", 'target="_blank" rel="noopener noreferrer"', "완료 기록"):
             self.assertIn(t, html)
@@ -282,8 +286,12 @@ class MoneyHttpTests(MoneyCase):
 
     def test_form_errors_keep_input_and_explain(self) -> None:
         status, _, html = self.req("/money/quick", {"text": "패널나우 850P"})
+        self.assertEqual(status, 200)
+        self.assertIn("패널나우 850P", html)  # 입력 원문 유지
+        self.assertIn("읽지 못한 값: 시간", html)
+        self.assertEqual(self.store.tasks(), [])
+        status, _, html = self.req("/money/quick", {"text": "  "})
         self.assertEqual(status, 400)
-        self.assertIn("패널나우 850P", html)
         self.assertIn("예: 패널나우 20분 850P", html)
         status, _, html = self.req("/money/tasks", {"platform": "패널나우", "title": "x", "reward": "850", "minutes": "20", "url": "javascript:alert(1)"})
         self.assertEqual(status, 400)

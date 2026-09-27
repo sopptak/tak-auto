@@ -139,7 +139,7 @@ def _money_summary(data_dir: Path) -> dict | None:
     try:
         config = money.load_config(data_dir / "money_config.json")
         store = money.MoneyStore(data_dir / "money_tasks.json", data_dir / "money_log.json", config)
-        return money.operator_status(store.tasks(), store.log(), config)
+        return money.operator_status(store.tasks(), store.log(), config, checks=store.checks())
     except money.MoneyError:
         return None
 

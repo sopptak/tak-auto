@@ -2912,7 +2912,8 @@ def make_handler_class(
 
                     money_config = money_engine.load_config(config.money_config_path)
                     money_store = money_engine.MoneyStore(config.money_tasks_path, config.money_log_path, money_config)
-                    money_summary = money_engine.operator_status(money_store.tasks(), money_store.log(), money_config)
+                    money_summary = money_engine.operator_status(money_store.tasks(), money_store.log(), money_config,
+                                                                 checks=money_store.checks())
                 except money_engine.MoneyError:
                     money_summary = None
                 operator_inputs = OperatorInputs(

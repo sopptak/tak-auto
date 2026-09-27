@@ -1,9 +1,13 @@
-"""TAK AUTO MONEY(6-57) - 온라인 수익 노가다 관제판의 데이터/계산.
+"""TAK AUTO MONEY(6-57, 6-58) - 온라인 수익 노가다 관제판의 데이터/계산.
 
-    DISCOVER(작업 등록) -> FILTER(예상 시급 등급) -> DO(사람이 공식 사이트에서 직접) -> RECORD(실제 보상/시간) -> LEARN(통계)
+    6-57: DISCOVER(작업 등록) -> FILTER(예상 시급 등급) -> DO(사람이 공식 사이트에서 직접) -> RECORD(실제 보상/시간) -> LEARN(통계)
+    6-58: OPPORTUNITY(기회 status=new) -> PROFITABILITY(예상 시급·등급) -> PRIORITY(추천 행동·정렬) -> ACTION(accept -> status=open)
+          -> RECORD(complete -> 로그) -> LEARN(플랫폼별 실제/예상, 확인 기록)
 
 저장:
-    data/money_tasks.json   작업 후보(예상 보상/시간 - 등록 후 바꾸지 않는다)
+    data/money_tasks.json   기회와 작업(같은 목록, status로 구분: new=기회, open=하기로 한 작업, done, skipped).
+                            예상 보상/시간은 등록 후 바꾸지 않는다.
+    data/money_checks.json  플랫폼 확인 기록(오늘 확인함, 작업 있음/없음) - 수익과 별개로 "확인했지만 없었다"도 데이터다.
     data/money_log.json     완료/수익 기록(예상값 사본 + 실제값을 따로 보존, 추가만 한다)
     data/money_config.json  (선택) 목표 금액·등급 기준·플랫폼 목록 덮어쓰기. 없으면 DEFAULT_CONFIG.
 
@@ -39,13 +43,27 @@ DEFAULT_CONFIG = {
     "thresholds": {"green": 3000, "yellow": 2000, "orange": 1000},
     "platforms": [
         # point_value: 보상 1(포인트) = 몇 원인지. 확인되지 않은 환산은 1로 두고 사람이 설정에서 바꾼다.
-        {"name": "패널나우", "url": "https://www.panelnow.co.kr/", "aliases": ["panelnow", "패널"], "point_value": 1, "kind": "survey"},
-        {"name": "오베이", "url": "https://ovey.io/", "aliases": ["ovey"], "point_value": 1, "kind": "survey"},
-        {"name": "헤이폴", "url": "https://www.heypoll.co.kr/", "aliases": ["heypoll"], "point_value": 1, "kind": "survey"},
-        {"name": "네이버 애드포스트", "url": "https://adpost.naver.com/", "aliases": ["애드포스트", "adpost"], "point_value": 1, "kind": "asset"},
-        {"name": "기타", "url": "", "aliases": ["etc"], "point_value": 1, "kind": "other"},
+        # 6-58 metadata: kind(survey/affiliate/content/digital_product/asset/other), description, active(오늘 루틴에 포함),
+        # notification_available(앱/문자 알림이 오는지 - 확인되지 않았으면 None). 새 플랫폼은 코드가 아니라 이 목록에 추가한다.
+        {"name": "패널나우", "url": "https://www.panelnow.co.kr/", "aliases": ["panelnow", "패널"], "point_value": 1, "kind": "survey",
+         "description": "설문 참여 적립", "active": True, "notification_available": None},
+        {"name": "오베이", "url": "https://ovey.io/", "aliases": ["ovey"], "point_value": 1, "kind": "survey",
+         "description": "설문 참여 적립", "active": True, "notification_available": None},
+        {"name": "헤이폴", "url": "https://www.heypoll.co.kr/", "aliases": ["heypoll"], "point_value": 1, "kind": "survey",
+         "description": "설문 참여 적립", "active": True, "notification_available": None},
+        {"name": "네이버 애드포스트", "url": "https://adpost.naver.com/", "aliases": ["애드포스트", "adpost"], "point_value": 1, "kind": "content",
+         "description": "블로그 등 콘텐츠 광고 수익(장기 수익자산)", "active": True, "notification_available": None},
+        {"name": "기타", "url": "", "aliases": ["etc"], "point_value": 1, "kind": "other", "description": "", "active": False,
+         "notification_available": None},
     ],
+    "platform_notes": {},  # 사람이 적는 플랫폼 메모 {이름: 메모}
 }
+KIND_LABELS = {"survey": "설문", "affiliate": "제휴 마케팅", "content": "콘텐츠 수익", "digital_product": "디지털 상품",
+               "asset": "장기 수익자산", "other": "기타"}
+# 등급 -> 추천 행동. 등급은 사용자가 정한 시급 기준(thresholds)으로 매번 다시 계산되므로 기준을 바꾸면 추천도 바뀐다.
+RECOMMENDED = {"GREEN": "지금 확인", "YELLOW": "시간 여유 있을 때", "ORANGE": "다른 작업 없을 때", "RED": "보류"}
+STATUS_LABELS = {"new": "기회", "open": "할 작업", "done": "완료", "skipped": "안 함"}
+CHECK_OUTCOMES = {"none": "확인함 · 작업 없음", "found": "확인함 · 작업 있음"}
 GRADES = {  # 등급 -> (표시, 설명)
     "GREEN": ("🟢", "적극적으로 검토"), "YELLOW": ("🟡", "검토"), "ORANGE": ("🟠", "낮음"), "RED": ("🔴", "매우 낮음"),
 }
@@ -64,6 +82,11 @@ ERROR_TEXT = {
     "GOALS_INVALID": "목표 금액은 1 이상의 숫자를 쉼표로 구분해 주세요(예: 10000, 100000).",
     "THRESHOLDS_INVALID": "등급 기준은 초록 ≥ 노랑 ≥ 주황 ≥ 0 이어야 합니다.",
     "DATA_UNREADABLE": "MONEY 데이터 파일을 읽을 수 없습니다(파일을 확인해 주세요 - 덮어쓰지 않았습니다).",
+    "DUPLICATE_OPPORTUNITY": "같은 기회(플랫폼·작업명·보상·시간)가 이미 목록에 있습니다.",
+    "NOT_AN_OPPORTUNITY": "기회(새로 발견) 상태에서만 '할래요'를 누를 수 있습니다.",
+    "PLATFORM_UNKNOWN": "설정에 없는 플랫폼입니다.",
+    "STATUS_INVALID": "등록 상태가 잘못됐습니다.",
+    "NOTE_TOO_LONG": "메모가 너무 깁니다(500자 이하).",
 }
 _LOCK = threading.Lock()  # 같은 PC의 Dashboard(ThreadingHTTPServer) 안에서 읽기-수정-쓰기를 한 번에
 
@@ -88,7 +111,7 @@ def load_config(path: Path | str | None) -> dict:
             data = json.loads(Path(path).read_text(encoding="utf-8"))
         except (OSError, ValueError) as error:
             raise MoneyError("DATA_UNREADABLE", str(path)) from error
-        for key in ("goals", "thresholds", "platforms", "utc_offset_hours", "currency"):
+        for key in ("goals", "thresholds", "platforms", "utc_offset_hours", "currency", "platform_notes"):
             if key in data:
                 config[key] = {**config[key], **data[key]} if key == "thresholds" else data[key]
     validate_goals(config["goals"])
@@ -125,6 +148,26 @@ def save_config(path: Path | str, goals, thresholds: dict) -> dict:
     return load_config(path)
 
 
+def save_platform_note(path: Path | str, name: str, note: str) -> dict:
+    """플랫폼 메모만 저장(다른 설정 키는 유지). 이름은 설정에 있는 플랫폼만."""
+    path = Path(path)
+    config = load_config(path)
+    if platform_info(config, name) is None:
+        raise MoneyError("PLATFORM_UNKNOWN", str(name)[:40])
+    note = str(note or "").strip()
+    if len(note) > MAX_TEXT["memo"]:
+        raise MoneyError("NOTE_TOO_LONG")
+    existing = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    notes = dict(existing.get("platform_notes") or {})
+    if note:
+        notes[name] = note
+    else:
+        notes.pop(name, None)
+    existing["platform_notes"] = notes
+    _write(path, existing)
+    return load_config(path)
+
+
 def platform_info(config: dict, name: str) -> dict | None:
     return next((p for p in config["platforms"] if p["name"] == name), None)
 
@@ -136,6 +179,10 @@ def hourly(reward: float, minutes: float) -> int | None:
     if not minutes or minutes <= 0:
         return None
     return int(round(reward * 60 / minutes))
+
+
+def recommend(grade_name: str | None) -> str:
+    return RECOMMENDED.get(grade_name or "RED", RECOMMENDED["RED"])
 
 
 def grade(rate: int | None, thresholds: dict) -> str:
@@ -209,32 +256,67 @@ def _deadline(value, config: dict) -> str | None:
     return dt.isoformat(timespec="minutes")
 
 
-def quick_parse(text: str, config: dict) -> dict:
-    """캡처/메모 한 줄 -> 작업 입력값. 예: '패널나우 20분 850P 일반인 의견 조사'
-    -> {platform, minutes, reward, title, estimated_hourly, grade}. 플랫폼 이름/별칭은 설정에서 찾는다."""
-    raw = str(text or "").strip()
+_TIME_RE = re.compile(
+    r"(?:(\d+(?:\.\d+)?)\s*[~\-]\s*)?(\d+(?:\.\d+)?)\s*(?:시간|hours?|hrs?)\s*(?:(\d+(?:\.\d+)?)\s*(?:분|minutes?|mins?|min|m)(?![a-z]))?"
+    r"|(?:(\d+(?:\.\d+)?)\s*[~\-]\s*)?(\d+(?:\.\d+)?)\s*(?:분|minutes?|mins?|min)(?![a-z])", re.I)
+_REWARD_RE = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*(P|p|원|포인트|points?|pt)(?![A-Za-z가-힣])")
+_REWARD_LABEL_RE = re.compile(r"(?:보상|적립|지급|리워드)\s*[:：]?\s*(\d[\d,]*)")
+# 캡처/알림 문구에 섞이는 안내 말(작업명이 아님). 단어 단위로만 지운다.
+_NOISE = {"약", "내외", "정도", "소요", "소요시간", "예상", "예상시간", "보상", "적립", "지급", "리워드", "최대", "시간", "설문시간",
+          ":", "：", "-", "·", "/", "|", "~", "(", ")", "[", "]"}
+
+
+def parse_opportunity(text: str, config: dict) -> dict:
+    """빠른 입력 한 줄 또는 캡처에서 읽은 여러 줄 텍스트 -> 기회 초안(저장하지 않는다 - 사람이 확인 화면에서 고친 뒤 등록).
+    예외를 내지 않고 {"platform", "title", "reward", "minutes", "estimated_hourly", "grade", "recommended", "missing": [...]}를 돌려준다.
+    시간 범위(15~20분)는 큰 값을 쓴다(시급을 낙관적으로 보지 않도록). OCR 호출은 하지 않는다 - 이미 읽은 텍스트만 받는다."""
+    raw = str(text or "").strip()[:1000]
     rest = raw
     platform = None
     for p in config["platforms"]:
-        for alias in [p["name"], *p.get("aliases", [])]:
+        for alias in sorted([p["name"], *p.get("aliases", [])], key=len, reverse=True):
             if alias and alias.lower() in rest.lower():
                 platform = p["name"]
                 rest = re.sub(re.escape(alias), " ", rest, count=1, flags=re.I)
                 break
         if platform:
             break
-    time_match = re.search(r"(\d+(?:\.\d+)?\s*(?:시간|hours?|hr|h)\s*)?(\d+(?:\.\d+)?\s*(?:분|minutes?|mins?|min))|\d+(?:\.\d+)?\s*(?:시간|hours?|hr)", rest, re.I)
-    reward_match = re.search(r"(\d[\d,]*(?:\.\d+)?)\s*(P|p|원|포인트)(?![A-Za-z])", rest)
-    if not platform or not time_match or not reward_match:
-        raise MoneyError("QUICK_PARSE_FAILED", raw[:60])
-    minutes = parse_minutes(time_match.group(0))
-    reward = parse_reward(reward_match.group(0))
-    for m in sorted((time_match, reward_match), key=lambda m: m.start(), reverse=True):
+    minutes = reward = None
+    m = _TIME_RE.search(rest)
+    if m:
+        try:
+            minutes = parse_minutes(f"{m.group(2)}시간 {m.group(3) or 0}분" if m.group(2) else f"{m.group(5)}분")
+        except MoneyError:
+            minutes = None
         rest = rest[:m.start()] + " " + rest[m.end():]
-    title = re.sub(r"\s+", " ", rest).strip(" -·/|,") or f"{platform} 작업"
-    rate = hourly(reward * platform_info(config, platform).get("point_value", 1), minutes)
-    return {"platform": platform, "minutes": minutes, "reward": reward, "title": title,
-            "estimated_hourly": rate, "grade": grade(rate, config["thresholds"])}
+    r = _REWARD_RE.search(rest) or _REWARD_LABEL_RE.search(rest)
+    if r:
+        try:
+            reward = parse_reward(r.group(1))
+        except MoneyError:
+            reward = None
+        rest = rest[:r.start()] + " " + rest[r.end():]
+    lines = []
+    for line in rest.splitlines():
+        words = [w for w in re.split(r"\s+", line.strip()) if w and w not in _NOISE and not re.fullmatch(r"[\d.,:：~\-]+", w)]
+        if words:
+            lines.append(" ".join(words).strip(" -·/|,:："))
+    title = " ".join(line for line in lines if line)[:MAX_TEXT["title"]]
+    point_value = (platform_info(config, platform) or {}).get("point_value", 1) if platform else 1
+    rate = hourly(reward * point_value, minutes) if reward is not None and minutes else None
+    g = grade(rate, config["thresholds"]) if rate is not None else None
+    return {"platform": platform, "title": title or (f"{platform} 작업" if platform else ""), "reward": reward, "minutes": minutes,
+            "estimated_hourly": rate, "grade": g, "recommended": recommend(g) if g else None, "source_text": raw,
+            "missing": [k for k, v in (("platform", platform), ("minutes", minutes), ("reward", reward)) if v is None]}
+
+
+def quick_parse(text: str, config: dict) -> dict:
+    """캡처/메모 한 줄 -> 작업 입력값. 예: '패널나우 20분 850P 일반인 의견 조사'
+    -> {platform, minutes, reward, title, estimated_hourly, grade, recommended}. 플랫폼·시간·보상 중 하나라도 없으면 QUICK_PARSE_FAILED."""
+    draft = parse_opportunity(text, config)
+    if draft["missing"]:
+        raise MoneyError("QUICK_PARSE_FAILED", str(text or "")[:60])
+    return {k: draft[k] for k in ("platform", "minutes", "reward", "title", "estimated_hourly", "grade", "recommended")}
 
 
 # ---- 저장소 --------------------------------------------------------------------------------
@@ -262,11 +344,22 @@ def _read_list(path: Path) -> list[dict]:
     return data
 
 
+def _key(title: str) -> str:
+    return re.sub(r"\s+", "", str(title)).lower()
+
+
 @dataclass
 class MoneyStore:
     tasks_path: Path
     log_path: Path
     config: dict
+    checks_path: Path | None = None  # 없으면 tasks 파일 옆 money_checks.json
+
+    def _checks_path(self) -> Path:
+        return Path(self.checks_path) if self.checks_path else Path(self.tasks_path).with_name("money_checks.json")
+
+    def checks(self) -> list[dict]:
+        return _read_list(self._checks_path())
 
     def tasks(self) -> list[dict]:
         return _read_list(Path(self.tasks_path))
@@ -281,18 +374,27 @@ class MoneyStore:
         return found
 
     def add_task(self, *, platform, title, reward, minutes, url="", memo="", deadline=None, source="manual",
-                 now: datetime | None = None) -> dict:
+                 now: datetime | None = None, status: str = "open", dedupe: bool | None = None) -> dict:
+        """status="new" = 기회(발견만), "open" = 하기로 한 작업. dedupe(기본: 기회일 때)면 같은 플랫폼·작업명·보상·시간의
+        열린 기회/작업이 있을 때 DUPLICATE_OPPORTUNITY."""
+        if status not in ("new", "open"):
+            raise MoneyError("STATUS_INVALID", str(status)[:20])
         platform = _text(platform, "platform", "PLATFORM_REQUIRED")
         info = platform_info(self.config, platform) or {}
         task = {
             "schema": TASKS_SCHEMA, "id": f"task-{uuid.uuid4().hex[:12]}", "platform": platform,
             "title": _text(title, "title", "TITLE_REQUIRED"), "reward": parse_reward(reward), "minutes": parse_minutes(minutes),
             "point_value": info.get("point_value", 1), "url": _url(url, info.get("url", "")), "memo": _text(memo, "memo"),
-            "deadline": _deadline(deadline, self.config), "status": "open", "source": source,
+            "deadline": _deadline(deadline, self.config), "status": status, "source": source,
             "created_at": (now or _now()).isoformat(timespec="seconds"), "closed_at": None,
+            "accepted_at": (now or _now()).isoformat(timespec="seconds") if status == "open" else None,
         }
         with _LOCK:
             tasks = self.tasks()
+            if dedupe if dedupe is not None else status == "new":
+                same = (task["platform"], _key(task["title"]), task["reward"], task["minutes"])
+                if any((t["platform"], _key(t["title"]), t["reward"], t["minutes"]) == same and t.get("status") in ("new", "open") for t in tasks):
+                    raise MoneyError("DUPLICATE_OPPORTUNITY", task["title"][:40])
             tasks.append(task)
             _write(Path(self.tasks_path), tasks)
         return task
@@ -308,7 +410,7 @@ class MoneyStore:
                 raise MoneyError("TASK_NOT_FOUND", str(task_id)[:40])
             if task["status"] == "done" or any(e.get("task_id") == task_id for e in log):
                 raise MoneyError("ALREADY_COMPLETED", task["title"][:40])
-            if task["status"] != "open":
+            if task["status"] not in ("open", "new"):  # 기회에서 바로 완료해도 된다(할래요 단계 생략)
                 raise MoneyError("TASK_CLOSED", task["title"][:40])
             at = (now or _now()).isoformat(timespec="seconds")
             pv = task.get("point_value", 1)
@@ -322,7 +424,7 @@ class MoneyStore:
                 "point_value": pv, "memo": memo, "completed_at": at,
             }
             log.append(entry)
-            task.update(status="done", closed_at=at)
+            task.update(status="done", closed_at=at, accepted_at=task.get("accepted_at") or at)
             _write(Path(self.log_path), log)  # 로그를 먼저 - 중간에 끊겨도 로그 기준으로 중복이 막힌다
             _write(Path(self.tasks_path), tasks)
         return entry
@@ -334,11 +436,38 @@ class MoneyStore:
             task = next((t for t in tasks if t.get("id") == task_id), None)
             if task is None:
                 raise MoneyError("TASK_NOT_FOUND", str(task_id)[:40])
-            if task["status"] != "open":
+            if task["status"] not in ("open", "new"):
                 raise MoneyError("ALREADY_COMPLETED" if task["status"] == "done" else "TASK_CLOSED", task["title"][:40])
             task.update(status="skipped", closed_at=(now or _now()).isoformat(timespec="seconds"))
             _write(Path(self.tasks_path), tasks)
         return task
+
+    def accept(self, task_id: str, *, now: datetime | None = None) -> dict:
+        """기회(new) -> 하기로 한 작업(open). 예상값은 그대로."""
+        with _LOCK:
+            tasks = self.tasks()
+            task = next((t for t in tasks if t.get("id") == task_id), None)
+            if task is None:
+                raise MoneyError("TASK_NOT_FOUND", str(task_id)[:40])
+            if task["status"] != "new":
+                raise MoneyError("NOT_AN_OPPORTUNITY", task["title"][:40])
+            task.update(status="open", accepted_at=(now or _now()).isoformat(timespec="seconds"))
+            _write(Path(self.tasks_path), tasks)
+        return task
+
+    def record_check(self, platform: str, outcome: str, *, now: datetime | None = None) -> dict:
+        """사람이 공식 사이트를 직접 확인했다는 기록. outcome: none(작업 없음) / found(작업 있음). 외부 사이트에는 아무것도 하지 않는다."""
+        if platform_info(self.config, platform) is None:
+            raise MoneyError("PLATFORM_UNKNOWN", str(platform)[:40])
+        if outcome not in CHECK_OUTCOMES:
+            raise MoneyError("STATUS_INVALID", str(outcome)[:20])
+        entry = {"id": f"check-{uuid.uuid4().hex[:12]}", "platform": platform, "outcome": outcome,
+                 "checked_at": (now or _now()).isoformat(timespec="seconds")}
+        with _LOCK:
+            checks = self.checks()
+            checks.append(entry)
+            _write(self._checks_path(), checks)
+        return entry
 
     def record_income(self, *, platform, amount, minutes=0, title="", memo="", now: datetime | None = None) -> dict:
         """작업 카드 없이 들어온 수익(예: 애드포스트 월 정산, 장기 수익자산). 시간은 선택(0 = 시급 계산에서 제외)."""
@@ -417,31 +546,97 @@ def platform_stats(log: list[dict], config: dict) -> list[dict]:
     return out
 
 
-def open_tasks(tasks: list[dict], config: dict, now: datetime | None = None, *, sort: str = "hourly") -> list[dict]:
-    """열린 작업 + 계산값(예상 시급, 등급, 마감 지남/남은 시간). 저장값은 바꾸지 않는다."""
+def open_tasks(tasks: list[dict], config: dict, now: datetime | None = None, *, sort: str = "hourly",
+               statuses: tuple[str, ...] = ("open",), log: list[dict] | None = None) -> list[dict]:
+    """열린 작업/기회 + 계산값(예상 시급, 등급, 추천 행동, 마감 지남/남은 시간, 내 기록 반영 시급). 저장값은 바꾸지 않는다.
+    log를 주면 같은 플랫폼의 실제/예상 비율로 learned_hourly(내 기록 기준 예상 시급)를 붙인다."""
     now = now or _now()
+    learned = {p["platform"]: p for p in platform_stats(log, config)} if log else {}
     rows = []
     for t in tasks:
-        if t.get("status") != "open":
+        if t.get("status") not in statuses:
             continue
         rate = hourly(t["reward"] * t.get("point_value", 1), t["minutes"])
         deadline = datetime.fromisoformat(t["deadline"]) if t.get("deadline") else None
-        rows.append({**t, "estimated_hourly": rate, "grade": grade(rate, config["thresholds"]),
+        g = grade(rate, config["thresholds"])
+        p = learned.get(t["platform"]) or {}
+        ratio = (p["actual_hourly"] / p["estimated_hourly"]) if p.get("actual_hourly") is not None and p.get("estimated_hourly") else None
+        rows.append({**t, "estimated_hourly": rate, "grade": g, "recommended": recommend(g),
                      "expired": bool(deadline and deadline <= now),
-                     "minutes_left": int((deadline - now).total_seconds() // 60) if deadline and deadline > now else None})
+                     "minutes_left": int((deadline - now).total_seconds() // 60) if deadline and deadline > now else None,
+                     "platform_actual_hourly": p.get("actual_hourly"), "platform_gap_pct": p.get("hourly_gap_pct"),
+                     "learned_hourly": int(round(rate * ratio)) if ratio is not None and rate is not None else None,
+                     "learned_basis": p.get("count", 0)})
+    order = {g: i for i, g in enumerate(GRADES)}
     if sort == "new":
         rows.sort(key=lambda r: r["created_at"], reverse=True)
     elif sort == "deadline":
         rows.sort(key=lambda r: r["deadline"] or "9999")
+    elif sort == "platform":
+        rows.sort(key=lambda r: (r["platform"], -(r["estimated_hourly"] or 0)))
+    elif sort == "grade":
+        rows.sort(key=lambda r: (order[r["grade"]], -(r["estimated_hourly"] or 0)))
     else:  # 예상 시급 높은 순
         rows.sort(key=lambda r: -(r["estimated_hourly"] or 0))
     return sorted(rows, key=lambda r: r["expired"])  # 마감 지난 작업은 항상 뒤로(안정 정렬)
 
 
-def operator_status(tasks: list[dict], log: list[dict], config: dict, now: datetime | None = None) -> dict:
+def _is_today(ts: str | None, config: dict, now: datetime) -> bool:
+    if not ts:
+        return False
+    tz = local_tz(config)
+    return datetime.fromisoformat(ts).astimezone(tz).date() == now.astimezone(tz).date()
+
+
+def routine(tasks: list[dict], log: list[dict], checks: list[dict], config: dict, now: datetime | None = None) -> list[dict]:
+    """오늘의 루틴 + 플랫폼 directory 한 줄씩(설정 순서). 오늘 확인 = 오늘 확인 기록이 있거나 오늘 그 플랫폼 기회/작업을 등록함.
+    확인 횟수·작업 없음 횟수·발견(등록) 횟수·완료 횟수·수익을 함께 계산한다."""
+    now = now or _now()
+    stats = {p["platform"]: p for p in platform_stats(log, config)}
+    notes = config.get("platform_notes") or {}
+    rows = []
+    for p in config["platforms"]:
+        name = p["name"]
+        mine = [c for c in checks if c["platform"] == name]
+        found = [t for t in tasks if t["platform"] == name]
+        today_checks = [c for c in mine if _is_today(c["checked_at"], config, now)]
+        today_found = [t for t in found if _is_today(t["created_at"], config, now)]
+        checked = bool(today_checks or today_found)
+        outcome = None
+        if checked:
+            outcome = "found" if today_found or any(c["outcome"] == "found" for c in today_checks) else "none"
+        st = stats.get(name, {})
+        rows.append({**p, "kind_label": KIND_LABELS.get(p.get("kind"), p.get("kind") or "-"), "note": notes.get(name, ""),
+                     "checked_today": checked, "today_outcome": outcome,
+                     "last_checked_at": max([c["checked_at"] for c in mine] + [t["created_at"] for t in found], default=None),
+                     "check_count": len(mine), "no_task_count": sum(c["outcome"] == "none" for c in mine),
+                     "found_count": len(found), "open_count": sum(1 for t in found if t.get("status") in ("new", "open")),
+                     "completed_count": sum(1 for e in log if e["platform"] == name and e.get("kind") == "task"),
+                     "earned": st.get("earned", 0), "actual_hourly": st.get("actual_hourly"),
+                     "estimated_hourly": st.get("estimated_hourly"), "hourly_gap_pct": st.get("hourly_gap_pct")})
+    return rows
+
+
+def today_summary(tasks: list[dict], log: list[dict], checks: list[dict], config: dict, now: datetime | None = None) -> dict:
+    """오늘 할 일 카드: 확인할 곳(루틴 대상 중 확인한 수), 오늘 발견한 기회, 오늘 완료, 오늘 수익."""
+    now = now or _now()
+    rows = [r for r in routine(tasks, log, checks, config, now) if r.get("active") and r.get("url")]
+    today_log = [e for e in log if _is_today(e["completed_at"], config, now)]
+    return {"platforms": len(rows), "checked": sum(r["checked_today"] for r in rows),
+            "unchecked": [r["name"] for r in rows if not r["checked_today"]],
+            "found_today": sum(1 for t in tasks if _is_today(t["created_at"], config, now)),
+            "completed_today": sum(1 for e in today_log if e.get("kind") == "task"),
+            "earned_today": sum(won(e) for e in today_log)}
+
+
+def operator_status(tasks: list[dict], log: list[dict], config: dict, now: datetime | None = None,
+                    checks: list[dict] | None = None) -> dict:
     """Operator Control Center용 요약(읽기 전용 값만)."""
     stats = period_stats(log, config, now)
     goal = goal_status(stats["total"]["earned"], config)
+    today = today_summary(tasks, log, checks or [], config, now)
     return {"today": stats["today"]["earned"], "month": stats["month"]["earned"], "total": stats["total"]["earned"],
             "open_tasks": sum(1 for t in open_tasks(tasks, config, now) if not t["expired"]),
+            "opportunities": sum(1 for t in open_tasks(tasks, config, now, statuses=("new",)) if not t["expired"]),
+            "unchecked_platforms": len(today["unchecked"]), "routine_platforms": today["platforms"],
             "first_goal": goal["first_goal"], "first_goal_progress": goal["first_progress"], "first_achieved": goal["first_achieved"]}
