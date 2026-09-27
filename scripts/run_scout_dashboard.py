@@ -253,6 +253,10 @@ class DashboardConfig:
     )
     shorts_asset_dirs: tuple[Path, ...] = (ROOT / "data" / "shorts_assets",)
     fact_check_manifest_path: Path = ROOT / "artifacts" / "6-51-shorts-preview" / "manifest.json"
+    # 6-57 - TAK AUTO MONEY(온라인 수익 관제판). 파일이 없으면 빈 상태로 동작한다(최초 실행).
+    money_tasks_path: Path = ROOT / "data" / "money_tasks.json"
+    money_log_path: Path = ROOT / "data" / "money_log.json"
+    money_config_path: Path = ROOT / "data" / "money_config.json"
     ffmpeg: str = "ffmpeg"
 
 
@@ -438,7 +442,7 @@ def render_candidate_list_html(
 
     body = f"""
 <h1>TAK SCOUT Dashboard</h1>
-<div class="nav-links"><a href="/operator">🧭 Operator Center</a><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/media/strategy">🎯 Strategy Gate</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/shorts-studio">🎬 Shorts Studio</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
+<div class="nav-links"><a href="/operator">🧭 Operator Center</a><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/media/strategy">🎯 Strategy Gate</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/shorts-studio">🎬 Shorts Studio</a><a href="/money">💰 MONEY</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
 <div class="sub">오늘의 소재 {len(ranked)}건 · 점수 내림차순 (SCOUT SCORE MVP, LLM 미사용)</div>
 {"".join(cards) if cards else "<p>오늘 표시할 소재가 없습니다.</p>"}
 """
@@ -2034,6 +2038,9 @@ def render_operator_center_html(summary) -> str:
 {_swa_row_html(summary.performance)}
 {_swa_row_html(summary.insights)}
 
+<h2>MONEY</h2>
+{_swa_row_html(summary.money) if summary.money else ""}
+
 <h2>NEXT ACTION</h2>
 {next_actions_html}
 """
@@ -2575,6 +2582,16 @@ def make_handler_class(
             self.end_headers()
             self.wfile.write(body[start:end + 1])
 
+        def _money(self, method: str, path: str, query: dict, body: bytes = b"") -> None:
+            # 6-57: TAK AUTO MONEY 화면은 scripts/money_web.py가 만든다(이 파일은 연결만).
+            from scripts import money_web
+
+            kind, *rest = money_web.handle(config, method, path, query, body)
+            if kind == "redirect":
+                self._redirect(rest[0])
+            else:
+                self._send_html(rest[1], status=rest[0])
+
         def _shorts_studio(self, method: str, path: str, query: dict, body: bytes = b"") -> None:
             # 6-55/6-56: Shorts Studio 화면은 scripts/shorts_studio_web.py가 만든다(이 파일은 연결만).
             from scripts import shorts_studio_web
@@ -2607,6 +2624,9 @@ def make_handler_class(
 
             if path == "/shorts-studio" or path.startswith("/shorts-studio/"):
                 self._shorts_studio("GET", path, query)
+                return
+            if path == "/money" or path.startswith("/money/"):
+                self._money("GET", path, query)
                 return
 
             if path == "/":
@@ -2887,8 +2907,17 @@ def make_handler_class(
                 shorts_scripts_status, _ = _dir_status(config.shorts_scripts_path, glob="*.json")
                 blog_drafts_status, _ = _dir_status(ROOT / "data" / "blog_drafts")
 
+                try:  # 6-57: MONEY 요약(읽기 전용). 파일이 없으면 빈 상태, 읽을 수 없으면 NOT_PRESENT로 표시
+                    from content_engine import money as money_engine
+
+                    money_config = money_engine.load_config(config.money_config_path)
+                    money_store = money_engine.MoneyStore(config.money_tasks_path, config.money_log_path, money_config)
+                    money_summary = money_engine.operator_status(money_store.tasks(), money_store.log(), money_config)
+                except money_engine.MoneyError:
+                    money_summary = None
                 operator_inputs = OperatorInputs(
                     generated_at=datetime.now(timezone.utc).isoformat(),
+                    money=money_summary,
                     git_head=head, git_origin_main=origin_main, git_working_tree_clean=working_tree_clean,
                     test_status="UNKNOWN",
                     scout_candidate_count=scout_candidate_count,
@@ -2917,6 +2946,12 @@ def make_handler_class(
             parsed = urlparse(self.path)
             path = parsed.path
             length = int(self.headers.get("Content-Length") or 0)
+            if path.startswith("/money/"):
+                if length > 100_000:  # MONEY 폼은 작다
+                    self._send_html(_page("너무 큼", "<p>입력이 너무 깁니다.</p>"), status=413)
+                    return
+                self._money("POST", path, {}, self.rfile.read(length) if length else b"")
+                return
             if path.startswith("/shorts-studio/"):
                 # 이미지 업로드가 있을 수 있어 본문 크기를 먼저 제한한다(multipart/urlencoded 해석은 studio 쪽에서).
                 from scripts.shorts_studio_web import MAX_BODY_BYTES

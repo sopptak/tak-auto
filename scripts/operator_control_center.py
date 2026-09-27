@@ -128,7 +128,20 @@ def _load_operator_inputs(args: argparse.Namespace, test_status: str) -> Operato
         youtube_renderer_available=(ROOT / "content_engine" / "shorts_renderer.py").exists(),
         media_llm_credentials_present=all(os.environ.get(name) for name in ("TAK_MEDIA_LLM_API_KEY", "TAK_MEDIA_LLM_ENDPOINT", "TAK_MEDIA_LLM_MODEL")),
         youtube_history=_youtube_history(getattr(args, "youtube_history", None)),
+        money=_money_summary(args.data_dir),
     )
+
+
+def _money_summary(data_dir: Path) -> dict | None:
+    """6-57 MONEY 요약(읽기 전용). 파일이 없으면 빈 상태, 읽을 수 없으면 None(NOT_PRESENT)."""
+    from content_engine import money
+
+    try:
+        config = money.load_config(data_dir / "money_config.json")
+        store = money.MoneyStore(data_dir / "money_tasks.json", data_dir / "money_log.json", config)
+        return money.operator_status(store.tasks(), store.log(), config)
+    except money.MoneyError:
+        return None
 
 
 def _youtube_history(path: Path | None) -> YouTubeUploadHistory | None:
@@ -222,6 +235,10 @@ def main(argv: list[str] | None = None) -> int:
     print("\n--- PERFORMANCE / INSIGHT ---")
     print(_render_row(summary.performance))
     print(_render_row(summary.insights))
+
+    if summary.money:
+        print("\n--- MONEY ---")
+        print(_render_row(summary.money))
 
     print("\n--- NEXT ACTION ---")
     if not summary.next_actions:

@@ -178,6 +178,9 @@ class OperatorInputs:
     # "YouTube Uploads" lifecycle 행에 쓴다. None이면(파일 없음/미지정) 두 기능 모두 생략한다.
     youtube_history: YouTubeUploadHistory | None = None
     youtube_renderer_available: bool = False  # 6-40부터 content_engine/shorts_renderer.py 존재 -> 실제 실행에서는 True
+    # 6-57: TAK AUTO MONEY 요약(``content_engine.money.operator_status()`` 결과 - 호출부가 계산해서 넘긴다).
+    # None = 호출부가 넘기지 않음(기존 호출부/테스트 호환 - MONEY 행을 NOT_PRESENT로 표시).
+    money: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -197,6 +200,7 @@ class OperatorSummary:
     # 6-43: 실제 YouTube 업로드 기록 lifecycle/lineage/중복 방지(performance/recovery와 같은 단독 필드).
     youtube_uploads: StatusWhyAction = None  # type: ignore[assignment]
     next_actions: tuple[str, ...] = field(default_factory=tuple)
+    money: StatusWhyAction = None  # type: ignore[assignment]  # 6-57
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -214,6 +218,7 @@ class OperatorSummary:
             "recovery": self.recovery.to_dict(),
             "youtube_uploads": self.youtube_uploads.to_dict() if self.youtube_uploads else None,
             "next_actions": list(self.next_actions),
+            "money": self.money.to_dict() if self.money else None,
         }
 
 
@@ -669,6 +674,19 @@ def _determine_system_status(
 # --- 진입점 --------------------------------------------------------------------------
 
 
+def build_money_row(inputs: OperatorInputs) -> StatusWhyAction:
+    """6-57 MONEY 한 줄 요약. 시스템 상태(SYSTEM) 판정에는 넣지 않는다 - 콘텐츠 파이프라인과 별개인 사람의 부수입 기록이다."""
+    m = inputs.money
+    if m is None:
+        return StatusWhyAction(label="MONEY", status=NOT_PRESENT, why="MONEY 요약을 받지 못했습니다.", detail_route="/money")
+    goal = "달성 🎉" if m["first_achieved"] else f"{m['first_goal_progress']:g}%"
+    why = (f"오늘 {m['today']:,}원 · 이번 달 {m['month']:,}원 · 열린 작업 {m['open_tasks']}건 · "
+           f"첫 목표({m['first_goal']:,}원) {goal}")
+    status = EMPTY if not (m["total"] or m["open_tasks"]) else ("GOAL_REACHED" if m["first_achieved"] else "IN_PROGRESS")
+    return StatusWhyAction(label="MONEY", status=status, why=why, count=m["open_tasks"],
+                           action="" if m["open_tasks"] else "/money에서 할 만한 작업을 등록하세요.", detail_route="/money")
+
+
 def build_operator_summary(inputs: OperatorInputs) -> OperatorSummary:
     """모든 하위 집계를 조합해 OperatorSummary 1건을 만든다. 순수 함수 -
     파일을 읽거나 쓰지 않는다."""
@@ -703,4 +721,5 @@ def build_operator_summary(inputs: OperatorInputs) -> OperatorSummary:
         recovery=recovery,
         youtube_uploads=build_youtube_uploads_row(inputs),
         next_actions=next_actions,
+        money=build_money_row(inputs),
     )
