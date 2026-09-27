@@ -1,0 +1,392 @@
+{
+ "types": {
+  "directed": [
+   "TEACHER",
+   "STUDENT",
+   "LORD",
+   "VASSAL"
+  ],
+  "symmetric": [
+   "COLLEAGUE",
+   "RIVAL",
+   "ALLY",
+   "ENEMY",
+   "FAMILY",
+   "ERA_LINK",
+   "EVENT_LINK"
+  ]
+ },
+ "relations": [
+  {
+   "from": "JUMONG",
+   "to": "ONJO",
+   "type": "FAMILY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "아버지-아들로 전한다"
+  },
+  {
+   "from": "KIM_YUSIN",
+   "to": "KIM_CHUNCHU",
+   "type": "ALLY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "삼국 통일을 함께 이끔"
+  },
+  {
+   "from": "MUNMU",
+   "to": "KIM_YUSIN",
+   "type": "LORD",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "왕과 장군"
+  },
+  {
+   "from": "KIM_CHUNCHU",
+   "to": "MUNMU",
+   "type": "FAMILY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "아버지-아들"
+  },
+  {
+   "from": "UIJA",
+   "to": "GYEBAEK",
+   "type": "LORD",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "왕과 장군"
+  },
+  {
+   "from": "GYEBAEK",
+   "to": "GWANCHANG",
+   "type": "ENEMY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "황산벌 전투"
+  },
+  {
+   "from": "GYEBAEK",
+   "to": "KIM_YUSIN",
+   "type": "ENEMY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "황산벌 전투"
+  },
+  {
+   "from": "GOGUKCHEON",
+   "to": "EUL_PASO",
+   "type": "LORD",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "국상 등용"
+  },
+  {
+   "from": "SEO_HUI",
+   "to": "GANG_GAMCHAN",
+   "type": "ERA_LINK",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "고려-거란 전쟁 시기의 두 인물"
+  },
+  {
+   "from": "KIM_BUSIK",
+   "to": "ILYEON",
+   "type": "ERA_LINK",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "삼국사기와 삼국유사를 남긴 두 역사가"
+  },
+  {
+   "from": "SEJONG",
+   "to": "HWANG_HUI",
+   "type": "LORD",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": ""
+  },
+  {
+   "from": "SEJONG",
+   "to": "MAENG_SASEONG",
+   "type": "LORD",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": ""
+  },
+  {
+   "from": "SEJONG",
+   "to": "JANG_YEONGSIL",
+   "type": "LORD",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": ""
+  },
+  {
+   "from": "SEJONG",
+   "to": "SIN_SUKJU",
+   "type": "LORD",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": ""
+  },
+  {
+   "from": "SEJONG",
+   "to": "YI_JONGMU",
+   "type": "LORD",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": ""
+  },
+  {
+   "from": "TAEJONG",
+   "to": "SEJONG",
+   "type": "FAMILY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "아버지-아들"
+  },
+  {
+   "from": "TAEJO",
+   "to": "TAEJONG",
+   "type": "FAMILY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "아버지-아들"
+  },
+  {
+   "from": "SEJONG",
+   "to": "MUNJONG",
+   "type": "FAMILY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "아버지-아들"
+  },
+  {
+   "from": "MUNJONG",
+   "to": "DANJONG",
+   "type": "FAMILY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "아버지-아들"
+  },
+  {
+   "from": "SEJO",
+   "to": "HAN_MYEONGHOE",
+   "type": "LORD",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": ""
+  },
+  {
+   "from": "SEJO",
+   "to": "SIN_SUKJU",
+   "type": "LORD",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": ""
+  },
+  {
+   "from": "SEONG_SAMMUN",
+   "to": "SEJO",
+   "type": "ENEMY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "단종 복위 시도"
+  },
+  {
+   "from": "SEONG_SAMMUN",
+   "to": "DANJONG",
+   "type": "ALLY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "단종에게 충절"
+  },
+  {
+   "from": "BAK_PAENGNYEON",
+   "to": "SEJO",
+   "type": "ENEMY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "단종 복위 시도"
+  },
+  {
+   "from": "BAK_PAENGNYEON",
+   "to": "DANJONG",
+   "type": "ALLY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "단종에게 충절"
+  },
+  {
+   "from": "YI_GAE",
+   "to": "SEJO",
+   "type": "ENEMY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "단종 복위 시도"
+  },
+  {
+   "from": "YI_GAE",
+   "to": "DANJONG",
+   "type": "ALLY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "단종에게 충절"
+  },
+  {
+   "from": "HA_WIJI",
+   "to": "SEJO",
+   "type": "ENEMY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "단종 복위 시도"
+  },
+  {
+   "from": "HA_WIJI",
+   "to": "DANJONG",
+   "type": "ALLY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "단종에게 충절"
+  },
+  {
+   "from": "YU_SEONGWON",
+   "to": "SEJO",
+   "type": "ENEMY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "단종 복위 시도"
+  },
+  {
+   "from": "YU_SEONGWON",
+   "to": "DANJONG",
+   "type": "ALLY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "단종에게 충절"
+  },
+  {
+   "from": "YU_EUNGBU",
+   "to": "SEJO",
+   "type": "ENEMY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "단종 복위 시도"
+  },
+  {
+   "from": "YU_EUNGBU",
+   "to": "DANJONG",
+   "type": "ALLY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "단종에게 충절"
+  },
+  {
+   "from": "KIM_SISEUP",
+   "to": "DANJONG",
+   "type": "ALLY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "세조 즉위에 반대"
+  },
+  {
+   "from": "SEONG_DAMSU",
+   "to": "DANJONG",
+   "type": "ALLY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "세조 즉위에 반대"
+  },
+  {
+   "from": "WON_HO",
+   "to": "DANJONG",
+   "type": "ALLY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "세조 즉위에 반대"
+  },
+  {
+   "from": "YI_MAENGJEON",
+   "to": "DANJONG",
+   "type": "ALLY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "세조 즉위에 반대"
+  },
+  {
+   "from": "JO_RYEO",
+   "to": "DANJONG",
+   "type": "ALLY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "세조 즉위에 반대"
+  },
+  {
+   "from": "NAM_HYOON",
+   "to": "DANJONG",
+   "type": "ALLY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "세조 즉위에 반대"
+  },
+  {
+   "from": "SHIN_SAIMDANG",
+   "to": "YI_I",
+   "type": "FAMILY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "어머니-아들"
+  },
+  {
+   "from": "YI_HWANG",
+   "to": "YI_I",
+   "type": "ERA_LINK",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "같은 시대의 두 성리학자"
+  },
+  {
+   "from": "YI_SUNSIN",
+   "to": "GWON_YUL",
+   "type": "EVENT_LINK",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "임진왜란"
+  },
+  {
+   "from": "YI_SUNSIN",
+   "to": "KIM_SIMIN",
+   "type": "EVENT_LINK",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "임진왜란"
+  },
+  {
+   "from": "GWAK_JAEU",
+   "to": "JO_HEON",
+   "type": "EVENT_LINK",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "임진왜란 의병"
+  },
+  {
+   "from": "YEONGJO",
+   "to": "JEONGJO",
+   "type": "FAMILY",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "할아버지-손자"
+  },
+  {
+   "from": "JEONGJO",
+   "to": "JEONG_YAKYONG",
+   "type": "LORD",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": ""
+  },
+  {
+   "from": "HEO_GYUN",
+   "to": "HONG_GILDONG",
+   "type": "EVENT_LINK",
+   "historical_status": "LITERARY_FICTION",
+   "note": "작가와 작품 속 인물"
+  },
+  {
+   "from": "JO_JUNGHWAN",
+   "to": "YI_SUIL",
+   "type": "EVENT_LINK",
+   "historical_status": "LITERARY_FICTION",
+   "note": "작가와 작품 속 인물"
+  },
+  {
+   "from": "YI_SUIL",
+   "to": "SIM_SUNAE",
+   "type": "COLLEAGUE",
+   "historical_status": "LITERARY_FICTION",
+   "note": "같은 소설 속 인물"
+  },
+  {
+   "from": "YU_GWANSUN",
+   "to": "SON_BYEONGHUI",
+   "type": "EVENT_LINK",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "3·1 운동"
+  },
+  {
+   "from": "AN_JUNGGEUN",
+   "to": "YI_WANYONG",
+   "type": "ERA_LINK",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "국권 침탈기 - 대비되는 두 길"
+  },
+  {
+   "from": "DAN_GUN",
+   "to": "JUMONG",
+   "type": "ERA_LINK",
+   "historical_status": "GAME_SETTING",
+   "note": "시대 초월 영웅 네트워크(게임 설정): 건국자들"
+  },
+  {
+   "from": "JUMONG",
+   "to": "GWANGGAETO",
+   "type": "ERA_LINK",
+   "historical_status": "HISTORICAL_RECORD",
+   "note": "같은 나라 고구려의 시조와 제19대 왕"
+  }
+ ]
+}

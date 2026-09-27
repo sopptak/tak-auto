@@ -1,0 +1,621 @@
+[
+ {
+  "id": "AB_BRONZE_CASTING",
+  "name": "청동 주조",
+  "kind": "equipment",
+  "from_entities": [
+   "TE_BRONZE",
+   "AR_BIPA_DAGGER",
+   "KN_BIPA",
+   "KN_BRONZE_MIX"
+  ],
+  "effects": {
+   "equipment": 2,
+   "unlock_path": "tool_gate"
+  },
+  "description": "청동 도구·무기를 만든다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_AGRICULTURE",
+  "name": "농경",
+  "kind": "production",
+  "from_entities": [
+   "TE_AGRICULTURE",
+   "TE_COTTON"
+  ],
+  "effects": {
+   "food_per_gather": 3
+  },
+  "description": "식량 생산이 늘어난다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_MONUMENT_LABOR",
+  "name": "큰 돌 세우기",
+  "kind": "nation",
+  "from_entities": [
+   "AR_DOLMEN",
+   "KN_DOLMEN",
+   "CU_SETTLEMENT"
+  ],
+  "effects": {
+   "labor": 2,
+   "reputation": 1
+  },
+  "description": "많은 사람의 힘을 모아 큰일을 한다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_EIGHT_LAWS",
+  "name": "법 세우기",
+  "kind": "nation",
+  "from_entities": [
+   "IN_EIGHT_LAWS",
+   "KN_EIGHT_LAWS"
+  ],
+  "effects": {
+   "stability": 3
+  },
+  "description": "법으로 공동체 질서를 세운다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_HONGIK",
+  "name": "널리 이롭게",
+  "kind": "nation",
+  "from_entities": [
+   "KN_HONGIK"
+  ],
+  "effects": {
+   "loyalty": 2
+  },
+  "description": "건국이념을 내세워 사람들의 마음을 모은다(신화 기반).",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_JINDAE",
+  "name": "진대(곡식 빌려주기)",
+  "kind": "nation",
+  "from_entities": [
+   "IN_JINDAE",
+   "KN_JINDAE"
+  ],
+  "effects": {
+   "famine_relief": 20
+  },
+  "description": "식량 위기 때 곡식을 빌려주고 가을에 돌려받는다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_TRACKING",
+  "name": "추적",
+  "kind": "movement",
+  "from_entities": [
+   "TR_HUNTERS",
+   "KN_HUNT_SIGNAL"
+  ],
+  "effects": {
+   "reveal_hidden": true
+  },
+  "description": "숨은 길·흔적을 찾는다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_RIVER_TRADE",
+  "name": "물길 교역",
+  "kind": "movement",
+  "from_entities": [
+   "TN_RIVER",
+   "TN_ESTUARY",
+   "SP_SALT_TRADE",
+   "KN_RIVER_ROUTE"
+  ],
+  "effects": {
+   "trade": 2,
+   "move": "river"
+  },
+  "description": "물길로 먼 곳과 교역한다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_ARCHERY",
+  "name": "궁술",
+  "kind": "hero",
+  "from_entities": [
+   "JUMONG",
+   "KN_JUMONG_NAME"
+  ],
+  "effects": {
+   "hunt": 2,
+   "battle": 1
+  },
+  "description": "활을 잘 쏜다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_RIDING",
+  "name": "기마",
+  "kind": "hero",
+  "from_entities": [
+   "JUMONG",
+   "GWANGGAETO"
+  ],
+  "effects": {
+   "move": 1
+  },
+  "description": "말을 타고 빨리 움직인다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_CAVALRY",
+  "name": "기마 부대",
+  "kind": "tactic",
+  "from_entities": [
+   "GWANGGAETO"
+  ],
+  "effects": {
+   "battle": 2
+  },
+  "description": "기병을 이끈다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_LEADERSHIP",
+  "name": "지도력",
+  "kind": "hero",
+  "from_entities": [
+   "DAN_GUN",
+   "JUMONG",
+   "KN_JEJEONG_ILCHI"
+  ],
+  "effects": {
+   "recruit": 1,
+   "morale": 1
+  },
+  "description": "사람을 모으고 이끈다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_EXPLORATION",
+  "name": "탐험",
+  "kind": "movement",
+  "from_entities": [
+   "JUMONG",
+   "HYECHO",
+   "KIM_BYEONGYEON"
+  ],
+  "effects": {
+   "explore": 1
+  },
+  "description": "새 땅을 찾아 나선다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_NAVAL_COMMAND",
+  "name": "수군 지휘",
+  "kind": "tactic",
+  "from_entities": [
+   "YI_SUNSIN",
+   "BT_HANSANDO",
+   "AR_TURTLE_SHIP",
+   "ISABU",
+   "JANG_BOGO",
+   "YI_JONGMU"
+  ],
+  "effects": {
+   "naval": 3
+  },
+  "description": "바다 싸움을 이끈다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_MARITIME_TRADE",
+  "name": "해상 교역",
+  "kind": "movement",
+  "from_entities": [
+   "JANG_BOGO",
+   "LOC_CHEONGHAEJIN"
+  ],
+  "effects": {
+   "trade": 3
+  },
+  "description": "바닷길 교역을 연다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_TACTICS",
+  "name": "전술",
+  "kind": "tactic",
+  "from_entities": [
+   "BT_GUJU",
+   "GANG_GAMCHAN",
+   "KIM_YUSIN",
+   "EULJI_MUNDEOK",
+   "CHOE_YEONG",
+   "YI_SUNSIN",
+   "GWON_YUL"
+  ],
+  "effects": {
+   "battle": 2
+  },
+  "description": "싸움의 흐름을 읽는다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_DEFENSE",
+  "name": "수성",
+  "kind": "tactic",
+  "from_entities": [
+   "BT_HWANGSANBEOL",
+   "BT_HAENGJU",
+   "BT_JINJU",
+   "GYEBAEK",
+   "KIM_SIMIN",
+   "GWON_YUL"
+  ],
+  "effects": {
+   "defense": 3
+  },
+  "description": "지키는 싸움에 강하다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_DIPLOMACY",
+  "name": "외교",
+  "kind": "nation",
+  "from_entities": [
+   "EV_SEOHUI_TALKS",
+   "SEO_HUI",
+   "KIM_CHUNCHU",
+   "SIN_SUKJU"
+  ],
+  "effects": {
+   "diplomacy": 3
+  },
+  "description": "말로 땅과 평화를 얻는다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_GUNPOWDER",
+  "name": "화약",
+  "kind": "equipment",
+  "from_entities": [
+   "TE_GUNPOWDER",
+   "CHOE_MUSEON"
+  ],
+  "effects": {
+   "battle": 2
+  },
+  "description": "화약 무기를 쓴다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_HUNMINJEONGEUM",
+  "name": "쉬운 글자",
+  "kind": "nation",
+  "from_entities": [
+   "CU_HUNMINJEONGEUM",
+   "KN_HUNMIN",
+   "EV_HUNMIN",
+   "SEJONG"
+  ],
+  "effects": {
+   "knowledge_gain": 2
+  },
+  "description": "백성이 글을 익혀 지식이 빨리 퍼진다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_INVENTION",
+  "name": "발명",
+  "kind": "production",
+  "from_entities": [
+   "TE_RAIN_GAUGE",
+   "JANG_YEONGSIL"
+  ],
+  "effects": {
+   "production": 2
+  },
+  "description": "새 기구를 만든다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_ENGINEERING",
+  "name": "축조 기술",
+  "kind": "production",
+  "from_entities": [
+   "AR_GEOJUNGGI",
+   "JEONG_YAKYONG"
+  ],
+  "effects": {
+   "construction": 2
+  },
+  "description": "큰 건축을 빨리 한다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_CARTOGRAPHY",
+  "name": "지도 제작",
+  "kind": "movement",
+  "from_entities": [
+   "AR_DAEDONG_MAP",
+   "KIM_JEONGHO"
+  ],
+  "effects": {
+   "reveal_map": true
+  },
+  "description": "지도를 밝혀 길을 안다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_TANGPYEONG",
+  "name": "탕평",
+  "kind": "nation",
+  "from_entities": [
+   "IN_TANGPYEONG",
+   "KN_TANGPYEONG",
+   "YEONGJO",
+   "JEONGJO"
+  ],
+  "effects": {
+   "stability": 2
+  },
+  "description": "다투는 무리 사이의 균형을 잡는다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_ADMINISTRATION",
+  "name": "행정",
+  "kind": "nation",
+  "from_entities": [
+   "HWANG_HUI",
+   "MAENG_SASEONG",
+   "YI_I",
+   "JEONG_YAKYONG",
+   "BAK_MUNSU",
+   "EUL_PASO",
+   "JEONGJO",
+   "SEJONG"
+  ],
+  "effects": {
+   "stability": 1,
+   "income": 1
+  },
+  "description": "나라 살림을 잘 꾸린다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_SCHOLARSHIP",
+  "name": "학문",
+  "kind": "hero",
+  "from_entities": [
+   "WONHYO",
+   "KIM_BUSIK",
+   "JINUL",
+   "UICHEON",
+   "CHOE_CHUNG",
+   "ILYEON",
+   "YI_I",
+   "YI_HWANG",
+   "SIN_SUKJU",
+   "SEJONG"
+  ],
+  "effects": {
+   "knowledge_gain": 1
+  },
+  "description": "배움을 넓힌다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_POETRY",
+  "name": "시",
+  "kind": "hero",
+  "from_entities": [
+   "YI_INRO",
+   "HWANG_JINI",
+   "KIM_BYEONGYEON",
+   "YUN_DONGJU",
+   "YI_SANG",
+   "HEO_GYUN"
+  ],
+  "effects": {
+   "charm": 1
+  },
+  "description": "시로 마음을 움직인다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_PAINTING",
+  "name": "그림",
+  "kind": "hero",
+  "from_entities": [
+   "SHIN_SAIMDANG",
+   "KIM_HONGDO",
+   "YI_JUNGSEOP"
+  ],
+  "effects": {
+   "culture": 2
+  },
+  "description": "그림으로 문화를 꽃피운다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_CALLIGRAPHY",
+  "name": "서예",
+  "kind": "hero",
+  "from_entities": [
+   "HAN_HO"
+  ],
+  "effects": {
+   "culture": 1
+  },
+  "description": "글씨로 이름을 떨친다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_MUSIC",
+  "name": "음악",
+  "kind": "hero",
+  "from_entities": [
+   "BAEKGYEOL"
+  ],
+  "effects": {
+   "morale": 1
+  },
+  "description": "음악으로 사람을 달랜다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_LOYALTY",
+  "name": "충절",
+  "kind": "hero",
+  "from_entities": [
+   "JEONG_MONGJU",
+   "SEONG_SAMMUN",
+   "KIM_SISEUP",
+   "HONG_IKHAN"
+  ],
+  "effects": {
+   "morale": 2
+  },
+  "description": "끝까지 뜻을 지킨다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_GUERRILLA",
+  "name": "의병",
+  "kind": "tactic",
+  "from_entities": [
+   "GWAK_JAEU",
+   "JO_HEON",
+   "EV_IMJIN_WAR"
+  ],
+  "effects": {
+   "ambush": 2
+  },
+  "description": "고향 사람들과 게릴라전을 편다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_COURAGE",
+  "name": "용기",
+  "kind": "hero",
+  "from_entities": [
+   "GWANCHANG",
+   "NONGAE",
+   "AN_JUNGGEUN",
+   "YU_GWANSUN"
+  ],
+  "effects": {
+   "morale": 2
+  },
+  "description": "두려움을 이긴다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_STEALTH",
+  "name": "신출귀몰",
+  "kind": "hero",
+  "from_entities": [
+   "HONG_GILDONG",
+   "IM_KKEOKJEONG"
+  ],
+  "effects": {
+   "stealth": 2
+  },
+  "description": "몰래 움직인다(문학·설화 기반 인물 포함).",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_FAITH",
+  "name": "신앙",
+  "kind": "hero",
+  "from_entities": [
+   "KIM_DAEGEON"
+  ],
+  "effects": {
+   "morale": 1
+  },
+  "description": "믿음으로 버틴다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_MEDICINE",
+  "name": "의술",
+  "kind": "production",
+  "from_entities": [
+   "JI_SEOKYEONG"
+  ],
+  "effects": {
+   "population_growth": 1
+  },
+  "description": "병을 막는다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_EDUCATION",
+  "name": "교육",
+  "kind": "nation",
+  "from_entities": [
+   "AN_CHANGHO",
+   "BANG_JEONGHWAN"
+  ],
+  "effects": {
+   "knowledge_gain": 1
+  },
+  "description": "사람을 길러 힘을 키운다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ },
+ {
+  "id": "AB_REFORM",
+  "name": "개혁",
+  "kind": "nation",
+  "from_entities": [
+   "KIM_OKGYUN"
+  ],
+  "effects": {
+   "reform": 1
+  },
+  "description": "제도를 바꾸려 한다.",
+  "historical_status": "GAME_SETTING",
+  "note": "효과 수치는 게임 데이터(GAME_SETTING). 근거가 된 역사 엔티티의 상태는 from_entities에서 따로 본다."
+ }
+]

@@ -1,0 +1,134 @@
+{
+ "player_hero_timeline": [
+  {
+   "id": "STAGE_GOJOSEON",
+   "order": 1,
+   "native_eras": [
+    "BRONZE_AGE",
+    "GOJOSEON"
+   ],
+   "game": "rpg/gojoseon"
+  },
+  {
+   "id": "STAGE_THREE_KINGDOMS",
+   "order": 2,
+   "native_eras": [
+    "THREE_KINGDOMS"
+   ]
+  },
+  {
+   "id": "STAGE_NORTH_SOUTH",
+   "order": 3,
+   "native_eras": [
+    "NORTH_SOUTH_STATES"
+   ]
+  },
+  {
+   "id": "STAGE_GORYEO",
+   "order": 4,
+   "native_eras": [
+    "GORYEO"
+   ]
+  },
+  {
+   "id": "STAGE_JOSEON",
+   "order": 5,
+   "native_eras": [
+    "JOSEON"
+   ]
+  },
+  {
+   "id": "STAGE_MODERN",
+   "order": 6,
+   "native_eras": [
+    "MODERN"
+   ]
+  }
+ ],
+ "time_gates": [
+  {
+   "id": "TG_JOLBON",
+   "name": "시간의 문 · 졸본",
+   "historical_status": "GAME_SETTING"
+  },
+  {
+   "id": "TG_MANCHURIA",
+   "name": "시간의 문 · 만주 벌판",
+   "historical_status": "GAME_SETTING"
+  },
+  {
+   "id": "TG_SEA",
+   "name": "시간의 문 · 남해 바닷길",
+   "historical_status": "GAME_SETTING"
+  },
+  {
+   "id": "TG_HANYANG",
+   "name": "시간의 문 · 한양",
+   "historical_status": "GAME_SETTING"
+  },
+  {
+   "id": "TG_MAP",
+   "name": "시간의 문 · 지도 방",
+   "historical_status": "GAME_SETTING"
+  }
+ ],
+ "pool": [
+  {
+   "hero": "DAN_GUN",
+   "stage": "STAGE_GOJOSEON",
+   "via": "native",
+   "badge": "신화"
+  },
+  {
+   "hero": "JUMONG",
+   "stage": "STAGE_GOJOSEON",
+   "via": "time_gate",
+   "gate": "TG_JOLBON",
+   "quest": "RQ_JUMONG"
+  },
+  {
+   "hero": "GWANGGAETO",
+   "stage": "STAGE_GOJOSEON",
+   "via": "time_gate",
+   "gate": "TG_MANCHURIA",
+   "quest": "RQ_GWANGGAETO"
+  },
+  {
+   "hero": "JANG_BOGO",
+   "stage": "STAGE_THREE_KINGDOMS",
+   "via": "time_gate",
+   "gate": "TG_SEA"
+  },
+  {
+   "hero": "SEJONG",
+   "stage": "STAGE_GORYEO",
+   "via": "time_gate",
+   "gate": "TG_HANYANG",
+   "quest": "RQ_SEJONG"
+  },
+  {
+   "hero": "JANG_YEONGSIL",
+   "stage": "STAGE_JOSEON",
+   "via": "native",
+   "quest": "RQ_JANG_YEONGSIL"
+  },
+  {
+   "hero": "YI_SUNSIN",
+   "stage": "STAGE_JOSEON",
+   "via": "native"
+  },
+  {
+   "hero": "KIM_JEONGHO",
+   "stage": "STAGE_THREE_KINGDOMS",
+   "via": "time_gate",
+   "gate": "TG_MAP"
+  },
+  {
+   "hero": "HONG_GILDONG",
+   "stage": "STAGE_JOSEON",
+   "via": "native",
+   "badge": "문학"
+  }
+ ],
+ "rule": "시대를 거슬러 이른 단계에서 만나는 영웅은 반드시 time_gate(GAME_SETTING)로만 온다. 인물의 역사 시대(era)는 바뀌지 않는다."
+}

@@ -132,7 +132,7 @@ class HomeHtmlTests(LoopCase):
         from scripts import money_web
 
         self.scout(MEMBER)
-        html = money_web._today_money_html(self.store)
+        html = money_web._today_money_html(self.store, NOW)
         for t in ("💰 TODAY MONEY", "오늘 발견 <b>2건", "🔥 지금 할 것 <b>0건", "오늘 실제 수익 <b>0원", "이번 달 실제 수익 <b>0원",
                   "🎯 첫 목표 <b>0 / 10,000원</b> (0%)", "실제 수익 0원 — 아직 발생하지 않음", "🔎 지금 수익기회 찾기"):
             self.assertIn(t, html)

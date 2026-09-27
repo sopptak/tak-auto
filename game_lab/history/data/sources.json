@@ -1,0 +1,89 @@
+{
+ "SRC_EK_DONGMYEONG": {
+  "title": "한국민족문화대백과사전 '동명성왕'",
+  "url": "https://encykorea.aks.ac.kr/Article/E0016431",
+  "checked": "2026-09-27",
+  "kind": "encyclopedia"
+ },
+ "SRC_EK_MYTH_DONGMYEONG": {
+  "title": "한국민족문화대백과사전 '동명왕 신화'",
+  "url": "https://encykorea.aks.ac.kr/Article/E0016436",
+  "checked": "2026-09-27",
+  "kind": "encyclopedia"
+ },
+ "SRC_EK_YUHWA": {
+  "title": "한국민족문화대백과사전 '유화부인'",
+  "url": "https://encykorea.aks.ac.kr/Article/E0042024",
+  "checked": "2026-09-27",
+  "kind": "encyclopedia"
+ },
+ "SRC_EK_JINDAE": {
+  "title": "한국민족문화대백과사전 '진대법'",
+  "url": "https://encykorea.aks.ac.kr/Article/E0054628",
+  "checked": "2026-09-27",
+  "kind": "encyclopedia"
+ },
+ "SRC_EK_SEJONG": {
+  "title": "한국민족문화대백과사전 '세종'",
+  "url": "https://encykorea.aks.ac.kr/Article/E0029857",
+  "checked": "2026-09-27",
+  "kind": "encyclopedia"
+ },
+ "SRC_EK_DOLMEN": {
+  "title": "한국민족문화대백과사전 '고인돌'",
+  "url": "https://encykorea.aks.ac.kr/Article/E0003901",
+  "checked": "2026-09-27",
+  "kind": "encyclopedia"
+ },
+ "SRC_EK_BIPA": {
+  "title": "한국민족문화대백과사전 '비파형 동검'",
+  "url": "https://encykorea.aks.ac.kr/Article/E0025256",
+  "checked": "2026-09-27",
+  "kind": "encyclopedia"
+ },
+ "SRC_EK_UNGNYEO": {
+  "title": "한국민족문화대백과사전 '웅녀'",
+  "url": "https://encykorea.aks.ac.kr/Article/E0040541",
+  "checked": "2026-09-27",
+  "kind": "encyclopedia"
+ },
+ "SRC_EK_WANGGEOM": {
+  "title": "한국민족문화대백과사전 '왕검'",
+  "url": "https://encykorea.aks.ac.kr/Article/E0039027",
+  "checked": "2026-09-27",
+  "kind": "encyclopedia"
+ },
+ "SRC_EK_HONGIK": {
+  "title": "한국민족문화대백과사전 '홍익인간'",
+  "url": "https://encykorea.aks.ac.kr/Article/E0064339",
+  "checked": "2026-09-27",
+  "kind": "encyclopedia"
+ },
+ "SRC_EK_ASADAL": {
+  "title": "한국민족문화대백과사전 '아사달'",
+  "url": "https://encykorea.aks.ac.kr/Article/E0048366",
+  "checked": "2026-09-27",
+  "kind": "encyclopedia"
+ },
+ "SRC_WIKI_8LAWS": {
+  "title": "위키백과(한국어) '팔조지교'",
+  "url": "https://ko.wikipedia.org/wiki/팔조지교",
+  "checked": "2026-09-27",
+  "kind": "wiki",
+  "note": "『한서』 지리지 인용"
+ },
+ "SRC_WIKI_GOJOSEON": {
+  "title": "위키백과(한국어) '고조선'",
+  "url": "https://ko.wikipedia.org/wiki/고조선",
+  "checked": "2026-09-27",
+  "kind": "wiki",
+  "note": ""
+ },
+ "SRC_WIKI_SONG": {
+  "title": "위키백과(한국어) '한국을 빛낸 100명의 위인들'",
+  "url": "https://ko.wikipedia.org/wiki/한국을_빛낸_100명의_위인들",
+  "checked": "2026-09-27",
+  "kind": "wiki",
+  "note": "노래 수록 인물 명단·인물 정체(시대·나라·역할) 확인용. 가사는 쓰지 않는다."
+ }
+}

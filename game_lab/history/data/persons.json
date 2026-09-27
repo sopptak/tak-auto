@@ -1,0 +1,3493 @@
+[
+ {
+  "id": "DAN_GUN",
+  "type": "PERSON",
+  "name": "단군왕검",
+  "era": "GOJOSEON",
+  "country": "GOJOSEON",
+  "roles": [
+   "founder",
+   "ruler",
+   "priest"
+  ],
+  "historical_summary": "『삼국유사』가 전하는 고조선의 건국 시조. 이야기의 많은 부분은 건국 신화다.",
+  "historical_status": "MYTHOLOGY",
+  "spine_order": 1,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_GOJOSEON_FOUNDING_MYTH"
+  ],
+  "related_locations": [
+   "LOC_ASADAL"
+  ],
+  "related_artifacts": [],
+  "knowledge": [
+   "KN_DANGUN_MYTH",
+   "KN_JEJEONG_ILCHI"
+  ],
+  "abilities": [
+   "AB_LEADERSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG",
+   "SRC_EK_WANGGEOM",
+   "SRC_EK_UNGNYEO"
+  ],
+  "review_status": "source_checked",
+  "base_stats": {
+   "might": 3,
+   "wisdom": 7,
+   "charm": 8,
+   "explore": 3
+  },
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다.",
+  "special_event": {
+   "game": "rpg/gojoseon",
+   "event": "ev_found",
+   "note": "건국 회의의 이념(홍익인간) 선택과 연결"
+  }
+ },
+ {
+  "id": "JUMONG",
+  "type": "PERSON",
+  "name": "주몽(동명성왕)",
+  "era": "THREE_KINGDOMS",
+  "country": "GOGURYEO",
+  "roles": [
+   "founder",
+   "ruler",
+   "hero"
+  ],
+  "historical_summary": "고구려의 건국자. 『삼국사기』 기록상 기원전 37년 졸본에서 나라를 세웠다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 2,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_GOGURYEO_FOUNDING"
+  ],
+  "related_locations": [
+   "LOC_JOLBON"
+  ],
+  "related_artifacts": [],
+  "knowledge": [
+   "KN_JUMONG_NAME"
+  ],
+  "abilities": [
+   "AB_ARCHERY",
+   "AB_RIDING",
+   "AB_LEADERSHIP",
+   "AB_EXPLORATION"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG",
+   "SRC_EK_DONGMYEONG"
+  ],
+  "review_status": "source_checked",
+  "aliases": [
+   "동명왕",
+   "추모왕"
+  ],
+  "base_stats": {
+   "might": 7,
+   "wisdom": 4,
+   "charm": 6,
+   "explore": 6
+  },
+  "recruit_method": "quest",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다.",
+  "recruit_quest": "RQ_JUMONG",
+  "hero_story": {
+   "game": "rpg/korea",
+   "story": "jumong_story",
+   "status": "playable"
+  }
+ },
+ {
+  "id": "ONJO",
+  "type": "PERSON",
+  "name": "온조왕",
+  "era": "THREE_KINGDOMS",
+  "country": "BAEKJE",
+  "roles": [
+   "founder",
+   "ruler"
+  ],
+  "historical_summary": "백제의 건국자. 주몽의 아들로 남쪽에 백제를 세웠다고 전한다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 3,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LEADERSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "HYEOKGEOSE",
+  "type": "PERSON",
+  "name": "박혁거세",
+  "era": "THREE_KINGDOMS",
+  "country": "SILLA",
+  "roles": [
+   "founder",
+   "ruler"
+  ],
+  "historical_summary": "신라의 건국자. 알에서 태어났다는 설화가 전한다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 4,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LEADERSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "GWANGGAETO",
+  "type": "PERSON",
+  "name": "광개토대왕",
+  "era": "THREE_KINGDOMS",
+  "country": "GOGURYEO",
+  "roles": [
+   "ruler",
+   "general"
+  ],
+  "historical_summary": "고구려의 제19대 왕. 영토를 크게 넓혀 고구려 전성기의 기틀을 닦았다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 5,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_RIDING",
+   "AB_LEADERSHIP",
+   "AB_CAVALRY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {
+   "might": 9,
+   "wisdom": 6,
+   "charm": 7,
+   "explore": 5
+  },
+  "recruit_method": "quest",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다.",
+  "recruit_quest": "RQ_GWANGGAETO"
+ },
+ {
+  "id": "ISABU",
+  "type": "PERSON",
+  "name": "이사부",
+  "era": "THREE_KINGDOMS",
+  "country": "SILLA",
+  "roles": [
+   "general"
+  ],
+  "historical_summary": "신라의 장군. 우산국(울릉도)을 신라에 복속시켰다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 6,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_NAVAL_COMMAND"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "BAEKGYEOL",
+  "type": "PERSON",
+  "name": "백결 선생",
+  "era": "THREE_KINGDOMS",
+  "country": "SILLA",
+  "roles": [
+   "musician"
+  ],
+  "historical_summary": "가난했지만 거문고로 마음을 달랜 신라의 음악가로 전한다.",
+  "historical_status": "LEGEND",
+  "spine_order": 7,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_MUSIC"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "UIJA",
+  "type": "PERSON",
+  "name": "의자왕",
+  "era": "THREE_KINGDOMS",
+  "country": "BAEKJE",
+  "roles": [
+   "ruler"
+  ],
+  "historical_summary": "백제의 마지막 왕.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 8,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "GYEBAEK",
+  "type": "PERSON",
+  "name": "계백",
+  "era": "THREE_KINGDOMS",
+  "country": "BAEKJE",
+  "roles": [
+   "general"
+  ],
+  "historical_summary": "백제의 장군. 황산벌 전투에서 신라군과 싸우다 전사했다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 9,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "BT_HWANGSANBEOL"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_DEFENSE"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "GWANCHANG",
+  "type": "PERSON",
+  "name": "관창",
+  "era": "THREE_KINGDOMS",
+  "country": "SILLA",
+  "roles": [
+   "hwarang"
+  ],
+  "historical_summary": "신라의 화랑. 황산벌 전투에서 전사했다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 10,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "BT_HWANGSANBEOL"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_COURAGE"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "KIM_YUSIN",
+  "type": "PERSON",
+  "name": "김유신",
+  "era": "THREE_KINGDOMS",
+  "country": "SILLA",
+  "roles": [
+   "general"
+  ],
+  "historical_summary": "신라의 장군. 삼국 통일 전쟁을 이끈 핵심 인물이다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 11,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "BT_HWANGSANBEOL"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LEADERSHIP",
+   "AB_TACTICS"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "MUNMU",
+  "type": "PERSON",
+  "name": "문무왕",
+  "era": "THREE_KINGDOMS",
+  "country": "SILLA",
+  "roles": [
+   "ruler"
+  ],
+  "historical_summary": "신라의 제30대 왕. 삼국 통일을 마무리했다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 12,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LEADERSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "WONHYO",
+  "type": "PERSON",
+  "name": "원효",
+  "era": "THREE_KINGDOMS",
+  "country": "SILLA",
+  "roles": [
+   "monk",
+   "scholar"
+  ],
+  "historical_summary": "신라의 승려. 불교를 널리 대중에게 알렸다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 13,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_SCHOLARSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "EUL_PASO",
+  "type": "PERSON",
+  "name": "을파소",
+  "era": "THREE_KINGDOMS",
+  "country": "GOGURYEO",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "고국천왕 때 국상으로 등용된 인물. 진대법 시행 시기와 이어진다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 14,
+  "song_catalog": {
+   "included": false
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [
+   "KN_JINDAE"
+  ],
+  "abilities": [
+   "AB_JINDAE",
+   "AB_ADMINISTRATION"
+  ],
+  "source_refs": [
+   "SRC_EK_JINDAE"
+  ],
+  "review_status": "source_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "GOGUKCHEON",
+  "type": "PERSON",
+  "name": "고국천왕",
+  "era": "THREE_KINGDOMS",
+  "country": "GOGURYEO",
+  "roles": [
+   "ruler"
+  ],
+  "historical_summary": "194년 진대법을 시행한 고구려 왕.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 15,
+  "song_catalog": {
+   "included": false
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [
+   "KN_JINDAE"
+  ],
+  "abilities": [
+   "AB_JINDAE"
+  ],
+  "source_refs": [
+   "SRC_EK_JINDAE"
+  ],
+  "review_status": "source_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "KIM_CHUNCHU",
+  "type": "PERSON",
+  "name": "김춘추(태종무열왕)",
+  "era": "THREE_KINGDOMS",
+  "country": "SILLA",
+  "roles": [
+   "ruler",
+   "diplomat"
+  ],
+  "historical_summary": "신라의 왕. 당과의 외교로 통일의 길을 열었다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 16,
+  "song_catalog": {
+   "included": false
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_DIPLOMACY"
+  ],
+  "source_refs": [],
+  "review_status": "needs_review",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "EULJI_MUNDEOK",
+  "type": "PERSON",
+  "name": "을지문덕",
+  "era": "THREE_KINGDOMS",
+  "country": "GOGURYEO",
+  "roles": [
+   "general"
+  ],
+  "historical_summary": "살수에서 수나라 군을 크게 물리친 고구려 장군.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 17,
+  "song_catalog": {
+   "included": false
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_TACTICS"
+  ],
+  "source_refs": [],
+  "review_status": "needs_review",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "HYECHO",
+  "type": "PERSON",
+  "name": "혜초",
+  "era": "NORTH_SOUTH_STATES",
+  "country": "UNIFIED_SILLA",
+  "roles": [
+   "monk",
+   "traveler"
+  ],
+  "historical_summary": "신라의 승려. 인도를 여행하고 《왕오천축국전》을 남겼다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 18,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_EXPLORATION"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {
+   "might": 2,
+   "wisdom": 7,
+   "charm": 5,
+   "explore": 9
+  },
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "JANG_BOGO",
+  "type": "PERSON",
+  "name": "장보고",
+  "era": "NORTH_SOUTH_STATES",
+  "country": "UNIFIED_SILLA",
+  "roles": [
+   "merchant",
+   "admiral"
+  ],
+  "historical_summary": "청해진을 설치해 바닷길 교역을 이끈 신라의 인물.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 19,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [
+   "LOC_CHEONGHAEJIN"
+  ],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_MARITIME_TRADE",
+   "AB_NAVAL_COMMAND"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {
+   "might": 6,
+   "wisdom": 6,
+   "charm": 7,
+   "explore": 8
+  },
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "DAE_JOYEONG",
+  "type": "PERSON",
+  "name": "대조영(고왕)",
+  "era": "NORTH_SOUTH_STATES",
+  "country": "BALHAE",
+  "roles": [
+   "founder",
+   "ruler"
+  ],
+  "historical_summary": "발해의 건국자. 고구려를 계승한다는 뜻을 내세웠다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 20,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LEADERSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "GANG_GAMCHAN",
+  "type": "PERSON",
+  "name": "강감찬",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "official",
+   "general"
+  ],
+  "historical_summary": "고려의 문신이자 장군. 1019년 귀주 대첩에서 거란군을 물리쳤다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 21,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "BT_GUJU"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_TACTICS"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "SEO_HUI",
+  "type": "PERSON",
+  "name": "서희",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "diplomat"
+  ],
+  "historical_summary": "고려의 외교가. 993년 거란과의 담판으로 강동 6주를 확보했다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 22,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_SEOHUI_TALKS"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_DIPLOMACY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "JEONG_JUNGBU",
+  "type": "PERSON",
+  "name": "정중부",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "general"
+  ],
+  "historical_summary": "1170년 무신정변을 일으킨 고려의 무신.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 23,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": false,
+  "key_events": [
+   "EV_MUSIN_COUP"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "hero_note": "정변 주도자 - 라이벌·사건 인물로만 쓴다",
+  "base_stats": {},
+  "recruit_method": null,
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "CHOE_MUSEON",
+  "type": "PERSON",
+  "name": "최무선",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "inventor",
+   "general"
+  ],
+  "historical_summary": "고려 말 화약과 화포를 만들어 왜구를 물리쳤다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 24,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_GUNPOWDER"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YI_INRO",
+  "type": "PERSON",
+  "name": "이인로",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "poet",
+   "scholar"
+  ],
+  "historical_summary": "고려 중기 문인 모임 ‘강좌칠현’의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 25,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_POETRY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "GANGJWA_CHILHYEON",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "O_SEJAE",
+  "type": "PERSON",
+  "name": "오세재",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "poet",
+   "scholar"
+  ],
+  "historical_summary": "고려 중기 문인 모임 ‘강좌칠현’의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 26,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_POETRY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "GANGJWA_CHILHYEON",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "IM_CHUN",
+  "type": "PERSON",
+  "name": "임춘",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "poet",
+   "scholar"
+  ],
+  "historical_summary": "고려 중기 문인 모임 ‘강좌칠현’의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 27,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_POETRY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "GANGJWA_CHILHYEON",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "JO_TONG",
+  "type": "PERSON",
+  "name": "조통",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "poet",
+   "scholar"
+  ],
+  "historical_summary": "고려 중기 문인 모임 ‘강좌칠현’의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 28,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_POETRY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "GANGJWA_CHILHYEON",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "HWANGBO_HANG",
+  "type": "PERSON",
+  "name": "황보항",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "poet",
+   "scholar"
+  ],
+  "historical_summary": "고려 중기 문인 모임 ‘강좌칠현’의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 29,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_POETRY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "GANGJWA_CHILHYEON",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "HAM_SUN",
+  "type": "PERSON",
+  "name": "함순",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "poet",
+   "scholar"
+  ],
+  "historical_summary": "고려 중기 문인 모임 ‘강좌칠현’의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 30,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_POETRY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "GANGJWA_CHILHYEON",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YI_DAMJI",
+  "type": "PERSON",
+  "name": "이담지",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "poet",
+   "scholar"
+  ],
+  "historical_summary": "고려 중기 문인 모임 ‘강좌칠현’의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 31,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_POETRY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "GANGJWA_CHILHYEON",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "KIM_BUSIK",
+  "type": "PERSON",
+  "name": "김부식",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "scholar",
+   "official"
+  ],
+  "historical_summary": "고려의 학자. 《삼국사기》를 편찬했다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 32,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [
+   "AR_SAMGUK_SAGI"
+  ],
+  "knowledge": [],
+  "abilities": [
+   "AB_SCHOLARSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "JINUL",
+  "type": "PERSON",
+  "name": "지눌",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "monk"
+  ],
+  "historical_summary": "고려의 승려. 선과 교의 조화를 강조했다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 33,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_SCHOLARSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "UICHEON",
+  "type": "PERSON",
+  "name": "의천",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "monk",
+   "prince"
+  ],
+  "historical_summary": "고려 문종의 아들이자 승려. 천태종을 열었다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 34,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_SCHOLARSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "JEONG_MONGJU",
+  "type": "PERSON",
+  "name": "정몽주",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "official",
+   "scholar"
+  ],
+  "historical_summary": "끝까지 고려에 충절을 지킨 고려 말의 신하.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 35,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "MUN_IKJEOM",
+  "type": "PERSON",
+  "name": "문익점",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "원나라에서 목화씨를 들여왔다. ‘붓두껍에 숨겼다’는 이야기는 후대에 퍼진 전설이다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 36,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_COTTON"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_AGRICULTURE"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "CHOE_CHUNG",
+  "type": "PERSON",
+  "name": "최충",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "scholar"
+  ],
+  "historical_summary": "‘해동공자’라 불린 고려의 유학자. 사학(구재학당)을 세웠다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 37,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_SCHOLARSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "ILYEON",
+  "type": "PERSON",
+  "name": "일연",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "monk",
+   "historian"
+  ],
+  "historical_summary": "고려의 승려. 《삼국유사》를 지었다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 38,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [
+   "AR_SAMGUK_YUSA"
+  ],
+  "knowledge": [],
+  "abilities": [
+   "AB_SCHOLARSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "CHOE_YEONG",
+  "type": "PERSON",
+  "name": "최영",
+  "era": "GORYEO",
+  "country": "GORYEO",
+  "roles": [
+   "general"
+  ],
+  "historical_summary": "고려 말의 장군. 왜구와 홍건적을 물리쳤다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 39,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_TACTICS"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YI_JONGMU",
+  "type": "PERSON",
+  "name": "이종무",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "general"
+  ],
+  "historical_summary": "조선 세종 때 쓰시마를 정벌한 장군.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 40,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_NAVAL_COMMAND"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "HWANG_HUI",
+  "type": "PERSON",
+  "name": "황희",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "세종 때 오래 영의정을 지낸 청렴한 재상.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 41,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_ADMINISTRATION"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "MAENG_SASEONG",
+  "type": "PERSON",
+  "name": "맹사성",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "세종 때의 재상. 소박한 삶으로 알려졌다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 42,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_ADMINISTRATION"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "JANG_YEONGSIL",
+  "type": "PERSON",
+  "name": "장영실",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "inventor",
+   "scientist"
+  ],
+  "historical_summary": "세종 때 과학자. 측우기·자격루 등의 제작에 참여했다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 43,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_RAIN_GAUGE"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_INVENTION"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {
+   "might": 2,
+   "wisdom": 9,
+   "charm": 4,
+   "explore": 5
+  },
+  "recruit_method": "quest",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다.",
+  "recruit_quest": "RQ_JANG_YEONGSIL"
+ },
+ {
+  "id": "SIN_SUKJU",
+  "type": "PERSON",
+  "name": "신숙주",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "scholar",
+   "official",
+   "diplomat"
+  ],
+  "historical_summary": "훈민정음 창제에 참여한 학자이자 외교가. 계유정난에 가담해 평가가 엇갈린다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 44,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_DIPLOMACY",
+   "AB_SCHOLARSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "HAN_MYEONGHOE",
+  "type": "PERSON",
+  "name": "한명회",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "official",
+   "strategist"
+  ],
+  "historical_summary": "계유정난을 주도한 문신.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 45,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": false,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "hero_note": "정변 주도자 - 라이벌·사건 인물로만 쓴다",
+  "base_stats": {},
+  "recruit_method": null,
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YI_I",
+  "type": "PERSON",
+  "name": "이이(율곡)",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "scholar",
+   "official"
+  ],
+  "historical_summary": "조선의 성리학자. 호는 율곡.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 46,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_SCHOLARSHIP",
+   "AB_ADMINISTRATION"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YI_HWANG",
+  "type": "PERSON",
+  "name": "이황(퇴계)",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "scholar"
+  ],
+  "historical_summary": "조선의 성리학자. 호는 퇴계.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 47,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_SCHOLARSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "SHIN_SAIMDANG",
+  "type": "PERSON",
+  "name": "신사임당",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "artist",
+   "writer"
+  ],
+  "historical_summary": "조선의 화가이자 문인. 이이의 어머니.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 48,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_PAINTING"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "GWAK_JAEU",
+  "type": "PERSON",
+  "name": "곽재우",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "righteous_army_leader"
+  ],
+  "historical_summary": "임진왜란 때 의병을 일으킨 장수. ‘홍의장군’이라 불렸다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 49,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_IMJIN_WAR"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_GUERRILLA"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "JO_HEON",
+  "type": "PERSON",
+  "name": "조헌",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "official",
+   "righteous_army_leader"
+  ],
+  "historical_summary": "임진왜란 때 의병을 이끌다 금산 전투에서 전사했다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 50,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_IMJIN_WAR"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_GUERRILLA"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "KIM_SIMIN",
+  "type": "PERSON",
+  "name": "김시민",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "general"
+  ],
+  "historical_summary": "임진왜란 때 진주성 싸움을 승리로 이끈 장군.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 51,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_IMJIN_WAR",
+   "BT_JINJU"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_DEFENSE"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YI_SUNSIN",
+  "type": "PERSON",
+  "name": "이순신",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "admiral"
+  ],
+  "historical_summary": "임진왜란 때 수군을 이끌어 해전에서 잇따라 이긴 제독.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 52,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_IMJIN_WAR",
+   "BT_HANSANDO"
+  ],
+  "related_locations": [],
+  "related_artifacts": [
+   "AR_TURTLE_SHIP"
+  ],
+  "knowledge": [],
+  "abilities": [
+   "AB_NAVAL_COMMAND",
+   "AB_TACTICS"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {
+   "might": 9,
+   "wisdom": 8,
+   "charm": 7,
+   "explore": 4
+  },
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "TAEJO",
+  "type": "PERSON",
+  "name": "태조 이성계",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "ruler"
+  ],
+  "historical_summary": "조선의 건국자이자 제1대 왕.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 53,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "TAE_JEONG_TAE_SE_MUN_DAN_SE",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "JEONGJONG",
+  "type": "PERSON",
+  "name": "정종",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "ruler"
+  ],
+  "historical_summary": "조선의 제2대 왕.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 54,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "TAE_JEONG_TAE_SE_MUN_DAN_SE",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "TAEJONG",
+  "type": "PERSON",
+  "name": "태종",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "ruler"
+  ],
+  "historical_summary": "조선의 제3대 왕.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 55,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "TAE_JEONG_TAE_SE_MUN_DAN_SE",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "SEJONG",
+  "type": "PERSON",
+  "name": "세종",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "ruler"
+  ],
+  "historical_summary": "조선의 제4대 왕(재위 1418~1450). 훈민정음을 만들었다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 56,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_HUNMIN"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [
+   "KN_HUNMIN"
+  ],
+  "abilities": [
+   "AB_SCHOLARSHIP",
+   "AB_ADMINISTRATION",
+   "AB_HUNMINJEONGEUM"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG",
+   "SRC_EK_SEJONG"
+  ],
+  "review_status": "source_checked",
+  "group": "TAE_JEONG_TAE_SE_MUN_DAN_SE",
+  "base_stats": {
+   "might": 2,
+   "wisdom": 10,
+   "charm": 8,
+   "explore": 2
+  },
+  "recruit_method": "quest",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다.",
+  "recruit_quest": "RQ_SEJONG"
+ },
+ {
+  "id": "MUNJONG",
+  "type": "PERSON",
+  "name": "문종",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "ruler"
+  ],
+  "historical_summary": "조선의 제5대 왕.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 57,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "TAE_JEONG_TAE_SE_MUN_DAN_SE",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "DANJONG",
+  "type": "PERSON",
+  "name": "단종",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "ruler"
+  ],
+  "historical_summary": "조선의 제6대 왕.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 58,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "TAE_JEONG_TAE_SE_MUN_DAN_SE",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "SEJO",
+  "type": "PERSON",
+  "name": "세조",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "ruler"
+  ],
+  "historical_summary": "조선의 제7대 왕. 계유정난으로 왕위에 올랐다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 59,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "TAE_JEONG_TAE_SE_MUN_DAN_SE",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "SEONG_SAMMUN",
+  "type": "PERSON",
+  "name": "성삼문",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "단종 복위를 꾀하다 처형된 사육신의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 60,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAYUKSIN",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "BAK_PAENGNYEON",
+  "type": "PERSON",
+  "name": "박팽년",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "단종 복위를 꾀하다 처형된 사육신의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 61,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAYUKSIN",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YI_GAE",
+  "type": "PERSON",
+  "name": "이개",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "단종 복위를 꾀하다 처형된 사육신의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 62,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAYUKSIN",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "HA_WIJI",
+  "type": "PERSON",
+  "name": "하위지",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "단종 복위를 꾀하다 처형된 사육신의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 63,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAYUKSIN",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YU_SEONGWON",
+  "type": "PERSON",
+  "name": "유성원",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "단종 복위를 꾀하다 처형된 사육신의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 64,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAYUKSIN",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YU_EUNGBU",
+  "type": "PERSON",
+  "name": "유응부",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "단종 복위를 꾀하다 처형된 사육신의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 65,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAYUKSIN",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "KIM_SISEUP",
+  "type": "PERSON",
+  "name": "김시습",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "scholar"
+  ],
+  "historical_summary": "세조의 즉위에 반대해 벼슬을 버린 생육신의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 66,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAENGYUKSIN",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "SEONG_DAMSU",
+  "type": "PERSON",
+  "name": "성담수",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "scholar"
+  ],
+  "historical_summary": "세조의 즉위에 반대해 벼슬을 버린 생육신의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 67,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAENGYUKSIN",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "WON_HO",
+  "type": "PERSON",
+  "name": "원호",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "scholar"
+  ],
+  "historical_summary": "세조의 즉위에 반대해 벼슬을 버린 생육신의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 68,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAENGYUKSIN",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YI_MAENGJEON",
+  "type": "PERSON",
+  "name": "이맹전",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "scholar"
+  ],
+  "historical_summary": "세조의 즉위에 반대해 벼슬을 버린 생육신의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 69,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAENGYUKSIN",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "JO_RYEO",
+  "type": "PERSON",
+  "name": "조려",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "scholar"
+  ],
+  "historical_summary": "세조의 즉위에 반대해 벼슬을 버린 생육신의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 70,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAENGYUKSIN",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "NAM_HYOON",
+  "type": "PERSON",
+  "name": "남효온",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "scholar"
+  ],
+  "historical_summary": "세조의 즉위에 반대해 벼슬을 버린 생육신의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 71,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAENGYUKSIN",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "NONGAE",
+  "type": "PERSON",
+  "name": "논개",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "gisaeng"
+  ],
+  "historical_summary": "임진왜란 때 진주성이 함락되자 왜장을 안고 강에 뛰어들었다고 전한다.",
+  "historical_status": "LEGEND",
+  "spine_order": 72,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_IMJIN_WAR"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_COURAGE"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "GWON_YUL",
+  "type": "PERSON",
+  "name": "권율",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "general"
+  ],
+  "historical_summary": "임진왜란 때 행주 대첩을 이끈 장군.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 73,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_IMJIN_WAR",
+   "BT_HAENGJU"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_DEFENSE",
+   "AB_TACTICS"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "HONG_GILDONG",
+  "type": "PERSON",
+  "name": "홍길동",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "hero"
+  ],
+  "historical_summary": "허균이 지은 소설 《홍길동전》의 주인공(문학 속 인물).",
+  "historical_status": "LITERARY_FICTION",
+  "spine_order": 74,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_STEALTH"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "hero_note": "문학 속 인물 - 게임에서 쓸 때 ‘문학’ 배지",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "IM_KKEOKJEONG",
+  "type": "PERSON",
+  "name": "임꺽정",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "outlaw"
+  ],
+  "historical_summary": "조선 명종 때의 도적. 뒤에 소설로 널리 알려졌다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 75,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_STEALTH"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "HONG_IKHAN",
+  "type": "PERSON",
+  "name": "홍익한",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "병자호란 때 청과의 화친에 반대하다 끌려가 죽은 삼학사의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 76,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAMHAKSA",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YUN_JIP",
+  "type": "PERSON",
+  "name": "윤집",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "병자호란 때 청과의 화친에 반대하다 끌려가 죽은 삼학사의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 77,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAMHAKSA",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "O_DALJE",
+  "type": "PERSON",
+  "name": "오달제",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "병자호란 때 청과의 화친에 반대하다 끌려가 죽은 삼학사의 한 사람.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 78,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LOYALTY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "group": "SAMHAKSA",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "BAK_MUNSU",
+  "type": "PERSON",
+  "name": "박문수",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "암행어사로 이름난 조선 후기 관리. 많은 일화는 구전 설화다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 79,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_ADMINISTRATION"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "HAN_HO",
+  "type": "PERSON",
+  "name": "한호(한석봉)",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "calligrapher"
+  ],
+  "historical_summary": "조선의 서예가. 호는 석봉.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 80,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_CALLIGRAPHY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "KIM_HONGDO",
+  "type": "PERSON",
+  "name": "김홍도(단원)",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "painter"
+  ],
+  "historical_summary": "서민의 삶을 그린 풍속화로 이름난 조선의 화가.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 81,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_PAINTING"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "KIM_BYEONGYEON",
+  "type": "PERSON",
+  "name": "김병연(김삿갓)",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "poet"
+  ],
+  "historical_summary": "삿갓을 쓰고 전국을 떠돈 방랑 시인.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 82,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_POETRY",
+   "AB_EXPLORATION"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "KIM_JEONGHO",
+  "type": "PERSON",
+  "name": "김정호",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "cartographer"
+  ],
+  "historical_summary": "《대동여지도》를 만든 지리학자.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 83,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [
+   "AR_DAEDONG_MAP"
+  ],
+  "knowledge": [],
+  "abilities": [
+   "AB_CARTOGRAPHY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {
+   "might": 2,
+   "wisdom": 8,
+   "charm": 3,
+   "explore": 10
+  },
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YEONGJO",
+  "type": "PERSON",
+  "name": "영조",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "ruler"
+  ],
+  "historical_summary": "조선의 제21대 왕. 탕평책을 펼쳤다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 84,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [
+   "KN_TANGPYEONG"
+  ],
+  "abilities": [
+   "AB_TANGPYEONG"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "JEONGJO",
+  "type": "PERSON",
+  "name": "정조",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "ruler"
+  ],
+  "historical_summary": "조선의 제22대 왕. 규장각을 세우고 학문을 장려했다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 85,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_ADMINISTRATION",
+   "AB_TANGPYEONG"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "JEONG_YAKYONG",
+  "type": "PERSON",
+  "name": "정약용",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "scholar",
+   "engineer"
+  ],
+  "historical_summary": "조선 후기 실학자. 거중기를 고안하고 《목민심서》를 지었다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 86,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [
+   "AR_GEOJUNGGI"
+  ],
+  "knowledge": [],
+  "abilities": [
+   "AB_ENGINEERING",
+   "AB_ADMINISTRATION"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {
+   "might": 1,
+   "wisdom": 10,
+   "charm": 5,
+   "explore": 4
+  },
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "KIM_DAEGEON",
+  "type": "PERSON",
+  "name": "김대건",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "priest"
+  ],
+  "historical_summary": "한국 최초의 천주교 신부. 박해 속에 순교했다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 87,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_FAITH"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "HWANG_JINI",
+  "type": "PERSON",
+  "name": "황진이",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "poet",
+   "gisaeng"
+  ],
+  "historical_summary": "뛰어난 시조를 남긴 조선의 기생 시인.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 88,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_POETRY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "HONG_GYEONGNAE",
+  "type": "PERSON",
+  "name": "홍경래",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "rebel_leader"
+  ],
+  "historical_summary": "평안도 차별에 맞서 봉기(홍경래의 난)를 이끈 인물.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 89,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LEADERSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "HEO_GYUN",
+  "type": "PERSON",
+  "name": "허균",
+  "era": "JOSEON",
+  "country": "JOSEON",
+  "roles": [
+   "writer"
+  ],
+  "historical_summary": "《홍길동전》의 지은이로 알려진 조선의 문인.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 90,
+  "song_catalog": {
+   "included": false
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_POETRY"
+  ],
+  "source_refs": [],
+  "review_status": "needs_review",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "JEON_BONGJUN",
+  "type": "PERSON",
+  "name": "전봉준",
+  "era": "MODERN",
+  "country": "JOSEON",
+  "roles": [
+   "leader"
+  ],
+  "historical_summary": "동학 농민 운동의 지도자. ‘녹두장군’이라 불렸다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 91,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_DONGHAK"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LEADERSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "KIM_OKGYUN",
+  "type": "PERSON",
+  "name": "김옥균",
+  "era": "MODERN",
+  "country": "JOSEON",
+  "roles": [
+   "politician",
+   "reformer"
+  ],
+  "historical_summary": "갑신정변을 이끈 개화파 정치가.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 92,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_GAPSIN"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_REFORM"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "AN_JUNGGEUN",
+  "type": "PERSON",
+  "name": "안중근",
+  "era": "MODERN",
+  "country": "KOREAN_EMPIRE",
+  "roles": [
+   "independence_activist"
+  ],
+  "historical_summary": "하얼빈에서 이토 히로부미를 저격한 독립운동가.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 93,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_HARBIN"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_COURAGE"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YI_WANYONG",
+  "type": "PERSON",
+  "name": "이완용",
+  "era": "MODERN",
+  "country": "KOREAN_EMPIRE",
+  "roles": [
+   "official"
+  ],
+  "historical_summary": "한일병합조약에 서명해 매국노로 널리 비판받는 인물.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 94,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": false,
+  "key_events": [
+   "EV_ANNEXATION"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "hero_note": "역사적으로 비판받는 인물 - 영웅으로 영입하지 않는다. 역사 이해를 위한 사건 인물로만 쓴다",
+  "base_stats": {},
+  "recruit_method": null,
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YUN_DONGJU",
+  "type": "PERSON",
+  "name": "윤동주",
+  "era": "MODERN",
+  "country": "KOREA",
+  "roles": [
+   "poet"
+  ],
+  "historical_summary": "일제강점기의 시인. 《하늘과 바람과 별과 시》가 유고 시집으로 남았다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 95,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_POETRY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "JI_SEOKYEONG",
+  "type": "PERSON",
+  "name": "지석영",
+  "era": "MODERN",
+  "country": "KOREA",
+  "roles": [
+   "physician"
+  ],
+  "historical_summary": "종두법을 보급한 의사.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 96,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_MEDICINE"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "SON_BYEONGHUI",
+  "type": "PERSON",
+  "name": "손병희",
+  "era": "MODERN",
+  "country": "KOREA",
+  "roles": [
+   "religious_leader",
+   "independence_activist"
+  ],
+  "historical_summary": "천도교 지도자. 3·1 운동의 민족 대표였다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 97,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_MARCH_FIRST"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_LEADERSHIP"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YU_GWANSUN",
+  "type": "PERSON",
+  "name": "유관순",
+  "era": "MODERN",
+  "country": "KOREA",
+  "roles": [
+   "independence_activist"
+  ],
+  "historical_summary": "3·1 운동에 참여하고 옥중에서 숨진 독립운동가.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 98,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [
+   "EV_MARCH_FIRST"
+  ],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_COURAGE"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "AN_CHANGHO",
+  "type": "PERSON",
+  "name": "안창호",
+  "era": "MODERN",
+  "country": "KOREA",
+  "roles": [
+   "independence_activist",
+   "educator"
+  ],
+  "historical_summary": "교육과 실력 양성을 강조한 독립운동가.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 99,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_EDUCATION"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "BANG_JEONGHWAN",
+  "type": "PERSON",
+  "name": "방정환",
+  "era": "MODERN",
+  "country": "KOREA",
+  "roles": [
+   "writer",
+   "educator"
+  ],
+  "historical_summary": "어린이날을 만드는 데 앞장선 아동 문학가.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 100,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_EDUCATION"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YI_SUIL",
+  "type": "PERSON",
+  "name": "이수일",
+  "era": "MODERN",
+  "country": "KOREA",
+  "roles": [
+   "character"
+  ],
+  "historical_summary": "조중환의 소설 《장한몽》의 인물(문학 속 인물).",
+  "historical_status": "LITERARY_FICTION",
+  "spine_order": 101,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": false,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "hero_note": "문학 속 인물 - NPC·이야기 소재로만",
+  "base_stats": {},
+  "recruit_method": null,
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "SIM_SUNAE",
+  "type": "PERSON",
+  "name": "심순애",
+  "era": "MODERN",
+  "country": "KOREA",
+  "roles": [
+   "character"
+  ],
+  "historical_summary": "조중환의 소설 《장한몽》의 인물(문학 속 인물).",
+  "historical_status": "LITERARY_FICTION",
+  "spine_order": 102,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": false,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "hero_note": "문학 속 인물 - NPC·이야기 소재로만",
+  "base_stats": {},
+  "recruit_method": null,
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "KIM_DUHAN",
+  "type": "PERSON",
+  "name": "김두한",
+  "era": "MODERN",
+  "country": "KOREA",
+  "roles": [
+   "politician"
+  ],
+  "historical_summary": "광복 전후의 폭력 조직 두목 출신 정치인. 평가와 일화의 사실 여부에 논란이 있다.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 103,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": false,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "needs_review",
+  "hero_note": "평가 논란 - 사람 검수 전까지 영웅으로 쓰지 않는다",
+  "base_stats": {},
+  "recruit_method": null,
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YI_SANG",
+  "type": "PERSON",
+  "name": "이상",
+  "era": "MODERN",
+  "country": "KOREA",
+  "roles": [
+   "writer"
+  ],
+  "historical_summary": "일제강점기의 시인·소설가. 《날개》의 작가.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 104,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_POETRY"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "YI_JUNGSEOP",
+  "type": "PERSON",
+  "name": "이중섭",
+  "era": "MODERN",
+  "country": "KOREA",
+  "roles": [
+   "painter"
+  ],
+  "historical_summary": "소 그림으로 널리 알려진 화가.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 105,
+  "song_catalog": {
+   "included": true
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [
+   "AB_PAINTING"
+  ],
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "review_status": "identity_checked",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ },
+ {
+  "id": "JO_JUNGHWAN",
+  "type": "PERSON",
+  "name": "조중환",
+  "era": "MODERN",
+  "country": "KOREA",
+  "roles": [
+   "writer"
+  ],
+  "historical_summary": "번안 소설 《장한몽》의 작가.",
+  "historical_status": "HISTORICAL_RECORD",
+  "spine_order": 106,
+  "song_catalog": {
+   "included": false
+  },
+  "hero_eligible": true,
+  "key_events": [],
+  "related_locations": [],
+  "related_artifacts": [],
+  "knowledge": [],
+  "abilities": [],
+  "source_refs": [],
+  "review_status": "needs_review",
+  "base_stats": {},
+  "recruit_method": "time_gate",
+  "game_data_note": "base_stats·abilities 수치는 게임 밸런스를 위한 GAME_SETTING 데이터이며 역사적 사실이 아니다."
+ }
+]

@@ -1,0 +1,78 @@
+{
+ "game": "game_lab/rpg/gojoseon/gojoseon.json",
+ "stage": "STAGE_GOJOSEON",
+ "knowledge": {
+  "k_dolmen": "KN_DOLMEN",
+  "k_bipa": "KN_BIPA",
+  "k_myth": "KN_DANGUN_MYTH",
+  "k_dangun": "KN_DANGUN_MYTH",
+  "k_jejeong": "KN_JEJEONG_ILCHI",
+  "k_hongik": "KN_HONGIK",
+  "k_8laws": "KN_EIGHT_LAWS",
+  "k_hunt_signal": "KN_HUNT_SIGNAL",
+  "k_river": "KN_RIVER_ROUTE",
+  "k_bronze_mix": "KN_BRONZE_MIX"
+ },
+ "items": {
+  "bipa_sword": "AR_BIPA_DAGGER",
+  "raft": "TN_RIVER",
+  "hawk_feather": "TR_HUNTERS"
+ },
+ "skills": {
+  "tracking": "AB_TRACKING",
+  "farming": "AB_AGRICULTURE",
+  "bronze_tools": "AB_BRONZE_CASTING",
+  "trade_route": "AB_RIVER_TRADE"
+ },
+ "tribes": {
+  "hunters": "TR_HUNTERS",
+  "farmers": "TR_FARMERS",
+  "crafters": "TR_CRAFTERS",
+  "traders": "TR_TRADERS"
+ },
+ "locations": {
+  "camp": "TN_RIVER",
+  "river": "TN_RIVER",
+  "forest": "TN_FOREST",
+  "ridge": "TN_MOUNTAIN",
+  "plain": "TN_PLAIN",
+  "dolmen": "AR_DOLMEN",
+  "sindan": "MY_DANGUN",
+  "crafts": "TE_BRONZE",
+  "copper": "TE_BRONZE",
+  "estuary": "TN_ESTUARY",
+  "mist": "TN_PASS",
+  "asadal": "LOC_ASADAL"
+ },
+ "events": {
+  "ev_council": "CT_GOJOSEON",
+  "law_life": "IN_EIGHT_LAWS",
+  "law_hurt": "IN_EIGHT_LAWS",
+  "law_theft": "IN_EIGHT_LAWS",
+  "ev_found": "EV_GOJOSEON_FOUNDING_MYTH"
+ },
+ "policies": {
+  "eight_laws": "AB_EIGHT_LAWS"
+ },
+ "companions": {
+  "maegit": "TR_HUNTERS",
+  "dulnyeok": "TR_FARMERS",
+  "bulkkot": "TR_CRAFTERS",
+  "mulgil": "TR_TRADERS"
+ },
+ "status_map": {
+  "historical_fact": "HISTORICAL_RECORD",
+  "historical_record": [
+   "HISTORICAL_RECORD",
+   "HISTORICAL_INTERPRETATION"
+  ],
+  "mythology": "MYTHOLOGY",
+  "legend": "LEGEND",
+  "game_setting": "GAME_SETTING"
+ },
+ "hero_pool_heroes": [
+  "DAN_GUN",
+  "JUMONG",
+  "GWANGGAETO"
+ ]
+}

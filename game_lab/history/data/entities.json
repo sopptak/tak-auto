@@ -1,0 +1,1367 @@
+[
+ {
+  "id": "CT_GOJOSEON",
+  "type": "COUNTRY",
+  "name": "고조선",
+  "era": "GOJOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "문헌 기록으로 실존이 분명한 한반도 최초의 고대 국가. 연대·강역은 연구 중. 본래 이름은 조선.",
+  "source_refs": [
+   "SRC_WIKI_GOJOSEON"
+  ],
+  "related_entities": [
+   "EV_GOJOSEON_FALL",
+   "IN_EIGHT_LAWS",
+   "DAN_GUN"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "CT_GOGURYEO",
+  "type": "COUNTRY",
+  "name": "고구려",
+  "era": "THREE_KINGDOMS",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "고구려.",
+  "source_refs": [],
+  "related_entities": [],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "CT_BAEKJE",
+  "type": "COUNTRY",
+  "name": "백제",
+  "era": "THREE_KINGDOMS",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "백제.",
+  "source_refs": [],
+  "related_entities": [],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "CT_SILLA",
+  "type": "COUNTRY",
+  "name": "신라",
+  "era": "THREE_KINGDOMS",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "신라.",
+  "source_refs": [],
+  "related_entities": [],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "CT_BALHAE",
+  "type": "COUNTRY",
+  "name": "발해",
+  "era": "NORTH_SOUTH_STATES",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "발해.",
+  "source_refs": [],
+  "related_entities": [],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "CT_GORYEO",
+  "type": "COUNTRY",
+  "name": "고려",
+  "era": "GORYEO",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "고려.",
+  "source_refs": [],
+  "related_entities": [],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "CT_JOSEON",
+  "type": "COUNTRY",
+  "name": "조선",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "조선.",
+  "source_refs": [],
+  "related_entities": [],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "TR_HUNTERS",
+  "type": "TRIBE",
+  "name": "매깃 사냥 부족",
+  "era": "BRONZE_AGE",
+  "historical_status": "GAME_SETTING",
+  "description": "고조선 슬라이스의 가상 부족(사냥). 실제 부족 이름이 아니다.",
+  "source_refs": [],
+  "related_entities": [
+   "CU_SETTLEMENT"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "TR_FARMERS",
+  "type": "TRIBE",
+  "name": "들녘 농경 부족",
+  "era": "BRONZE_AGE",
+  "historical_status": "GAME_SETTING",
+  "description": "고조선 슬라이스의 가상 부족(농경). 실제 부족 이름이 아니다.",
+  "source_refs": [],
+  "related_entities": [
+   "CU_SETTLEMENT"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "TR_CRAFTERS",
+  "type": "TRIBE",
+  "name": "불꽃 골 장인 부족",
+  "era": "BRONZE_AGE",
+  "historical_status": "GAME_SETTING",
+  "description": "고조선 슬라이스의 가상 부족(청동 제작). 실제 부족 이름이 아니다.",
+  "source_refs": [],
+  "related_entities": [
+   "CU_SETTLEMENT"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "TR_TRADERS",
+  "type": "TRIBE",
+  "name": "물길 상인",
+  "era": "BRONZE_AGE",
+  "historical_status": "GAME_SETTING",
+  "description": "고조선 슬라이스의 가상 부족(교역). 실제 부족 이름이 아니다.",
+  "source_refs": [],
+  "related_entities": [
+   "CU_SETTLEMENT"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "EV_GOJOSEON_FOUNDING_MYTH",
+  "type": "EVENT",
+  "name": "단군의 고조선 건국(건국 신화)",
+  "era": "GOJOSEON",
+  "historical_status": "MYTHOLOGY",
+  "description": "『삼국유사』가 전하는 건국 이야기. 특정 연도를 사실로 쓰지 않는다.",
+  "source_refs": [
+   "SRC_EK_WANGGEOM"
+  ],
+  "related_entities": [
+   "DAN_GUN",
+   "LOC_ASADAL",
+   "MY_DANGUN"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "EV_GOJOSEON_FALL",
+  "type": "EVENT",
+  "name": "고조선 멸망",
+  "era": "GOJOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "기원전 108년 멸망.",
+  "source_refs": [
+   "SRC_WIKI_GOJOSEON"
+  ],
+  "related_entities": [],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "year": -108,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "EV_GOGURYEO_FOUNDING",
+  "type": "EVENT",
+  "name": "고구려 건국",
+  "era": "THREE_KINGDOMS",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "『삼국사기』 기록상 기원전 37년 주몽이 졸본에서 건국.",
+  "source_refs": [
+   "SRC_EK_DONGMYEONG"
+  ],
+  "related_entities": [
+   "JUMONG",
+   "LOC_JOLBON"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "year": -37,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "BT_HWANGSANBEOL",
+  "type": "BATTLE",
+  "name": "황산벌 전투",
+  "era": "THREE_KINGDOMS",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "백제 계백의 군대와 신라군이 맞선 싸움.",
+  "source_refs": [],
+  "related_entities": [
+   "GYEBAEK",
+   "GWANCHANG",
+   "KIM_YUSIN"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_DEFENSE"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "EV_SEOHUI_TALKS",
+  "type": "EVENT",
+  "name": "서희의 외교 담판",
+  "era": "GORYEO",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "993년 거란과의 담판으로 강동 6주 확보.",
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "related_entities": [
+   "SEO_HUI"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_DIPLOMACY"
+  ],
+  "unlock_condition": null,
+  "year": 993,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "BT_GUJU",
+  "type": "BATTLE",
+  "name": "귀주 대첩",
+  "era": "GORYEO",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "1019년 강감찬이 거란군을 물리친 싸움.",
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "related_entities": [
+   "GANG_GAMCHAN"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_TACTICS"
+  ],
+  "unlock_condition": null,
+  "year": 1019,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "EV_MUSIN_COUP",
+  "type": "EVENT",
+  "name": "무신정변",
+  "era": "GORYEO",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "1170년 무신들이 일으킨 정변.",
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "related_entities": [
+   "JEONG_JUNGBU"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "year": 1170,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "EV_COTTON",
+  "type": "EVENT",
+  "name": "목화 전래",
+  "era": "GORYEO",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "문익점이 원나라에서 목화씨를 들여옴. ‘붓두껍’ 이야기는 후대 전설.",
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "related_entities": [
+   "MUN_IKJEOM",
+   "LG_COTTON_BRUSHCAP",
+   "TE_COTTON"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "EV_HUNMIN",
+  "type": "EVENT",
+  "name": "훈민정음 창제",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "세종이 훈민정음을 만들었다.",
+  "source_refs": [
+   "SRC_EK_SEJONG"
+  ],
+  "related_entities": [
+   "SEJONG",
+   "CU_HUNMINJEONGEUM"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_HUNMINJEONGEUM"
+  ],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "EV_RAIN_GAUGE",
+  "type": "EVENT",
+  "name": "측우기 제작",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "세종 때 비의 양을 재는 측우기를 만들었다.",
+  "source_refs": [],
+  "related_entities": [
+   "JANG_YEONGSIL",
+   "SEJONG",
+   "TE_RAIN_GAUGE"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "EV_IMJIN_WAR",
+  "type": "EVENT",
+  "name": "임진왜란",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "1592년 일본의 침략으로 시작된 전쟁.",
+  "source_refs": [],
+  "related_entities": [
+   "YI_SUNSIN",
+   "GWON_YUL",
+   "GWAK_JAEU",
+   "KIM_SIMIN"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "year": 1592,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "BT_HANSANDO",
+  "type": "BATTLE",
+  "name": "한산도 대첩",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "이순신이 이끈 조선 수군의 해전 승리.",
+  "source_refs": [],
+  "related_entities": [
+   "YI_SUNSIN",
+   "EV_IMJIN_WAR"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_NAVAL_COMMAND"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "BT_HAENGJU",
+  "type": "BATTLE",
+  "name": "행주 대첩",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "권율이 이끈 행주산성 싸움의 승리.",
+  "source_refs": [],
+  "related_entities": [
+   "GWON_YUL",
+   "EV_IMJIN_WAR"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_DEFENSE"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "BT_JINJU",
+  "type": "BATTLE",
+  "name": "진주 대첩",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "김시민이 진주성을 지켜 낸 싸움.",
+  "source_refs": [],
+  "related_entities": [
+   "KIM_SIMIN",
+   "EV_IMJIN_WAR"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_DEFENSE"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "EV_DONGHAK",
+  "type": "EVENT",
+  "name": "동학 농민 운동",
+  "era": "MODERN",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "전봉준 등이 이끈 농민 봉기.",
+  "source_refs": [],
+  "related_entities": [
+   "JEON_BONGJUN"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "EV_GAPSIN",
+  "type": "EVENT",
+  "name": "갑신정변",
+  "era": "MODERN",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "김옥균 등 개화파가 일으킨 정변.",
+  "source_refs": [],
+  "related_entities": [
+   "KIM_OKGYUN"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "EV_HARBIN",
+  "type": "EVENT",
+  "name": "하얼빈 의거",
+  "era": "MODERN",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "안중근이 하얼빈에서 이토 히로부미를 저격.",
+  "source_refs": [],
+  "related_entities": [
+   "AN_JUNGGEUN"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "EV_ANNEXATION",
+  "type": "EVENT",
+  "name": "한일병합조약",
+  "era": "MODERN",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "1910년 대한제국이 국권을 빼앗긴 조약.",
+  "source_refs": [],
+  "related_entities": [
+   "YI_WANYONG"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "year": 1910,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "EV_MARCH_FIRST",
+  "type": "EVENT",
+  "name": "3·1 운동",
+  "era": "MODERN",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "1919년 3월 1일 시작된 독립 만세 운동.",
+  "source_refs": [],
+  "related_entities": [
+   "YU_GWANSUN",
+   "SON_BYEONGHUI"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "year": 1919,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "LOC_ASADAL",
+  "type": "LOCATION",
+  "name": "아사달",
+  "era": "GOJOSEON",
+  "historical_status": "MYTHOLOGY",
+  "description": "『삼국유사』가 단군의 도읍으로 전하는 곳. 위치는 알 수 없다.",
+  "source_refs": [
+   "SRC_EK_ASADAL",
+   "SRC_EK_WANGGEOM"
+  ],
+  "related_entities": [
+   "DAN_GUN"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "LOC_JOLBON",
+  "type": "LOCATION",
+  "name": "졸본",
+  "era": "THREE_KINGDOMS",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "주몽이 도읍을 정했다고 기록된 곳.",
+  "source_refs": [
+   "SRC_EK_DONGMYEONG"
+  ],
+  "related_entities": [
+   "JUMONG"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "LOC_CHEONGHAEJIN",
+  "type": "LOCATION",
+  "name": "청해진",
+  "era": "NORTH_SOUTH_STATES",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "장보고가 설치한 해상 거점.",
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "related_entities": [
+   "JANG_BOGO"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "RG_LIAONING_KOREA",
+  "type": "REGION",
+  "name": "요령 지방과 한반도 북부",
+  "era": "BRONZE_AGE",
+  "historical_status": "HISTORICAL_INTERPRETATION",
+  "description": "비파형 동검이 주로 나오는 지역(요령식 동검).",
+  "source_refs": [
+   "SRC_EK_BIPA"
+  ],
+  "related_entities": [
+   "AR_BIPA_DAGGER"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "TN_RIVER",
+  "type": "TERRAIN",
+  "name": "강",
+  "era": null,
+  "historical_status": "GAME_SETTING",
+  "description": "지형: 강. 이동·자원 효과는 게임 데이터.",
+  "source_refs": [],
+  "related_entities": [],
+  "game_effects": {
+   "move": "물길 이동",
+   "food": "물고기"
+  },
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "TN_MOUNTAIN",
+  "type": "TERRAIN",
+  "name": "산",
+  "era": null,
+  "historical_status": "GAME_SETTING",
+  "description": "지형: 산. 이동·자원 효과는 게임 데이터.",
+  "source_refs": [],
+  "related_entities": [],
+  "game_effects": {
+   "defense": "+",
+   "move": "느림"
+  },
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "TN_PLAIN",
+  "type": "TERRAIN",
+  "name": "평야",
+  "era": null,
+  "historical_status": "GAME_SETTING",
+  "description": "지형: 평야. 이동·자원 효과는 게임 데이터.",
+  "source_refs": [],
+  "related_entities": [],
+  "game_effects": {
+   "food": "농경"
+  },
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "TN_FOREST",
+  "type": "TERRAIN",
+  "name": "숲",
+  "era": null,
+  "historical_status": "GAME_SETTING",
+  "description": "지형: 숲. 이동·자원 효과는 게임 데이터.",
+  "source_refs": [],
+  "related_entities": [],
+  "game_effects": {
+   "food": "사냥·채집"
+  },
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "TN_ESTUARY",
+  "type": "TERRAIN",
+  "name": "강어귀",
+  "era": null,
+  "historical_status": "GAME_SETTING",
+  "description": "지형: 강어귀. 이동·자원 효과는 게임 데이터.",
+  "source_refs": [],
+  "related_entities": [],
+  "game_effects": {
+   "trade": "교역"
+  },
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "TN_PASS",
+  "type": "TERRAIN",
+  "name": "고개",
+  "era": null,
+  "historical_status": "GAME_SETTING",
+  "description": "지형: 고개. 이동·자원 효과는 게임 데이터.",
+  "source_refs": [],
+  "related_entities": [],
+  "game_effects": {
+   "move": "막힘(도구 필요)"
+  },
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "AR_DOLMEN",
+  "type": "ARTIFACT",
+  "name": "고인돌",
+  "era": "BRONZE_AGE",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "덮개돌 밑에 받침돌을 고인 청동기시대의 대표적인 무덤이자 기념물.",
+  "source_refs": [
+   "SRC_EK_DOLMEN"
+  ],
+  "related_entities": [
+   "CU_SETTLEMENT",
+   "TE_BRONZE"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_MONUMENT_LABOR"
+  ],
+  "unlock_condition": null,
+  "evidence": "archaeology",
+  "review_status": "source_checked"
+ },
+ {
+  "id": "AR_BIPA_DAGGER",
+  "type": "ARTIFACT",
+  "name": "비파형 동검",
+  "era": "BRONZE_AGE",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "청동기시대의 무기 혹은 제기. 칼몸이 비파 모양이고 칼몸·손잡이를 따로 만든 조립식.",
+  "source_refs": [
+   "SRC_EK_BIPA"
+  ],
+  "related_entities": [
+   "TE_BRONZE",
+   "RG_LIAONING_KOREA"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_BRONZE_CASTING"
+  ],
+  "unlock_condition": null,
+  "evidence": "archaeology",
+  "review_status": "source_checked"
+ },
+ {
+  "id": "AR_SAMGUK_SAGI",
+  "type": "ARTIFACT",
+  "name": "삼국사기",
+  "era": "GORYEO",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "김부식 등이 편찬한 삼국시대 역사서.",
+  "source_refs": [],
+  "related_entities": [
+   "KIM_BUSIK"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "AR_SAMGUK_YUSA",
+  "type": "ARTIFACT",
+  "name": "삼국유사",
+  "era": "GORYEO",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "일연이 지은 역사서. 단군 신화가 실려 있다.",
+  "source_refs": [],
+  "related_entities": [
+   "ILYEON",
+   "MY_DANGUN"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "AR_TURTLE_SHIP",
+  "type": "ARTIFACT",
+  "name": "거북선",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "임진왜란 때 쓰인 조선 수군의 돌격선. 세부 구조는 연구 중.",
+  "source_refs": [],
+  "related_entities": [
+   "YI_SUNSIN"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_NAVAL_COMMAND"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "AR_DAEDONG_MAP",
+  "type": "ARTIFACT",
+  "name": "대동여지도",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "김정호가 만든 전국 지도.",
+  "source_refs": [],
+  "related_entities": [
+   "KIM_JEONGHO"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_CARTOGRAPHY"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "AR_GEOJUNGGI",
+  "type": "ARTIFACT",
+  "name": "거중기",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "정약용이 고안한 무거운 물건을 들어 올리는 기구.",
+  "source_refs": [],
+  "related_entities": [
+   "JEONG_YAKYONG"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_ENGINEERING"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "TE_BRONZE",
+  "type": "TECHNOLOGY",
+  "name": "청동 제작",
+  "era": "BRONZE_AGE",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "구리를 녹여 청동 도구·무기를 만드는 기술.",
+  "source_refs": [
+   "SRC_EK_BIPA"
+  ],
+  "related_entities": [
+   "AR_BIPA_DAGGER"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_BRONZE_CASTING"
+  ],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "TE_AGRICULTURE",
+  "type": "TECHNOLOGY",
+  "name": "농경",
+  "era": "BRONZE_AGE",
+  "historical_status": "HISTORICAL_INTERPRETATION",
+  "description": "곡식을 길러 정착해 사는 생활 기반. 이 슬라이스의 들녘 부족과 연결.",
+  "source_refs": [],
+  "related_entities": [
+   "CU_SETTLEMENT",
+   "TN_PLAIN"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_AGRICULTURE"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "TE_GUNPOWDER",
+  "type": "TECHNOLOGY",
+  "name": "화약·화포",
+  "era": "GORYEO",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "최무선이 만든 화약 무기.",
+  "source_refs": [],
+  "related_entities": [
+   "CHOE_MUSEON"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_GUNPOWDER"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "TE_RAIN_GAUGE",
+  "type": "TECHNOLOGY",
+  "name": "측우기",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "비의 양을 재는 기구.",
+  "source_refs": [],
+  "related_entities": [
+   "JANG_YEONGSIL"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_INVENTION"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "TE_COTTON",
+  "type": "TECHNOLOGY",
+  "name": "목화 재배",
+  "era": "GORYEO",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "목화를 길러 옷감을 만드는 일.",
+  "source_refs": [],
+  "related_entities": [
+   "MUN_IKJEOM"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_AGRICULTURE"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "IN_EIGHT_LAWS",
+  "type": "INSTITUTION",
+  "name": "8조법",
+  "era": "GOJOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "『한서』 지리지에 3조목이 전하는 고조선의 법.",
+  "source_refs": [
+   "SRC_WIKI_8LAWS"
+  ],
+  "related_entities": [
+   "CT_GOJOSEON"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_EIGHT_LAWS"
+  ],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "IN_JINDAE",
+  "type": "INSTITUTION",
+  "name": "진대법",
+  "era": "THREE_KINGDOMS",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "194년 고구려 고국천왕 때, 봄에 곡식을 빌려주고 10월에 갚게 한 빈민 구호 제도.",
+  "source_refs": [
+   "SRC_EK_JINDAE"
+  ],
+  "related_entities": [
+   "GOGUKCHEON",
+   "EUL_PASO"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_JINDAE"
+  ],
+  "unlock_condition": null,
+  "year": 194,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "IN_TANGPYEONG",
+  "type": "INSTITUTION",
+  "name": "탕평책",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "붕당의 다툼을 누그러뜨리려 한 영조·정조의 정책.",
+  "source_refs": [],
+  "related_entities": [
+   "YEONGJO",
+   "JEONGJO"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_TANGPYEONG"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "CU_SETTLEMENT",
+  "type": "CULTURE",
+  "name": "정착 생활",
+  "era": "BRONZE_AGE",
+  "historical_status": "HISTORICAL_INTERPRETATION",
+  "description": "농경과 함께 한곳에 모여 사는 생활. 고인돌은 큰 무리가 힘을 모았음을 보여 주는 것으로 이해된다.",
+  "source_refs": [],
+  "related_entities": [
+   "AR_DOLMEN",
+   "TE_AGRICULTURE"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "CU_HUNMINJEONGEUM",
+  "type": "CULTURE",
+  "name": "훈민정음",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "세종이 만든 글자.",
+  "source_refs": [
+   "SRC_EK_SEJONG"
+  ],
+  "related_entities": [
+   "SEJONG"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_HUNMINJEONGEUM"
+  ],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "SP_SALT_TRADE",
+  "type": "SPECIALTY",
+  "name": "소금·조개 교역",
+  "era": "BRONZE_AGE",
+  "historical_status": "GAME_SETTING",
+  "description": "고조선 슬라이스의 강어귀 교역(게임 설정).",
+  "source_refs": [],
+  "related_entities": [
+   "TR_TRADERS",
+   "TN_ESTUARY"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_RIVER_TRADE"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "KN_DOLMEN",
+  "type": "KNOWLEDGE",
+  "name": "고인돌을 안다",
+  "era": "BRONZE_AGE",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "고인돌은 청동기시대의 대표적인 무덤이자 기념물이다.",
+  "source_refs": [
+   "SRC_EK_DOLMEN"
+  ],
+  "related_entities": [
+   "AR_DOLMEN"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_MONUMENT_LABOR"
+  ],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "KN_BIPA",
+  "type": "KNOWLEDGE",
+  "name": "비파형 동검을 안다",
+  "era": "BRONZE_AGE",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "비파형 동검은 칼몸·손잡이를 따로 만든 조립식이다.",
+  "source_refs": [
+   "SRC_EK_BIPA"
+  ],
+  "related_entities": [
+   "AR_BIPA_DAGGER",
+   "TE_BRONZE"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_BRONZE_CASTING"
+  ],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "KN_EIGHT_LAWS",
+  "type": "KNOWLEDGE",
+  "name": "8조법을 안다",
+  "era": "GOJOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "『한서』 지리지에 전하는 고조선의 법 3조목.",
+  "source_refs": [
+   "SRC_WIKI_8LAWS"
+  ],
+  "related_entities": [
+   "IN_EIGHT_LAWS"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_EIGHT_LAWS"
+  ],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "KN_DANGUN_MYTH",
+  "type": "KNOWLEDGE",
+  "name": "단군 신화를 안다",
+  "era": "GOJOSEON",
+  "historical_status": "MYTHOLOGY",
+  "description": "『삼국유사』가 전하는 곰·호랑이·웅녀·단군왕검 이야기.",
+  "source_refs": [
+   "SRC_EK_UNGNYEO",
+   "SRC_EK_WANGGEOM"
+  ],
+  "related_entities": [
+   "MY_DANGUN"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "KN_JEJEONG_ILCHI",
+  "type": "KNOWLEDGE",
+  "name": "제정일치를 안다",
+  "era": "GOJOSEON",
+  "historical_status": "HISTORICAL_INTERPRETATION",
+  "description": "학계는 단군왕검을 제사장과 정치 우두머리를 겸한 존재로 이해한다.",
+  "source_refs": [
+   "SRC_EK_WANGGEOM"
+  ],
+  "related_entities": [
+   "DAN_GUN"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_LEADERSHIP"
+  ],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "KN_HONGIK",
+  "type": "KNOWLEDGE",
+  "name": "홍익인간을 안다",
+  "era": "GOJOSEON",
+  "historical_status": "MYTHOLOGY",
+  "description": "단군신화에 나오는 건국이념 ‘널리 인간을 이롭게 하라’.",
+  "source_refs": [
+   "SRC_EK_HONGIK"
+  ],
+  "related_entities": [
+   "MY_DANGUN"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_HONGIK"
+  ],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "KN_JUMONG_NAME",
+  "type": "KNOWLEDGE",
+  "name": "주몽 이름의 뜻을 안다",
+  "era": "THREE_KINGDOMS",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "부여에서 활을 잘 쏘는 사람을 주몽이라 했다고 전한다.",
+  "source_refs": [
+   "SRC_EK_DONGMYEONG"
+  ],
+  "related_entities": [
+   "JUMONG"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_ARCHERY"
+  ],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "KN_JINDAE",
+  "type": "KNOWLEDGE",
+  "name": "진대법을 안다",
+  "era": "THREE_KINGDOMS",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "봄에 곡식을 빌려주고 가을에 갚게 한 고구려의 제도.",
+  "source_refs": [
+   "SRC_EK_JINDAE"
+  ],
+  "related_entities": [
+   "IN_JINDAE"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_JINDAE"
+  ],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "KN_HUNMIN",
+  "type": "KNOWLEDGE",
+  "name": "훈민정음을 안다",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "세종이 만든 글자.",
+  "source_refs": [
+   "SRC_EK_SEJONG"
+  ],
+  "related_entities": [
+   "CU_HUNMINJEONGEUM"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_HUNMINJEONGEUM"
+  ],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "KN_TANGPYEONG",
+  "type": "KNOWLEDGE",
+  "name": "탕평책을 안다",
+  "era": "JOSEON",
+  "historical_status": "HISTORICAL_RECORD",
+  "description": "붕당 사이의 균형을 꾀한 정책.",
+  "source_refs": [],
+  "related_entities": [
+   "IN_TANGPYEONG"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_TANGPYEONG"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "KN_RIVER_ROUTE",
+  "type": "KNOWLEDGE",
+  "name": "강은 바다로 간다",
+  "era": "BRONZE_AGE",
+  "historical_status": "GAME_SETTING",
+  "description": "고조선 슬라이스의 길찾기 지식(게임 설정).",
+  "source_refs": [],
+  "related_entities": [
+   "TN_RIVER",
+   "TN_ESTUARY"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_RIVER_TRADE"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "KN_BRONZE_MIX",
+  "type": "KNOWLEDGE",
+  "name": "장인의 청동 배합",
+  "era": "BRONZE_AGE",
+  "historical_status": "GAME_SETTING",
+  "description": "고조선 슬라이스의 장인 관찰(게임 설정).",
+  "source_refs": [],
+  "related_entities": [
+   "TE_BRONZE"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_BRONZE_CASTING"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "KN_HUNT_SIGNAL",
+  "type": "KNOWLEDGE",
+  "name": "매 깃털 신호",
+  "era": "BRONZE_AGE",
+  "historical_status": "GAME_SETTING",
+  "description": "고조선 슬라이스의 사냥 부족 신호(게임 설정).",
+  "source_refs": [],
+  "related_entities": [
+   "TR_HUNTERS"
+  ],
+  "game_effects": {},
+  "abilities": [
+   "AB_TRACKING"
+  ],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ },
+ {
+  "id": "MY_DANGUN",
+  "type": "MYTH",
+  "name": "단군 신화",
+  "era": "GOJOSEON",
+  "historical_status": "MYTHOLOGY",
+  "description": "환웅·웅녀·단군왕검이 나오는 고조선 건국 신화(『삼국유사』).",
+  "source_refs": [
+   "SRC_EK_UNGNYEO",
+   "SRC_EK_WANGGEOM",
+   "SRC_EK_HONGIK"
+  ],
+  "related_entities": [
+   "DAN_GUN",
+   "AR_SAMGUK_YUSA",
+   "LOC_ASADAL"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "MY_DONGMYEONG",
+  "type": "MYTH",
+  "name": "동명왕 신화",
+  "era": "THREE_KINGDOMS",
+  "historical_status": "MYTHOLOGY",
+  "description": "주몽이 알에서 태어났다는 고구려 건국 신화.",
+  "source_refs": [
+   "SRC_EK_MYTH_DONGMYEONG",
+   "SRC_EK_YUHWA"
+  ],
+  "related_entities": [
+   "JUMONG"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "LG_COTTON_BRUSHCAP",
+  "type": "LEGEND",
+  "name": "붓두껍 목화씨",
+  "era": "GORYEO",
+  "historical_status": "LEGEND",
+  "description": "문익점이 목화씨를 붓두껍에 숨겨 왔다는 이야기(조선 후기부터 퍼진 전설).",
+  "source_refs": [
+   "SRC_WIKI_SONG"
+  ],
+  "related_entities": [
+   "MUN_IKJEOM"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "source_checked"
+ },
+ {
+  "id": "LG_NONGAE",
+  "type": "LEGEND",
+  "name": "논개 이야기",
+  "era": "JOSEON",
+  "historical_status": "LEGEND",
+  "description": "왜장을 안고 강에 뛰어들었다는 전승.",
+  "source_refs": [],
+  "related_entities": [
+   "NONGAE"
+  ],
+  "game_effects": {},
+  "abilities": [],
+  "unlock_condition": null,
+  "review_status": "needs_review"
+ }
+]

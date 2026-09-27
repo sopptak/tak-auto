@@ -1,0 +1,33 @@
+{
+ "title": "한국을 빛낸 100명의 위인들",
+ "credit": "박문영 작사·작곡(1991)",
+ "source_ref": "SRC_WIKI_SONG",
+ "policy": "가사·가사 속 수식어는 싣지 않는다. 수록 여부만 persons.json의 song_catalog.included로 표시하고, 순서는 게임이 정한 연대순(spine_order)을 쓴다. 노래를 사실 검증의 권위로 쓰지 않는다.",
+ "verse_eras": {
+  "1": [
+   "GOJOSEON",
+   "THREE_KINGDOMS"
+  ],
+  "2": [
+   "NORTH_SOUTH_STATES",
+   "GORYEO"
+  ],
+  "3": [
+   "JOSEON"
+  ],
+  "4": [
+   "JOSEON"
+  ],
+  "5": [
+   "MODERN"
+  ]
+ },
+ "expected_count": 100,
+ "groups": {
+  "GANGJWA_CHILHYEON": 7,
+  "TAE_JEONG_TAE_SE_MUN_DAN_SE": 7,
+  "SAYUKSIN": 6,
+  "SAENGYUKSIN": 6,
+  "SAMHAKSA": 3
+ }
+}

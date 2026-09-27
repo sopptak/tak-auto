@@ -1,0 +1,159 @@
+[
+ {
+  "id": "RQ_JUMONG",
+  "hero": "JUMONG",
+  "status": "playable",
+  "game": "rpg/korea",
+  "historical_status": "GAME_SETTING",
+  "steps": [
+   {
+    "type": "explore",
+    "text": "졸본 들판에 도착한다",
+    "ref": "LOC_JOLBON"
+   },
+   {
+    "type": "talk",
+    "text": "활을 멘 젊은이를 만난다",
+    "ref": "JUMONG"
+   },
+   {
+    "type": "knowledge",
+    "text": "이름의 뜻을 안다",
+    "ref": "KN_JUMONG_NAME"
+   },
+   {
+    "type": "item",
+    "text": "(선택) 청동 무기를 보여 준다",
+    "ref": "AR_BIPA_DAGGER"
+   },
+   {
+    "type": "choice",
+    "text": "비류국 송양왕에게 어떻게 대할지 고른다"
+   },
+   {
+    "type": "condition",
+    "text": "주몽 이야기 1장 완료"
+   },
+   {
+    "type": "recruit",
+    "text": "주몽 합류",
+    "ref": "JUMONG"
+   }
+  ]
+ },
+ {
+  "id": "RQ_GWANGGAETO",
+  "hero": "GWANGGAETO",
+  "status": "designed",
+  "historical_status": "GAME_SETTING",
+  "steps": [
+   {
+    "type": "explore",
+    "text": "시간의 문 너머 넓은 벌판",
+    "ref": "TG_MANCHURIA"
+   },
+   {
+    "type": "clue",
+    "text": "말발굽 자국과 흩어진 깃발"
+   },
+   {
+    "type": "talk",
+    "text": "동료 주몽이 ‘우리 나라의 먼 후손’ 이야기를 한다(게임 대화)",
+    "ref": "JUMONG"
+   },
+   {
+    "type": "knowledge",
+    "text": "고구려의 시작을 안다",
+    "ref": "KN_JUMONG_NAME"
+   },
+   {
+    "type": "item",
+    "text": "청동 무기를 갖춘다",
+    "ref": "AR_BIPA_DAGGER"
+   },
+   {
+    "type": "puzzle",
+    "text": "기마 행군 길 고르기"
+   },
+   {
+    "type": "condition",
+    "text": "레벨 5 이상"
+   },
+   {
+    "type": "recruit",
+    "text": "광개토대왕 합류",
+    "ref": "GWANGGAETO"
+   }
+  ]
+ },
+ {
+  "id": "RQ_SEJONG",
+  "hero": "SEJONG",
+  "status": "designed",
+  "historical_status": "GAME_SETTING",
+  "steps": [
+   {
+    "type": "explore",
+    "text": "한양으로 가는 시간의 문",
+    "ref": "TG_HANYANG"
+   },
+   {
+    "type": "clue",
+    "text": "백성이 글을 몰라 억울해하는 사연"
+   },
+   {
+    "type": "knowledge",
+    "text": "훈민정음을 안다",
+    "ref": "KN_HUNMIN"
+   },
+   {
+    "type": "choice",
+    "text": "새 글자를 어떻게 알릴지 고른다"
+   },
+   {
+    "type": "puzzle",
+    "text": "소리와 글자 짝 맞추기"
+   },
+   {
+    "type": "recruit",
+    "text": "세종 합류",
+    "ref": "SEJONG"
+   }
+  ]
+ },
+ {
+  "id": "RQ_JANG_YEONGSIL",
+  "hero": "JANG_YEONGSIL",
+  "status": "designed",
+  "historical_status": "GAME_SETTING",
+  "steps": [
+   {
+    "type": "talk",
+    "text": "세종이 비의 양을 재고 싶어 한다(게임 대화)",
+    "ref": "SEJONG"
+   },
+   {
+    "type": "explore",
+    "text": "궁궐 공방"
+   },
+   {
+    "type": "item",
+    "text": "측우기 설계",
+    "ref": "TE_RAIN_GAUGE"
+   },
+   {
+    "type": "puzzle",
+    "text": "기구 부품 맞추기(어드벤처 퍼즐)"
+   },
+   {
+    "type": "condition",
+    "text": "세종이 동료"
+   },
+   {
+    "type": "recruit",
+    "text": "장영실 합류",
+    "ref": "JANG_YEONGSIL"
+   }
+  ]
+ }
+]

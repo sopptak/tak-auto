@@ -1,0 +1,104 @@
+{
+ "historical_timeline": [
+  {
+   "id": "BRONZE_AGE",
+   "name": "청동기 시대",
+   "order": 1,
+   "range": {
+    "text": "연대는 지역·학설마다 다르다",
+    "precision": "unknown"
+   },
+   "historical_status": "HISTORICAL_INTERPRETATION",
+   "source_refs": [
+    "SRC_EK_DOLMEN",
+    "SRC_EK_BIPA"
+   ]
+  },
+  {
+   "id": "GOJOSEON",
+   "name": "고조선",
+   "order": 2,
+   "range": {
+    "end": -108,
+    "text": "시작 연대는 논쟁 중, 기원전 108년 멸망",
+    "precision": "end_only"
+   },
+   "historical_status": "HISTORICAL_RECORD",
+   "source_refs": [
+    "SRC_WIKI_GOJOSEON"
+   ]
+  },
+  {
+   "id": "THREE_KINGDOMS",
+   "name": "삼국 시대",
+   "order": 3,
+   "range": {
+    "text": "고구려·백제·신라가 병립한 시기(초기 연대는 기록마다 다름)",
+    "precision": "approx"
+   },
+   "historical_status": "HISTORICAL_RECORD",
+   "source_refs": [
+    "SRC_EK_DONGMYEONG"
+   ]
+  },
+  {
+   "id": "NORTH_SOUTH_STATES",
+   "name": "남북국 시대",
+   "order": 4,
+   "range": {
+    "text": "통일 신라와 발해가 함께한 시기",
+    "precision": "approx"
+   },
+   "historical_status": "HISTORICAL_RECORD",
+   "source_refs": [
+    "SRC_WIKI_SONG"
+   ]
+  },
+  {
+   "id": "GORYEO",
+   "name": "고려",
+   "order": 5,
+   "range": {
+    "start": 918,
+    "end": 1392,
+    "precision": "year"
+   },
+   "historical_status": "HISTORICAL_RECORD",
+   "source_refs": []
+  },
+  {
+   "id": "JOSEON",
+   "name": "조선",
+   "order": 6,
+   "range": {
+    "start": 1392,
+    "end": 1897,
+    "precision": "year",
+    "text": "1897년 대한제국 선포까지"
+   },
+   "historical_status": "HISTORICAL_RECORD",
+   "source_refs": [],
+   "sub_eras": [
+    "JOSEON_EARLY",
+    "JOSEON_LATE"
+   ]
+  },
+  {
+   "id": "MODERN",
+   "name": "근현대",
+   "order": 7,
+   "range": {
+    "text": "개항 이후 ~ 현대",
+    "precision": "approx"
+   },
+   "historical_status": "HISTORICAL_RECORD",
+   "source_refs": [],
+   "sub_eras": [
+    "KOREAN_EMPIRE",
+    "COLONIAL_PERIOD",
+    "REPUBLIC"
+   ]
+  }
+ ],
+ "note": "HISTORICAL_TIMELINE은 실제 역사 순서다. 게임 진행(PLAYER_HERO_TIMELINE)은 hero_pool.json에서 따로 정한다."
+}

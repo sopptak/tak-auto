@@ -586,10 +586,10 @@ def _staging_path(config):
     return Path(config.money_tasks_path).with_name("money_scout_staging.json")
 
 
-def _today_money_html(store: money.MoneyStore) -> str:
+def _today_money_html(store: money.MoneyStore, now=None) -> str:
     """6-61 TODAY MONEY: 예상(아직 안 번 돈)과 실제(받은 돈)를 분리. 목표는 실제만.
     6-62: 처음 보는 사람이 바로 읽게 - 발견/지금 할 것, 실제 오늘/이번 달, 첫 목표, 버튼만 크게. 나머지는 작은 글씨."""
-    tm = money_scout.today_money(store.tasks(), store.log(), store.config)
+    tm = money_scout.today_money(store.tasks(), store.log(), store.config, now)
     g = tm["goal"]
     unknown = f' + 원 환산/시간 모름 {tm["expected_unknown"]}건' if tm["expected_unknown"] else ""
     pending = ('<div class="hint" style="margin-top:4px">실제 수익 0원 — 아직 발생하지 않음. 설문 하나를 직접 끝내고 받은 금액·걸린 시간만 적으면 여기부터 채워집니다.</div>'
