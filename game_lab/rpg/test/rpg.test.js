@@ -41,7 +41,7 @@ function finishBoard(g, acc = 1) {
 test("schemas: data valid; hero/story/chapter/relation/item/skill/region/gate/main all typed with historical_status", () => {
   const d = load();
   assert.deepEqual(validate(d), []);
-  assert.deepEqual(HISTORICAL, ["historical_fact", "historical_record", "legend", "game_setting"]);
+  assert.deepEqual(HISTORICAL, ["historical_fact", "historical_record", "legend", "game_setting", "mythology"]); // 6-68에서 mythology 추가
   assert.deepEqual(RELATIONS, ["FRIEND", "COMPANION", "MENTOR", "RIVAL", "ALLY", "NEUTRAL"]);
   assert.deepEqual(ITEM_TYPES, ["ARTIFACT", "KNOWLEDGE", "POLICY", "SKILL"]);
   for (const h of d.heroes) for (const k of ["id", "name", "era", "region", "role", "stats", "skills", "items", "relationships", "knowledge", "sources", "chapters"]) assert.ok(k in h, `${h.id}.${k}`);

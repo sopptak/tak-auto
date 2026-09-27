@@ -1,0 +1,2517 @@
+{
+ "id": "choice100-gojoseon",
+ "version": "vs1-1",
+ "title": "선택100: 대한민국",
+ "subtitle": "고조선 — 첫 번째 땅",
+ "tagline": "옛날 게임의 재미로 역사를 플레이한다",
+ "disclaimer": "지식·퀴즈는 출처를 남긴 사실·기록이며, 신화(단군신화)와 게임 설정을 구분해 표시합니다. 부족·인물·지명 배치·사건·건국 과정은 게임 설정입니다. 고조선의 연대·영역은 학계에서도 논쟁 중이라 특정 건국 연도를 사실로 쓰지 않습니다.",
+ "historical_status_labels": {
+  "historical_fact": "역사적 사실",
+  "historical_record": "역사 기록",
+  "mythology": "신화",
+  "legend": "전승",
+  "game_setting": "게임 설정"
+ },
+ "relation_types": [
+  "FRIEND",
+  "COMPANION",
+  "MENTOR",
+  "RIVAL",
+  "ALLY",
+  "NEUTRAL"
+ ],
+ "item_types": [
+  "ARTIFACT",
+  "KNOWLEDGE",
+  "POLICY",
+  "SKILL"
+ ],
+ "levels": [
+  0,
+  60,
+  150,
+  270,
+  420,
+  600,
+  820,
+  1100
+ ],
+ "stats": [
+  "exp",
+  "food",
+  "population",
+  "reputation",
+  "copper"
+ ],
+ "stat_min": {
+  "reputation": -50
+ },
+ "stat_labels": {
+  "exp": [
+   "EXP",
+   "✨"
+  ],
+  "food": [
+   "식량",
+   "🍖"
+  ],
+  "population": [
+   "인구",
+   "👥"
+  ],
+  "reputation": [
+   "명성",
+   "⭐"
+  ],
+  "copper": [
+   "구리",
+   "🟥"
+  ]
+ },
+ "player": {
+  "id": "player",
+  "name": "무리의 우두머리",
+  "start": {
+   "exp": 0,
+   "food": 10,
+   "population": 10,
+   "reputation": 0,
+   "copper": 0
+  },
+  "regions": [
+   "gojoseon_land"
+  ],
+  "relations": {}
+ },
+ "stages": [
+  {
+   "id": "korea",
+   "title": "STAGE 1 · 한반도",
+   "status": "current"
+  }
+ ],
+ "main_story": [
+  {
+   "id": "g1",
+   "title": "첫 번째 땅",
+   "desc": "여러 부족을 모아 나라를 세운다.",
+   "stage": "korea",
+   "status": "playable",
+   "historical_status": "game_setting"
+  }
+ ],
+ "regions": [
+  {
+   "id": "gojoseon_land",
+   "name": "고조선 첫 땅",
+   "era": "청동기(게임 무대)",
+   "stage": "korea",
+   "recommended_level": 1,
+   "difficulty": 1,
+   "hero_stories": [],
+   "events": [],
+   "cities": [],
+   "trade": [],
+   "exploration": [],
+   "quests": [],
+   "status": "playable",
+   "historical_status": "game_setting"
+  }
+ ],
+ "time_gates": [],
+ "heroes": [
+  {
+   "id": "maegit",
+   "name": "매깃",
+   "icon": "🏹",
+   "era": "청동기(게임 무대)",
+   "region": "gojoseon_land",
+   "role": [
+    "hunter"
+   ],
+   "tagline": "매깃 사냥 부족의 우두머리",
+   "playable": false,
+   "stats": {},
+   "skills": [
+    "tracking"
+   ],
+   "items": [],
+   "relationships": [
+    {
+     "with": "player",
+     "type": "COMPANION",
+     "when": "부족 연합"
+    }
+   ],
+   "knowledge": [],
+   "sources": [],
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "dulnyeok",
+   "name": "들녘 어른",
+   "icon": "🌾",
+   "era": "청동기(게임 무대)",
+   "region": "gojoseon_land",
+   "role": [
+    "farmer"
+   ],
+   "tagline": "들녘 농경 부족의 어른",
+   "playable": false,
+   "stats": {},
+   "skills": [
+    "farming"
+   ],
+   "items": [],
+   "relationships": [
+    {
+     "with": "player",
+     "type": "COMPANION",
+     "when": "부족 연합"
+    }
+   ],
+   "knowledge": [],
+   "sources": [],
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "bulkkot",
+   "name": "불꽃 장인",
+   "icon": "🔥",
+   "era": "청동기(게임 무대)",
+   "region": "gojoseon_land",
+   "role": [
+    "smith"
+   ],
+   "tagline": "불꽃 골 장인 부족의 대장장이",
+   "playable": false,
+   "stats": {},
+   "skills": [
+    "bronze_tools"
+   ],
+   "items": [],
+   "relationships": [
+    {
+     "with": "player",
+     "type": "COMPANION",
+     "when": "부족 연합"
+    }
+   ],
+   "knowledge": [],
+   "sources": [],
+   "historical_status": "game_setting"
+  },
+  {
+   "id": "mulgil",
+   "name": "물길 상인",
+   "icon": "⛵",
+   "era": "청동기(게임 무대)",
+   "region": "gojoseon_land",
+   "role": [
+    "merchant"
+   ],
+   "tagline": "강어귀 물길 상인의 우두머리",
+   "playable": false,
+   "stats": {},
+   "skills": [
+    "trade_route"
+   ],
+   "items": [],
+   "relationships": [
+    {
+     "with": "player",
+     "type": "COMPANION",
+     "when": "부족 연합"
+    }
+   ],
+   "knowledge": [],
+   "sources": [],
+   "historical_status": "game_setting"
+  }
+ ],
+ "npcs": [],
+ "items": [
+  {
+   "id": "raft",
+   "name": "뗏목",
+   "icon": "🛶",
+   "type": "ARTIFACT",
+   "effects": {},
+   "historical_status": "game_setting",
+   "note": "들녘 부족이 엮어 준 뗏목(게임 아이템)."
+  },
+  {
+   "id": "bipa_sword",
+   "name": "비파 모양 청동검",
+   "icon": "🗡️",
+   "type": "ARTIFACT",
+   "effects": {
+    "reputation": 3
+   },
+   "historical_status": "game_setting",
+   "note": "게임 속 상징 아이템. 모양은 청동기시대 유물 비파형 동검(사실)에서 착안했지만 실제 유물이 아니다."
+  },
+  {
+   "id": "hawk_feather",
+   "name": "매 깃털",
+   "icon": "🪶",
+   "type": "ARTIFACT",
+   "effects": {},
+   "historical_status": "game_setting",
+   "note": "매깃 사냥 부족의 신호 깃털(게임 아이템)."
+  }
+ ],
+ "skills": [
+  {
+   "id": "tracking",
+   "name": "추적",
+   "icon": "🐾",
+   "hero": "maegit",
+   "use": [
+    "explore"
+   ],
+   "historical_status": "game_setting",
+   "desc": "숨은 짐승 길과 흔적을 찾는다. 숲·산에서 새 발견이 열린다."
+  },
+  {
+   "id": "farming",
+   "name": "농사",
+   "icon": "🌱",
+   "hero": "dulnyeok",
+   "use": [
+    "gather"
+   ],
+   "historical_status": "game_setting",
+   "desc": "들과 야영지에서 식량을 더 많이 얻는다."
+  },
+  {
+   "id": "bronze_tools",
+   "name": "청동 도구",
+   "icon": "🔨",
+   "hero": "bulkkot",
+   "use": [
+    "explore",
+    "gather"
+   ],
+   "historical_status": "game_setting",
+   "desc": "가시덤불 고개를 뚫고, 구리를 더 캔다."
+  },
+  {
+   "id": "trade_route",
+   "name": "교역로",
+   "icon": "🧭",
+   "hero": "mulgil",
+   "use": [
+    "explore",
+    "gather"
+   ],
+   "historical_status": "game_setting",
+   "desc": "물길로 먼 곳에 닿는다. 강어귀에서 소금을 바꿔 온다."
+  }
+ ],
+ "knowledge": [
+  {
+   "id": "k_dolmen",
+   "text": "고인돌은 덮개돌 밑에 받침돌을 고인, 청동기시대의 대표적인 무덤이자 기념물이다.",
+   "historical_status": "historical_fact",
+   "source": "한국민족문화대백과사전 '고인돌' https://encykorea.aks.ac.kr/Article/E0003901",
+   "source_date": "2026-09-27"
+  },
+  {
+   "id": "k_bipa",
+   "text": "비파형 동검은 청동기시대의 무기 혹은 제기로, 칼몸이 악기 비파를 닮았다. 칼몸과 손잡이를 따로 만들어 끼운 조립식이다.",
+   "historical_status": "historical_fact",
+   "source": "한국민족문화대백과사전 '비파형 동검' https://encykorea.aks.ac.kr/Article/E0025256",
+   "source_date": "2026-09-27"
+  },
+  {
+   "id": "k_myth",
+   "text": "『삼국유사』는 곰과 호랑이가 환웅에게 사람이 되기를 빌었고, 쑥 한 줌과 마늘 20개를 먹으며 삼칠일을 견딘 곰이 여자(웅녀)가 되었다고 전한다.",
+   "historical_status": "mythology",
+   "source": "한국민족문화대백과사전 '웅녀' https://encykorea.aks.ac.kr/Article/E0040541",
+   "source_date": "2026-09-27"
+  },
+  {
+   "id": "k_dangun",
+   "text": "『삼국유사』는 환웅과 웅녀 사이에서 난 단군왕검이 아사달에 도읍을 정했다고 전한다(건국 신화).",
+   "historical_status": "mythology",
+   "source": "한국민족문화대백과사전 '왕검' https://encykorea.aks.ac.kr/Article/E0039027",
+   "source_date": "2026-09-27"
+  },
+  {
+   "id": "k_jejeong",
+   "text": "학계에서는 단군왕검을 제사장(단군)과 정치 우두머리(왕검)를 겸한 존재로 이해한다.",
+   "historical_status": "historical_record",
+   "source": "한국민족문화대백과사전 '왕검' https://encykorea.aks.ac.kr/Article/E0039027",
+   "source_date": "2026-09-27"
+  },
+  {
+   "id": "k_hongik",
+   "text": "홍익인간(널리 인간을 이롭게 하라)은 단군신화에 나오는 고조선의 건국이념이다.",
+   "historical_status": "mythology",
+   "source": "한국민족문화대백과사전 '홍익인간' https://encykorea.aks.ac.kr/Article/E0064339",
+   "source_date": "2026-09-27"
+  },
+  {
+   "id": "k_8laws",
+   "text": "고조선에는 8조의 법이 있었고, 『한서』 지리지에 그중 3조목(살인은 사형, 상해는 곡물로 배상, 절도는 노비로 삼되 속전으로 풀려남)이 전한다.",
+   "historical_status": "historical_record",
+   "source": "위키백과(한국어) '팔조지교' https://ko.wikipedia.org/wiki/팔조지교 (『한서』 지리지 인용)",
+   "source_date": "2026-09-27"
+  },
+  {
+   "id": "k_hunt_signal",
+   "text": "매깃 사냥 부족은 매 깃털로 신호를 주고받는다.",
+   "historical_status": "game_setting",
+   "source": "게임 설정(창작)",
+   "source_date": "2026-09-27"
+  },
+  {
+   "id": "k_river",
+   "text": "들녘 사람들: ‘강은 넓어지며 바다로 간다. 짠 바람이 부는 쪽이 강어귀다.’",
+   "historical_status": "game_setting",
+   "source": "게임 설정(창작)",
+   "source_date": "2026-09-27"
+  },
+  {
+   "id": "k_bronze_mix",
+   "text": "불꽃 장인들은 붉은 구리에 흰빛 돌(주석)을 섞어 더 단단한 청동을 만든다.",
+   "historical_status": "game_setting",
+   "source": "게임 설정(창작)",
+   "source_date": "2026-09-27"
+  }
+ ],
+ "policies": [
+  {
+   "id": "eight_laws",
+   "name": "법 세우기",
+   "requires_knowledge": "k_8laws",
+   "effects": {
+    "reputation": 3
+   },
+   "status": "interface",
+   "desc": "연합 회의에서 법을 정할 수 있다.",
+   "historical_status": "historical_record"
+  }
+ ],
+ "quizzes": [],
+ "stories": [],
+ "boards": {
+  "forest_hunt": {
+   "title": "숲 사냥",
+   "data": {
+    "id": "forest-hunt",
+    "version": "g1-1",
+    "title": "숲 사냥",
+    "turns": 1,
+    "dice": {
+     "sides": 6
+    },
+    "rewards": {
+     "DICE_PARITY": {
+      "label": "주사위 특권",
+      "desc": "홀짝 선언(적중 3/6) → 도착 칸 선택",
+      "on_hit": {
+       "steer": 1
+      }
+     }
+    },
+    "quiz_reward": {
+     "knowledge": 1
+    },
+    "lap_bonus": {
+     "coin": 3
+    },
+    "stats": [
+     {
+      "key": "coin",
+      "label": "식량",
+      "icon": "🍖",
+      "min": 0
+     },
+     {
+      "key": "knowledge",
+      "label": "지식",
+      "icon": "📚",
+      "min": 0
+     },
+     {
+      "key": "exploration",
+      "label": "사냥",
+      "icon": "🦌",
+      "min": 0
+     }
+    ],
+    "goods": [],
+    "cargo_cap": 0,
+    "start": {
+     "coin": 10,
+     "knowledge": 0,
+     "exploration": 0
+    },
+    "score_weights": {
+     "coin": 1,
+     "knowledge": 10,
+     "exploration": 20
+    },
+    "quizzes": [
+     {
+      "id": "gq1",
+      "question": "고인돌은 어느 시대의 대표적인 무덤일까?",
+      "choices": [
+       "구석기시대",
+       "신석기시대",
+       "청동기시대",
+       "철기시대"
+      ],
+      "correct": 2,
+      "explanation": "고인돌은 청동기시대의 대표적인 무덤이자 기념물이다.",
+      "topic": "고인돌",
+      "era": "청동기",
+      "region": "한반도",
+      "source": "한국민족문화대백과사전 '고인돌' https://encykorea.aks.ac.kr/Article/E0003901",
+      "source_date": "2026-09-27"
+     },
+     {
+      "id": "gq2",
+      "question": "비파형 동검이라는 이름은 무엇에서 왔을까?",
+      "choices": [
+       "만든 사람의 이름",
+       "칼몸이 악기 비파를 닮은 모양",
+       "처음 발견된 마을 이름",
+       "칼의 무게"
+      ],
+      "correct": 1,
+      "explanation": "검신의 형태가 비파와 비슷해 붙여진 이름이다.",
+      "topic": "비파형 동검",
+      "era": "청동기",
+      "region": "요령·한반도",
+      "source": "한국민족문화대백과사전 '비파형 동검' https://encykorea.aks.ac.kr/Article/E0025256",
+      "source_date": "2026-09-27"
+     },
+     {
+      "id": "gq3",
+      "question": "『삼국유사』는 단군왕검이 어디에 도읍을 정했다고 전할까?",
+      "choices": [
+       "아사달",
+       "졸본",
+       "한성",
+       "서라벌"
+      ],
+      "correct": 0,
+      "explanation": "『삼국유사』는 단군왕검이 아사달에 도읍을 정했다고 전한다(건국 신화).",
+      "topic": "단군 신화",
+      "era": "고조선",
+      "region": "한반도",
+      "source": "한국민족문화대백과사전 '왕검' https://encykorea.aks.ac.kr/Article/E0039027",
+      "source_date": "2026-09-27"
+     }
+    ],
+    "board": [
+     {
+      "id": "h0",
+      "type": "START",
+      "name": "숲 어귀",
+      "region": "숲",
+      "icon": "🌳"
+     },
+     {
+      "id": "h1",
+      "type": "EXPLORE",
+      "name": "사슴 발자국",
+      "region": "숲",
+      "icon": "🦌",
+      "choices": [
+       {
+        "id": "explore",
+        "text": "발자국을 쫓는다 (식량 2)",
+        "cost": 2,
+        "effects": {
+         "exploration": 1,
+         "coin": 6
+        },
+        "result_text": "사슴을 잡았다!",
+        "bonus_if": {
+         "stat": "knowledge",
+         "gte": 1,
+         "effects": {
+          "coin": 4
+         },
+         "text": "짐승 길을 읽고 큰 사슴을 잡았다!"
+        }
+       },
+       {
+        "id": "pass",
+        "text": "그냥 지나간다",
+        "effects": {},
+        "result_text": "숲길을 걸었다."
+       }
+      ]
+     },
+     {
+      "id": "h2",
+      "type": "BONUS",
+      "name": "도토리 무더기",
+      "region": "숲",
+      "icon": "🌰",
+      "effect": {
+       "coin": 4
+      },
+      "event_text": "도토리를 한 아름 모았다. 식량 +4"
+     },
+     {
+      "id": "h3",
+      "type": "EXPLORE",
+      "name": "멧돼지 진흙탕",
+      "region": "숲",
+      "icon": "🐗",
+      "choices": [
+       {
+        "id": "explore",
+        "text": "멧돼지를 몬다 (식량 2)",
+        "cost": 2,
+        "effects": {
+         "exploration": 1,
+         "coin": 8
+        },
+        "result_text": "멧돼지를 잡았다!",
+        "bonus_if": {
+         "stat": "knowledge",
+         "gte": 1,
+         "effects": {
+          "coin": 4
+         },
+         "text": "지식 덕에 덫 자리를 알아봤다!"
+        }
+       },
+       {
+        "id": "pass",
+        "text": "피해 간다",
+        "effects": {},
+        "result_text": "멀리 돌아갔다."
+       }
+      ]
+     },
+     {
+      "id": "h4",
+      "type": "QUIZ",
+      "name": "사냥꾼의 수수께끼",
+      "region": "숲",
+      "icon": "❓",
+      "quiz": {
+       "coin": 3,
+       "knowledge": 1
+      }
+     },
+     {
+      "id": "h5",
+      "type": "REST",
+      "name": "시냇가",
+      "region": "숲",
+      "icon": "💧",
+      "effect": {
+       "coin": 1
+      },
+      "event_text": "목을 축였다."
+     },
+     {
+      "id": "h6",
+      "type": "EXPLORE",
+      "name": "토끼 굴",
+      "region": "숲",
+      "icon": "🐇",
+      "choices": [
+       {
+        "id": "explore",
+        "text": "굴을 지킨다 (식량 1)",
+        "cost": 1,
+        "effects": {
+         "exploration": 1,
+         "coin": 3
+        },
+        "result_text": "토끼를 잡았다."
+       },
+       {
+        "id": "pass",
+        "text": "지나간다",
+        "effects": {},
+        "result_text": "숲이 조용하다."
+       }
+      ]
+     },
+     {
+      "id": "h7",
+      "type": "EVENT",
+      "name": "빈 사냥터",
+      "region": "숲",
+      "icon": "🍂",
+      "effect": {
+       "coin": 0
+      },
+      "event_text": "짐승이 모두 달아났다."
+     }
+    ],
+    "endings": [
+     {
+      "id": "done",
+      "title": "사냥 끝",
+      "icon": "🦌",
+      "when": []
+     }
+    ]
+   },
+   "merge": [
+    {
+     "from": "coin",
+     "to": "food",
+     "rate": 1
+    },
+    {
+     "from": "exploration",
+     "to": "exp",
+     "rate": 20
+    },
+    {
+     "from": "knowledge",
+     "to": "exp",
+     "rate": 10
+    }
+   ]
+  }
+ },
+ "explore": {
+  "start": "camp",
+  "discover_exp": 15,
+  "search_exp": 8,
+  "tribe_gift": {
+   "stat": "food",
+   "amount": 4,
+   "trust": 1,
+   "text": "먹을 것을 나누며 이야기를 나눴다."
+  },
+  "hunger_penalty": {
+   "population": -3
+  },
+  "locations": [
+   {
+    "id": "camp",
+    "name": "강가 야영지",
+    "icon": "⛺",
+    "x": 2,
+    "y": 3,
+    "desc": "우리 무리가 머무는 곳. 여기서 모든 것이 시작된다.",
+    "historical_status": "game_setting",
+    "teaser": "연기 나는 우리 야영지",
+    "gather": {
+     "stat": "food",
+     "amount": 2,
+     "text": "물고기와 풀뿌리를 모았다.",
+     "bonus": {
+      "requires": {
+       "ability": "farming"
+      },
+      "amount": 3
+     }
+    },
+    "searches": [
+     {
+      "text": "강가에 조개껍데기가 수북하다. 먹을 것이 넉넉한 땅이다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "stats": {
+        "food": 3
+       }
+      }
+     },
+     {
+      "text": "북쪽 산마루에서 가는 연기가 오른다. 저기에 누가 산다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "exp": 5
+      }
+     }
+    ]
+   },
+   {
+    "id": "river",
+    "name": "큰 강 나루",
+    "icon": "🌊",
+    "x": 1,
+    "y": 3,
+    "desc": "넓은 강이 느리게 흐른다.",
+    "historical_status": "game_setting",
+    "teaser": "물소리가 들린다",
+    "gather": {
+     "stat": "food",
+     "amount": 3,
+     "max": 6,
+     "text": "물고기를 잡았다."
+    },
+    "minigames": [
+     "m_route"
+    ],
+    "searches": [
+     {
+      "text": "강을 따라 사람 발자국이 이어진다. 서쪽 들녘으로 가는 길이다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "reveal": [
+        "e_river_plain"
+       ]
+      }
+     },
+     {
+      "text": "하류 쪽에서 짠 바람이 분다. 강이 어딘가 바다와 만나는 모양이다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "flags": [
+        "salt_wind"
+       ],
+       "reveal": [
+        "e_river_estuary"
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "forest",
+    "name": "참나무 숲",
+    "icon": "🌳",
+    "x": 3,
+    "y": 3,
+    "desc": "도토리와 짐승이 많은 숲.",
+    "historical_status": "game_setting",
+    "teaser": "짐승 울음과 나뭇잎 소리",
+    "gather": {
+     "stat": "food",
+     "amount": 2,
+     "max": 5,
+     "text": "도토리와 열매를 땄다."
+    },
+    "minigames": [
+     "m_hunt"
+    ],
+    "searches": [
+     {
+      "text": "부러진 화살 한 대. 누군가 이 숲에서 사냥을 한다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "flags": [
+        "hunter_sign"
+       ]
+      }
+     },
+     {
+      "text": "나무마다 매 깃털이 꽂혀 있다. 깃털을 따라가면 산마루로 이어진다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "reveal": [
+        "e_forest_ridge"
+       ],
+       "items": [
+        "hawk_feather"
+       ]
+      }
+     },
+     {
+      "text": "추적 능력으로 숲속 짐승 굴을 찾았다. 겨울 먹거리가 가득하다.",
+      "historical_status": "game_setting",
+      "requires": {
+       "ability": "tracking"
+      },
+      "hint": "짐승 흔적이 희미하다. 추적할 줄 안다면…",
+      "effects": {
+       "stats": {
+        "food": 8
+       },
+       "exp": 20
+      }
+     }
+    ]
+   },
+   {
+    "id": "ridge",
+    "name": "매봉 산마루",
+    "icon": "⛰️",
+    "x": 3,
+    "y": 2,
+    "desc": "바람이 센 산마루. 사냥 부족의 터.",
+    "historical_status": "game_setting",
+    "teaser": "높은 곳에서 매가 운다",
+    "tribe": "hunters",
+    "searches": [
+     {
+      "text": "사냥 망루에 매 깃털이 줄지어 걸려 있다. 깃털 색으로 신호를 보내는 듯하다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "knowledge": [
+        "k_hunt_signal"
+       ]
+      }
+     },
+     {
+      "text": "골짜기 아래에서 망치 소리가 올라온다. 동쪽 아래에 장인들이 산다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "reveal": [
+        "e_ridge_crafts"
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "plain",
+    "name": "너른 들",
+    "icon": "🌾",
+    "x": 1,
+    "y": 2,
+    "desc": "강물이 적셔 주는 넓은 밭.",
+    "historical_status": "game_setting",
+    "teaser": "바람에 이삭이 흔들린다",
+    "tribe": "farmers",
+    "gather": {
+     "stat": "food",
+     "amount": 1,
+     "max": 8,
+     "text": "밭에서 이삭을 주웠다.",
+     "bonus": {
+      "requires": {
+       "ability": "farming"
+      },
+      "amount": 4
+     }
+    },
+    "searches": [
+     {
+      "text": "들 끝 언덕에 커다란 돌들이 늘어서 있다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "flags": [
+        "seen_dolmen_hill"
+       ],
+       "reveal": [
+        "e_plain_dolmen"
+       ]
+      }
+     },
+     {
+      "text": "밭둑에 여문 이삭이 고개를 숙였다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "stats": {
+        "food": 2
+       }
+      }
+     }
+    ]
+   },
+   {
+    "id": "dolmen",
+    "name": "고인돌 언덕",
+    "icon": "🪨",
+    "x": 0,
+    "y": 2,
+    "desc": "큰 덮개돌이 받침돌 위에 얹혀 있다.",
+    "historical_status": "historical_fact",
+    "teaser": "커다란 돌 그림자가 보인다",
+    "searches": [
+     {
+      "text": "덮개돌 아래를 받침돌이 떠받치고 있다. 이것은 무덤이자 기념물, 고인돌이다.",
+      "historical_status": "historical_fact",
+      "source": "한국민족문화대백과사전 '고인돌' https://encykorea.aks.ac.kr/Article/E0003901",
+      "effects": {
+       "knowledge": [
+        "k_dolmen"
+       ],
+       "exp": 10
+      }
+     },
+     {
+      "text": "이 무거운 돌을 옮기려면 몇 사람이 힘을 모아야 했을까? 함께 사는 무리가 컸던 모양이다. (게임 속 생각)",
+      "historical_status": "game_setting",
+      "effects": {
+       "stats": {
+        "reputation": 1
+       }
+      }
+     },
+     {
+      "text": "언덕 너머로 가지를 넓게 편 큰 나무가 보인다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "reveal": [
+        "e_dolmen_sindan"
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "sindan",
+    "name": "큰 나무 언덕",
+    "icon": "🌲",
+    "x": 0,
+    "y": 1,
+    "desc": "마을 노인들이 옛이야기를 들려주는 큰 나무 아래.",
+    "historical_status": "game_setting",
+    "teaser": "아주 큰 나무 한 그루",
+    "searches": [
+     {
+      "text": "노인: ‘곰과 호랑이가 사람이 되기를 빌었지. 쑥과 마늘을 먹고 삼칠일을 버틴 곰만 사람이 되었단다.’ — 『삼국유사』가 전하는 신화",
+      "historical_status": "mythology",
+      "source": "한국민족문화대백과사전 '웅녀' https://encykorea.aks.ac.kr/Article/E0040541",
+      "effects": {
+       "knowledge": [
+        "k_myth"
+       ],
+       "exp": 10
+      }
+     },
+     {
+      "text": "노인: ‘그렇게 태어난 단군왕검이 아사달에 도읍했다고 하지.’ — 건국 신화",
+      "historical_status": "mythology",
+      "source": "한국민족문화대백과사전 '왕검' https://encykorea.aks.ac.kr/Article/E0039027",
+      "effects": {
+       "knowledge": [
+        "k_dangun",
+        "k_jejeong"
+       ],
+       "exp": 10
+      }
+     },
+     {
+      "text": "노인: ‘사람을 널리 이롭게 하라는 말이 전해진다.’",
+      "historical_status": "mythology",
+      "source": "한국민족문화대백과사전 '홍익인간' https://encykorea.aks.ac.kr/Article/E0064339",
+      "effects": {
+       "knowledge": [
+        "k_hongik"
+       ],
+       "exp": 10
+      }
+     }
+    ]
+   },
+   {
+    "id": "crafts",
+    "name": "불꽃 골 장인 마을",
+    "icon": "🔥",
+    "x": 4,
+    "y": 2,
+    "desc": "연기와 망치 소리가 끊이지 않는 골짜기.",
+    "historical_status": "game_setting",
+    "teaser": "망치 소리와 연기",
+    "tribe": "crafters",
+    "minigames": [
+     "m_bronze"
+    ],
+    "searches": [
+     {
+      "text": "화덕 옆에 흙으로 만든 거푸집이 쌓여 있다. 녹인 쇳물을 부어 모양을 뜬다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "exp": 5
+      }
+     },
+     {
+      "text": "장인이 중얼거린다. ‘붉은 돌이 모자라. 동쪽 붉은 바위 골짜기에 가면 있는데.’",
+      "historical_status": "game_setting",
+      "effects": {
+       "reveal": [
+        "e_crafts_copper"
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "copper",
+    "name": "붉은 바위 골짜기",
+    "icon": "🟥",
+    "x": 4,
+    "y": 1,
+    "desc": "바위마다 붉고 푸른 얼룩이 있다.",
+    "historical_status": "game_setting",
+    "teaser": "붉은 바위가 번쩍인다",
+    "gather": {
+     "stat": "copper",
+     "amount": 1,
+     "max": 6,
+     "text": "붉은 구리 돌을 캤다.",
+     "bonus": {
+      "requires": {
+       "ability": "bronze_tools"
+      },
+      "amount": 1
+     }
+    },
+    "searches": [
+     {
+      "text": "푸른 얼룩이 진 돌 — 장인들이 말하던 붉은 돌이다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "stats": {
+        "copper": 1
+       }
+      }
+     }
+    ]
+   },
+   {
+    "id": "estuary",
+    "name": "강어귀 교역터",
+    "icon": "⛵",
+    "x": 0,
+    "y": 3,
+    "desc": "강과 바다가 만나는 모래톱. 배가 드나든다.",
+    "historical_status": "game_setting",
+    "teaser": "짠 바람과 물새 소리",
+    "tribe": "traders",
+    "gather": {
+     "stat": "food",
+     "amount": 0,
+     "max": 6,
+     "text": "소금과 조개를 바꿔 왔다.",
+     "requires": {
+      "ability": "trade_route"
+     },
+     "bonus": {
+      "requires": {
+       "ability": "trade_route"
+      },
+      "amount": 4
+     }
+    },
+    "searches": [
+     {
+      "text": "멀리서 온 배에 소금과 조개가 실려 있다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "exp": 5
+      }
+     }
+    ]
+   },
+   {
+    "id": "mist",
+    "name": "안개 고개",
+    "icon": "🌫️",
+    "x": 2,
+    "y": 1,
+    "desc": "가시덤불과 안개가 길을 막은 고개.",
+    "historical_status": "game_setting",
+    "teaser": "안개에 가려 아무것도 보이지 않는다",
+    "searches": [
+     {
+      "text": "청동 도구로 덤불을 걷어 내자 돌무더기 길이 드러났다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "exp": 10
+      }
+     },
+     {
+      "text": "고개 너머에 너른 벌판이 펼쳐진다. 사람들은 그곳을 아사달이라 부른다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "reveal": [
+        "e_mist_asadal"
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "id": "asadal",
+    "name": "아사달 벌판",
+    "icon": "🏛️",
+    "x": 1,
+    "y": 0,
+    "desc": "여러 부족의 대표가 모일 만한 너른 벌판. (게임 무대의 이름은 신화에서 가져왔다)",
+    "historical_status": "game_setting",
+    "teaser": "안개 너머 너른 벌판",
+    "arrive": {
+     "event": "ev_gather"
+    },
+    "searches": [
+     {
+      "text": "벌판 한가운데 모닥불 자리에 부족 대표들을 부른다.",
+      "historical_status": "game_setting",
+      "requires": {
+       "flag": "council_waiting"
+      },
+      "hint": "먼저 벌판을 둘러보자.",
+      "effects": {
+       "event": "ev_council"
+      }
+     }
+    ]
+   }
+  ],
+  "edges": [
+   {
+    "id": "e_camp_river",
+    "from": "camp",
+    "to": "river",
+    "food": 0
+   },
+   {
+    "id": "e_camp_forest",
+    "from": "camp",
+    "to": "forest",
+    "food": 0
+   },
+   {
+    "id": "e_river_plain",
+    "from": "river",
+    "to": "plain",
+    "food": 1,
+    "hidden": true
+   },
+   {
+    "id": "e_forest_ridge",
+    "from": "forest",
+    "to": "ridge",
+    "food": 1,
+    "hidden": true
+   },
+   {
+    "id": "e_plain_dolmen",
+    "from": "plain",
+    "to": "dolmen",
+    "food": 0,
+    "hidden": true
+   },
+   {
+    "id": "e_dolmen_sindan",
+    "from": "dolmen",
+    "to": "sindan",
+    "food": 0,
+    "hidden": true
+   },
+   {
+    "id": "e_ridge_crafts",
+    "from": "ridge",
+    "to": "crafts",
+    "food": 1,
+    "hidden": true
+   },
+   {
+    "id": "e_crafts_copper",
+    "from": "crafts",
+    "to": "copper",
+    "food": 1,
+    "hidden": true
+   },
+   {
+    "id": "e_ridge_copper",
+    "from": "ridge",
+    "to": "copper",
+    "food": 1,
+    "hidden": true,
+    "requires": {
+     "ability": "tracking"
+    }
+   },
+   {
+    "id": "e_river_estuary",
+    "from": "river",
+    "to": "estuary",
+    "food": 1,
+    "hidden": true,
+    "requires": {
+     "item": "raft"
+    }
+   },
+   {
+    "id": "e_river_estuary_path",
+    "from": "river",
+    "to": "estuary",
+    "food": 2,
+    "hidden": true
+   },
+   {
+    "id": "e_crafts_mist",
+    "from": "crafts",
+    "to": "mist",
+    "food": 1,
+    "hidden": true,
+    "requires": {
+     "ability": "bronze_tools"
+    }
+   },
+   {
+    "id": "e_mist_asadal",
+    "from": "mist",
+    "to": "asadal",
+    "food": 1,
+    "hidden": true,
+    "requires": {
+     "tribes_integrated": 3
+    }
+   },
+   {
+    "id": "e_estuary_asadal",
+    "from": "estuary",
+    "to": "asadal",
+    "food": 2,
+    "hidden": true,
+    "requires": {
+     "tribes_integrated": 3
+    }
+   },
+   {
+    "id": "e_sindan_mist",
+    "from": "sindan",
+    "to": "mist",
+    "food": 1,
+    "hidden": true,
+    "requires": {
+     "ability": "bronze_tools"
+    }
+   }
+  ],
+  "events": [
+   {
+    "id": "ev_hunters_meet",
+    "title": "산마루의 사냥꾼들",
+    "text": "활을 든 사람들이 길을 막는다. 짐승 가죽을 두른 우두머리 매깃이 당신을 훑어본다. ‘여긴 우리 사냥터다.’",
+    "choices": [
+     {
+      "id": "observe",
+      "text": "👀 먼저 지켜본다",
+      "result": "그들이 매 깃털로 신호를 주고받는 것을 보았다. 우두머리가 경계를 조금 늦춘다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "hunters": 1
+       },
+       "flags": [
+        "watched_hunters"
+       ]
+      }
+     },
+     {
+      "id": "gift",
+      "text": "🐟 말린 물고기를 건넨다 (식량 5)",
+      "result": "매깃이 물고기를 받아 들고 처음으로 웃었다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "stats": {
+        "food": -5
+       },
+       "trust": {
+        "hunters": 2
+       }
+      },
+      "requires": {
+       "stat": {
+        "food": 5
+       }
+      }
+     },
+     {
+      "id": "help",
+      "text": "🤝 무슨 어려움이 있는지 묻는다",
+      "result": "‘밤마다 늑대가 온다.’ 매깃이 털어놓는다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "hunters": 1
+       },
+       "event": "ev_wolves"
+      }
+     },
+     {
+      "id": "threaten",
+      "text": "💢 우리 편이 되라고 윽박지른다",
+      "result": "사냥꾼들이 활시위를 당긴다. 물러나긴 했지만 원한이 남았다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "hunters": -2
+       },
+       "stats": {
+        "reputation": -3
+       },
+       "flags": [
+        "threatened_hunters"
+       ]
+      }
+     }
+    ],
+    "historical_status": "game_setting"
+   },
+   {
+    "id": "ev_wolves",
+    "title": "늑대 떼",
+    "text": "밤마다 늑대가 사냥 부족의 어린 짐승을 물어 간다. 어떻게 도울까?",
+    "choices": [
+     {
+      "id": "fence",
+      "text": "🪵 울타리를 함께 세운다 (인구 10)",
+      "result": "모두가 힘을 모아 튼튼한 울타리를 세웠다. 매깃이 당신을 다시 본다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "hunters": 2
+       },
+       "stats": {
+        "reputation": 1
+       },
+       "flags": [
+        "hunter_proved"
+       ]
+      },
+      "requires": {
+       "stat": {
+        "population": 10
+       }
+      }
+     },
+     {
+      "id": "watch",
+      "text": "🔥 함께 밤을 새우며 불을 지킨다 (식량 3)",
+      "result": "불빛에 늑대가 다가오지 못했다. 사냥꾼들이 고개를 끄덕인다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "stats": {
+        "food": -3
+       },
+       "trust": {
+        "hunters": 1
+       },
+       "flags": [
+        "hunter_proved"
+       ]
+      },
+      "requires": {
+       "stat": {
+        "food": 3
+       }
+      }
+     },
+     {
+      "id": "later",
+      "text": "⏳ 지금은 어렵다",
+      "result": "매깃이 고개를 끄덕였지만 서운한 눈치다.",
+      "historical_status": "game_setting",
+      "effects": {}
+     }
+    ],
+    "historical_status": "game_setting"
+   },
+   {
+    "id": "ev_farmers_meet",
+    "title": "들녘 사람들",
+    "text": "밭을 일구던 사람들이 괭이를 멈춘다. ‘강물이 불어 밭이 잠길까 걱정이오.’",
+    "choices": [
+     {
+      "id": "observe",
+      "text": "👀 밭을 둘러본다",
+      "result": "강물이 넘칠 때마다 낮은 밭이 잠긴 흔적이 보인다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "farmers": 1
+       },
+       "flags": [
+        "saw_flood_marks"
+       ]
+      }
+     },
+     {
+      "id": "gift",
+      "text": "🐟 물고기를 나눈다 (식량 5)",
+      "result": "아이들이 물고기를 보고 환호했다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "stats": {
+        "food": -5
+       },
+       "trust": {
+        "farmers": 2
+       }
+      },
+      "requires": {
+       "stat": {
+        "food": 5
+       }
+      }
+     },
+     {
+      "id": "help",
+      "text": "🤝 강물을 함께 막아 보자고 한다",
+      "result": "그 순간 먹구름이 몰려온다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "farmers": 1
+       },
+       "event": "ev_flood"
+      }
+     },
+     {
+      "id": "threaten",
+      "text": "💢 곡식을 내놓으라고 한다",
+      "result": "들녘 사람들이 등을 돌렸다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "farmers": -2
+       },
+       "stats": {
+        "reputation": -3,
+        "food": 3
+       },
+       "flags": [
+        "threatened_farmers"
+       ]
+      }
+     }
+    ],
+    "historical_status": "game_setting"
+   },
+   {
+    "id": "ev_flood",
+    "title": "사흘째 비",
+    "text": "비가 사흘째 쏟아진다. 강물이 밭 가장자리까지 차올랐다.",
+    "choices": [
+     {
+      "id": "dike",
+      "text": "🧱 사람들을 모아 둑을 쌓는다 (인구 25)",
+      "result": "밤새 흙을 날라 둑을 쌓았다. 밭이 살았다!",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "farmers": 3
+       },
+       "flags": [
+        "flood_passed"
+       ],
+       "stats": {
+        "reputation": 2
+       }
+      },
+      "requires": {
+       "stat": {
+        "population": 25
+       }
+      }
+     },
+     {
+      "id": "high",
+      "text": "⛰️ 고인돌 언덕 쪽 높은 땅으로 곡식을 옮긴다",
+      "result": "높은 언덕을 알고 있던 덕에 곡식을 지켰다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "farmers": 2
+       },
+       "flags": [
+        "flood_passed"
+       ]
+      },
+      "requires": {
+       "flag": "seen_dolmen_hill"
+      }
+     },
+     {
+      "id": "pray",
+      "text": "🙏 비가 그치기를 함께 기다린다",
+      "result": "비는 그쳤지만 밭 절반이 잠겼다. 다시 찾아와 도와야겠다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "stats": {
+        "food": -2
+       }
+      }
+     }
+    ],
+    "historical_status": "game_setting"
+   },
+   {
+    "id": "ev_flood_again",
+    "title": "다시 차오르는 강물",
+    "text": "들녘 어른: ‘또 비가 오려 하오. 이번엔 도와줄 수 있겠소?’",
+    "choices": [
+     {
+      "id": "dike",
+      "text": "🧱 둑을 쌓는다 (인구 25)",
+      "result": "둑이 강물을 막았다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "farmers": 3
+       },
+       "flags": [
+        "flood_passed"
+       ]
+      },
+      "requires": {
+       "stat": {
+        "population": 25
+       }
+      }
+     },
+     {
+      "id": "high",
+      "text": "⛰️ 높은 땅으로 옮긴다",
+      "result": "곡식을 지켰다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "farmers": 2
+       },
+       "flags": [
+        "flood_passed"
+       ]
+      },
+      "requires": {
+       "flag": "seen_dolmen_hill"
+      }
+     },
+     {
+      "id": "later",
+      "text": "⏳ 준비가 더 필요하다",
+      "result": "들녘 어른이 기다리겠다고 했다.",
+      "historical_status": "game_setting",
+      "effects": {}
+     }
+    ],
+    "historical_status": "game_setting"
+   },
+   {
+    "id": "ev_crafters_meet",
+    "title": "불꽃 골 장인들",
+    "text": "연기 속에서 망치 소리가 울린다. 장인들이 투덜댄다. ‘붉은 돌이 모자라 청동을 못 만든다.’",
+    "choices": [
+     {
+      "id": "observe",
+      "text": "👀 화덕을 지켜본다",
+      "result": "장인들이 붉은 돌에 흰빛 돌을 섞어 녹이는 것을 보았다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "crafters": 1
+       },
+       "knowledge": [
+        "k_bronze_mix"
+       ]
+      }
+     },
+     {
+      "id": "gift",
+      "text": "🟥 구리 2를 건넨다",
+      "result": "장인들이 눈을 반짝이며 바로 화덕에 넣었다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "stats": {
+        "copper": -2
+       },
+       "trust": {
+        "crafters": 2
+       }
+      },
+      "requires": {
+       "stat": {
+        "copper": 2
+       }
+      }
+     },
+     {
+      "id": "learn",
+      "text": "🔨 기술을 배우고 싶다고 한다",
+      "result": "‘그럼 한번 해 보게.’ 장인이 거푸집을 내민다. (청동 녹이기 미니게임이 열렸다)",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "crafters": 1
+       },
+       "minigame": "m_bronze"
+      }
+     },
+     {
+      "id": "threaten",
+      "text": "💢 청동을 바치라고 한다",
+      "result": "장인들이 망치를 들었다. 쫓겨나듯 물러났다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "crafters": -2
+       },
+       "stats": {
+        "reputation": -3
+       },
+       "flags": [
+        "threatened_crafters"
+       ]
+      }
+     }
+    ],
+    "historical_status": "game_setting"
+   },
+   {
+    "id": "ev_traders_meet",
+    "title": "물길 상인",
+    "text": "모래톱에 배들이 줄지어 있다. 먼 바닷가에서 소금과 조개를 가져온 상인들이다.",
+    "choices": [
+     {
+      "id": "observe",
+      "text": "👀 흥정을 지켜본다",
+      "result": "상인들이 멀리 떨어진 마을들의 소식을 훤히 안다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "traders": 1
+       }
+      }
+     },
+     {
+      "id": "trade",
+      "text": "🟥 구리 1과 소금을 바꾼다",
+      "result": "짭짤한 소금이 생겼다. 상인들이 구리를 반긴다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "stats": {
+        "copper": -1,
+        "food": 6
+       },
+       "trust": {
+        "traders": 2
+       }
+      },
+      "requires": {
+       "stat": {
+        "copper": 1
+       }
+      }
+     },
+     {
+      "id": "help",
+      "text": "🛶 배 끌어올리는 일을 돕는다 (인구 20)",
+      "result": "모두 힘을 합쳐 배를 모래톱에 올렸다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "traders": 2
+       }
+      },
+      "requires": {
+       "stat": {
+        "population": 20
+       }
+      }
+     },
+     {
+      "id": "threaten",
+      "text": "💢 배를 내놓으라고 한다",
+      "result": "상인들은 배를 띄워 멀찍이 물러났다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "trust": {
+        "traders": -2
+       },
+       "stats": {
+        "reputation": -3
+       },
+       "flags": [
+        "threatened_traders"
+       ]
+      }
+     }
+    ],
+    "historical_status": "game_setting"
+   },
+   {
+    "id": "ev_gather",
+    "title": "너른 벌판",
+    "text": "함께하기로 한 부족들이 여기라면 모두 모일 수 있다고 한다. 지금 회의를 열면 나라를 세운다. 아직 함께하지 않은 부족이 있다면 더 모아 올 수도 있다.",
+    "choices": [
+     {
+      "id": "open",
+      "text": "🔥 지금 회의를 연다 (나라 세우기)",
+      "result": "대표들에게 사람을 보냈다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "event": "ev_council"
+      }
+     },
+     {
+      "id": "wait",
+      "text": "🧭 남은 부족도 데려오겠다",
+      "result": "언제든 이 벌판에 돌아와 모닥불 자리에서 회의를 열 수 있다.",
+      "historical_status": "game_setting",
+      "effects": {
+       "flags": [
+        "council_waiting"
+       ]
+      }
+     }
+    ],
+    "historical_status": "game_setting"
+   },
+   {
+    "id": "ev_council",
+    "title": "아사달 모임",
+    "text": "함께하기로 한 부족의 대표들이 벌판에 모였다. ‘우리 나라의 이름을 정합시다.’",
+    "choices": [
+     {
+      "id": "joseon",
+      "text": "🏳️ ‘조선’이라 부른다",
+      "result": "모두가 그 이름을 되뇌었다.",
+      "historical_status": "historical_record",
+      "effects": {
+       "event": "law_life"
+      },
+      "lesson": "이 나라의 본래 이름은 ‘조선’이었고, 뒤의 조선과 구별해 ‘고조선’이라 부른다."
+     },
+     {
+      "id": "new",
+      "text": "✍️ 우리만의 새 이름을 짓는다",
+      "result": "새 이름이 벌판에 울려 퍼졌다. (게임 설정)",
+      "historical_status": "game_setting",
+      "effects": {
+       "event": "law_life"
+      }
+     }
+    ],
+    "historical_status": "game_setting"
+   },
+   {
+    "id": "law_life",
+    "title": "법 세우기 ① 생명",
+    "text": "‘사람을 죽인 자는 어떻게 할까?’",
+    "choices": [
+     {
+      "id": "death",
+      "text": "⚖️ 목숨으로 갚게 한다",
+      "result": "무거운 법이 정해졌다.",
+      "historical_status": "historical_record",
+      "effects": {
+       "knowledge": [
+        "k_8laws"
+       ],
+       "event": "law_hurt"
+      },
+      "lesson": "『한서』 지리지는 고조선에서 사람을 죽인 자는 사형에 처했다고 전한다."
+     },
+     {
+      "id": "exile",
+      "text": "🚪 마을에서 쫓아낸다",
+      "result": "다른 길을 골랐다. (게임 설정)",
+      "historical_status": "game_setting",
+      "effects": {
+       "event": "law_hurt"
+      }
+     }
+    ],
+    "historical_status": "game_setting"
+   },
+   {
+    "id": "law_hurt",
+    "title": "법 세우기 ② 상처",
+    "text": "‘남을 다치게 한 자는?’",
+    "choices": [
+     {
+      "id": "grain",
+      "text": "🌾 곡식으로 갚게 한다",
+      "result": "다친 이의 집에 곡식을 보내도록 했다.",
+      "historical_status": "historical_record",
+      "effects": {
+       "knowledge": [
+        "k_8laws"
+       ],
+       "event": "law_theft"
+      },
+      "lesson": "『한서』 지리지는 고조선에서 남을 다치게 한 자는 곡물로 배상했다고 전한다."
+     },
+     {
+      "id": "labor",
+      "text": "🪵 일을 해서 갚게 한다",
+      "result": "다른 길을 골랐다. (게임 설정)",
+      "historical_status": "game_setting",
+      "effects": {
+       "event": "law_theft"
+      }
+     }
+    ],
+    "historical_status": "game_setting"
+   },
+   {
+    "id": "law_theft",
+    "title": "법 세우기 ③ 도둑",
+    "text": "‘남의 것을 훔친 자는?’",
+    "choices": [
+     {
+      "id": "slave",
+      "text": "⛓️ 노비로 삼되, 값을 치르면 풀어 준다",
+      "result": "엄한 법이 정해졌다.",
+      "historical_status": "historical_record",
+      "effects": {
+       "knowledge": [
+        "k_8laws"
+       ],
+       "event": "ev_found"
+      },
+      "lesson": "『한서』 지리지는 고조선에서 도둑질한 자는 노비로 삼고, 풀려나려면 50만 전을 내야 했다고 전한다."
+     },
+     {
+      "id": "multiple",
+      "text": "🔁 훔친 것의 몇 배로 갚게 한다",
+      "result": "다른 길을 골랐다. (게임 설정)",
+      "historical_status": "game_setting",
+      "effects": {
+       "event": "ev_found"
+      }
+     },
+     {
+      "id": "forgive",
+      "text": "🤲 한 번은 용서한다",
+      "result": "너그러운 법을 골랐다. (게임 설정)",
+      "historical_status": "game_setting",
+      "effects": {
+       "event": "ev_found"
+      }
+     }
+    ],
+    "historical_status": "game_setting"
+   },
+   {
+    "id": "ev_found",
+    "title": "건국",
+    "text": "모두가 당신을 바라본다. ‘마지막으로, 이 나라는 무엇을 위해 있습니까?’",
+    "choices": [
+     {
+      "id": "hongik",
+      "text": "🌏 사람을 널리 이롭게 하는 나라",
+      "result": "벌판에 함성이 울렸다.",
+      "historical_status": "mythology",
+      "effects": {
+       "knowledge": [
+        "k_hongik"
+       ]
+      },
+      "lesson": "‘널리 인간을 이롭게 하라(홍익인간)’는 단군신화에 나오는 건국이념이다."
+     },
+     {
+      "id": "strong",
+      "text": "🛡️ 누구도 넘보지 못할 강한 나라",
+      "result": "창과 청동검이 하늘을 향했다. (게임 설정)",
+      "historical_status": "game_setting",
+      "effects": {}
+     },
+     {
+      "id": "full",
+      "text": "🍚 아무도 굶지 않는 나라",
+      "result": "들녘 사람들이 가장 크게 환호했다. (게임 설정)",
+      "historical_status": "game_setting",
+      "effects": {}
+     }
+    ],
+    "historical_status": "game_setting"
+   }
+  ],
+  "tribes": [
+   {
+    "id": "hunters",
+    "name": "매깃 사냥 부족",
+    "icon": "🏹",
+    "location": "ridge",
+    "trait": "사냥·활·신호",
+    "desc": "산마루에서 사냥하며 사는 부족(게임 설정).",
+    "historical_status": "game_setting",
+    "encounter": "ev_hunters_meet",
+    "requests": [
+     {
+      "id": "prove",
+      "text": "실력을 보여라 (숲 사냥 성공 또는 늑대 막아 주기)",
+      "done_text": "매깃: ‘제법이군. 믿을 만하다.’",
+      "trust": 2,
+      "effects": {},
+      "requires": {
+       "flag": "hunter_proved"
+      },
+      "offer_event": "ev_wolves",
+      "how": "참나무 숲 ‘숲 사냥’에서 짐승을 잡거나, ‘다시 돕기’로 늑대 문제를 해결하자."
+     },
+     {
+      "id": "share",
+      "text": "겨울 식량을 나눈다 (식량 8)",
+      "done_text": "사냥 부족의 겨울이 든든해졌다.",
+      "trust": 1,
+      "effects": {
+       "stats": {
+        "food": -8
+       }
+      },
+      "requires": {
+       "stat": {
+        "food": 8
+       }
+      }
+     }
+    ],
+    "union": {
+     "trust": 4,
+     "text": "매깃이 매 깃털을 건네며 손을 맞잡았다. 사냥 부족이 함께한다!",
+     "rewards": {
+      "abilities": [
+       "tracking"
+      ],
+      "companion": "maegit",
+      "stats": {
+       "population": 20,
+       "reputation": 5
+      },
+      "exp": 60,
+      "reveal": [
+       "e_ridge_copper"
+      ]
+     }
+    },
+    "force": {
+     "requires": {
+      "flag": "threatened_hunters",
+      "stat": {
+       "population": 30
+      }
+     },
+     "text": "사냥 부족이 마지못해 무릎을 꿇었다. 눈빛이 차갑다.",
+     "rewards": {
+      "abilities": [
+       "tracking"
+      ],
+      "stats": {
+       "population": 10,
+       "reputation": -8
+      },
+      "exp": 30,
+      "reveal": [
+       "e_ridge_copper"
+      ]
+     }
+    }
+   },
+   {
+    "id": "farmers",
+    "name": "들녘 농경 부족",
+    "icon": "🌾",
+    "location": "plain",
+    "trait": "농사·정착·곡식",
+    "desc": "강가 들에서 곡식을 기르는 부족(게임 설정).",
+    "historical_status": "game_setting",
+    "encounter": "ev_farmers_meet",
+    "requests": [
+     {
+      "id": "flood",
+      "text": "홍수를 함께 넘긴다",
+      "done_text": "들녘 어른: ‘밭을 지켜 준 은혜를 잊지 않겠소.’",
+      "trust": 1,
+      "effects": {},
+      "requires": {
+       "flag": "flood_passed"
+      },
+      "offer_event": "ev_flood_again",
+      "how": "둑을 쌓을 사람(인구 25)이 있거나, 곡식을 옮길 높은 땅을 알면 된다."
+     },
+     {
+      "id": "feast",
+      "text": "추수 잔치에 고기를 보탠다 (식량 6)",
+      "done_text": "잔치가 흥겨웠다.",
+      "trust": 1,
+      "effects": {
+       "stats": {
+        "food": -6
+       }
+      },
+      "requires": {
+       "stat": {
+        "food": 6
+       }
+      }
+     }
+    ],
+    "union": {
+     "trust": 4,
+     "text": "들녘 어른이 뗏목을 엮어 주며 말했다. ‘이제 한 식구요.’",
+     "rewards": {
+      "abilities": [
+       "farming"
+      ],
+      "items": [
+       "raft"
+      ],
+      "companion": "dulnyeok",
+      "knowledge": [
+       "k_river"
+      ],
+      "stats": {
+       "population": 30,
+       "reputation": 5
+      },
+      "exp": 60
+     }
+    },
+    "force": {
+     "requires": {
+      "flag": "threatened_farmers",
+      "stat": {
+       "population": 30
+      }
+     },
+     "text": "들녘 사람들이 곡식을 바쳤다. 웃음은 없었다.",
+     "rewards": {
+      "abilities": [
+       "farming"
+      ],
+      "items": [
+       "raft"
+      ],
+      "stats": {
+       "population": 15,
+       "reputation": -8
+      },
+      "exp": 30
+     }
+    }
+   },
+   {
+    "id": "crafters",
+    "name": "불꽃 골 장인 부족",
+    "icon": "🔥",
+    "location": "crafts",
+    "trait": "청동·도구·제작",
+    "desc": "골짜기에서 청동을 다루는 장인들(게임 설정).",
+    "historical_status": "game_setting",
+    "encounter": "ev_crafters_meet",
+    "requests": [
+     {
+      "id": "copper",
+      "text": "붉은 돌 3개를 가져온다 (구리 3)",
+      "done_text": "화덕에 불이 다시 활활 탔다.",
+      "trust": 2,
+      "effects": {
+       "stats": {
+        "copper": -3
+       }
+      },
+      "requires": {
+       "stat": {
+        "copper": 3
+       }
+      }
+     },
+     {
+      "id": "trial",
+      "text": "청동 녹이기 시험에 통과한다",
+      "done_text": "‘자네도 이제 장인이야.’",
+      "trust": 2,
+      "effects": {},
+      "requires": {
+       "flag": "won_m_bronze"
+      },
+      "how": "이 마을의 ‘청동 녹이기’ 미니게임에 성공하자."
+     }
+    ],
+    "union": {
+     "trust": 4,
+     "text": "불꽃 장인이 갓 식힌 청동검을 건넸다. 장인 부족이 함께한다!",
+     "rewards": {
+      "abilities": [
+       "bronze_tools"
+      ],
+      "items": [
+       "bipa_sword"
+      ],
+      "companion": "bulkkot",
+      "knowledge": [
+       "k_bipa"
+      ],
+      "stats": {
+       "population": 15,
+       "reputation": 5
+      },
+      "exp": 60,
+      "reveal": [
+       "e_crafts_mist",
+       "e_sindan_mist"
+      ]
+     }
+    },
+    "force": {
+     "requires": {
+      "flag": "threatened_crafters",
+      "stat": {
+       "population": 40
+      }
+     },
+     "text": "장인들이 화덕 불을 넘겼다. 망치 소리가 작아졌다.",
+     "rewards": {
+      "abilities": [
+       "bronze_tools"
+      ],
+      "stats": {
+       "population": 8,
+       "reputation": -8
+      },
+      "exp": 30,
+      "reveal": [
+       "e_crafts_mist",
+       "e_sindan_mist"
+      ]
+     }
+    }
+   },
+   {
+    "id": "traders",
+    "name": "물길 상인",
+    "icon": "⛵",
+    "location": "estuary",
+    "trait": "교역·소식·물길",
+    "desc": "강어귀를 오가는 상인들(게임 설정).",
+    "historical_status": "game_setting",
+    "encounter": "ev_traders_meet",
+    "requests": [
+     {
+      "id": "salt",
+      "text": "소금 교역을 튼다 (식량 8)",
+      "done_text": "교역이 시작됐다. 먼 마을의 소식이 들어온다.",
+      "trust": 2,
+      "effects": {
+       "stats": {
+        "food": -8
+       }
+      },
+      "requires": {
+       "stat": {
+        "food": 8
+       }
+      }
+     }
+    ],
+    "union": {
+     "trust": 4,
+     "text": "물길 상인이 뱃길 지도를 펼쳤다. ‘벌판 아사달까지 물길로 닿소.’",
+     "rewards": {
+      "abilities": [
+       "trade_route"
+      ],
+      "companion": "mulgil",
+      "stats": {
+       "population": 15,
+       "reputation": 10
+      },
+      "exp": 60,
+      "reveal": [
+       "e_estuary_asadal"
+      ]
+     }
+    },
+    "force": {
+     "requires": {
+      "flag": "threatened_traders",
+      "stat": {
+       "population": 40
+      }
+     },
+     "text": "상인들이 배를 내주었다. 소식은 더 이상 오지 않는다.",
+     "rewards": {
+      "abilities": [
+       "trade_route"
+      ],
+      "stats": {
+       "population": 5,
+       "reputation": -8
+      },
+      "exp": 30,
+      "reveal": [
+       "e_estuary_asadal"
+      ]
+     }
+    }
+   }
+  ],
+  "minigames": [
+   {
+    "id": "m_hunt",
+    "name": "숲 사냥",
+    "icon": "🦌",
+    "type": "board",
+    "board": "forest_hunt",
+    "win_stat": "exploration",
+    "win_min": 1,
+    "win": {
+     "exp": 30,
+     "flags": [
+      "hunter_proved"
+     ]
+    },
+    "lose": {
+     "exp": 10
+    },
+    "win_text": "사냥에 성공했다! (사냥 실력 증명)",
+    "lose_text": "짐승을 놓쳤다. 다시 도전할 수 있다.",
+    "desc": "퀴즈를 맞히면 주사위 특권! 사냥터에 도착해 짐승을 쫓아라."
+   },
+   {
+    "id": "m_bronze",
+    "name": "청동 녹이기",
+    "icon": "🔨",
+    "type": "pick",
+    "pass": 2,
+    "requires": {
+     "tribe_met": "crafters"
+    },
+    "win": {
+     "exp": 30,
+     "trust": {
+      "crafters": 1
+     }
+    },
+    "lose": {
+     "exp": 10
+    },
+    "win_text": "첫 청동 조각이 반짝인다!",
+    "lose_text": "쇳물이 굳어 버렸다. 다시 해 보자.",
+    "desc": "장인에게 배운 것을 떠올려라.",
+    "steps": [
+     {
+      "prompt": "붉은 구리 돌을 녹일 때 무엇을 섞으면 더 단단해질까?",
+      "options": [
+       {
+        "text": "흰빛 돌(주석)",
+        "correct": true
+       },
+       {
+        "text": "소금",
+        "correct": false
+       },
+       {
+        "text": "진흙",
+        "correct": false
+       },
+       {
+        "text": "물",
+        "correct": false
+       }
+      ],
+      "hint": {
+       "knowledge": "k_bronze_mix",
+       "text": "장인들이 붉은 돌에 흰빛 돌을 섞던 것이 떠오른다."
+      }
+     },
+     {
+      "prompt": "칼몸과 손잡이는 어떻게 만들까?",
+      "options": [
+       {
+        "text": "한꺼번에 통째로 부어 만든다",
+        "correct": false
+       },
+       {
+        "text": "따로 만들어 끼운다",
+        "correct": true,
+        "feedback": "비파형 동검처럼 조립식으로 만들었다."
+       }
+      ],
+      "hint": {
+       "knowledge": "k_bipa",
+       "text": "비파형 동검은 칼몸과 손잡이를 따로 만들어 끼웠다."
+      }
+     },
+     {
+      "prompt": "녹인 쇳물은 어디에 부을까?",
+      "options": [
+       {
+        "text": "나무 그릇",
+        "correct": false
+       },
+       {
+        "text": "흙이나 돌로 만든 거푸집",
+        "correct": true
+       },
+       {
+        "text": "가죽 주머니",
+        "correct": false
+       }
+      ],
+      "hint": {
+       "knowledge": "k_bronze_mix",
+       "text": "화덕 옆에 거푸집이 쌓여 있던 것을 보았다."
+      }
+     }
+    ]
+   },
+   {
+    "id": "m_route",
+    "name": "물길 찾기",
+    "icon": "🧭",
+    "type": "pick",
+    "pass": 2,
+    "requires": {
+     "flag": "salt_wind"
+    },
+    "win": {
+     "exp": 30,
+     "reveal": [
+      "e_river_estuary_path"
+     ]
+    },
+    "lose": {
+     "stats": {
+      "food": -2
+     },
+     "exp": 5
+    },
+    "win_text": "강어귀로 가는 물길을 찾았다! (뗏목 없이 갈 수 있는 먼 길)",
+    "lose_text": "길을 잃고 되돌아왔다. 식량을 조금 썼다.",
+    "desc": "강을 따라 하류로 내려가며 갈림길을 고른다.",
+    "steps": [
+     {
+      "prompt": "첫 갈림길. 어느 물길로 갈까?",
+      "options": [
+       {
+        "text": "점점 넓어지는 물길",
+        "correct": true
+       },
+       {
+        "text": "좁고 빠른 샛강",
+        "correct": false
+       },
+       {
+        "text": "거꾸로 거슬러 오르는 길",
+        "correct": false
+       }
+      ],
+      "hint": {
+       "knowledge": "k_river",
+       "text": "들녘 어른: ‘강은 넓어지며 바다로 간다.’"
+      }
+     },
+     {
+      "prompt": "두 번째 갈림길. 바람이 분다.",
+      "options": [
+       {
+        "text": "짠 바람이 부는 쪽",
+        "correct": true
+       },
+       {
+        "text": "송진 냄새가 나는 숲 쪽",
+        "correct": false
+       },
+       {
+        "text": "바람이 없는 골짜기 쪽",
+        "correct": false
+       }
+      ],
+      "hint": {
+       "knowledge": "k_river",
+       "text": "짠 바람이 부는 쪽이 강어귀다."
+      }
+     },
+     {
+      "prompt": "세 번째 갈림길. 물새가 난다.",
+      "options": [
+       {
+        "text": "갈매기가 많은 쪽",
+        "correct": true,
+        "feedback": "바다새가 있다는 건 바다가 가깝다는 뜻!"
+       },
+       {
+        "text": "까마귀가 앉은 쪽",
+        "correct": false
+       },
+       {
+        "text": "새가 없는 쪽",
+        "correct": false
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "info_flags": [
+   "watched_hunters",
+   "saw_flood_marks",
+   "hunter_sign"
+  ],
+  "ending": {
+   "council_event": "ev_found",
+   "variants": [
+    {
+     "id": "union_all",
+     "title": "모두가 함께 세운 나라",
+     "icon": "🤝",
+     "when": [
+      {
+       "stat": "union",
+       "op": ">=",
+       "value": 4
+      },
+      {
+       "stat": "force",
+       "op": "==",
+       "value": 0
+      }
+     ],
+     "text": "네 부족이 모두 스스로 손을 잡았다. 누구도 억지로 끌려오지 않은 나라다."
+    },
+    {
+     "id": "force",
+     "title": "힘으로 묶은 나라",
+     "icon": "⚔️",
+     "when": [
+      {
+       "stat": "force",
+       "op": ">=",
+       "value": 2
+      }
+     ],
+     "text": "나라는 섰지만, 억지로 묶인 부족들의 마음은 아직 멀다."
+    },
+    {
+     "id": "wisdom",
+     "title": "지혜로 세운 나라",
+     "icon": "📚",
+     "when": [
+      {
+       "stat": "knowledge",
+       "op": ">=",
+       "value": 8
+      }
+     ],
+     "text": "옛이야기와 땅의 지혜를 모두 모아 나라의 뼈대를 세웠다."
+    },
+    {
+     "id": "explorer",
+     "title": "땅을 아는 나라",
+     "icon": "🗺️",
+     "when": [
+      {
+       "stat": "places",
+       "op": ">=",
+       "value": 11
+      }
+     ],
+     "text": "모든 골짜기와 물길을 발로 밟아 본 사람들이 세운 나라다."
+    },
+    {
+     "id": "small",
+     "title": "작지만 단단한 나라",
+     "icon": "🏕️",
+     "when": [],
+     "text": "몇 부족이 모여 시작한 작은 나라. 이야기는 이제부터다."
+    }
+   ],
+   "epilogue": {
+    "text": "『삼국유사』는 단군왕검이 아사달에 도읍해 나라를 세웠다고 전한다(신화). 이 게임의 부족 통합과 건국 과정은 게임 설정이다. 고조선은 문헌 기록으로 실존이 분명한 나라지만, 연대와 영역은 여전히 연구 중이다.",
+    "sources": [
+     "한국민족문화대백과사전 '왕검' https://encykorea.aks.ac.kr/Article/E0039027",
+     "위키백과(한국어) '고조선' https://ko.wikipedia.org/wiki/고조선"
+    ],
+    "historical_status": "game_setting"
+   }
+  }
+ }
+}

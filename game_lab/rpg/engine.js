@@ -22,7 +22,7 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  const HISTORICAL = ["historical_fact", "historical_record", "legend", "game_setting"];
+  const HISTORICAL = ["historical_fact", "historical_record", "legend", "game_setting", "mythology"]; // 6-68: 신화(mythology)를 전승(legend)과 따로
   const RELATIONS = ["FRIEND", "COMPANION", "MENTOR", "RIVAL", "ALLY", "NEUTRAL"];
   const ITEM_TYPES = ["ARTIFACT", "KNOWLEDGE", "POLICY", "SKILL"];
   const STEP_TYPES = ["narration", "quiz", "choice", "reward", "companion", "relation", "board", "region", "main", "end"];
@@ -243,7 +243,7 @@
       for (const [k, v] of Object.entries(g.stats || {})) {
         if (k === "exp") continue;
         const before = this.state.stats[k];
-        this.state.stats[k] = Math.max(0, Math.round(before + v));
+        this.state.stats[k] = Math.max((this.data.stat_min || {})[k] ?? 0, Math.round(before + v)); // 6-68: 능력치별 최솟값(기본 0)
         if (this.state.stats[k] !== before) out.stats[k] = this.state.stats[k] - before;
       }
       for (const it of g.items || []) if (!this.state.items.includes(it)) {

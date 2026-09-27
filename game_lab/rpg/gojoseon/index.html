@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#161219">
-<title>대한민국 통일 · 선택100 RPG (Vertical Slice)</title>
+<title>선택100: 대한민국 · 고조선 — 첫 번째 땅 (Vertical Slice)</title>
 <style>
   :root { --bg: #161219; --panel: #221c27; --panel2: #2d2534; --text: #f5f1f7; --muted: #a99bb3; --accent: #f2c14e; --good: #3ddc84; --bad: #ff6b6b;
           --line: #3b3145; --btn: #2f2738; --btn-hover: #3a3044; --rec: #7fb2ff; --leg: #d08cff; --gs: #9aa0a6; --fact: #3ddc84; }
@@ -73,15 +73,38 @@
   .foot { color: var(--muted); font-size: 0.75rem; margin-top: 16px; text-align: center; }
   .foot button { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font-size: 0.75rem; }
 </style>
+<style>
+  .intro { color: var(--muted); margin: 0 0 18px; }
+  .tabs { display: flex; gap: 6px; margin-top: 6px; } .tab { flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-weight: 700; }
+  .tab.on { background: var(--accent); color: #1a1a1a; border-color: var(--accent); }
+  .map { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin-top: 8px; background: #1d2a22; padding: 6px; border-radius: 12px; }
+  .mc { aspect-ratio: 1.15; border-radius: 8px; background: #2e4235; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; position: relative; }
+  .mc span { font-size: 1.25rem; line-height: 1; } .mc small { font-size: 0.62rem; color: #d7e8dc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .mc.fog { background: #151d18; } .mc.unknown { background: #25332a; opacity: .8; } .mc.here { background: var(--accent); } .mc.here small { color: #1a1a1a; }
+  .mc .flagm { position: absolute; top: 1px; right: 2px; font-style: normal; font-size: 0.7rem; }
+  .acts { display: grid; gap: 6px; margin-top: 8px; }
+  .act { text-align: left; padding: 11px 12px; min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--btn); font-weight: 700; cursor: pointer; }
+  .act small, .req small { display: block; font-weight: 400; color: var(--muted); font-size: 0.8rem; }
+  .act:disabled { opacity: .5; cursor: not-allowed; } .act.primary:not(:disabled) { background: var(--accent); color: #1a1a1a; } .act.danger:not(:disabled) { border-color: var(--bad); }
+  .trust { position: relative; height: 18px; background: var(--panel2); border-radius: 99px; overflow: hidden; margin: 8px 0; }
+  .trust i { position: absolute; inset: 0 auto 0 0; background: var(--good); } .trust span { position: relative; font-size: 0.74rem; font-weight: 800; padding-left: 8px; line-height: 18px; }
+  .req { padding: 6px 0; border-bottom: 1px dashed var(--line); } .req.ok { color: var(--good); }
+  .small { margin-left: 6px; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--btn-hover); cursor: pointer; font-weight: 700; }
+  .newpath { margin-top: 6px; color: #9fe3b0; font-weight: 700; } .warn { color: var(--bad); font-weight: 700; margin-top: 6px; }
+  .hint { margin: 6px 0; padding: 8px 10px; border-radius: 8px; background: #2d3a24; color: #d8f2b0; }
+  .event { border: 2px solid var(--accent); } .tribe.done { opacity: .85; } .opt.ex small { color: var(--muted); }
+  .hs-mythology { color: #ffb86b; }
+</style>
 </head>
 <body>
 <main id="app" aria-live="polite"><noscript>이 게임은 자바스크립트가 필요합니다.</noscript>불러오는 중…</main>
-<script src="../../board/engine.js?v=vs1-3"></script>
-<script src="../../choice100/analytics.js?v=vs1-3"></script>
-<script src="../engine.js?v=vs1-3"></script>
-<script src="../renderer.js?v=vs1-3"></script>
+<script src="../../board/engine.js?v=gj1-4"></script>
+<script src="../../choice100/analytics.js?v=gj1-4"></script>
+<script src="../engine.js?v=gj1-4"></script>
+<script src="../explore.js?v=gj1-4"></script>
+<script src="../explore-renderer.js?v=gj1-4"></script>
 <script>
-  Choice100RpgRenderer.boot(document.getElementById("app"), "korea.json");
+  Choice100ExploreRenderer.boot(document.getElementById("app"), "gojoseon.json");
 </script>
 </body>
 </html>
