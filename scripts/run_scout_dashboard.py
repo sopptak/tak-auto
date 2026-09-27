@@ -66,7 +66,9 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -146,6 +148,8 @@ from content_engine.threads_review import (
     upsert_pending,
 )
 from content_engine.youtube_upload_history import YouTubeUploadHistory
+from content_engine import shorts_studio
+from content_engine.shorts_v3_contract import editable_fields
 
 
 _BREAKDOWN_LABELS: tuple[tuple[str, str, int], ...] = (
@@ -242,6 +246,17 @@ class DashboardConfig:
     # 화면이 content_engine.publish_audit.audit_archive()를 호출할 때 필요하다.
     # 기본값을 둬서 기존 호출부(테스트 포함)가 이 필드를 넘기지 않아도 그대로 동작한다.
     threads_history_path: Path = ROOT / "data" / "threads_publish_log.json"
+    # 6-55 - Shorts Content Studio. Draft 저장소/미리보기 출력은 Production Archive와 다른 곳이다.
+    # 원본 목록은 (media_archive_path, shorts_scripts_path) + 아래 추가 source(6-48 staging)를 읽기만 한다.
+    shorts_drafts_path: Path = ROOT / "data" / "shorts_drafts"
+    shorts_studio_out_path: Path = ROOT / "artifacts" / "shorts_studio"
+    shorts_studio_extra_sources: tuple[tuple[Path, Path], ...] = (
+        (ROOT / "artifacts" / "6-48-recovery-staging" / "data" / "tak_media_archive.json",
+         ROOT / "artifacts" / "6-48-recovery-staging" / "data" / "shorts_scripts"),
+    )
+    shorts_asset_dirs: tuple[Path, ...] = (ROOT / "data" / "shorts_assets",)
+    fact_check_manifest_path: Path = ROOT / "artifacts" / "6-51-shorts-preview" / "manifest.json"
+    ffmpeg: str = "ffmpeg"
 
 
 # Threads 500자 제한은 새로 만드는 규칙이 아니다 - ThreadsClient.publish_text
@@ -426,7 +441,7 @@ def render_candidate_list_html(
 
     body = f"""
 <h1>TAK SCOUT Dashboard</h1>
-<div class="nav-links"><a href="/operator">🧭 Operator Center</a><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/media/strategy">🎯 Strategy Gate</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
+<div class="nav-links"><a href="/operator">🧭 Operator Center</a><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/media/strategy">🎯 Strategy Gate</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/shorts-studio">🎬 Shorts Studio</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
 <div class="sub">오늘의 소재 {len(ranked)}건 · 점수 내림차순 (SCOUT SCORE MVP, LLM 미사용)</div>
 {"".join(cards) if cards else "<p>오늘 표시할 소재가 없습니다.</p>"}
 """
@@ -2505,6 +2520,322 @@ def handle_threads_approve_submission(
     return approved, None
 
 
+# --- Shorts Content Studio (6-55) --------------------------------------------
+# 사람이 Shorts 콘텐츠를 고치는 화면. 원본(Production Archive + ShortsScript)은 읽기만 하고,
+# 고친 내용은 content_engine.shorts_studio.DraftStore(data/shorts_drafts/)에만 저장한다.
+# 이 화면에는 승인/게시 버튼이 없다 - review_status/approved/superseded를 바꾸는 경로 자체가 없다.
+
+_STUDIO_STYLE = """<style>
+  .studio-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; max-width: 900px; }
+  .studio label { display: block; font-size: 0.8rem; color: #555; margin: 8px 0 2px; }
+  .studio input[type=text], .studio input[type=number], .studio select {
+    width: 100%; max-width: 560px; padding: 7px 9px; border-radius: 8px; border: 1px solid #ccc; font-size: 0.92rem; }
+  .studio textarea { min-height: 60px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > div { flex: 1 1 160px; }
+  .code { font-family: ui-monospace, Consolas, monospace; font-size: 0.8rem; background: #f1f1ef; padding: 1px 6px; border-radius: 4px; }
+  .warn { background: #fff4de; border: 1px solid #f0d7a6; color: #6b4a00; padding: 8px 12px; border-radius: 8px; margin: 6px 0; font-size: 0.86rem; }
+  .thumb { max-width: 160px; max-height: 120px; border-radius: 6px; border: 1px solid #ddd; margin-top: 6px; }
+  .kv { font-size: 0.84rem; border-collapse: collapse; }
+  .kv td { padding: 2px 10px 2px 0; vertical-align: top; }
+  .list-table { border-collapse: collapse; font-size: 0.86rem; background: #fff; }
+  .list-table th, .list-table td { border-bottom: 1px solid #eee; padding: 6px 8px; text-align: left; }
+  video { max-width: 270px; border-radius: 8px; background: #000; }
+</style>"""
+
+
+def _studio_sources(config: DashboardConfig) -> list[dict]:
+    sources = [(config.media_archive_path, config.shorts_scripts_path), *config.shorts_studio_extra_sources]
+    return shorts_studio.list_sources(sources, shorts_studio.load_fact_checks(config.fact_check_manifest_path))
+
+
+def _studio_store(config: DashboardConfig) -> "shorts_studio.DraftStore":
+    return shorts_studio.DraftStore(config.shorts_drafts_path, ROOT)
+
+
+def _studio_assets(config: DashboardConfig) -> list[str]:
+    """datalist용 로컬 이미지 목록(인터넷에서 가져오지 않는다)."""
+    found = []
+    for directory in config.shorts_asset_dirs:
+        for p in sorted(Path(directory).rglob("*")) if Path(directory).exists() else []:
+            if p.suffix.lower() in shorts_studio.IMAGE_SUFFIXES:
+                try:
+                    found.append(p.resolve().relative_to(ROOT).as_posix())
+                except ValueError:
+                    found.append(p.resolve().as_posix())
+    return found
+
+
+def _studio_codes_html(codes: list[str], css: str = "error") -> str:
+    return "".join(
+        f'<div class="{css}"><span class="code">{escape(c)}</span> {escape(shorts_studio.describe(c))}</div>' for c in codes
+    )
+
+
+def render_shorts_studio_list_html(entries: list[dict], drafts: dict[str, dict]) -> str:
+    rows = []
+    for e in entries:
+        draft = drafts.get(f"draft-{e['content_id']}")
+        state = f"v{draft['draft_version']} ({escape(draft['updated_at'][:16])})" if draft else "없음"
+        rows.append(f"""<tr>
+<td><span class="code">{escape(e['content_id'])}</span></td><td>{escape(e['title'])}</td>
+<td><span class="code">{escape(e.get('generation_id') or '-')}</span></td><td>{escape(e['platform'])}</td>
+<td>{escape(e.get('review_status') or '-')}</td><td>{escape(e.get('fact_check') or '-')}</td><td>{state}</td>
+<td><form method="post" action="/shorts-studio/open"><input type="hidden" name="content_id" value="{escape(e['content_id'])}">
+<button class="btn primary" type="submit">{'편집' if draft else 'Draft 만들기'}</button></form></td></tr>""")
+    return f"""{_STUDIO_STYLE}
+<a class="back" href="/">&larr; Dashboard</a>
+<h1>🎬 SHORTS STUDIO</h1>
+<div class="sub">원본 콘텐츠를 고르면 편집용 Draft가 만들어집니다. Production Archive·ShortsScript·승인 상태는 바뀌지 않습니다(LOCAL DRAFT / PREVIEW ONLY).</div>
+<table class="list-table"><tr><th>content_id</th><th>title</th><th>generation_id</th><th>platform</th><th>review_status</th><th>fact_check</th><th>draft</th><th></th></tr>
+{"".join(rows) if rows else '<tr><td colspan="8">ShortsScript가 있는 Shorts 콘텐츠가 없습니다.</td></tr>'}
+</table>"""
+
+
+def _options(values, current) -> str:
+    return "".join(
+        f'<option value="{escape(str(v))}"{" selected" if str(v) == str(current) else ""}>{escape(str(label))}</option>'
+        for v, label in values
+    )
+
+
+def _position_text(position) -> str:
+    if isinstance(position, dict):
+        return f"{position.get('x', 0.5)},{position.get('y', 0.5)}"
+    if isinstance(position, (list, tuple)) and len(position) == 2:
+        return f"{position[0]},{position[1]}"
+    return str(position or "")
+
+
+def _studio_scene_html(i: int, scene: dict, layouts: list[str], transitions: list[str], fits: list[str]) -> str:
+    image = scene.get("image") if "image" in scene else scene.get("media")
+    image = {"path": image} if isinstance(image, str) else (image or {})
+    source = scene.get("source")
+    source_label, source_value = (source.get("label", ""), source.get("value", "")) if isinstance(source, dict) else ("", source or "")
+    path = image.get("path", "")
+    image_html = ""
+    if path:
+        resolved = Path(path) if Path(path).is_absolute() else ROOT / path
+        if resolved.is_file():
+            image_html = f'<img class="thumb" alt="현재 이미지" src="/shorts-studio/asset?path={escape(path)}">'
+        else:
+            image_html = _studio_codes_html(["ASSET_MISSING"])
+    p = f"s{i}_"
+    duration = scene.get("duration")
+    return f"""<div class="card"><b>Scene {i + 1}</b>
+<span class="actions" style="display:inline-flex;margin-left:8px">
+ <button class="btn" type="submit" name="scene_op" value="duplicate:{i}">장면 복제</button>
+ <button class="btn ghost" type="submit" name="scene_op" value="delete:{i}">장면 삭제</button>
+</span>
+<div class="row">
+ <div><label>Layout</label><select name="{p}layout">{_options([(l, l) for l in layouts], scene.get('layout', ''))}</select></div>
+ <div><label>Duration (초, 비우면 자동)</label><input type="text" name="{p}duration" value="{escape('' if duration is None else str(duration))}" placeholder="자동"></div>
+ <div><label>Transition</label><select name="{p}transition">{_options([('', '(기본)')] + [(t, t) for t in transitions], scene.get('transition', ''))}</select></div>
+</div>
+<label>Image 경로 (로컬 파일)</label><input type="text" name="{p}image_path" list="studio-assets" value="{escape(path)}" placeholder="비우면 이미지 없음">
+<div class="row">
+ <div><label>Image fit</label><select name="{p}image_fit">{_options([('', '(기본)')] + [(f, f) for f in fits], image.get('fit', ''))}</select></div>
+ <div><label>Image position (center/top/bottom/left/right 또는 x,y)</label><input type="text" name="{p}image_position" value="{escape(_position_text(image.get('position')))}"></div>
+</div>
+{image_html}
+<label>Headline</label><input type="text" name="{p}headline" value="{escape(scene.get('headline', ''))}">
+<label>Body</label><textarea name="{p}body" rows="4">{escape(scene.get('body', ''))}</textarea>
+<div class="row">
+ <div><label>Source label</label><input type="text" name="{p}source_label" value="{escape(source_label)}" placeholder="출처"></div>
+ <div><label>Source (BBC, Reuters, 책 제목, URL …)</label><input type="text" name="{p}source_value" value="{escape(source_value)}"></div>
+</div>
+</div>"""
+
+
+def _studio_preview_html(record: dict | None, draft_id: str) -> str:
+    if not record:
+        return '<div class="card"><b>PREVIEW</b><p class="sub">아직 미리보기가 없습니다.</p></div>'
+    status = record["status"]
+    head = f'<b>PREVIEW</b> · v{record["draft_version"]} · <span class="code">{escape(status)}</span>'
+    parts = [head]
+    if record.get("error_code"):
+        parts.append(_studio_codes_html([record["error_code"]] + [c for c in record.get("reasons", []) if c != record["error_code"]]))
+        parts += [f'<div class="sub">{escape(e)}</div>' for e in record.get("errors", [])[:5]]
+    if record.get("output_path") and Path(record["output_path"]).exists():
+        name = Path(record["output_path"]).name
+        parts.append(f'<video controls preload="metadata" src="/shorts-studio/{escape(draft_id)}/file/{escape(name)}"></video>')
+    media = record.get("media") or {}
+    lin = record.get("lineage") or {}
+    rows = [
+        ("video", record.get("output_path")), ("duration", record.get("duration")),
+        ("resolution", f"{media.get('width')}x{media.get('height')}" if media else None),
+        ("codec", f"{media.get('video_codec')} / {media.get('audio_codec')} {media.get('audio_channels')}ch" if media else None),
+        ("quality", record.get("quality")), ("warnings", ", ".join(record.get("warnings") or []) or None),
+        ("render key", record.get("render_key")), ("mp4 sha256", record.get("sha256")),
+        ("draft", f"{lin.get('draft_id')} v{lin.get('draft_version')}"), ("base content", lin.get("base_content_id")),
+        ("generation_id", lin.get("generation_id")), ("base sha256", lin.get("base_content_sha256")),
+        ("document sha256", lin.get("document_sha256")), ("template sha256", lin.get("template_sha256")),
+        ("asset sha256", json.dumps(lin.get("asset_sha256") or {}, ensure_ascii=False)),
+    ]
+    parts.append('<table class="kv">' + "".join(
+        f'<tr><td>{escape(k)}</td><td><span class="code">{escape(str(v))}</span></td></tr>' for k, v in rows if v not in (None, "", "{}")
+    ) + "</table>")
+    return '<div class="card">' + "".join(parts) + "</div>"
+
+
+def render_shorts_studio_editor_html(draft: dict, document: dict, report: dict, *, previews: list[dict],
+                                     versions: list[dict], assets: list[str], notice: str | None = None,
+                                     error: str | None = None, drift: str | None = None) -> str:
+    fields = editable_fields(document.get("template", "default") if isinstance(document.get("template"), str) else "default")
+    layouts, transitions = fields["scene"]["layout"], fields["scene"]["transition"]
+    fits = fields["scene"]["image"]["fit"]
+    progress = document.get("progress")
+    progress = {"enabled": progress} if isinstance(progress, bool) else (progress or {})
+    audio = document.get("audio") or {}
+    draft_id = draft["draft_id"]
+    on_off = [("on", "ON"), ("off", "OFF")]
+    banner = f'<div class="banner">{escape(notice)}</div>' if notice else ""
+    err = f'<div class="error">{escape(error)}</div>' if error else ""
+    issues = _studio_codes_html([drift], "warn") if drift else ""
+    if report.get("codes"):
+        what = "저장할 수 없는 값" if report.get("hard") else "검사 결과 (저장은 되지만 이 상태로는 미리보기가 품질 게이트에서 막힙니다)"
+        issues = f'<div class="card"><b>{what}</b>' + _studio_codes_html(report["codes"]) + "</div>"
+    if report.get("warnings"):
+        issues += '<div class="card"><b>경고</b>' + _studio_codes_html(report["warnings"], "warn") + "</div>"
+    scenes = "".join(_studio_scene_html(i, s, layouts, transitions, fits) for i, s in enumerate(document.get("scenes") or []) if isinstance(s, dict))
+    current = [p for p in previews if p.get("draft_version") == draft["draft_version"]]
+    latest = (current or previews or [None])[-1]
+    version_rows = "".join(
+        f"""<tr><td>v{v['draft_version']}</td><td>{escape((v.get('updated_at') or '')[:19])}</td><td>{escape(v.get('note') or '')}</td><td>{escape(v.get('title') or '')}</td>
+<td>{'현재' if v['draft_version'] == draft['draft_version'] else f'<form method="post" action="/shorts-studio/{escape(draft_id)}/reset"><input type="hidden" name="target" value="v{v["draft_version"]}"><button class="btn" type="submit">되돌리기</button></form>'}</td></tr>"""
+        for v in reversed(versions)
+    )
+    base = draft.get("base") or {}
+    return f"""{_STUDIO_STYLE}
+<a class="back" href="/shorts-studio">&larr; SHORTS STUDIO</a>
+<h1>🎬 SHORTS STUDIO — {escape(draft['content_id'])}</h1>
+<div class="sub">Draft <span class="code">{escape(draft_id)}</span> v{draft['draft_version']} · generation_id <span class="code">{escape(draft.get('generation_id') or '-')}</span>
+ · 원본 review_status {escape(str(base.get('review_status')))} · 원본 sha256 <span class="code">{escape(draft['base_content_sha256'][:16])}</span>
+ · Production 데이터는 바뀌지 않습니다.</div>
+{banner}{err}{issues}
+<datalist id="studio-assets">{"".join(f'<option value="{escape(a)}">' for a in assets)}</datalist>
+<div class="studio-grid studio">
+<form method="post" action="/shorts-studio/{escape(draft_id)}/save" style="display:block">
+<input type="hidden" name="expected_version" value="{draft['draft_version']}">
+<div class="card">
+<label>Title (여러 줄 가능)</label><textarea name="title" rows="2">{escape(document.get('title', ''))}</textarea>
+<div class="row">
+ <div><label>Brand (비우면 기본)</label><input type="text" name="brand" value="{escape(document.get('brand') if isinstance(document.get('brand'), str) else '')}"></div>
+ <div><label>CTA (비우면 기본)</label><input type="text" name="cta" value="{escape(document.get('cta') or '')}"></div>
+</div>
+<div class="row">
+ <div><label>Progress</label><select name="progress_enabled">{_options(on_off, 'off' if progress.get('enabled') is False else 'on')}</select></div>
+ <div><label>Progress 위치</label><select name="progress_position">{_options([('', '(기본)'), ('footer', 'footer'), ('top', 'top')], progress.get('position', ''))}</select></div>
+</div>
+<div class="row">
+ <div><label>Audio</label><select name="audio_enabled">{_options(on_off, 'off' if audio.get('enabled') is False else 'on')}</select></div>
+ <div><label>Music (기존 합성 음악)</label><select name="audio_background">{_options([('', '(기본)')] + [(b, b) for b in fields['document']['audio']['background']], audio.get('background', ''))}</select></div>
+ <div><label>Volume (0~2, 비우면 기본)</label><input type="text" name="audio_volume" value="{escape('' if audio.get('volume') is None else str(audio.get('volume')))}"></div>
+</div>
+</div>
+{scenes}
+<div class="actions">
+ <button class="btn" type="submit" name="action" value="save">Save Draft</button>
+ <button class="btn primary" type="submit" name="action" value="preview">Save + Render Preview</button>
+</div>
+</form>
+{_studio_preview_html(latest, draft_id)}
+<div class="card"><b>Reset / 버전</b>
+<div class="actions" style="margin:6px 0">
+<form method="post" action="/shorts-studio/{escape(draft_id)}/reset"><input type="hidden" name="target" value="base"><button class="btn ghost" type="submit">원본 Production Content로 초기화</button></form>
+<a class="btn" href="/shorts-studio/{escape(draft_id)}">저장 안 한 입력 버리기(마지막 저장 상태)</a>
+</div>
+<table class="list-table">{version_rows}</table>
+<div class="sub">초기화/되돌리기도 새 버전으로 쌓입니다. 이전 버전 파일은 지워지지 않습니다.</div>
+</div>
+</div>"""
+
+
+def handle_shorts_studio(config: DashboardConfig, method: str, path: str, query: dict, form: dict):
+    """Shorts Studio 라우트 하나를 처리한다 -> ("html", status, body) | ("redirect", url) | ("file", content_type, bytes)."""
+    store = _studio_store(config)
+    if method == "GET" and path == "/shorts-studio":
+        drafts = {d["draft_id"]: d for d in store.list()}
+        return "html", 200, _page("Shorts Studio", render_shorts_studio_list_html(_studio_sources(config), drafts))
+
+    if method == "GET" and path == "/shorts-studio/asset":
+        raw = (query.get("path") or [""])[0]
+        target = (Path(raw) if Path(raw).is_absolute() else ROOT / raw).resolve()
+        roots = [ROOT.resolve(), *(Path(d).resolve() for d in config.shorts_asset_dirs)]
+        if target.suffix.lower() in shorts_studio.IMAGE_SUFFIXES and target.is_file() and any(target.is_relative_to(r) for r in roots):
+            kind = {".png": "image/png", ".webp": "image/webp"}.get(target.suffix.lower(), "image/jpeg")
+            return "file", kind, target.read_bytes()
+        return "html", 404, _page("없음", "<p>이미지를 찾을 수 없습니다.</p>")
+
+    if method == "POST" and path == "/shorts-studio/open":
+        content_id = (form.get("content_id") or [""])[0]
+        entry = next((e for e in _studio_sources(config) if e["content_id"] == content_id), None)
+        if entry is None:
+            return "html", 404, _page("없음", f'<div class="error">{escape(shorts_studio.describe("SOURCE_NOT_FOUND"))} {escape(content_id)}</div>')
+        return "redirect", f"/shorts-studio/{store.open_draft(entry)['draft_id']}"
+
+    parts = path[len("/shorts-studio/"):].split("/")
+    draft_id = unquote(parts[0])
+    try:
+        draft = store.load(draft_id)
+    except shorts_studio.DraftError as error:
+        return "html", 404, _page("Draft 없음", f'<a class="back" href="/shorts-studio">&larr; 목록</a><div class="error">{escape(error.message)}</div>')
+
+    def editor(status: int = 200, document: dict | None = None, notice: str | None = None, error: str | None = None):
+        document = draft["document"] if document is None else document
+        body = render_shorts_studio_editor_html(
+            draft, document, shorts_studio.check(document, store.base_dir), previews=store.previews(draft_id),
+            versions=store.versions(draft_id), assets=_studio_assets(config), notice=notice, error=error,
+            drift=shorts_studio.base_drift(draft, next((e for e in _studio_sources(config) if e["content_id"] == draft["content_id"]), None)))
+        return "html", status, _page("Shorts Studio", body)
+
+    if method == "GET" and len(parts) == 1:
+        notice = {"saved": "저장했습니다.", "unchanged": "바뀐 내용이 없어 새 버전을 만들지 않았습니다.",
+                  "preview": "미리보기를 만들었습니다.", "reset": "되돌렸습니다(새 버전)."}.get((query.get("notice") or [""])[0])
+        return editor(notice=notice)
+
+    if method == "GET" and len(parts) == 3 and parts[1] == "file":
+        name = unquote(parts[2])
+        target = config.shorts_studio_out_path / draft_id / name
+        if re.fullmatch(r"[A-Za-z0-9._-]+\.(mp4|png)", name) and target.is_file():
+            return "file", "video/mp4" if name.endswith(".mp4") else "image/png", target.read_bytes()
+        return "html", 404, _page("없음", "<p>파일을 찾을 수 없습니다.</p>")
+
+    if method == "POST" and len(parts) == 2 and parts[1] == "save":
+        document = shorts_studio.apply_form(draft["document"], form)
+        try:
+            expected = int((form.get("expected_version") or [""])[0])
+        except ValueError:
+            expected = None
+        try:
+            _, _, saved = store.save(draft_id, document, expected_version=expected)
+        except shorts_studio.DraftError as error:
+            # 입력한 값을 잃지 않도록 저장 안 된 문서를 그대로 다시 보여준다.
+            return editor(400, document, error=f"저장하지 않았습니다 [{error.code}] {shorts_studio.describe(error.code)} — {error.message}")
+        if (form.get("action") or ["save"])[0] == "preview":
+            shorts_studio.preview(store, draft_id, config.shorts_studio_out_path, ffmpeg=config.ffmpeg)
+            return "redirect", f"/shorts-studio/{draft_id}?notice=preview"
+        return "redirect", f"/shorts-studio/{draft_id}?notice={'saved' if saved else 'unchanged'}"
+
+    if method == "POST" and len(parts) == 2 and parts[1] == "reset":
+        target = (form.get("target") or [""])[0]
+        try:
+            if target == "base":
+                entry = next((e for e in _studio_sources(config) if e["content_id"] == draft["content_id"]), None)
+                if entry is None:
+                    raise shorts_studio.DraftError("SOURCE_NOT_FOUND")
+                store.reset_to_base(draft_id, entry)
+            elif re.fullmatch(r"v\d+", target):
+                store.revert(draft_id, int(target[1:]))
+            else:
+                raise shorts_studio.DraftError("DRAFT_NOT_FOUND", f"잘못된 대상: {target!r}")
+        except shorts_studio.DraftError as error:
+            return editor(400, error=f"[{error.code}] {error.message}")
+        return "redirect", f"/shorts-studio/{draft_id}?notice=reset"
+
+    return "html", 404, _page("페이지 없음", "<p>페이지를 찾을 수 없습니다.</p>")
+
+
 # --- HTTP 서버 --------------------------------------------------------------
 
 
@@ -2538,6 +2869,22 @@ def make_handler_class(
             self.end_headers()
             self.wfile.write(body)
 
+        def _send_file(self, content_type: str, body: bytes) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _shorts_studio(self, method: str, path: str, query: dict, form: dict) -> None:
+            kind, *rest = handle_shorts_studio(config, method, path, query, form)
+            if kind == "redirect":
+                self._redirect(rest[0])
+            elif kind == "file":
+                self._send_file(*rest)
+            else:
+                self._send_html(rest[1], status=rest[0])
+
         def _redirect(self, location: str) -> None:
             self.send_response(303)
             self.send_header("Location", location)
@@ -2555,6 +2902,10 @@ def make_handler_class(
             path = parsed.path
             query = parse_qs(parsed.query)
             saved = query.get("saved", ["0"])[0] == "1"
+
+            if path == "/shorts-studio" or path.startswith("/shorts-studio/"):
+                self._shorts_studio("GET", path, query, {})
+                return
 
             if path == "/":
                 candidates = load_daily_pack(config.daily_pack_path)
@@ -2866,6 +3217,11 @@ def make_handler_class(
             length = int(self.headers.get("Content-Length") or 0)
             raw_body = self.rfile.read(length) if length else b""
             form = parse_qs(raw_body.decode("utf-8"))
+
+            if path.startswith("/shorts-studio/"):
+                # 빈 칸(= 값 지우기)도 받아야 하므로 keep_blank_values로 다시 읽는다.
+                self._shorts_studio("POST", path, {}, parse_qs(raw_body.decode("utf-8"), keep_blank_values=True))
+                return
 
             if path.startswith("/candidate/") and path.endswith("/answer"):
                 scout_id = unquote(path[len("/candidate/") : -len("/answer")])
@@ -3280,6 +3636,14 @@ def main(argv: list[str] | None = None) -> int:
             "production archive(--media-archive)와는 완전히 별개다."
         ),
     )
+    parser.add_argument(
+        "--ffmpeg", default=os.environ.get("TAK_FFMPEG", "ffmpeg"),
+        help="Shorts Studio 미리보기 렌더용 ffmpeg 경로 (기본값: TAK_FFMPEG 또는 PATH의 ffmpeg, 6-55)",
+    )
+    parser.add_argument(
+        "--shorts-drafts", type=Path, default=ROOT / "data" / "shorts_drafts",
+        help="Shorts Studio Draft 저장소 (기본값: data/shorts_drafts - Production Archive와 별개, 6-55)",
+    )
     args = parser.parse_args(argv)
 
     if not args.daily_pack.exists():
@@ -3314,6 +3678,8 @@ def main(argv: list[str] | None = None) -> int:
         performance_path=args.performance,
         insights_path=args.insights,
         generation_archive_paths=generation_archive_paths,
+        shorts_drafts_path=args.shorts_drafts,
+        ffmpeg=args.ffmpeg,
     )
 
     # scripts/run_media_batch.py, scripts/run_daily.py, scripts/tak_auto.py와 동일한

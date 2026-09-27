@@ -43,3 +43,7 @@ data/*.json
 data/tak_scout_daily.md
 !data/tak_scout_daily.md
 data/tak_interview_questions.md
+
+# 6-55: Shorts Studio 로컬 Draft/이미지 asset - 사람이 편집 중인 작업 상태(Production Archive 아님)
+data/shorts_drafts/
+data/shorts_assets/

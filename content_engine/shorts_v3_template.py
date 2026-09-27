@@ -133,6 +133,9 @@ def validate_template(t: Mapping) -> None:
         raise V3Error("INVALID_TEMPLATE", "source_labels는 {도메인: 이름} 객체여야 합니다.")
     if t["audio"].get("background") not in AUDIO_BACKGROUNDS or not 50 <= float(t["audio"].get("bpm", 0)) <= 180:
         raise V3Error("INVALID_TEMPLATE", f"audio.background는 {AUDIO_BACKGROUNDS}, bpm 50~180이어야 합니다.")
+    volume, fades = t["audio"].get("volume", 1.0), (t["audio"].get("fade_in", 0), t["audio"].get("fade_out", 0))
+    if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (volume, *fades)) or not 0 <= volume <= 2 or min(fades) < 0:
+        raise V3Error("INVALID_TEMPLATE", f"audio.volume은 0~2, fade_in/fade_out은 0 이상 숫자여야 합니다: {volume!r} {fades!r}")  # 6-55: 편집기 입력
     if t["progress"].get("position", "footer") not in ("footer", "top") or t["progress"].get("mode", "time") not in ("time", "scene"):
         raise V3Error("INVALID_TEMPLATE", "progress.position은 footer|top, mode는 time|scene이어야 합니다.")
     if float(t["timing"].get("min_scene_seconds", 0)) <= 0:
