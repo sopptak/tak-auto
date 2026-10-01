@@ -128,6 +128,5 @@ GoJoseon 플레이 화면은 이 라이브러리를 로드하지 않았다. 탐�
 ## 12. Commit 정보
 
 - 구현 및 보고서를 GitHub `main` 최신 HEAD에서 별도 worktree로 작성했다.
-- 구현 commit: `245de0e` (`6-70: connect GoJoseon discoveries to history cards`).
-- 이 보고서는 구현 commit hash를 기록하는 후속 문서 commit으로 정리한다.
-- push 결과는 최종 작업 요약에 기록한다.
+- commit: `b56ac2e` (`6-70: connect GoJoseon discoveries to history cards`).
+- push 결과는 작업 완료 후 이 절에 기록한다.
