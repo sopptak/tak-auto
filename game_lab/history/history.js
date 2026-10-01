@@ -87,6 +87,14 @@
     return { entities: entities, abilities: abilities };
   };
 
+  Library.prototype.gojoseonCards = function (state) {
+    var unlocked = this.gojoseonUnlocks(state), self = this;
+    return {
+      entities: unlocked.entities.map(function (id) { return self.get(id); }).filter(Boolean),
+      abilities: unlocked.abilities.map(function (id) { return self.get(id); }).filter(Boolean)
+    };
+  };
+
   function validate(d) {
     var errors = [], lib;
     function err(m) { errors.push(m); }

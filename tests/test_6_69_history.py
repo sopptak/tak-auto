@@ -99,6 +99,16 @@ class IsolationTests(unittest.TestCase):
         for py in list((ROOT / "content_engine").rglob("*.py")) + list((ROOT / "scripts").glob("*.py")):
             self.assertNotIn("game_lab", py.read_text(encoding="utf-8"), py.name)
 
+    def test_gojoseon_book_loads_and_displays_history_master_cards(self) -> None:
+        html = (ROOT / "game_lab/rpg/gojoseon/index.html").read_text(encoding="utf-8")
+        renderer = (ROOT / "game_lab/rpg/explore-renderer.js").read_text(encoding="utf-8")
+        self.assertIn("../../history/history.js", html)
+        self.assertIn("../explore-renderer.js?v=gj1-5", html)
+        self.assertIn('Choice100History.load("../../history/data"', renderer)
+        self.assertIn("historyLibrary.gojoseonCards(st)", renderer)
+        self.assertIn("historySourceHtml(x.source_refs)", renderer)
+        self.assertIn("효과 수치는 게임 설정이며 역사 사실이 아닙니다.", renderer)
+
 
 if __name__ == "__main__":
     unittest.main()

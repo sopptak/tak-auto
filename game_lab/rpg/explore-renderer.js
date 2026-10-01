@@ -7,7 +7,7 @@
   const { Explore } = window.Choice100Explore;
   const BoardGame = window.Choice100Board.Game;
   const FACES = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
-  let app, data, game, stats, saveKey, last = null, boardLog = [], tab = "play";
+  let app, data, game, stats, historyLibrary = null, saveKey, last = null, boardLog = [], tab = "play";
 
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const storage = {
@@ -30,6 +30,19 @@
     } catch (e) {
       app.innerHTML = `<div class="card">데이터를 불러오지 못했습니다. <code>py -m http.server 8790 --bind 127.0.0.1 -d game_lab</code> 후 http://127.0.0.1:8790/rpg/gojoseon/</div>`;
       return;
+    }
+    try {
+      const historyData = await window.Choice100History.load("../../history/data", async (path) => {
+        const response = await fetch(path, { cache: "no-cache" });
+        if (!response.ok) throw new Error(`history data ${response.status}`);
+        return response;
+      });
+      const errors = window.Choice100History.validate(historyData);
+      if (errors.length) throw new Error(errors.join("; "));
+      historyLibrary = new window.Choice100History.Library(historyData);
+    } catch (e) {
+      historyLibrary = null;
+      console.warn("역사 도감 데이터를 불러오지 못했습니다. 게임 진행은 계속됩니다.", e);
     }
     saveKey = `choice100explore:${data.id}`;
     stats = window.Choice100Analytics.create(storage, data.id, data.version);
@@ -97,9 +110,12 @@
     if (r.companion) chips.push(`<span class="chip skill">${byId("heroes", r.companion).icon} 동료: ${esc(byId("heroes", r.companion).name)}</span>`);
     const lv = (g.level_up || []).map((l) => `<div class="levelup pop">⬆️ 레벨 업! Lv ${l}</div>`).join("");
     const kn = (g.knowledge || []).map((k) => { const x = byId("knowledge", k); return `<div class="lesson">📚 ${esc(x.text)} ${badge(x.historical_status)}${x.historical_status === "game_setting" ? "" : `<span class="src">출처: ${esc(x.source)} (${esc(x.source_date)} 확인)</span>`}</div>`; }).join("");
+    const unlocked = historyLibrary && historyLibrary.gojoseonCards({ knowledge: g.knowledge || [], items: g.items || [], skills: g.skills || [], policies: g.policies || [] });
+    const discovered = unlocked ? [...unlocked.entities, ...unlocked.abilities].map((x) => x.name) : [];
+    const historyNotice = discovered.length ? `<div class="newpath">📜 역사 도감에 추가: ${discovered.map(esc).join(" · ")}</div>` : "";
     const rv = (r.revealed || []).map((id) => `<div class="newpath">🛤️ 새 길이 열렸다: ${esc(edgeName(id))}</div>`).join("");
     const hunger = r.hunger ? `<div class="warn">😣 식량 없이 걸었다. 인구가 줄었다.</div>` : "";
-    return `${lv}${hunger}<div class="chips">${chips.join("")}</div>${rv}${kn}`;
+    return `${lv}${hunger}<div class="chips">${chips.join("")}</div>${rv}${kn}${historyNotice}`;
   }
   function lastHtml() {
     if (!last) return "";
@@ -273,6 +289,35 @@
   }
 
   // ---- 기록(도감) ----
+  const MASTER_STATUS = {
+    HISTORICAL_RECORD: ["historical_record", "역사 기록"],
+    HISTORICAL_INTERPRETATION: ["historical_record", "역사 해석"],
+    MYTHOLOGY: ["mythology", "신화"],
+    LEGEND: ["legend", "전승"],
+    LITERARY_FICTION: ["literary_fiction", "문학 속 인물"],
+    GAME_SETTING: ["game_setting", "게임 설정"]
+  };
+  function masterBadge(status) {
+    const [tag, label] = MASTER_STATUS[status] || ["game_setting", "검토 필요"];
+    return `<span class="hs hs-${tag}">${label}</span>`;
+  }
+  function historySourceHtml(refs) {
+    return (refs || []).map((id) => {
+      const source = historyLibrary.d.sources[id];
+      if (!source) return "";
+      return `<a class="src" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.title || id)} · ${esc(source.checked)}</a>`;
+    }).join(" · ");
+  }
+  function historyBookHtml(st) {
+    if (!historyLibrary) return `<section class="card" role="status"><div class="chapter">📜 역사 도감</div><p class="flow">역사 데이터를 불러오지 못했습니다. 게임 진행 기록은 계속 사용할 수 있습니다.</p></section>`;
+    const cards = historyLibrary.gojoseonCards(st);
+    const entities = cards.entities.map((x) => `<article class="req"><b>${esc(x.name)}</b> ${masterBadge(x.historical_status)}<p class="flow">${esc(x.description)}</p><div>${historySourceHtml(x.source_refs)}</div></article>`).join("") || `<p class="flow">탐험과 사건에서 역사 지식을 발견하면 여기에 기록됩니다.</p>`;
+    const abilities = cards.abilities.map((x) => {
+      const sources = (x.from_entities || []).map((id) => historyLibrary.get(id)).filter(Boolean).map((entity) => `${esc(entity.name)} ${masterBadge(entity.historical_status)}`).join(" · ");
+      return `<article class="req"><b>${esc(x.name)}</b> ${masterBadge("GAME_SETTING")}<p class="flow">${esc(x.description)}</p><div class="src">역사 연결: ${sources || "없음"} · 효과 수치는 게임 설정이며 역사 사실이 아닙니다.</div></article>`;
+    }).join("") || `<p class="flow">아직 해금한 어빌리티가 없습니다.</p>`;
+    return `<section class="card"><div class="chapter">📜 발견한 역사 카드 (${cards.entities.length})</div>${entities}<div class="chapter">✨ 해금한 어빌리티 (${cards.abilities.length})</div>${abilities}</section>`;
+  }
   function renderBook() {
     const st = game.rpg.state;
     const kn = st.knowledge.map((k) => { const x = byId("knowledge", k); return `<div class="lesson">${esc(x.text)} ${badge(x.historical_status)}${x.historical_status === "game_setting" ? "" : `<span class="src">${esc(x.source)}</span>`}</div>`; }).join("") || `<p class="flow">아직 없다. 둘러보고 부족과 이야기하라.</p>`;
@@ -281,7 +326,7 @@
     const it = st.items.map((i) => `<div class="req">${byId("items", i).icon} ${esc(byId("items", i).name)} <span class="flow">${esc(byId("items", i).note)}</span></div>`).join("") || `<p class="flow">없음</p>`;
     screen(`<div id="main"><section class="card"><div class="chapter">🧭 부족</div>${tr}</section>
       <section class="card"><div class="chapter">✨ 어빌리티</div>${ab}</section><section class="card"><div class="chapter">🎒 아이템</div>${it}</section>
-      <section class="card"><div class="chapter">📚 알게 된 것 (${st.knowledge.length})</div>${kn}</section>
+      ${historyBookHtml(st)}<section class="card"><div class="chapter">📚 알게 된 것 (${st.knowledge.length})</div>${kn}</section>
       <section class="card"><div class="chapter">🗺️ 발견한 장소 ${game.s.visited.length}/12</div><div class="flow">${game.s.visited.map((l) => game.L[l].icon + " " + esc(game.L[l].name)).join(" · ")}</div></section></div>`);
   }
 

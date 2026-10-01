@@ -164,3 +164,16 @@ test("고조선 연결: 슬라이스의 모든 id가 마스터에 이어지고 �
   for (const id of ["CT_GOJOSEON", "DAN_GUN", "TE_BRONZE", "AR_DOLMEN", "AR_BIPA_DAGGER", "TE_AGRICULTURE", "TR_HUNTERS", "CU_SETTLEMENT",
     "TN_MOUNTAIN", "TN_RIVER", "TN_PLAIN", "SP_SALT_TRADE", "AB_EXPLORATION", "MY_DANGUN", "IN_EIGHT_LAWS"]) assert.ok(L.get(id), id);
 });
+
+test("고조선 도감 카드: 게임 상태에서 역사 기록과 해금 어빌리티를 출처 데이터와 함께 조회한다", () => {
+  const L = new H.Library(fresh());
+  const state = { knowledge: ["k_dolmen", "k_myth", "k_dolmen"], skills: ["tracking", "tracking"] };
+  const cards = L.gojoseonCards(state);
+  assert.deepStrictEqual(cards.entities.map((x) => x.id), ["KN_DOLMEN", "KN_DANGUN_MYTH"]);
+  assert.ok(cards.entities.every((x) => x.description && x.source_refs.length));
+  assert.ok(cards.abilities.some((x) => x.id === "AB_TRACKING"));
+  assert.ok(cards.abilities.every((x) => x.historical_status === "GAME_SETTING"));
+  assert.deepStrictEqual(L.gojoseonCards(state), cards);
+  const empty = L.gojoseonCards({ knowledge: [], skills: [], items: [], policies: [] });
+  assert.deepStrictEqual(empty, { entities: [], abilities: [] });
+});
