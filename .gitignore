@@ -23,6 +23,9 @@ data/*.json
 !data/threads_publish_log.json
 !data/scout_sources.json
 !data/tak_scout_daily.json
+# P1: scheduled 24h/72h snapshots must survive the ephemeral GitHub Actions
+# checkout so the next run can enforce window idempotency.
+!data/tak_performance.json
 # 6-29 P1(docs/6-28-full-e2e-operating-readiness.md 21장, 6-21에서 이미
 # 발견된 정책 불일치): threads_publish_log.json/youtube_publish_log.json과
 # 동일한 이유로 화이트리스트에 추가한다 - 사람이 mark_blog_published.py로

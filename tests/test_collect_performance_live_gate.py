@@ -8,8 +8,8 @@
     2. --confirm-live 없이는 어떤 경우에도 네트워크에 접근하지 않는다.
     3. --confirm-live를 명시하면(GitHub Actions가 아닌 한) 정상적으로
        진행된다 - 단 여기서도 실제 네트워크는 mock으로 대체해 검증한다.
-    4. GitHub Actions 환경(GITHUB_ACTIONS=true)에서는 --confirm-live를 줘도
-       거부된다.
+     4. GitHub Actions 환경(GITHUB_ACTIONS=true)에서는 전용 opt-in 없이는
+         --confirm-live를 줘도 거부된다.
     5. blog는 이 게이트의 영향을 받지 않는다(원래도 네트워크가 없다).
 
 실제 환경변수(THREADS_ACCESS_TOKEN 등)는 이 파일 어디에서도 읽거나
@@ -56,6 +56,15 @@ class GuardLiveNetworkCallPureFunctionTests(unittest.TestCase):
             error = _guard_live_network_call("youtube", dry_run=False, confirm_live=True)
         self.assertIsNotNone(error)
         self.assertIn("GitHub Actions", error)
+
+    def test_confirm_live_inside_github_actions_requires_explicit_opt_in(self):
+        error = _guard_live_network_call(
+            "threads",
+            dry_run=False,
+            confirm_live=True,
+            environ={"GITHUB_ACTIONS": "true", "TAK_PERFORMANCE_ALLOW_GITHUB_ACTIONS": "true"},
+        )
+        self.assertIsNone(error)
 
     def test_github_actions_value_is_case_insensitive(self):
         with mock.patch.dict("os.environ", {"GITHUB_ACTIONS": "True"}):
@@ -185,6 +194,31 @@ class CollectPerformanceLiveGateCLITests(unittest.TestCase):
             )
         self.assertEqual(exit_code, 1)
         self.assertIn("GitHub Actions", stderr)
+
+    def test_github_actions_opt_in_still_requires_confirm_live_and_uses_mock_client(self):
+        fake_client = ThreadsClient(
+            access_token="fake-token",
+            transport=lambda *args: {"data": [{"name": "views", "values": [{"value": 7}]}]},
+        )
+        with mock.patch.dict(
+            "os.environ",
+            {"GITHUB_ACTIONS": "true", "TAK_PERFORMANCE_ALLOW_GITHUB_ACTIONS": "true"},
+        ), mock.patch.object(ThreadsClient, "from_environment", return_value=fake_client):
+            exit_code, output, _stderr = self._run(
+                [
+                    "--platform", "threads",
+                    "--content-id", "content-actions-1",
+                    "--knowledge-id", "knowledge-actions-1",
+                    "--published-at", "2026-09-10T00:00:00+00:00",
+                    "--external-id", "post-actions-1",
+                    "--store", str(self.store_path),
+                    "--confirm-live",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("성공", output)
+        self.assertEqual(load_snapshots(self.store_path)[0].metrics, {"views": 7})
 
     # --- 5. blog는 게이트의 영향을 받지 않는다 -----------------------------------
 

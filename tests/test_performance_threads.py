@@ -68,6 +68,12 @@ class CollectThreadsPerformanceTests(unittest.TestCase):
         self.assertEqual(record.source, "threads_api")
         self.assertEqual(record.metrics, {"views": 500, "likes": 30})
         self.assertEqual(record.external_id, "media-123")
+        self.assertEqual(record.external_post_id, "media-123")
+        self.assertEqual(record.collection_status, "collected")
+        self.assertEqual(
+            record.unavailable_metrics,
+            ("replies", "reposts", "quotes", "shares"),
+        )
         self.assertEqual(record.content_id, "content-1")
         self.assertEqual(record.knowledge_id, "knowledge-1")
         self.assertIsNotNone(record.raw)

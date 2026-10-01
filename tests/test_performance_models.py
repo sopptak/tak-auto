@@ -73,6 +73,25 @@ class PerformanceRecordRoundTripTests(unittest.TestCase):
         restored = PerformanceRecord.from_dict(record.to_dict())
         self.assertEqual(restored, record)
 
+    def test_scheduled_snapshot_metadata_round_trips(self):
+        record = _record(
+            external_id="post-1",
+            external_post_id="post-1",
+            generation_id="generation-1",
+            measurement_window="24h",
+            unavailable_metrics=("quotes",),
+            collection_status="collected",
+        )
+        restored = PerformanceRecord.from_dict(record.to_dict())
+        self.assertEqual(restored, record)
+
+    def test_legacy_snapshot_serialization_does_not_add_new_metadata_keys(self):
+        serialized = _record().to_dict()
+        self.assertNotIn("generation_id", serialized)
+        self.assertNotIn("measurement_window", serialized)
+        self.assertNotIn("external_post_id", serialized)
+        self.assertNotIn("collection_status", serialized)
+
     def test_from_dict_defaults_missing_fields_safely(self):
         restored = PerformanceRecord.from_dict(
             {

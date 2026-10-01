@@ -140,9 +140,10 @@ Day7: views=2,300 (metric_collected_at=2026-09-21)
   하지 않고(클라이언트조차 만들지 않고) 오류로 종료한다.
 - `--dry-run`: 네트워크 호출도, 저장도 하지 않는다. 무엇을 할지만 출력한다.
 - `--confirm-live`: 실제 API를 호출한다(자격증명 필요).
-- **GitHub Actions 환경(`GITHUB_ACTIONS=true`)에서는 `--confirm-live`를 줘도
-  거부된다.** 이 CLI를 호출하는 workflow는 아직 없지만, 나중에 실수로
-  연결되더라도 안전하도록 미리 막아둔다.
+- **GitHub Actions 환경(`GITHUB_ACTIONS=true`)은 기본적으로 거부된다.** 오직
+  Performance 수집 workflow가 `TAK_PERFORMANCE_ALLOW_GITHUB_ACTIONS=true`와
+  `--confirm-live`를 함께 명시한 경우에만 live 호출을 허용한다. 다른 workflow나
+  임의 실행은 계속 거부된다.
 - `--platform blog`는 네트워크 호출이 없으므로 이 규칙의 적용을 받지 않는다.
 
 `scripts/publish_threads.py`/`scripts/upload_youtube_short.py`(기존 발행 스크립트)는
@@ -200,3 +201,32 @@ PERFORMANCE → SCOUT SCORE → CONTENT GENERATION (자동)
 - 이 원칙을 바꾸려면(예: 성과 신호를 SCOUT SCORE에 실제로 반영) 사람이 먼저
   `/performance` 화면에서 데이터를 충분히 축적/검토한 뒤 별도로 명시적인 결정을
   내려야 한다 - 코드가 스스로 그 결정을 내리지 않는다.
+
+## 13. Threads 24h/72h scheduled snapshots
+
+`.github/workflows/daily-performance-collection.yml`은 매일 07:30 UTC에
+`scripts/collect_performance.py --scheduled --confirm-live`를 실행한다. 수동
+dispatch는 기본값이 dry-run이며, 실제 호출에는 별도 입력과
+`THREADS_ACCESS_TOKEN` secret이 필요하다.
+
+scheduled collector는 `threads_publish_log.json`, `tak_media_archive.json`,
+`tak_threads_pending.json`을 교차해 `content_id`, `knowledge_id`,
+`threads_post_id`, published time이 일치하고 valid/approved이며 generation이
+있고 superseded가 아닌 실제 게시만 대상으로 삼는다. test/legacy/orphan/충돌
+레코드는 제외한다. 게시 24h 전에는 측정 대기이며, 24h 이상 72h 미만이면
+24h window, 72h 이상이면 72h window를 선택한다. 72h에 도달했을 때 24h가
+없으면 24h snapshot을 늦게 만들지 않는다. 정확한 실제 시각은 각 record의
+`published_at`/`metric_collected_at`에 남는다.
+
+windowed `PerformanceRecord`에는 `generation_id`, `measurement_window`,
+`external_post_id`, `collection_status=collected`, 그리고 API가 요청했지만
+응답하지 않은 `unavailable_metrics`가 저장된다. `metrics`에는 실제 응답 값만
+있으므로 API가 반환한 0과 미제공 지표가 구분된다. window 중복 키는
+`(content_id, external_post_id, measurement_window)`이며, 기존 windowless
+기록은 `(content_id, metric_collected_at)` 정책을 유지한다.
+
+`data/tak_performance.json`은 Actions의 fresh checkout 사이에서 이 중복 상태를
+보존하기 위해 Git 추적 whitelist에 포함한다. API 실패는 snapshot을 만들지 않고
+collector를 실패시켜 다음 실행에서 재시도한다. 부분 실패 전에 성공해 저장한
+snapshot은 workflow가 실패하더라도 commit한다. 어떠한 수집 값도 콘텐츠 전략을
+자동 변경하지 않는다.

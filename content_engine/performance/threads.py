@@ -61,6 +61,8 @@ def collect_threads_performance(
     metric_collected_at: str,
     title: str = "",
     metrics: Sequence[str] = DEFAULT_INSIGHTS_METRICS,
+    generation_id: str | None = None,
+    measurement_window: str | None = None,
 ) -> PerformanceRecord:
     """Threads media 1건의 성과를 실제로 조회해 PerformanceRecord로 정규화한다.
 
@@ -70,6 +72,7 @@ def collect_threads_performance(
     """
     raw = client.get_media_insights(media_id, metrics=metrics)
     normalized = normalize_threads_insights(raw)
+    unavailable_metrics = tuple(metric for metric in metrics if metric not in normalized)
     return PerformanceRecord(
         content_id=content_id,
         knowledge_id=knowledge_id,
@@ -81,4 +84,9 @@ def collect_threads_performance(
         title=title,
         external_id=media_id,
         raw=raw if isinstance(raw, dict) else None,
+        generation_id=generation_id,
+        measurement_window=measurement_window,
+        external_post_id=media_id,
+        unavailable_metrics=unavailable_metrics,
+        collection_status="collected",
     )

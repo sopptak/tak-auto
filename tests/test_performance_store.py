@@ -90,6 +90,53 @@ class PerformanceStoreTests(unittest.TestCase):
         self.assertTrue(added)
         self.assertEqual(len(load_snapshots(self.path)), 2)
 
+    def test_window_snapshot_is_duplicate_even_at_a_different_collection_time(self):
+        first = _record(
+            collected_at="2026-10-02T08:00:00+00:00",
+            external_id="post-1",
+            external_post_id="post-1",
+            measurement_window="24h",
+            generation_id="generation-1",
+            collection_status="collected",
+        )
+        retry = _record(
+            collected_at="2026-10-02T09:00:00+00:00",
+            views=999,
+            external_id="post-1",
+            external_post_id="post-1",
+            measurement_window="24h",
+            generation_id="generation-1",
+            collection_status="collected",
+        )
+
+        self.assertTrue(append_snapshot(self.path, first))
+        self.assertFalse(append_snapshot(self.path, retry))
+        snapshots = load_snapshots(self.path)
+        self.assertEqual(len(snapshots), 1)
+        self.assertEqual(snapshots[0].metrics["views"], 100)
+
+    def test_different_windows_for_same_post_are_distinct_snapshots(self):
+        initial = _record(
+            collected_at="2026-10-01T07:24:06+00:00",
+            external_id="post-1",
+            external_post_id="post-1",
+            measurement_window="initial",
+            generation_id="generation-1",
+            collection_status="collected",
+        )
+        day_one = _record(
+            collected_at="2026-10-02T07:24:06+00:00",
+            external_id="post-1",
+            external_post_id="post-1",
+            measurement_window="24h",
+            generation_id="generation-1",
+            collection_status="collected",
+        )
+
+        self.assertTrue(append_snapshot(self.path, initial))
+        self.assertTrue(append_snapshot(self.path, day_one))
+        self.assertEqual(len(load_snapshots(self.path)), 2)
+
     def test_append_snapshots_batches_writes_and_returns_added_count(self):
         records = [
             _record(collected_at="2026-09-15T00:00:00+00:00", views=100),

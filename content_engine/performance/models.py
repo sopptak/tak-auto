@@ -31,6 +31,8 @@ PLATFORMS = ("threads", "youtube", "blog")
 #                                옮겨온 "발행 사실"일 뿐 실제 성과 지표가 아니다.
 #                                metrics가 비어 있을 수 있다.
 SOURCES = ("threads_api", "youtube_api", "manual", "migration_baseline")
+MEASUREMENT_WINDOWS = ("initial", "24h", "72h")
+COLLECTION_STATUSES = ("collected",)
 
 
 class PerformanceRecordError(ValueError):
@@ -54,6 +56,12 @@ class PerformanceRecord:
     # collector가 실제로 받은 원본 응답(정규화 이전) - 감사/디버깅용. 저장하지
     # 않아도(None) 기능상 문제 없다.
     raw: dict[str, Any] | None = None
+    # 24h/72h scheduled snapshots에만 채운다. 과거 records는 None으로 유지한다.
+    generation_id: str | None = None
+    measurement_window: str | None = None
+    external_post_id: str | None = None
+    unavailable_metrics: tuple[str, ...] = ()
+    collection_status: str | None = None
 
     def __post_init__(self) -> None:
         if not self.content_id:
@@ -73,9 +81,19 @@ class PerformanceRecord:
         for key, value in self.metrics.items():
             if not isinstance(value, int) or isinstance(value, bool):
                 raise PerformanceRecordError(f"metrics[{key!r}]는 정수여야 합니다: {value!r}")
+        if self.measurement_window is not None and self.measurement_window not in MEASUREMENT_WINDOWS:
+            raise PerformanceRecordError(
+                f"measurement_window은 {MEASUREMENT_WINDOWS} 중 하나여야 합니다: {self.measurement_window!r}"
+            )
+        if self.collection_status is not None and self.collection_status not in COLLECTION_STATUSES:
+            raise PerformanceRecordError(
+                f"collection_status는 {COLLECTION_STATUSES} 중 하나여야 합니다: {self.collection_status!r}"
+            )
+        if self.external_post_id and self.external_id and self.external_post_id != self.external_id:
+            raise PerformanceRecordError("external_post_id와 기존 external_id가 일치해야 합니다.")
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "content_id": self.content_id,
             "knowledge_id": self.knowledge_id,
             "platform": self.platform,
@@ -87,6 +105,17 @@ class PerformanceRecord:
             "external_id": self.external_id,
             "raw": self.raw,
         }
+        if self.generation_id is not None:
+            result["generation_id"] = self.generation_id
+        if self.measurement_window is not None:
+            result["measurement_window"] = self.measurement_window
+        if self.external_post_id is not None:
+            result["external_post_id"] = self.external_post_id
+        if self.unavailable_metrics:
+            result["unavailable_metrics"] = list(self.unavailable_metrics)
+        if self.collection_status is not None:
+            result["collection_status"] = self.collection_status
+        return result
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "PerformanceRecord":
@@ -112,4 +141,15 @@ class PerformanceRecord:
             title=str(data.get("title") or ""),
             external_id=str(data.get("external_id") or ""),
             raw=raw if isinstance(raw, dict) else None,
+            generation_id=str(data["generation_id"]) if data.get("generation_id") is not None else None,
+            measurement_window=(
+                str(data["measurement_window"]) if data.get("measurement_window") is not None else None
+            ),
+            external_post_id=(
+                str(data["external_post_id"]) if data.get("external_post_id") is not None else None
+            ),
+            unavailable_metrics=tuple(str(name) for name in data.get("unavailable_metrics") or ()),
+            collection_status=(
+                str(data["collection_status"]) if data.get("collection_status") is not None else None
+            ),
         )

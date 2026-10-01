@@ -93,8 +93,8 @@ def _save(records: list[PerformanceRecord], path: Path | str) -> None:
     temp_path.replace(target)
 
 
-def _snapshot_key(record: PerformanceRecord) -> tuple[str, str]:
-    """중복 판정 키 - 일부러 ``source``를 포함하지 않는다(6-02 검토 결과).
+def _snapshot_key(record: PerformanceRecord) -> tuple[str, str, str]:
+    """Scheduled windows dedupe by post/window; legacy snapshots keep their old key.
 
     (content_id, metric_collected_at)이 같다는 것은 "같은 콘텐츠를 같은 순간에
     측정했다"는 뜻이다 - source(threads_api/youtube_api/manual/migration_baseline)가
@@ -106,14 +106,21 @@ def _snapshot_key(record: PerformanceRecord) -> tuple[str, str]:
     ``overwrite=True`` 같은 별도 옵션을 추가하는 것을 권장한다(지금은 실제 운영
     데이터가 없어 이 요구가 검증되지 않았으므로 미리 만들지 않는다 - 17장 원칙).
     """
-    return (record.content_id, record.metric_collected_at)
+    if record.measurement_window is not None:
+        return (
+            record.content_id,
+            record.external_post_id or record.external_id,
+            f"window:{record.measurement_window}",
+        )
+    return (record.content_id, "", f"collected_at:{record.metric_collected_at}")
 
 
 def append_snapshot(path: Path | str, record: PerformanceRecord) -> bool:
     """스냅샷 1건을 추가한다.
 
-    이미 동일한 (content_id, metric_collected_at) 스냅샷이 있으면 아무 것도
-    저장하지 않고 False를 반환한다. 새로 추가했으면 True를 반환한다.
+    window가 있는 스냅샷은 (content_id, external_post_id, measurement_window),
+    legacy/windowless 스냅샷은 기존 (content_id, metric_collected_at) 기준으로
+    중복을 판정한다. 중복이면 False, 새로 추가했으면 True를 반환한다.
     """
     return append_snapshots(path, [record]) > 0
 

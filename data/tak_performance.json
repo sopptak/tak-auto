@@ -1,0 +1,96 @@
+[
+  {
+    "content_id": "content-3978f6da76aebf01",
+    "knowledge_id": "knowledge-scout-cdfb9c5c8aaa",
+    "platform": "threads",
+    "published_at": "2026-10-01T07:23:19+00:00",
+    "metric_collected_at": "2026-10-01T07:24:06.507668+00:00",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "replies": 0,
+      "reposts": 0,
+      "quotes": 0,
+      "shares": 0
+    },
+    "source": "threads_api",
+    "title": "",
+    "external_id": "18085925933320004",
+    "raw": {
+      "data": [
+        {
+          "id": "18085925933320004/insights/views/lifetime",
+          "name": "views",
+          "period": "lifetime",
+          "values": [
+            {
+              "value": 0
+            }
+          ],
+          "title": "Views",
+          "description": "The number of times your post was viewed. This metric is in development (https://www.facebook.com/business/help/metrics-labeling)"
+        },
+        {
+          "id": "18085925933320004/insights/likes/lifetime",
+          "name": "likes",
+          "period": "lifetime",
+          "values": [
+            {
+              "value": 0
+            }
+          ],
+          "title": "Likes",
+          "description": "The number of likes on your post."
+        },
+        {
+          "id": "18085925933320004/insights/thread_replies/lifetime",
+          "name": "replies",
+          "period": "lifetime",
+          "values": [
+            {
+              "value": 0
+            }
+          ],
+          "title": "Replies",
+          "description": "The number of replies on your post."
+        },
+        {
+          "id": "18085925933320004/insights/reposts/lifetime",
+          "name": "reposts",
+          "period": "lifetime",
+          "values": [
+            {
+              "value": 0
+            }
+          ],
+          "title": "Reposts",
+          "description": "The number of times your post was reposted."
+        },
+        {
+          "id": "18085925933320004/insights/quotes/lifetime",
+          "name": "quotes",
+          "period": "lifetime",
+          "values": [
+            {
+              "value": 0
+            }
+          ],
+          "title": "Quotes",
+          "description": "The number of times your post was quoted."
+        },
+        {
+          "id": "18085925933320004/insights/thread_shares/lifetime",
+          "name": "shares",
+          "period": "lifetime",
+          "values": [
+            {
+              "value": 0
+            }
+          ],
+          "title": "Shares",
+          "description": "The number of shares of your Threads posts. This metric is in-development."
+        }
+      ]
+    }
+  }
+]

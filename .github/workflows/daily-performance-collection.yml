@@ -1,0 +1,90 @@
+name: TAK Threads Performance Collection
+
+# The CLI verifies publish history, Production Archive, and the published
+# Threads pending record before making any Insights request. This workflow only
+# collects measurements; it never publishes content or changes strategy.
+on:
+  schedule:
+    - cron: '30 7 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "due targets만 확인하고 API 호출/저장을 하지 않습니다"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tak-performance-collection
+  cancel-in-progress: false
+
+jobs:
+  collect-performance:
+    name: Collect due Threads Insights windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Show Python version
+        run: python3 --version
+
+      - name: Run Performance and workflow tests
+        run: >-
+          python3 -m unittest
+          tests.test_performance_models
+          tests.test_performance_store
+          tests.test_performance_threads
+          tests.test_performance_schedule
+          tests.test_collect_performance_cli
+          tests.test_collect_performance_live_gate
+          tests.test_collect_performance_scheduled_cli
+          tests.test_performance_workflow
+
+      - name: Inspect due targets (dry-run)
+        id: collect_dry_run
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
+        run: python3 scripts/collect_performance.py --scheduled --dry-run
+
+      - name: Collect due Threads Insights
+        id: collect_live
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'false')
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          TAK_PERFORMANCE_ALLOW_GITHUB_ACTIONS: "true"
+        run: python3 scripts/collect_performance.py --scheduled --confirm-live
+
+      # If a later target fails, commit any earlier successful snapshots so the
+      # next run can see them and will not collect the same window twice.
+      - name: Check for Performance changes
+        id: performance_diff
+        if: |
+          always() &&
+          (steps.collect_dry_run.outcome == 'success' || steps.collect_dry_run.outcome == 'failure' ||
+           steps.collect_live.outcome == 'success' || steps.collect_live.outcome == 'failure')
+        run: |
+          if [ -f data/tak_performance.json ]; then
+            git add data/tak_performance.json
+          fi
+          if git diff --cached --quiet -- data/tak_performance.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push Performance snapshots
+        if: always() && steps.performance_diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: collect due Threads performance snapshots"
+          git pull --rebase origin main
+          git push

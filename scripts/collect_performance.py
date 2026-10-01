@@ -2,15 +2,11 @@
 """승인/발행된 콘텐츠 1건의 실제 채널 성과(조회수/좋아요 등)를 수집해
 data/tak_performance.json에 스냅샷으로 저장하는 CLI(6-01).
 
-이 스크립트가 절대 하지 않는 것:
-    - 이 스크립트를 import하는 것만으로 외부 API를 호출하지 않는다(항상
-      main()이 명시적으로 실행되어야 한다).
-    - --dry-run이면 실제 네트워크 호출(threads/youtube) 자체를 하지 않고
-      입력값 검증 + 무엇을 할지 출력까지만 한다. 저장도 하지 않는다.
-    - GitHub Actions에 아직 연결하지 않는다(이 CLI를 호출하는 workflow가
-      없다) - THREADS_ACCESS_TOKEN/YOUTUBE_REFRESH_TOKEN을 CI에 넣는 것은
-      6-01 범위 밖의 별도 결정이 필요하다(docs/6-01_operational_loop_and_
-      performance.md 12장 참고).
+이 스크립트는 import만으로 외부 API를 호출하지 않는다. 실제 동작은 항상
+`main()` 실행으로 시작한다. `--dry-run`은 실제 네트워크 호출과 저장을 하지 않는다.
+scheduled Threads collection은 `--scheduled`로 기존 publish history, Performance
+store, Threads Insights collector를 재사용한다. GitHub Actions live 호출에는 전용
+opt-in 환경변수와 `--confirm-live`가 모두 필요하다.
 
 6-02 안전장치: platform=threads/youtube는 ``--dry-run``도 ``--confirm-live``도
 주지 않으면 **아무 것도 하지 않고 거부한다**(에러 메시지만 출력하고 종료 코드
@@ -18,10 +14,10 @@ data/tak_performance.json에 스냅샷으로 저장하는 CLI(6-01).
 존재한다는 사실이 확인됐기 때문에, "--dry-run을 깜빡 빼먹은 실행"이 곧바로
 실제 API 호출로 이어지는 위험을 막기 위함이다. 실제 호출을 원하면 명시적으로
 ``--confirm-live``를 줘야 한다. GitHub Actions 환경(``GITHUB_ACTIONS=true``)에서는
-``--confirm-live``를 줘도 실제 호출을 거부한다 - 이 CLI를 호출하는 workflow가
-아직 없으므로(위 문단) 지금 이 조건에 걸릴 일은 없지만, 나중에 실수로 workflow에
-연결되더라도 안전하도록 미리 막아둔다. platform=blog는 네트워크 호출이 아예
-없으므로(content_engine/performance/blog.py) 이 게이트의 적용을 받지 않는다.
+``--confirm-live``를 줘도 기본 거부한다. 오직 versioned scheduled workflow가
+``TAK_PERFORMANCE_ALLOW_GITHUB_ACTIONS=true``를 명시적으로 전달할 때만 허용한다.
+platform=blog는 네트워크 호출이 아예 없으므로(content_engine/performance/blog.py)
+이 게이트의 적용을 받지 않는다.
 
 사용 예:
     # Blog(manual) - 네이버 블로그 관리자 페이지에서 사람이 직접 확인한 숫자
@@ -46,6 +42,8 @@ data/tak_performance.json에 스냅샷으로 저장하는 CLI(6-01).
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping
+from dataclasses import replace
 from datetime import datetime, timezone
 import os
 from pathlib import Path
@@ -56,10 +54,14 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from content_engine.performance.blog import build_manual_blog_performance_record
-from content_engine.performance.store import append_snapshot
+from content_engine.media_archive import load_archive
+from content_engine.performance.schedule import select_due_threads_targets
+from content_engine.performance.store import append_snapshot, load_snapshots
 from content_engine.performance.threads import collect_threads_performance
 from content_engine.performance.youtube import collect_youtube_performance
-from content_engine.threads_publisher import ThreadsConfigurationError, ThreadsClient
+from content_engine.publish_history import PublishHistory
+from content_engine.threads_publisher import ThreadsAPIError, ThreadsConfigurationError, ThreadsClient
+from content_engine.threads_review import load_pending
 from content_engine.youtube_publisher import YouTubeConfigurationError, YouTubeClient
 
 
@@ -81,10 +83,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="승인/발행된 콘텐츠의 채널별 성과를 수집해 성과 저장소에 스냅샷으로 추가"
     )
-    parser.add_argument("--platform", required=True, choices=("threads", "youtube", "blog"))
-    parser.add_argument("--content-id", required=True, help="archive/발행 이력의 content_id")
-    parser.add_argument("--knowledge-id", required=True, help="원본 KNOWLEDGE ID")
-    parser.add_argument("--published-at", required=True, help="원본 발행 시각(ISO 8601)")
+    parser.add_argument(
+        "--scheduled",
+        action="store_true",
+        help="publish history에서 lineage가 확인된 Threads 게시물의 due 24h/72h snapshot을 수집합니다.",
+    )
+    parser.add_argument("--platform", choices=("threads", "youtube", "blog"))
+    parser.add_argument("--content-id", help="archive/발행 이력의 content_id")
+    parser.add_argument("--knowledge-id", help="원본 KNOWLEDGE ID")
+    parser.add_argument("--published-at", help="원본 발행 시각(ISO 8601)")
     parser.add_argument(
         "--external-id",
         default="",
@@ -112,6 +119,24 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="성과 저장소 경로 (기본값: data/tak_performance.json)",
     )
     parser.add_argument(
+        "--publish-history",
+        type=Path,
+        default=ROOT / "data" / "threads_publish_log.json",
+        help="scheduled 모드의 실제 Threads 발행 이력 경로",
+    )
+    parser.add_argument(
+        "--production-archive",
+        type=Path,
+        default=ROOT / "data" / "tak_media_archive.json",
+        help="scheduled 모드의 Production Archive 경로",
+    )
+    parser.add_argument(
+        "--threads-pending",
+        type=Path,
+        default=ROOT / "data" / "tak_threads_pending.json",
+        help="scheduled 모드의 Threads 게시 완료 상태 경로",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="실제 API 호출(threads/youtube)과 저장을 하지 않고, 무엇을 할지만 출력한다.",
@@ -125,12 +150,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _is_running_in_github_actions(environ: dict[str, str] | None = None) -> bool:
+def _is_running_in_github_actions(environ: Mapping[str, str] | None = None) -> bool:
     values = os.environ if environ is None else environ
     return values.get("GITHUB_ACTIONS", "").strip().lower() == "true"
 
 
-def _guard_live_network_call(platform: str, dry_run: bool, confirm_live: bool) -> str | None:
+def _guard_live_network_call(
+    platform: str,
+    dry_run: bool,
+    confirm_live: bool,
+    environ: Mapping[str, str] | None = None,
+) -> str | None:
     """threads/youtube 실제 API 호출을 시도해도 되는지 판단한다.
 
     문제가 없으면 None, 거부해야 하면 사람이 읽을 오류 메시지를 반환한다 - 이
@@ -139,10 +169,11 @@ def _guard_live_network_call(platform: str, dry_run: bool, confirm_live: bool) -
     """
     if dry_run:
         return None
-    if _is_running_in_github_actions():
+    values = os.environ if environ is None else environ
+    if _is_running_in_github_actions(values) and values.get("TAK_PERFORMANCE_ALLOW_GITHUB_ACTIONS") != "true":
         return (
-            "GitHub Actions 환경에서는 이 CLI가 실제 API를 호출하지 않습니다 "
-            "(--confirm-live를 줘도 거부됩니다). 로컬/Codespace에서 --confirm-live로 실행하세요."
+            "GitHub Actions 환경의 실제 API 호출은 전용 opt-in 없이는 거부됩니다. "
+            "로컬에서는 --confirm-live를 사용하세요."
         )
     if not confirm_live:
         return (
@@ -153,9 +184,112 @@ def _guard_live_network_call(platform: str, dry_run: bool, confirm_live: bool) -
     return None
 
 
+def _run_scheduled(args: argparse.Namespace) -> int:
+    try:
+        history_records = PublishHistory(args.publish_history).load()
+        production_records = load_archive(args.production_archive)
+        pending_drafts = load_pending(args.threads_pending)
+        performance_records = load_snapshots(args.store)
+    except (OSError, ValueError) as error:
+        print(f"오류: scheduled 성과 수집 입력을 읽을 수 없습니다: {error}", file=sys.stderr)
+        return 1
+
+    targets = select_due_threads_targets(
+        history_records,
+        production_records,
+        pending_drafts,
+        performance_records,
+        now=datetime.now(timezone.utc),
+    )
+    if not targets:
+        print(
+            "측정 대기/완료: 현재 due target 없음 "
+            "(24h/72h 미도달, 해당 window 이미 수집, 또는 lineage 검증 제외)."
+        )
+        return 0
+
+    for target in targets:
+        print(
+            f"대상: content_id={target.content_id}, generation_id={target.generation_id}, "
+            f"external_post_id={target.external_post_id}, window={target.measurement_window}"
+        )
+
+    if args.dry_run:
+        print(f"[dry-run] due target {len(targets)}건. API 호출/저장 없음.")
+        return 0
+
+    guard_error = _guard_live_network_call("threads", False, args.confirm_live)
+    if guard_error is not None:
+        print(f"오류: {guard_error}", file=sys.stderr)
+        return 1
+
+    try:
+        client = ThreadsClient.from_environment()
+    except ThreadsConfigurationError as error:
+        print(f"오류: {error}", file=sys.stderr)
+        return 1
+
+    failed = False
+    for target in targets:
+        try:
+            record = collect_threads_performance(
+                client,
+                media_id=target.external_post_id,
+                content_id=target.content_id,
+                knowledge_id=target.knowledge_id,
+                published_at=target.published_at,
+                metric_collected_at=datetime.now(timezone.utc).isoformat(),
+                title=target.title,
+                generation_id=target.generation_id,
+                measurement_window=target.measurement_window,
+            )
+            record = replace(record, metric_collected_at=datetime.now(timezone.utc).isoformat())
+            added = append_snapshot(args.store, record)
+        except (ThreadsAPIError, OSError, ValueError) as error:
+            failed = True
+            print(
+                f"수집 실패: content_id={target.content_id}, window={target.measurement_window}: "
+                f"{type(error).__name__}: {error}",
+                file=sys.stderr,
+            )
+            continue
+
+        if added:
+            print(
+                f"수집 완료: content_id={record.content_id}, window={record.measurement_window}, "
+                f"metrics={record.metrics}, unavailable={record.unavailable_metrics}"
+            )
+        else:
+            print(
+                f"중복 건너뜀: content_id={record.content_id}, "
+                f"external_post_id={record.external_post_id}, window={record.measurement_window}"
+            )
+
+    return 1 if failed else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
+
+    if args.scheduled:
+        if any(
+            (
+                args.platform,
+                args.content_id,
+                args.knowledge_id,
+                args.published_at,
+                args.external_id,
+                args.title,
+                args.metrics,
+                args.collected_at,
+            )
+        ):
+            parser.error("--scheduled는 개별 콘텐츠 입력 옵션과 함께 사용할 수 없습니다.")
+        return _run_scheduled(args)
+
+    if not all((args.platform, args.content_id, args.knowledge_id, args.published_at)):
+        parser.error("수동 수집에는 --platform, --content-id, --knowledge-id, --published-at이 필요합니다.")
 
     collected_at = args.collected_at or datetime.now(timezone.utc).isoformat()
 
@@ -248,10 +382,17 @@ def _print_result(added: bool, record, store_path: Path) -> None:
         print(f"성공: {record.platform} 성과 스냅샷 저장 완료 (content_id={record.content_id}, metrics={record.metrics})")
         print(f"저장소: {store_path}")
     else:
-        print(
-            f"안내: 동일한 (content_id={record.content_id}, metric_collected_at={record.metric_collected_at}) "
-            "스냅샷이 이미 있어 저장을 건너뛰었습니다(중복 방지)."
-        )
+        if record.measurement_window:
+            print(
+                f"안내: 동일한 (content_id={record.content_id}, external_post_id="
+                f"{record.external_post_id or record.external_id}, window={record.measurement_window}) "
+                "스냅샷이 이미 있어 저장을 건너뛰었습니다(중복 방지)."
+            )
+        else:
+            print(
+                f"안내: 동일한 (content_id={record.content_id}, metric_collected_at={record.metric_collected_at}) "
+                "스냅샷이 이미 있어 저장을 건너뛰었습니다(중복 방지)."
+            )
 
 
 if __name__ == "__main__":
