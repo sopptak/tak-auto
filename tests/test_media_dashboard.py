@@ -591,6 +591,19 @@ class MediaEditAndDismissHttpTests(unittest.TestCase):
         self.assertEqual(draft.ai_rewritten_title, "AI 재작성 제목")
         self.assertEqual(draft.ai_rewritten_body, "AI가 재작성한 본문입니다.")
 
+    def test_reapproved_threads_content_repairs_missing_pending_draft_idempotently(self):
+        self._seed(_record(platform="threads", review_status="approved"))
+
+        first_status, _ = self._post("/media/content-media-test-1/approve")
+        second_status, _ = self._post("/media/content-media-test-1/approve")
+
+        self.assertEqual(first_status, 200)
+        self.assertEqual(second_status, 200)
+        drafts = load_pending(self.pending_path)
+        self.assertEqual(len(drafts), 1)
+        self.assertEqual(drafts[0].content_id, "content-media-test-1")
+        self.assertEqual(drafts[0].status, "pending")
+
     # --- 이미 승인된 콘텐츠는 수정할 수 없는가(수정 폼/버튼도 사라지는가) -------------
 
     def test_approved_content_cannot_be_edited(self):

@@ -1068,5 +1068,43 @@
     "verification_required": true,
     "privacy_risk": false,
     "internal_information_risk": false
+  },
+  {
+    "id": "knowledge-scout-cdfb9c5c8aaa",
+    "source_raw_id": "scout-4a093bcd52aa",
+    "source_url": "https://www.bbc.co.uk/news/articles/cgk53dkmyxko?at_medium=RSS&at_campaign=rss",
+    "title": "The AI telling farmers when to harvest",
+    "article_type": null,
+    "domain": "금융",
+    "knowledge_type": "의견",
+    "experience": null,
+    "problem": null,
+    "action": null,
+    "decision": null,
+    "result": null,
+    "lesson": "Will farmers want AI tools to help judge when to pick fruit, or is their own intuition enough?",
+    "reusable_principle": "이 경제 이슈를 긍정적으로 본다.",
+    "evidence": [
+      "SOURCE FACT: Will farmers want AI tools to help judge when to pick fruit, or is their own intuition enough?",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/cgk53dkmyxko?at_medium=RSS&at_campaign=rss",
+      "USER ANGLE: 이 경제 이슈를 긍정적으로 본다."
+    ],
+    "derived_insight": null,
+    "inference_method": "rule_based_template",
+    "confidence": null,
+    "created_at": "2026-10-01T07:22:31.829980+00:00",
+    "knowledge_review_status": "approved",
+    "reviewed_at": "2026-10-01T07:22:37.651716+00:00",
+    "review_note": "원문 확인 및 사용자 승인: AI 수확 예측의 활용 가능성에 긍정적 관점",
+    "category": "금융",
+    "key_points": [],
+    "case": null,
+    "judgment_rule": null,
+    "opinion": "이 경제 이슈를 긍정적으로 본다.",
+    "factual_information": "Will farmers want AI tools to help judge when to pick fruit, or is their own intuition enough?",
+    "current_validity": "확인 필요",
+    "verification_required": true,
+    "privacy_risk": false,
+    "internal_information_risk": false
   }
 ]

@@ -837,13 +837,13 @@ def handle_media_approve_submission(
         return None, None
 
     if record.review_status == "approved":
-        return record, None
+        updated = record
+    else:
+        if record.generation_status != "valid":
+            return None, "VALID 상태의 콘텐츠만 승인할 수 있습니다."
 
-    if record.generation_status != "valid":
-        return None, "VALID 상태의 콘텐츠만 승인할 수 있습니다."
-
-    updated = replace(record, review_status="approved")
-    upsert_archive(archive_path, [updated])
+        updated = replace(record, review_status="approved")
+        upsert_archive(archive_path, [updated])
 
     if updated.platform == "threads" and find_pending_draft(threads_pending_path, content_id) is None:
         # 이미 같은 content_id의 pending/approved/published/failed draft가 있으면

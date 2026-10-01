@@ -54,5 +54,33 @@
     "edited_body": null,
     "generation_id": null,
     "superseded_by": null
+  },
+  {
+    "content_id": "content-3978f6da76aebf01",
+    "knowledge_id": "knowledge-scout-cdfb9c5c8aaa",
+    "platform": "threads",
+    "generation_status": "valid",
+    "original_title": "원문이 제시한 판단",
+    "original_body": "\"Will farmers want AI tools to help judge when to pick fruit, or is their own intuition enough\".\n\n원문은 \"이 경제 이슈를 긍정적으로 본다\"고 덧붙입니다.",
+    "rewritten_title": "과일 수확 판단, AI가 도울 수 있을까",
+    "rewritten_body": "과일을 언제 수확할지 판단하는 데 농부들이 AI 도구를 원할까, 아니면 자신의 직관만으로 충분할까? 나는 이 경제 이슈를 긍정적으로 본다.\n\n출처: https://www.bbc.co.uk/news/articles/cgk53dkmyxko?at_medium=RSS&at_campaign=rss",
+    "source_url": "https://www.bbc.co.uk/news/articles/cgk53dkmyxko?at_medium=RSS&at_campaign=rss",
+    "evidence": [
+      "SOURCE FACT: Will farmers want AI tools to help judge when to pick fruit, or is their own intuition enough?",
+      "SOURCE URL: https://www.bbc.co.uk/news/articles/cgk53dkmyxko?at_medium=RSS&at_campaign=rss",
+      "USER ANGLE: 이 경제 이슈를 긍정적으로 본다."
+    ],
+    "evidence_unit_ids": [
+      "lesson:1",
+      "reusable_principle:1"
+    ],
+    "created_at": "2026-10-01T07:11:25.877707+00:00",
+    "validation_errors": [],
+    "error_message": null,
+    "review_status": "approved",
+    "edited_title": "과일 수확 판단, AI는 농부를 어떻게 도울까",
+    "edited_body": "카메라로 꽃과 열매를 분석해 작황과 수확 시기를 예측하고, 날씨와 관수 조건까지 반영하는 농업 AI가 시험되고 있습니다. 다만 예측 정확도는 농장별 과거 데이터 품질에 달려 있습니다. 농부의 경험을 대신하기보다 넓은 농장의 계획을 돕는 도구라면, 저는 긍정적으로 봅니다.\n\n출처: https://www.bbc.co.uk/news/articles/cgk53dkmyxko",
+    "generation_id": "gen-20261001T071215-a5939e3f",
+    "superseded_by": null
   }
 ]

@@ -1,49 +1,94 @@
 {
-  "generated_at": "2026-09-19T03:36:16.483418+00:00",
-  "candidate_count": 5,
+  "generated_at": "2026-10-01T07:01:21.247509+00:00",
+  "candidate_count": 10,
   "candidates": [
     {
-      "scout_id": "scout-a39f6e89baf9",
-      "title": "Japan raises interest rate to new 31-year high to curb rising prices",
-      "summary": "Central banks around the world have hiked rates as high energy prices are pushing up inflation.",
-      "source_url": "https://www.bbc.co.uk/news/articles/cqn74jeek06no?at_medium=RSS&at_campaign=rss",
-      "published_at": "2026-09-18T07:14:57+00:00",
+      "scout_id": "scout-df326da04251",
+      "title": "AI boom could trigger market shocks, Bank of England boss warns",
+      "summary": "Andrew Bailey says the central bank is watching the waves of cash being invested in artificial intelligence \"very carefully\".",
+      "source_url": "https://www.bbc.co.uk/news/articles/cv8e30enrkxyo?at_medium=RSS&at_campaign=rss",
+      "published_at": "2026-10-01T04:03:17+00:00",
       "source_name": "BBC Business",
       "category": "finance"
     },
     {
-      "scout_id": "scout-23b521e0ecbb",
-      "title": "Uncontrolled AI could lead to 'silicon species' rivalling humans, warns Microsoft",
-      "summary": "Mustafa Suleyman says he believes rival AI firm Anthropic is in effect teaching Claude it \"may be conscious\".",
-      "source_url": "https://www.bbc.co.uk/news/articles/c6n07ypqz8kzo?at_medium=RSS&at_campaign=rss",
-      "published_at": "2026-09-17T08:22:12+00:00",
+      "scout_id": "scout-04b0d69e1251",
+      "title": "Fuel prices leave people asking 'what can we do?'",
+      "summary": "Record fuel prices across the country have left people in the South looking for ways to cope.",
+      "source_url": "https://www.bbc.co.uk/news/articles/ck1l603qngyyo?at_medium=RSS&at_campaign=rss",
+      "published_at": "2026-10-01T05:24:53+00:00",
       "source_name": "BBC Business",
       "category": "finance"
     },
     {
-      "scout_id": "scout-e9b389bf6365",
-      "title": "'We simply don't know' - JP Morgan struggling to forecast oil prices due to Trump's war with Iran",
-      "summary": "The bank said it \"assumed\" there would be economic red lines, like oil at $100 a barrel, that the US would be unwilling the cross.",
-      "source_url": "https://www.bbc.co.uk/news/articles/cq0m3gmv8n7ko?at_medium=RSS&at_campaign=rss",
-      "published_at": "2026-09-18T17:57:30+00:00",
+      "scout_id": "scout-1fbd6dbdc312",
+      "title": "Greggs to shut four factories and cut 740 jobs",
+      "summary": "The company says it needs to \"keep evolving alongside changing customer expectations\".",
+      "source_url": "https://www.bbc.co.uk/news/articles/cm7802ylq973o?at_medium=RSS&at_campaign=rss",
+      "published_at": "2026-09-30T15:03:22+00:00",
       "source_name": "BBC Business",
       "category": "finance"
     },
     {
-      "scout_id": "scout-d3335c7c2672",
-      "title": "Economy minister accuses SoS of 'mischief making' in social media exchange",
-      "summary": "Dr Caoimhe Archibald posted on X about a new one-off electricity bill reduction, which Sir Chris Bryant reposted saying the UK government funded it.",
-      "source_url": "https://www.bbc.co.uk/news/articles/c94gm0mxmy65o?at_medium=RSS&at_campaign=rss",
-      "published_at": "2026-09-18T12:12:59+00:00",
+      "scout_id": "scout-5d3fe57b46c6",
+      "title": "Household energy bills forecast to see biggest rise in four years",
+      "summary": "A typical household faces an annual gas and electricity bill of £1,999 from January, based on a key forecast.",
+      "source_url": "https://www.bbc.co.uk/news/articles/cwz0zvj4m1myo?at_medium=RSS&at_campaign=rss",
+      "published_at": "2026-09-30T14:36:45+00:00",
       "source_name": "BBC Business",
       "category": "finance"
     },
     {
-      "scout_id": "scout-eef226bb833b",
-      "title": "Interest rates held but Bank signals rise if energy prices stay high",
-      "summary": "Rates are held for the sixth time in a row but the Bank of England says high energy prices make a future rise more likely.",
-      "source_url": "https://www.bbc.co.uk/news/articles/cm4gjrxez1q0o?at_medium=RSS&at_campaign=rss",
-      "published_at": "2026-09-17T14:05:38+00:00",
+      "scout_id": "scout-b6cc1ce409fc",
+      "title": "Greggs to cut 740 jobs and close factories",
+      "summary": "High street bakery brand Greggs has announced plans to shut four of its factories and cut 740 jobs.",
+      "source_url": "https://www.bbc.co.uk/news/videos/cj4gkn1xg6ddo?at_medium=RSS&at_campaign=rss",
+      "published_at": "2026-09-30T12:54:22+00:00",
+      "source_name": "BBC Business",
+      "category": "finance"
+    },
+    {
+      "scout_id": "scout-18c56360ec14",
+      "title": "'We're still cold paying £300 a month energy bills'",
+      "summary": "Redditch residents say they are worried they will not be able to afford heating.",
+      "source_url": "https://www.bbc.co.uk/news/articles/c9gk5v25xk5jo?at_medium=RSS&at_campaign=rss",
+      "published_at": "2026-10-01T05:23:08+00:00",
+      "source_name": "BBC Business",
+      "category": "finance"
+    },
+    {
+      "scout_id": "scout-4a093bcd52aa",
+      "title": "The AI telling farmers when to harvest",
+      "summary": "Will farmers want AI tools to help judge when to pick fruit, or is their own intuition enough?",
+      "source_url": "https://www.bbc.co.uk/news/articles/cgk53dkmyxko?at_medium=RSS&at_campaign=rss",
+      "published_at": "2026-09-30T23:02:21+00:00",
+      "source_name": "BBC Business",
+      "category": "finance"
+    },
+    {
+      "scout_id": "scout-8318a52b5457",
+      "title": "The volunteers baking birthday cakes for children",
+      "summary": "The Hampshire group says it has seen a rise in demand and it needs more volunteer bakers.",
+      "source_url": "https://www.bbc.co.uk/news/articles/cm74k2kkld3eo?at_medium=RSS&at_campaign=rss",
+      "published_at": "2026-09-30T14:14:24+00:00",
+      "source_name": "BBC Business",
+      "category": "finance"
+    },
+    {
+      "scout_id": "scout-8c6b6398f455",
+      "title": "Regulating AI 'not the right place to start' says Bailey",
+      "summary": "AI needs \"rigorous\" testing and safeguards to contain risk, Andrew Bailey says.",
+      "source_url": "https://www.bbc.co.uk/news/articles/cvzez7k0pn40o?at_medium=RSS&at_campaign=rss",
+      "published_at": "2026-09-30T14:00:33+00:00",
+      "source_name": "BBC Business",
+      "category": "finance"
+    },
+    {
+      "scout_id": "scout-34b10bcefcc2",
+      "title": "Africa's richest man launches Kenya oil refinery despite land protests",
+      "summary": "The Kenya refinery is part of Dangote's ambitious bid to expand and help industralise Africa by 2030.",
+      "source_url": "https://www.bbc.co.uk/news/articles/cmkg8dpwy25po?at_medium=RSS&at_campaign=rss",
+      "published_at": "2026-09-30T11:25:12+00:00",
       "source_name": "BBC Business",
       "category": "finance"
     }
