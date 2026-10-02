@@ -126,3 +126,13 @@ origin/main HEAD(`8d70745`)를 별도 git worktree로 체크아웃해 현재 작
 ## 다음 작업
 
 첫 due workflow가 P0의 24h snapshot을 저장했는지 확인하고, 같은 `content_id`/post/generation/window로 중복 없이 commit됐는지 검증한다. 이후 72h 수집을 확인한다. 광고수익, 다른 SNS, Shorts/Blog, 자동 콘텐츠 전략 변경은 수행하지 않는다.
+
+## GitHub Actions 테스트 격리 수정 (2026-10-02)
+
+- 2026-10-02 14:01 UTC, 첫 scheduled run `37016934147`(`eb4ce91`)이 `Run Performance and workflow tests` 단계에서 실패했다. 07:30 UTC cron이 약 6.5시간 지연되어 시작됐다(GitHub cron 지연 가능). live 수집 step은 실행되지 않았고 Threads API 호출은 0회였다.
+- 원인: `tests/test_collect_performance_live_gate.py`의 3개 테스트가 러너의 `GITHUB_ACTIONS=true`에 영향을 받았다. 가드가 opt-in 없으면 Actions 환경을 먼저 거부하므로 mock live 테스트 2건은 exit 1, 거부 메시지 테스트 1건은 `--dry-run` 안내 문구가 없어 실패했다. 이전의 "81 passed"는 로컬 환경 결과였다.
+- 수정: 해당 테스트에서 환경을 명시적으로 비우도록 변경(`os.environ` clear 또는 `environ={}`). production 코드, workflow, 가드는 변경하지 않았다.
+- 결과: performance 8개 모듈 81건이 일반 환경과 `GITHUB_ACTIONS=true` 환경 모두 통과. 자세한 내용은 `docs/6-74-p1-actions-test-isolation.md`.
+- workflow 정적 확인: schedule `30 7 * * *`, dispatch 기본 `dry_run=true`, live step만 `THREADS_ACCESS_TOKEN`/opt-in 사용, commit 대상은 `data/tak_performance.json`뿐.
+- 이번 작업에서 실제 API 호출, workflow 실행, snapshot 생성은 없었다. 24h/72h snapshot은 아직 없으며 P0 initial snapshot은 window가 없어 24h로 세지 않는다. dry-run은 24h due target 1건을 보고했다.
+- 측정 조건: 24h는 게시(2026-10-01 07:23 UTC) 후 24h 이상 72h 미만일 때 due이고, 72h 마감은 2026-10-04 07:23 UTC다. 이후에는 24h를 소급 표기하지 않고 72h만 수집한다. 실제 측정 시각은 `metric_collected_at`을 확인한다.

@@ -41,7 +41,7 @@ class GuardLiveNetworkCallPureFunctionTests(unittest.TestCase):
         self.assertIsNone(_guard_live_network_call("threads", dry_run=True, confirm_live=True))
 
     def test_no_dry_run_no_confirm_live_is_rejected(self):
-        error = _guard_live_network_call("threads", dry_run=False, confirm_live=False)
+        error = _guard_live_network_call("threads", dry_run=False, confirm_live=False, environ={})
         self.assertIsNotNone(error)
         self.assertIn("--dry-run", error)
         self.assertIn("--confirm-live", error)
@@ -133,7 +133,9 @@ class CollectPerformanceLiveGateCLITests(unittest.TestCase):
             return {"data": [{"name": "views", "values": [{"value": 42}]}]}
 
         fake_client = ThreadsClient(access_token="fake-token", transport=fake_transport)
-        with mock.patch.object(ThreadsClient, "from_environment", return_value=fake_client):
+        with mock.patch.dict("os.environ", {}, clear=True), mock.patch.object(
+            ThreadsClient, "from_environment", return_value=fake_client
+        ):
             exit_code, output, _stderr = self._run(
                 [
                     "--platform", "threads",
@@ -159,7 +161,9 @@ class CollectPerformanceLiveGateCLITests(unittest.TestCase):
             token_transport=lambda *a: {"access_token": "t"},
             stats_transport=lambda *a: {"items": [{"statistics": {"viewCount": "10"}}]},
         )
-        with mock.patch.object(YouTubeClient, "from_environment", return_value=fake_client):
+        with mock.patch.dict("os.environ", {}, clear=True), mock.patch.object(
+            YouTubeClient, "from_environment", return_value=fake_client
+        ):
             exit_code, output, _stderr = self._run(
                 [
                     "--platform", "youtube",
