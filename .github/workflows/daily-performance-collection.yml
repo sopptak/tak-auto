@@ -5,7 +5,7 @@ name: TAK Threads Performance Collection
 # collects measurements; it never publishes content or changes strategy.
 on:
   schedule:
-    - cron: '30 7 * * *'
+    - cron: '0 23 * * *'
   workflow_dispatch:
     inputs:
       dry_run:

@@ -32,7 +32,7 @@ P0에서 실제 게시한 콘텐츠를 publish time 기준 24h/72h에 다시 조
 
 `published_at` 기준 24시간 미만은 due 대상이 아니며 `측정 대기`로 남는다. 24시간 이상 72시간 미만에서 24h window가 없으면 due가 된다. 기록 시 실제 API 측정 시각은 `metric_collected_at`에 저장되어 목표 시각과 지연 정도를 구분할 수 있다.
 
-매일 07:30 UTC 실행이므로 snapshot은 정확히 게시 후 24:00:00에 실행된다는 보장은 없다. 예를 들어 P0는 다음날 schedule이 게시 후 약 24시간 7분 시점이다. 실제 측정 시각을 기준 시각으로 가장하지 않는다.
+매일 23:00 UTC(KST 다음날 08:00) 실행이므로 snapshot은 정확히 게시 후 24:00:00에 실행된다는 보장은 없다. 실제 측정 시각을 기준 시각으로 가장하지 않는다.
 
 ## 72h 측정 설계
 
@@ -40,7 +40,7 @@ P0에서 실제 게시한 콘텐츠를 publish time 기준 24h/72h에 다시 조
 
 ## GitHub Actions
 
-- 신규 `.github/workflows/daily-performance-collection.yml`: 매일 `30 7 * * *` UTC schedule 및 수동 dispatch를 제공한다. 수동 dispatch 기본값은 dry-run이다.
+- 신규 `.github/workflows/daily-performance-collection.yml`: 매일 `0 23 * * *` UTC(KST 다음날 08:00) schedule 및 수동 dispatch를 제공한다. 수동 dispatch 기본값은 dry-run이다.
 - live step만 기존 `THREADS_ACCESS_TOKEN` secret과 `TAK_PERFORMANCE_ALLOW_GITHUB_ACTIONS=true`를 받고, collector에도 `--confirm-live`를 전달한다. CLI는 GitHub Actions opt-in만으로 호출하지 않고 두 조건을 모두 요구한다.
 - concurrency는 `cancel-in-progress: false`; 수집 대상이 없어도 성공적으로 종료한다. API 오류가 있으면 실패를 반환하고 snapshot은 저장하지 않아 다음 실행에서 재시도한다.
 - API 실패 전 이미 성공 저장한 다른 대상이 있으면 workflow가 실패해도 성과 파일 변경을 commit한다. 동시 다른 workflow push와 경합할 경우 `git pull --rebase origin main` 후 push한다.
@@ -108,12 +108,12 @@ origin/main HEAD(`8d70745`)를 별도 git worktree로 체크아웃해 현재 작
 - P0 publish 후 경과 약 17시간(24h 미도달, 24h 도달 예정 `2026-10-02T07:23Z` 근방). `select_due_threads_targets`가 due 대상을 반환하지 않아 `ThreadsClient` 생성/API 호출 자체가 일어나지 않음을 소스로 재확인.
 - 실행 전/후 `data/tak_performance.json`, `data/threads_publish_log.json` md5 동일, 신규/중복 snapshot 없음(`git status` clean).
 - `daily-performance-collection.yml`의 `workflow_dispatch` 입력 `dry_run` 기본값 `true` → dry-run 경로만 실행되고 live 수집/commit 스텝은 스킵됨을 정적 확인. `gh workflow run`으로 실제 트리거를 시도했으나 Codespace `GITHUB_TOKEN`에 `actions:write` 권한이 없어 `HTTP 403`으로 거부되어 실제 Actions 실행 검증은 보류.
-- 실제 24h 수집이 되려면: (1) publish 후 24h 경과, (2) 다음 `30 7 * * *` UTC schedule 또는 권한 있는 수동 `workflow_dispatch`(dry_run=false) 실행, (3) `THREADS_ACCESS_TOKEN` secret 유효성이 모두 충족되어야 한다. 이번 세션에서는 어느 것도 강제하거나 가짜 데이터로 대체하지 않았다.
+- 실제 24h 수집이 되려면: (1) publish 후 24h 경과, (2) 다음 `0 23 * * *` UTC(KST 다음날 08:00) schedule 또는 권한 있는 수동 `workflow_dispatch`(dry_run=false) 실행, (3) `THREADS_ACCESS_TOKEN` secret 유효성이 모두 충족되어야 한다. 이번 세션에서는 어느 것도 강제하거나 가짜 데이터로 대체하지 않았다.
 
 ## 현재 측정 상태
 
 - initial: 실제 `threads_api` snapshot 1건, P0 게시 직후 수집, API 반환 값 6개 모두 0. legacy snapshot이라 `measurement_window`/`generation_id` metadata는 없고 재작성하지 않았다.
-- 24h: 대기. 다음 예정 schedule은 `2026-10-02 07:30 UTC`; 실제 측정은 workflow가 due 확인 후 API 응답을 받은 시각이다.
+- 24h: 대기. 다음 예정 schedule은 `2026-10-02 23:00 UTC`(KST 2026-10-03 08:00); 실제 측정은 workflow가 due 확인 후 API 응답을 받은 시각이다.
 - 72h: 대기. 게시 후 72h 이상인 첫 daily run에서 수집한다.
 - 현재 API 호출 수: P1 검증 중 0회. 향후 값을 실적으로 오인하지 않도록 mock/dry-run과 분리했다.
 
@@ -133,6 +133,13 @@ origin/main HEAD(`8d70745`)를 별도 git worktree로 체크아웃해 현재 작
 - 원인: `tests/test_collect_performance_live_gate.py`의 3개 테스트가 러너의 `GITHUB_ACTIONS=true`에 영향을 받았다. 가드가 opt-in 없으면 Actions 환경을 먼저 거부하므로 mock live 테스트 2건은 exit 1, 거부 메시지 테스트 1건은 `--dry-run` 안내 문구가 없어 실패했다. 이전의 "81 passed"는 로컬 환경 결과였다.
 - 수정: 해당 테스트에서 환경을 명시적으로 비우도록 변경(`os.environ` clear 또는 `environ={}`). production 코드, workflow, 가드는 변경하지 않았다.
 - 결과: performance 8개 모듈 81건이 일반 환경과 `GITHUB_ACTIONS=true` 환경 모두 통과. 자세한 내용은 `docs/6-74-p1-actions-test-isolation.md`.
-- workflow 정적 확인: schedule `30 7 * * *`, dispatch 기본 `dry_run=true`, live step만 `THREADS_ACCESS_TOKEN`/opt-in 사용, commit 대상은 `data/tak_performance.json`뿐.
+- workflow 정적 확인: schedule `30 7 * * *`(당시 값, 아래 변경 참조), dispatch 기본 `dry_run=true`, live step만 `THREADS_ACCESS_TOKEN`/opt-in 사용, commit 대상은 `data/tak_performance.json`뿐.
 - 이번 작업에서 실제 API 호출, workflow 실행, snapshot 생성은 없었다. 24h/72h snapshot은 아직 없으며 P0 initial snapshot은 window가 없어 24h로 세지 않는다. dry-run은 24h due target 1건을 보고했다.
 - 측정 조건: 24h는 게시(2026-10-01 07:23 UTC) 후 24h 이상 72h 미만일 때 due이고, 72h 마감은 2026-10-04 07:23 UTC다. 이후에는 24h를 소급 표기하지 않고 72h만 수집한다. 실제 측정 시각은 `metric_collected_at`을 확인한다.
+
+## 스케줄 변경: 매일 KST 08:00
+
+- `daily-performance-collection.yml`의 cron을 `30 7 * * *`에서 `0 23 * * *`로 변경했다.
+- GitHub Actions UTC: 23:00 / 한국시간 KST: 다음날 08:00. GitHub cron은 지연될 수 있다.
+- 다음 예정 실행은 2026-10-02 23:00 UTC(KST 2026-10-03 08:00)다. 이 시점은 P0 게시(2026-10-01 07:23 UTC) 후 약 39.6시간이라 24h window 대상이며, 72h 마감(2026-10-04 07:23 UTC) 전에는 2026-10-03 23:00 UTC 실행도 가능하다.
+- 24h/72h 측정 로직, dispatch/dry-run 기본값, secret, `--scheduled --confirm-live`, concurrency, commit 로직은 변경하지 않았다. 실제 workflow 실행/API 호출/snapshot 생성은 없다.

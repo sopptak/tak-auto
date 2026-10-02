@@ -17,7 +17,7 @@ class PerformanceWorkflowTests(unittest.TestCase):
 
     def test_has_daily_schedule_and_manual_dispatch(self):
         self.assertIn("schedule:", self.on_block)
-        self.assertIn("cron: '30 7 * * *'", self.on_block)
+        self.assertIn("cron: '0 23 * * *'", self.on_block)
         self.assertIn("workflow_dispatch:", self.on_block)
         self.assertNotIn("push:", self.on_block)
 
