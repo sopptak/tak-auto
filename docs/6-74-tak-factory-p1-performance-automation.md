@@ -100,6 +100,16 @@ P0에서 실제 게시한 콘텐츠를 publish time 기준 24h/72h에 다시 조
 
 2026-10-01 `08:00:07Z`에 현재 P0 데이터로 `python scripts/collect_performance.py --scheduled --dry-run`을 실행했다. 결과는 “측정 대기”; API 호출 및 파일 변경은 없었다. 기준 publish time으로부터 약 37분만 경과했으므로 실제 24h/72h 데이터는 아직 존재하지 않는다.
 
+## 조기 검증 재확인 (2026-10-02T00:47Z)
+
+origin/main HEAD(`8d70745`)를 별도 git worktree로 체크아웃해 현재 작업 트리는 건드리지 않고 재확인했다.
+
+- `python scripts/collect_performance.py --scheduled --dry-run` 재실행 결과: `측정 대기/완료: 현재 due target 없음` (exit 0), 전날 검증과 동일.
+- P0 publish 후 경과 약 17시간(24h 미도달, 24h 도달 예정 `2026-10-02T07:23Z` 근방). `select_due_threads_targets`가 due 대상을 반환하지 않아 `ThreadsClient` 생성/API 호출 자체가 일어나지 않음을 소스로 재확인.
+- 실행 전/후 `data/tak_performance.json`, `data/threads_publish_log.json` md5 동일, 신규/중복 snapshot 없음(`git status` clean).
+- `daily-performance-collection.yml`의 `workflow_dispatch` 입력 `dry_run` 기본값 `true` → dry-run 경로만 실행되고 live 수집/commit 스텝은 스킵됨을 정적 확인. `gh workflow run`으로 실제 트리거를 시도했으나 Codespace `GITHUB_TOKEN`에 `actions:write` 권한이 없어 `HTTP 403`으로 거부되어 실제 Actions 실행 검증은 보류.
+- 실제 24h 수집이 되려면: (1) publish 후 24h 경과, (2) 다음 `30 7 * * *` UTC schedule 또는 권한 있는 수동 `workflow_dispatch`(dry_run=false) 실행, (3) `THREADS_ACCESS_TOKEN` secret 유효성이 모두 충족되어야 한다. 이번 세션에서는 어느 것도 강제하거나 가짜 데이터로 대체하지 않았다.
+
 ## 현재 측정 상태
 
 - initial: 실제 `threads_api` snapshot 1건, P0 게시 직후 수집, API 반환 값 6개 모두 0. legacy snapshot이라 `measurement_window`/`generation_id` metadata는 없고 재작성하지 않았다.
