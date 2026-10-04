@@ -46,6 +46,12 @@ def full_niche():
     )
 
 
+def approvable():
+    base = full_niche()
+    return replace(base, psychology=replace(base.psychology, pain=LONG),
+                   storytelling=replace(base.storytelling, hook=LONG))
+
+
 def make_idea_and_demands():
     demands = ManualMarketDemandProvider(rows=[
         {"source": "flippa", "title": "AI newsletter", "category": "newsletter", "price": 5000,
@@ -258,7 +264,7 @@ class FlowTests(unittest.TestCase):
         with self.assertRaises(MarketingError):
             build_content_prompt(draft)
         self.assertTrue(build_content_prompt(draft, allow_draft=True)["is_draft_brief"])
-        ready = replace(full_niche(), status="approved", evidence=draft.evidence, confidence=0.6,
+        ready = replace(approvable(), status="approved", evidence=draft.evidence, confidence=0.6,
                         platform="blog")
         self.assertEqual(readiness_blockers(ready), [])
         contract = build_content_prompt(ready)
@@ -274,7 +280,9 @@ class FlowTests(unittest.TestCase):
 
     def test_store_roundtrip_and_link(self):
         idea, demands = make_idea_and_demands()
-        item = brief_from_idea(idea, demands)
+        draft = brief_from_idea(idea, demands)
+        item = replace(approvable(), brief_id=draft.brief_id, evidence=draft.evidence, confidence=0.6,
+                       platform="blog")
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "b.json"
             self.assertEqual(append_briefs(path, [item]), 1)

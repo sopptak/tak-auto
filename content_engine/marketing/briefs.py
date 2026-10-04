@@ -70,23 +70,37 @@ def brief_from_idea(
     )
 
 
-def readiness_blockers(brief: MarketingBrief) -> list[str]:
-    """콘텐츠 생성 프롬프트에 쓰기 전에 해결해야 할 항목. 빈 목록이면 통과."""
+CORE_ELEMENTS = ("storytelling.hook", "sales.value_proposition", "sales.call_to_action", "psychology.pain")
+
+
+def approval_blockers(brief: MarketingBrief) -> list[str]:
+    """approved로 바꾸기 전에 해결해야 할 항목(상태 자체는 제외). 빈 목록이면 승인 가능."""
+    from .suggestions import current_value
+
     blockers = []
-    if brief.status != STATUS_APPROVED:
-        blockers.append("사람이 approved로 승인하지 않았습니다.")
+    if brief.status == "rejected":
+        blockers.append("rejected 브리프입니다.")
     if not any(item.kind == "market_demand" for item in brief.evidence):
         blockers.append("시장 수요 근거가 없습니다.")
     for name, value in (("target_audience", brief.target_audience), ("customer_problem", brief.customer_problem),
                         ("desired_action", brief.desired_action)):
         if not value.strip():
             blockers.append(f"{name}이(가) 비어 있습니다.")
+    for key in CORE_ELEMENTS:
+        if not current_value(brief, key):
+            blockers.append(f"핵심 요소 {key}이(가) 비어 있습니다.")
     score: MarketingScore = score_brief(brief)
     if score.total_score < MIN_READY_TOTAL:
         blockers.append(f"마케팅 점수 {score.total_score} < {MIN_READY_TOTAL}")
     if score.confidence < MIN_READY_CONFIDENCE:
         blockers.append(f"점수 신뢰도 {score.confidence} < {MIN_READY_CONFIDENCE}(채워진 요소 부족)")
     return blockers
+
+
+def readiness_blockers(brief: MarketingBrief) -> list[str]:
+    """콘텐츠 생성에 쓰기 전에 해결해야 할 항목: 승인 상태 + 승인 조건을 현재 내용으로 다시 확인한다."""
+    blockers = [] if brief.status == STATUS_APPROVED else ["사람이 approved로 승인하지 않았습니다."]
+    return blockers + approval_blockers(brief)
 
 
 def with_status(brief: MarketingBrief, status: str) -> MarketingBrief:

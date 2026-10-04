@@ -1,7 +1,7 @@
 """AI Marketing Intelligence Layer (docs/6-79-ai-marketing-intelligence.md)."""
 
 from .briefs import (
-    MIN_IDEA_SCORE, brief_confidence, brief_from_idea, market_evidence, readiness_blockers, with_status,
+    CORE_ELEMENTS, MIN_IDEA_SCORE, approval_blockers, brief_confidence, brief_from_idea, market_evidence, readiness_blockers, with_status,
 )
 from .insight import (
     MarketingInsight, attribute_lift, collect_marketing_insights, marketing_attributes, split_metrics,
@@ -16,4 +16,9 @@ from .research_tasks import (
     ASPECT_QUERIES, ResearchBundle, build_queries, research_idea, run_research_tasks,
 )
 from .scoring import MarketingScore, score_brief
-from .store import append_briefs, link_content, load_briefs, set_brief_status
+from .editing import set_element
+from .store import (
+    append_briefs, append_suggestions, link_content, load_briefs, load_suggestions, resolve_suggestion,
+    set_brief_status, update_element,
+)
+from .suggestions import Suggestion, apply_suggestion, suggest_elements

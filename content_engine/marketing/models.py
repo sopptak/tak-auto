@@ -16,9 +16,10 @@ from typing import Any, ClassVar
 PLATFORMS = ("blog", "threads", "shorts", "youtube")
 
 STATUS_DRAFT = "draft"
+STATUS_SUGGESTED = "suggested"  # 요소 제안이 저장되어 사람의 검토를 기다리는 상태
 STATUS_APPROVED = "approved"
 STATUS_REJECTED = "rejected"
-BRIEF_STATUSES = (STATUS_DRAFT, STATUS_APPROVED, STATUS_REJECTED)
+BRIEF_STATUSES = (STATUS_DRAFT, STATUS_SUGGESTED, STATUS_APPROVED, STATUS_REJECTED)
 
 
 class MarketingError(ValueError):
@@ -133,6 +134,12 @@ class EvidenceItem:
     snippet: str = ""
     provider: str = ""
     aspect: str = ""  # research_tasks의 aspect
+
+    @property
+    def evidence_id(self) -> str:
+        """내용 기반 결정적 id. 같은 근거는 항상 같은 id를 갖는다."""
+        raw = "|".join((self.kind, self.provider, self.aspect, self.url, self.title, self.snippet))
+        return "ev-" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12]
 
     def to_dict(self) -> dict[str, str]:
         return {"kind": self.kind, "title": self.title, "url": self.url, "snippet": self.snippet,

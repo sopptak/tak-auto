@@ -11,7 +11,10 @@ import json
 from pathlib import Path
 import tempfile
 
-from .models import BRIEF_STATUSES, MarketingBrief, MarketingError
+from .briefs import approval_blockers
+from .editing import set_element
+from .suggestions import Suggestion, apply_suggestion, with_status as suggestion_with_status
+from .models import BRIEF_STATUSES, STATUS_APPROVED, STATUS_REJECTED, MarketingBrief, MarketingError
 
 
 def _read(path: Path | str) -> list[dict]:
@@ -48,9 +51,24 @@ def append_briefs(path: Path | str, briefs: Sequence[MarketingBrief]) -> int:
 
 
 def set_brief_status(path: Path | str, brief_id: str, status: str) -> MarketingBrief:
+    """상태 전이. approved는 승인 게이트를 통과해야 하고, rejected 브리프는 되살릴 수 없다."""
     if status not in BRIEF_STATUSES:
         raise MarketingError(f"알 수 없는 status: {status!r}")
-    return _update(path, brief_id, lambda brief: replace(brief, status=status))
+
+    def apply(brief: MarketingBrief) -> MarketingBrief:
+        if brief.status == STATUS_REJECTED and status != STATUS_REJECTED:
+            raise MarketingError("rejected 브리프는 되살릴 수 없습니다. 새 브리프를 만드세요.")
+        if status == STATUS_APPROVED:
+            blockers = approval_blockers(brief)
+            if blockers:
+                raise MarketingError("승인 조건 미충족: " + " / ".join(blockers))
+        return replace(brief, status=status)
+
+    return _update(path, brief_id, apply)
+
+
+def update_element(path: Path | str, brief_id: str, key: str, value: str) -> MarketingBrief:
+    return _update(path, brief_id, lambda brief: set_element(brief, key, value))
 
 
 def link_content(path: Path | str, brief_id: str, content_id: str) -> MarketingBrief:
@@ -60,6 +78,41 @@ def link_content(path: Path | str, brief_id: str, content_id: str) -> MarketingB
             return brief
         return replace(brief, content_ids=brief.content_ids + (content_id,))
     return _update(path, brief_id, apply)
+
+
+# --- suggestion 저장소(브리프와 분리: 제안은 사람이 accept하기 전까지 브리프를 바꾸지 않는다) ---
+
+def load_suggestions(path: Path | str) -> list[Suggestion]:
+    return [Suggestion.from_dict(row) for row in _read(path)]
+
+
+def append_suggestions(path: Path | str, suggestions: Sequence[Suggestion]) -> int:
+    rows = _read(path)
+    seen = {row.get("suggestion_id") for row in rows}
+    new = [item for item in suggestions if item.suggestion_id not in seen]
+    if new:
+        _write(path, rows + [item.to_dict() for item in new])
+    return len(new)
+
+
+def resolve_suggestion(
+    suggestions_path: Path | str, briefs_path: Path | str, suggestion_id: str, accept: bool
+) -> Suggestion:
+    """사람이 제안을 accept(브리프에 반영) 또는 reject한다. accept는 값이 비어 있는 요소에만 가능하다."""
+    rows = _read(suggestions_path)
+    for index, row in enumerate(rows):
+        if row.get("suggestion_id") != suggestion_id:
+            continue
+        suggestion = Suggestion.from_dict(row)
+        if suggestion.status != "suggested":
+            raise MarketingError(f"이미 처리된 제안입니다: {suggestion.status}")
+        if accept:
+            _update(briefs_path, suggestion.brief_id, lambda brief: apply_suggestion(brief, suggestion))
+        resolved = suggestion_with_status(suggestion, "accepted" if accept else "rejected")
+        rows[index] = resolved.to_dict()
+        _write(suggestions_path, rows)
+        return resolved
+    raise MarketingError(f"제안을 찾을 수 없습니다: {suggestion_id}")
 
 
 def _update(path, brief_id, fn) -> MarketingBrief:
