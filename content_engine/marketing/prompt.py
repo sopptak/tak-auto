@@ -28,6 +28,15 @@ CONSTRAINTS: tuple[str, ...] = (
 )
 
 
+# 플랫폼별 생성 계약: 결과물이 반드시 갖춰야 할 구성 요소.
+PLATFORM_CONTRACTS: dict[str, tuple[str, ...]] = {
+    "blog": ("검색 의도에 맞는 제목/도입", "고객 문제의 해결 절차", "evidence 기반 근거", "신뢰 요소(출처 구분)", "CTA"),
+    "threads": ("강한 주장", "반전", "공감", "논쟁 포인트", "답글 유도"),
+    "shorts": ("1~2초 안에 끝나는 hook", "한 가지 핵심 메시지", "장면 변화 지시", "짧은 CTA"),
+    "youtube": ("hook", "problem", "tension", "insight", "transformation", "proof", "CTA"),
+}
+
+
 def build_content_prompt(brief: MarketingBrief, allow_draft: bool = False) -> dict:
     """approved 브리프로 프롬프트 계약을 만든다. 게이트를 통과하지 못하면 MarketingError."""
     if not allow_draft:
@@ -49,6 +58,7 @@ def build_content_prompt(brief: MarketingBrief, allow_draft: bool = False) -> di
             "angle": strategy.angle, "primary_axis": strategy.primary_axis, "emphasis": list(strategy.emphasis),
             "format_notes": strategy.format_notes,
         },
+        "generation_contract": list(PLATFORM_CONTRACTS.get(platform, ())),
         "evidence": [item.to_dict() for item in brief.evidence],
         "constraints": list(CONSTRAINTS),
         "open_questions": brief.missing_fields(),
@@ -70,6 +80,8 @@ def render_prompt_text(contract: dict) -> str:
     if contract["platform_strategy"]:
         strategy = contract["platform_strategy"]
         lines += [f"[채널 전략] {strategy['angle']} - {strategy['format_notes']}"]
+    if contract.get("generation_contract"):
+        lines.append("[생성 계약] " + " / ".join(contract["generation_contract"]))
     lines.append("[근거(검증 전)]")
     lines += [f"- ({item['kind']}) {item['title']}: {item['snippet']} {item['url']}".rstrip() for item in contract["evidence"]]
     lines.append("[제약]")

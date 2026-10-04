@@ -129,3 +129,16 @@ class ApprovalTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PlatformContractTests(unittest.TestCase):
+    def test_generation_contract_per_platform(self):
+        from content_engine.marketing import build_content_prompt, render_prompt_text
+        from content_engine.marketing.prompt import PLATFORM_CONTRACTS
+        self.assertEqual(set(PLATFORM_CONTRACTS), {"blog", "threads", "shorts", "youtube"})
+        for platform, items in PLATFORM_CONTRACTS.items():
+            contract = build_content_prompt(replace(approvable(), platform=platform), allow_draft=True)
+            self.assertEqual(contract["generation_contract"], list(items))
+            self.assertIn("[생성 계약]", render_prompt_text(contract))
+        self.assertIn("반전", PLATFORM_CONTRACTS["threads"])
+        self.assertIn("tension", PLATFORM_CONTRACTS["youtube"])
