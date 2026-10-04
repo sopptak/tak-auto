@@ -18,7 +18,8 @@ from .research_tasks import (
 from .scoring import MarketingScore, score_brief
 from .editing import set_element
 from .generation import (
-    CONTENTS_FILE, STATUS_REVIEW_REQUIRED, GenerationResult, generate_candidates, generation_blockers, save_candidates,
+    CONTENTS_FILE, MEDIA_PLATFORMS, STATUS_REVIEW_REQUIRED, GenerationResult, generate_candidates, generation_blockers,
+    media_content_id, media_platform, save_candidates,
 )
 from .store import (
     append_briefs, append_suggestions, link_content, load_briefs, load_suggestions, resolve_suggestion,

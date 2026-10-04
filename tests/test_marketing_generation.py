@@ -13,6 +13,9 @@ from content_engine.marketing import (
     generation_blockers, load_briefs, render_prompt_text, save_candidates,
 )
 from content_engine.marketing import generation as generation_module
+from content_engine.marketing import media_content_id, media_platform
+from content_engine.media_archive import MediaArchiveRecord
+from content_engine.pipeline import run_media_batch
 from content_engine.models import ShortDraft
 from content_engine.publish_history import compute_content_id
 from content_engine.shorts_adapter import short_draft_to_shorts_script
@@ -182,7 +185,7 @@ class GenerationTests(unittest.TestCase):
         self.assertEqual(len(result.candidates), len(self.bundle.shorts))
         for candidate, draft in zip(result.candidates, self.bundle.shorts):
             script = short_draft_to_shorts_script(draft)
-            self.assertEqual(candidate["draft_platform"], "shorts")
+            self.assertEqual(candidate["media_platform"], "shorts")
             self.assertEqual(candidate["shorts_script"]["title"], script.title)
             self.assertEqual(candidate["shorts_script"]["cards"], list(script.cards))
             self.assertEqual(candidate["shorts_script"]["takeaway"], script.takeaway)
@@ -252,6 +255,60 @@ class GenerationTests(unittest.TestCase):
         self.assertTrue(all(request.marketing_guidance == expected for request in provider.requests))
         self.assertEqual(result.candidates[0]["marketing_guidance"], expected)
         self.assertIn("반전", result.candidates[0]["generation_contract"])
+
+
+class MediaPlatformInvariantTests(unittest.TestCase):
+    """6-82: Marketing youtube -> MEDIA shorts 정규화와 content_id 불변조건."""
+
+    def setUp(self):
+        self.knowledge = knowledge()
+        # 기존 MEDIA 경로(run_media_batch -> MediaArchiveRecord.from_item)가 같은 KNOWLEDGE로 만드는 content_id.
+        report = run_media_batch([self.knowledge], provider=MockRewriteProvider())
+        self.media_ids: dict[str, list[str]] = {}
+        for item in report.items:
+            self.media_ids.setdefault(item.platform, []).append(MediaArchiveRecord.from_item(item).content_id)
+
+    def candidates(self, platform):
+        return generate_candidates(approved_brief(platform), [self.knowledge], provider=MockRewriteProvider()).candidates
+
+    def test_media_platform_mapping(self):
+        self.assertEqual({p: media_platform(p) for p in ("blog", "threads", "shorts", "youtube")},
+                         {"blog": "blog", "threads": "threads", "shorts": "shorts", "youtube": "shorts"})
+        with self.assertRaises(MarketingError):
+            media_platform("tiktok")
+
+    def test_youtube_keeps_marketing_platform_and_normalizes_media_platform(self):
+        for candidate in self.candidates("youtube"):
+            self.assertEqual(candidate["platform"], "youtube")
+            self.assertEqual(candidate["media_platform"], "shorts")
+            self.assertTrue(candidate["shorts_script"])
+
+    def test_youtube_media_content_id_matches_existing_shorts_rule(self):
+        youtube = self.candidates("youtube")
+        ids = [candidate["content_id"] for candidate in youtube]
+        self.assertEqual(ids, [media_content_id(candidate) for candidate in youtube])
+        self.assertEqual(ids, self.media_ids["shorts"])
+        self.assertEqual(ids, [compute_content_id({**candidate, "platform": "shorts"}) for candidate in youtube])
+        # youtube 기준으로 계산한 값(6-80 초기 구현)과는 달라야 한다.
+        self.assertTrue(set(ids).isdisjoint(compute_content_id(candidate) for candidate in youtube))
+        self.assertEqual(ids, [candidate["content_id"] for candidate in self.candidates("shorts")])
+
+    def test_blog_threads_shorts_content_ids_unchanged(self):
+        for platform in ("blog", "threads", "shorts"):
+            candidates = self.candidates(platform)
+            ids = [candidate["content_id"] for candidate in candidates]
+            self.assertEqual(ids, [compute_content_id(candidate) for candidate in candidates], platform)
+            self.assertEqual(ids, self.media_ids[platform], platform)
+            self.assertTrue(all(candidate["media_platform"] == platform for candidate in candidates))
+
+    def test_youtube_save_links_media_content_ids(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            briefs = Path(tmp) / "b.json"
+            brief = approved_brief("youtube")
+            append_briefs(briefs, [brief])
+            result = generate_candidates(brief, [self.knowledge], provider=MockRewriteProvider())
+            save_candidates(Path(tmp) / "c.json", briefs, result)
+            self.assertEqual(list(load_briefs(briefs)[0].content_ids), self.media_ids["shorts"])
 
 
 class SaveTests(unittest.TestCase):

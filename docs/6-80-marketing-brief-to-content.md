@@ -57,7 +57,7 @@ KNOWLEDGE의 근거 단위가 없어 번들이 `insufficient_distinct_evidence`�
 | blog | `bundle.blog` (1건) | |
 | threads | `bundle.threads` (5건) | |
 | shorts | `bundle.shorts` (3건) | |
-| youtube | `bundle.shorts` (3건) | `draft_platform="shorts"`, `shorts_script`(title/subtitle/cards/takeaway/brand) |
+| youtube | `bundle.shorts` (3건) | `media_platform="shorts"`, `shorts_script`(title/subtitle/cards/takeaway/brand) |
 
 YouTube의 `shorts_script`는 재작성이 `rewritten`(검증 통과)일 때만 재작성본으로, 그 외에는 원본 초안으로 변환한다. 변환 실패는 `shorts_script_error`로 남긴다.
 
@@ -70,9 +70,13 @@ YouTube의 `shorts_script`는 재작성이 `rewritten`(검증 통과)일 때만 
 
 ## 후보 레코드 (data/tak_marketing_contents.json)
 
-`brief_id, platform, knowledge_id, content_id, status="review_required", requires_human_review=true, original_title, original_body, evidence_unit_ids, source_url, evidence, rewritten_title, rewritten_body, rewrite_status(not_requested|rewritten|rejected|error), validation_errors, [rewrite_error], marketing_guidance, generation_contract, created_at, [draft_platform, shorts_script, shorts_script_error]`
+`brief_id, platform, media_platform, knowledge_id, content_id, status="review_required", requires_human_review=true, original_title, original_body, evidence_unit_ids, source_url, evidence, rewritten_title, rewritten_body, rewrite_status(not_requested|rewritten|rejected|error), validation_errors, [rewrite_error], marketing_guidance, generation_contract, created_at, [shorts_script, shorts_script_error]`
 
-- `content_id`는 기존 `compute_content_id(record)`의 결과를 그대로 쓴다. 재작성 결과는 식별자에 영향을 주지 않는다.
+- `content_id`는 MEDIA content_id다. 기존 `compute_content_id`에 MEDIA 플랫폼(`media_platform`)을 넣어 계산한다(`media_content_id()`). 재작성 결과는 식별자에 영향을 주지 않는다.
+- Marketing 계층의 `platform`은 youtube 전략을 유지한다. MEDIA로 넘어갈 때만 `youtube`를 `shorts`로 정규화한다(6-82).
+  - YouTube 업로드, Shorts 변환, 성과 수집이 모두 `platform="shorts"` archive 레코드를 기준으로 동작하기 때문이다.
+  - 그래서 youtube 후보의 content_id는 같은 슬롯의 기존 shorts content_id와 같다. 둘은 generation_id로 구분한다.
+  - blog/threads/shorts의 content_id는 이전과 같다.
 - 같은 `(brief_id, content_id)`는 다시 저장하지 않고, `link_content`는 중복 연결하지 않는다.
 - 쓰기는 기존 store와 같은 원자적 방식(tempfile + replace)이다. 이 파일은 `data/*.json` 규칙으로 git에 올라가지 않는다.
 

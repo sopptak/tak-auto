@@ -35,6 +35,23 @@ CONTENTS_FILE = "tak_marketing_contents.json"
 STATUS_REVIEW_REQUIRED = "review_required"
 REWRITE_NOT_REQUESTED = "not_requested"
 REWRITE_ERROR = "error"
+# Marketing 플랫폼 -> 기존 MEDIA 플랫폼. youtube 전략은 Marketing 계층에만 있고, MEDIA(archive, Shorts 변환,
+# YouTube 업로드, 성과 수집)는 YouTube 영상을 platform="shorts" 레코드로 다룬다.
+MEDIA_PLATFORMS = {"blog": "blog", "threads": "threads", "shorts": "shorts", "youtube": "shorts"}
+
+
+def media_platform(platform: str) -> str:
+    if platform not in MEDIA_PLATFORMS:
+        raise MarketingError(f"MEDIA 플랫폼으로 변환할 수 없는 platform: {platform!r}")
+    return MEDIA_PLATFORMS[platform]
+
+
+def media_content_id(candidate: dict[str, Any]) -> str:
+    """후보의 MEDIA content_id. 기존 compute_content_id 규칙에 MEDIA 플랫폼을 넣어 계산한다.
+
+    youtube 후보는 같은 슬롯의 기존 shorts MEDIA 레코드와 같은 content_id가 된다(구분은 generation_id).
+    """
+    return compute_content_id({**candidate, "platform": media_platform(candidate["platform"])})
 
 
 def generation_blockers(brief: MarketingBrief) -> list[str]:
@@ -91,6 +108,7 @@ def _candidate(
     record: dict[str, Any] = {
         "brief_id": brief.brief_id,
         "platform": brief.platform,
+        "media_platform": media_platform(brief.platform),
         "knowledge_id": knowledge.id,
         "status": STATUS_REVIEW_REQUIRED,
         "requires_human_review": True,
@@ -119,13 +137,12 @@ def _candidate(
             if result.rewrite_status == "rewritten":
                 final_draft = result.rewritten_draft
     if brief.platform == "youtube":
-        record["draft_platform"] = "shorts"
         try:
             record["shorts_script"] = _script_dict(final_draft)
         except (ShortsAdapterError, ShortsScriptError) as error:
             record.update(shorts_script=None, shorts_script_error=str(error))
-    # 기존 식별 규칙 그대로(knowledge_id/platform/source_url/evidence_unit_ids/original_*).
-    record["content_id"] = compute_content_id(record)
+    # 기존 식별 규칙 그대로(knowledge_id/platform/source_url/evidence_unit_ids/original_*), platform은 MEDIA 값.
+    record["content_id"] = media_content_id(record)
     return record
 
 
