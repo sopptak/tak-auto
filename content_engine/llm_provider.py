@@ -130,34 +130,39 @@ class OpenAICompatibleRewriteProvider(RewriteProvider):
 
     @staticmethod
     def _user_prompt(request: RewriteRequest) -> str:
-        return json.dumps(
-            {
-                "contract_version": "tak-media-rewrite-v1",
-                "platform": OpenAICompatibleRewriteProvider._platform_name(request.draft),
-                "article_type": request.article_type,
-                "knowledge_type": request.knowledge_type,
-                "source_url": request.source_url,
-                "evidence": request.evidence,
-                "approved_knowledge_facts": OpenAICompatibleRewriteProvider._knowledge_facts(request.knowledge),
-                "original_draft": {"title": request.draft.title, "body": request.draft.body},
-                "allowed_changes": (
-                    "조사와 어미 변경, 문장 순서 조정, 자연스러운 연결어, 제목과 훅 개선, "
-                    "1인칭 직접 서술로의 전환, 동일 의미의 한국어 재표현"
-                ),
-                "prohibited_changes": (
-                    "새 사실·숫자·사람·기관·상품·사건·경험·성과 추가, 근거 없는 인과관계, "
-                    "법률·규정 판단 추가, 금융기관 공식 기준으로의 확대, "
-                    "경험형 콘텐츠에서의 3인칭 요약체(작성자는, 저자는, 원문에서는, ~경험을 남겼습니다/공유합니다 등)"
-                ),
-                "validation_requirements": (
-                    "source_url, evidence, 근거 단위 추적 정보는 원본 Draft와 동일하게 유지되며, "
-                    "금융 초안의 공식 기준 비해석 문구는 삭제하거나 약화하지 않는다"
-                ),
-                "platform_requirements": OpenAICompatibleRewriteProvider._platform_requirements(request.draft),
-                "response_schema": {"title": "string", "body": "string"},
-            },
-            ensure_ascii=False,
-        )
+        payload: dict[str, object] = {
+            "contract_version": "tak-media-rewrite-v1",
+            "platform": OpenAICompatibleRewriteProvider._platform_name(request.draft),
+            "article_type": request.article_type,
+            "knowledge_type": request.knowledge_type,
+            "source_url": request.source_url,
+            "evidence": request.evidence,
+            "approved_knowledge_facts": OpenAICompatibleRewriteProvider._knowledge_facts(request.knowledge),
+            "original_draft": {"title": request.draft.title, "body": request.draft.body},
+            "allowed_changes": (
+                "조사와 어미 변경, 문장 순서 조정, 자연스러운 연결어, 제목과 훅 개선, "
+                "1인칭 직접 서술로의 전환, 동일 의미의 한국어 재표현"
+            ),
+            "prohibited_changes": (
+                "새 사실·숫자·사람·기관·상품·사건·경험·성과 추가, 근거 없는 인과관계, "
+                "법률·규정 판단 추가, 금융기관 공식 기준으로의 확대, "
+                "경험형 콘텐츠에서의 3인칭 요약체(작성자는, 저자는, 원문에서는, ~경험을 남겼습니다/공유합니다 등)"
+            ),
+            "validation_requirements": (
+                "source_url, evidence, 근거 단위 추적 정보는 원본 Draft와 동일하게 유지되며, "
+                "금융 초안의 공식 기준 비해석 문구는 삭제하거나 약화하지 않는다"
+            ),
+            "platform_requirements": OpenAICompatibleRewriteProvider._platform_requirements(request.draft),
+            "response_schema": {"title": "string", "body": "string"},
+        }
+        if request.marketing_guidance:
+            # 마케팅 가이드는 구조/강조점 참고용이다. 사실 경계(prohibited_changes)를 넓히지 않는다.
+            payload["marketing_guidance"] = request.marketing_guidance
+            payload["marketing_guidance_rule"] = (
+                "marketing_guidance는 훅·구성·강조점·CTA 방향에만 사용한다. 그 안의 evidence나 브리프 문구를 "
+                "새 사실로 본문에 추가하지 않으며, 모든 사실은 approved_knowledge_facts와 original_draft 범위를 따른다."
+            )
+        return json.dumps(payload, ensure_ascii=False)
 
     @staticmethod
     def _platform_name(draft: ContentDraft) -> str:

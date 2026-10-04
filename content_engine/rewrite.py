@@ -58,6 +58,8 @@ class RewriteRequest:
     evidence: tuple[str, ...]
     article_type: str | None
     knowledge_type: str | None
+    # 승인된 MarketingBrief의 프롬프트 계약 텍스트(render_prompt_text). 없으면 기존 동작과 동일하다.
+    marketing_guidance: str | None = None
 
 
 @dataclass(frozen=True)
@@ -233,7 +235,12 @@ class RewriteService:
         self.provider = provider
         self.validator = validator or RewriteValidator()
 
-    def rewrite(self, knowledge: KnowledgeRecord, draft: ContentDraft) -> RewriteResult:
+    def rewrite(
+        self,
+        knowledge: KnowledgeRecord,
+        draft: ContentDraft,
+        marketing_guidance: str | None = None,
+    ) -> RewriteResult:
         if knowledge.knowledge_review_status != "approved":
             raise ValueError("승인된 KNOWLEDGE만 재작성할 수 있습니다.")
         request = RewriteRequest(
@@ -243,6 +250,7 @@ class RewriteService:
             evidence=draft.evidence,
             article_type=knowledge.article_type,
             knowledge_type=knowledge.knowledge_type,
+            marketing_guidance=marketing_guidance,
         )
         rewritten_draft = self.provider.rewrite(request)
         validation = self.validator.validate(request, rewritten_draft)
