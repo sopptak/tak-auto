@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AI Marketing Intelligence CLI. draft/platforms/suggest/generate/bridge/knowledge는 기본이 미리보기이며 --write가 있어야 data/에 저장한다.
+"""AI Marketing Intelligence CLI. draft/platforms/suggest/generate/bridge/knowledge/research는 기본이 미리보기이며 --write가 있어야 data/에 저장한다.
 
   draft IDEA_ID [--research PROVIDER]  아이디어 -> (리서치 -> pending KNOWLEDGE) -> 브리프 초안
   score BRIEF_ID                        마케팅 점수(조회/참여/전환 분리)
@@ -19,12 +19,17 @@
   knowledge add|remove BRIEF_ID KNOWLEDGE_ID
                                         브리프와 approved KNOWLEDGE 연결/해제(기본 미리보기, --write일 때만 저장).
                                         knowledge_ids만 바꾸며 브리프 승인/콘텐츠/lineage는 그대로 둔다
+  research BRIEF_ID --provider mock|perplexity [--aspect A ...] [--max-results N]
+                                        기존 브리프에 외부 조사 근거 추가(기본 미리보기, --write일 때만 저장).
+                                        --provider는 필수(실제 API는 perplexity를 명시할 때만). 조사 KNOWLEDGE는
+                                        pending + verification_required로만 저장하고 knowledge_ids에 연결하지 않는다.
+                                        approved/rejected 브리프에는 쓰지 않는다
   bridge BRIEF_ID                       저장된 후보 -> 기존 MEDIA generation pool(unreviewed)
                                         (기본 미리보기, --write일 때만 data/tak_media_generation_marketing-<brief_id>.json).
                                         검토는 대시보드 /media/generations, 승격은 scripts/promote_media_generation.py
 
 set/approve/reject/suggestion/status/link는 사람의 결정이므로 실행 즉시 브리프 저장소에 반영된다.
-자동 발행은 하지 않는다. 외부 API는 --research 또는 generate --rewrite llm을 줄 때만 호출한다.
+자동 발행은 하지 않는다. 외부 API는 --research, research --provider perplexity, generate --rewrite llm을 줄 때만 호출한다.
 """
 
 from __future__ import annotations
@@ -40,7 +45,7 @@ if str(ROOT) not in sys.path:
 
 from content_engine.market_demand import load_demands, load_ideas
 from content_engine.marketing import (
-    CONTENTS_FILE, MarketingError, append_briefs, check_knowledge_link, check_knowledge_unlink, link_knowledge,
+    CONTENTS_FILE, MarketingError, append_briefs, apply_brief_research, research_brief, check_knowledge_link, check_knowledge_unlink, link_knowledge,
     link_media_generation, unlink_knowledge, bridge_to_generation_pool, load_candidates, mark_bridged, plan_bridge,
     pool_path_for, append_suggestions, approval_blockers, attribute_lift,
     brief_from_idea, build_content_prompt, collect_marketing_insights, derive_all_platform_briefs, generate_candidates,
@@ -48,6 +53,7 @@ from content_engine.marketing import (
     resolve_suggestion, save_candidates, score_brief, set_brief_status, suggest_elements, update_element,
 )
 from content_engine.marketing.models import DIMENSIONS
+from content_engine.marketing.research_tasks import ASPECT_QUERIES
 from content_engine.rewrite import MockRewriteProvider
 from tak_brain.knowledge import load_knowledge_records
 from content_engine.media_archive import load_archive
@@ -122,6 +128,48 @@ def _print_candidates(result) -> None:
             print(f"    ShortsScript 변환 실패: {candidate['shorts_script_error']}")
     for reason in result.reasons:
         print(f"사유: {reason}")
+
+
+def _research_command(args, briefs_path: Path, data: Path) -> int:
+    brief = _find(load_briefs(briefs_path), args.brief_id)
+    ideas_path = data / "tak_idea_candidates.json"
+    ideas = {idea.idea_id: idea for idea in load_ideas(ideas_path)} if ideas_path.exists() else {}
+    idea = ideas.get(brief.idea_id)
+    provider = get_research_provider(args.provider)
+    kwargs = {"aspects": tuple(args.aspects)} if args.aspects else {}
+    result = research_brief(brief, provider, idea, max_results=args.max_results, **kwargs)
+    print(f"brief_id: {brief.brief_id} (status={brief.status}) provider={result.provider}")
+    print(f"질의 기준: {'아이디어 ' + idea.idea_id if idea else '브리프 topic'}")
+    for aspect, query in result.queries.items():
+        status = f"출처 {result.source_counts[aspect]}건" if aspect in result.source_counts else \
+            f"실패: {result.errors.get(aspect, '결과 없음')}"
+        print(f"- {aspect}: {query} -> {status}")
+    print(f"새 근거 {len(result.new_evidence)}건, 중복 제외 {result.duplicate_evidence}건 (검증 전 근거)")
+    knowledge_path = data / "tak_brain_knowledge.json"
+    existing = {record.id for record in load_knowledge_records(knowledge_path)} if knowledge_path.exists() else set()
+    new_knowledge = [record for record in result.knowledge if record.id not in existing]
+    print(f"조사 KNOWLEDGE 후보 {len(new_knowledge)}건 신규, {len(result.knowledge) - len(new_knowledge)}건 이미 있음: "
+          "pending + verification_required (자동 승인하지 않으며 knowledge_ids에 연결하지 않음)")
+    for record in new_knowledge:
+        print(f"  {record.id} {record.title}")
+    if result.write_blockers:
+        print("저장 불가: " + " / ".join(result.write_blockers))
+    if not result.new_evidence and not new_knowledge:
+        if not result.source_counts:
+            print("저장할 조사 결과가 없습니다(모든 조사 실패).")
+            return 2
+        print("새 조사 결과가 없습니다(모두 중복). 변경하지 않습니다.")
+        return 0
+    if not args.write:
+        print("(미리보기: 저장하려면 --write)")
+        return 0
+    if result.write_blockers:
+        return 2
+    updated = apply_brief_research(briefs_path, result)
+    saved = _append_knowledge(knowledge_path, new_knowledge)
+    print(f"저장: 근거 {len(updated.evidence)}건(confidence {updated.confidence}), pending KNOWLEDGE {saved}건 신규. "
+          f"status={updated.status} 그대로")
+    return 0
 
 
 def _knowledge_command(args, briefs_path: Path, knowledge_path: Path) -> int:
@@ -201,6 +249,13 @@ def main(argv: list[str] | None = None) -> int:
     generate.add_argument("brief_id")
     generate.add_argument("--rewrite", choices=("mock", "llm"), help="생략하면 규칙 기반 초안만(재작성 없음)")
     sub.add_parser("bridge").add_argument("brief_id")
+    research = sub.add_parser("research")
+    research.add_argument("brief_id")
+    research.add_argument("--provider", required=True, choices=("mock", "perplexity"),
+                          help="필수. perplexity는 PERPLEXITY_API_KEY 환경변수 필요(실제 API 호출)")
+    research.add_argument("--aspect", action="append", choices=tuple(ASPECT_QUERIES), dest="aspects",
+                          help="조사할 aspect(여러 번 지정 가능, 생략하면 8개 전부)")
+    research.add_argument("--max-results", type=int, default=5)
     knowledge_cmd = sub.add_parser("knowledge")
     knowledge_cmd.add_argument("action", choices=("add", "remove"))
     knowledge_cmd.add_argument("brief_id")
@@ -299,6 +354,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"저장: 후보 {saved}건(review_required), 브리프 연결 {len(result.candidates)}건. 발행하지 않습니다.")
             elif not args.write:
                 print("(미리보기: 저장하려면 --write. 저장해도 review_required이며 발행하지 않습니다)")
+        elif args.command == "research":
+            return _research_command(args, briefs_path, data)
         elif args.command == "knowledge":
             return _knowledge_command(args, briefs_path, data / "tak_brain_knowledge.json")
         elif args.command == "bridge":

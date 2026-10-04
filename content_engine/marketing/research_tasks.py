@@ -82,9 +82,18 @@ def run_research_tasks(
 
 
 def research_idea(idea, provider: ResearchProvider, aspects: Sequence[str] = DEFAULT_ASPECTS, max_results: int = 5) -> ResearchBundle:
-    """IdeaCandidate.research_query를 먼저 조사하고 표준 aspect task를 이어서 실행한다."""
-    first = provider.research(idea.research_query, max_results=max_results) if idea.research_query.strip() else None
+    """IdeaCandidate.research_query를 먼저 조사하고 표준 aspect task를 이어서 실행한다.
+
+    idea_query 실패도 aspect와 같은 규칙: 설정/인증 오류는 즉시 올리고, 그 외 Provider 오류는 errors에 남긴다.
+    """
+    first, errors = None, {}
+    if idea.research_query.strip():
+        try:
+            first = provider.research(idea.research_query, max_results=max_results)
+        except _FATAL:
+            raise
+        except ProviderError as error:
+            errors["idea_query"] = str(error)
     bundle = run_research_tasks(idea.title, provider, aspects, max_results)
-    if first is None:
-        return bundle
-    return ResearchBundle(topic=bundle.topic, results={"idea_query": first, **bundle.results}, errors=bundle.errors)
+    results = {"idea_query": first, **bundle.results} if first is not None else bundle.results
+    return ResearchBundle(topic=bundle.topic, results=results, errors={**errors, **bundle.errors})

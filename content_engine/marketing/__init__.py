@@ -1,5 +1,6 @@
 """AI Marketing Intelligence Layer (docs/6-79-ai-marketing-intelligence.md)."""
 
+from .brief_research import BriefResearch, apply_brief_research, research_brief, research_write_blockers
 from .briefs import (
     CORE_ELEMENTS, MIN_IDEA_SCORE, approval_blockers, brief_confidence, brief_from_idea, market_evidence, readiness_blockers, with_status,
 )
