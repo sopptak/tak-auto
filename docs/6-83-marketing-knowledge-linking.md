@@ -74,3 +74,14 @@ MEDIA 계층(`media_archive.py`, `pipeline.py`, `generator.py`, `run_scout_dashb
 - 연결 시점의 KNOWLEDGE 품질(근거 단위 수)은 확인하지 않는다. 근거가 부족한 KNOWLEDGE는 기존처럼 generate 단계에서 `insufficient_distinct_evidence`로 건너뛴다.
 - 연결/해제 이력(누가, 언제)은 기록하지 않는다. 브리프 파일의 Git 이력이 감사 기록 역할을 한다.
 - `review` 출력에는 연결된 KNOWLEDGE의 현재 승인 상태가 표시되지 않는다. 확인하려면 `knowledge add` 미리보기를 쓴다.
+
+## 검증 결과 (2026-10-04)
+
+| 항목 | 결과 |
+|---|---|
+| 새 테스트 `tests/test_marketing_knowledge_links.py` | 18 passed |
+| 전체 테스트 | 2049 passed, 33 failed, 108 skipped (작업 전 2031 passed / 33 failed) |
+| 신규 실패 | 없음. 33개는 기존 알려진 실패: `test_6_55_shorts_studio.py`(Windows 폰트/네트워크, 테스트 24 + subtest 7), `test_second_knowledge_correction_and_generation_pool.py`(production archive count 2) |
+| 금지 파일 변경(ea90cdc 이후) | 없음: MEDIA 계층, publisher, `tak_brain/*`, `review_knowledge.py`, `.vscode`, `data/` |
+| `git diff --check` / secret scan | 통과 / 발견 없음 |
+| 커밋 | a703a9f(API+게이트), 5db3ba3(CLI), e748431(문서) |
