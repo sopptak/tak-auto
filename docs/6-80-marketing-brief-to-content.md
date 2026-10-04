@@ -24,7 +24,13 @@ Platform Generation Contract (build_content_prompt → render_prompt_text = mark
 기존 생성기 (generate_content_bundle → [RewriteService] → [short_draft_to_shorts_script])
   ↓
 review_required 후보 (data/tak_marketing_contents.json) + brief.content_ids 연결
+  ↓ bridge (6-82: rewrite 검증을 거친 후보만, youtube → shorts)
+MEDIA Generation Pool (data/tak_media_generation_marketing-<brief_id>.json, unreviewed)
+  ↓ 사람: /media/generations 검토 → scripts/promote_media_generation.py 승격(기존 흐름)
+Production Archive → 기존 downstream / 성과 수집 → marketing insight ((content_id, generation_id) → brief_id)
 ```
+
+데이터 보존 정책, YouTube 정규화, bridge, lineage의 상세는 [6-82](6-82-marketing-persistence-and-media-bridge-plan.md)에 있다.
 
 기존 `generator.py` / `pipeline.py` / 발행 코드는 수정하지 않았다. 어댑터는 다음 기존 함수를 그대로 호출한다.
 
@@ -78,7 +84,9 @@ YouTube의 `shorts_script`는 재작성이 `rewritten`(검증 통과)일 때만 
   - 그래서 youtube 후보의 content_id는 같은 슬롯의 기존 shorts content_id와 같다. 둘은 generation_id로 구분한다.
   - blog/threads/shorts의 content_id는 이전과 같다.
 - 같은 `(brief_id, content_id)`는 다시 저장하지 않고, `link_content`는 중복 연결하지 않는다.
-- 쓰기는 기존 store와 같은 원자적 방식(tempfile + replace)이다. 이 파일은 `data/*.json` 규칙으로 git에 올라가지 않는다.
+- 쓰기는 기존 store와 같은 원자적 방식(tempfile + replace)이다.
+- 이 파일은 C/D(승격 전 후보)로 분류되어 git에 올라가지 않는다. audit/export에는 등록되어 있다(6-82).
+- bridge 후에는 `generation_id`와 `media_pool`이 기록된다.
 
 ## 사용
 
@@ -105,5 +113,8 @@ python scripts/marketing_brief.py --write generate BRIEF_ID --rewrite llm   # TA
 
 ## 한계 / 다음 단계
 
-- `review_required` 후보를 기존 MEDIA 검토 대시보드/아카이브로 넘기는 연결은 아직 없다. 지금은 파일로만 검토한다.
-- 브리프 1개는 플랫폼 1개만 생성한다. 여러 플랫폼은 플랫폼별 브리프를 각각 승인한다.
+- MEDIA 검토/아카이브 연결은 6-82의 `bridge`로 구현되었다.
+- 브리프 1개는 플랫폼 1개만 생성한다. 여러 플랫폼을 만들려면 플랫폼별 브리프를 각각 승인한다.
+- 브리프의 `knowledge_ids`를 사람이 지정하는 CLI는 아직 없다.
+  - 지금은 `draft --research`가 만든 KNOWLEDGE id만 자동으로 들어간다. 이 KNOWLEDGE는 pending이므로 기존 KNOWLEDGE 검토로 승인해야 생성에 쓸 수 있다.
+  - 이미 승인된 다른 KNOWLEDGE를 브리프에 붙이려면 브리프 파일을 직접 편집해야 한다.

@@ -1,6 +1,6 @@
-# 6-82 Marketing 데이터 보존 / YouTube 정합성 / Media Bridge 구현 계획
+# 6-82 Marketing 데이터 보존 / YouTube 정합성 / Media Bridge
 
-작성: 2026-10-04, 브랜치 `chore/untracked-file-triage-20261004` @ 1a60ed9. 6-81 조사 결과를 반영한 **구현 전 계획**이며, 이 문서를 쓰는 시점에는 코드를 수정하지 않았다.
+작성: 2026-10-04, 브랜치 `chore/untracked-file-triage-20261004` @ 1a60ed9. 6-81 조사 결과를 반영한 계획(0~7장)이며, 사용자 승인 후 구현했다. 구현 결과는 8장에 있다.
 
 ## 0. 추가 조사로 확인한 사실
 
@@ -130,3 +130,54 @@
 3. media_bridge, CLI `bridge`, 테스트
 4. lineage(models/store/insight)와 테스트
 5. E2E 테스트, 문서 갱신, 전체 테스트, diff check, secret scan
+
+## 8. 구현 결과
+
+| 단계 | 커밋 | 내용 |
+|---|---|---|
+| 1 | b60bde9 | 화이트리스트 4개, audit FILE_SPECS 5개, 6-81/6-82 문서, `test_marketing_persistence.py` |
+| 2 | 95c086c | `media_platform`/`media_content_id`, youtube content_id 정규화, 6-80 갱신 |
+| 3 | 0d21368 | `media_bridge.py`, CLI `bridge`, `test_marketing_media_bridge.py` |
+| 4 | 53710bd | `MediaGenerationRef`/`media_generations`, `link_media_generation`, `lineage.py`, generation 인식 insights, `test_marketing_lineage.py` |
+| 5 | 1f21e7c | `test_marketing_e2e_lineage.py` |
+
+계획에서 달라진 점:
+
+- export 스크립트는 수정하지 않았다. FILE_SPECS를 통해 자동으로 포함되므로 수정할 필요가 없었다.
+- 후보의 `draft_platform` 필드를 없애고 모든 플랫폼에 `media_platform`을 기록한다.
+- bridge 재실행 시 이미 `generation_id`가 있는 후보는 "이미 bridge됨"으로 건너뛴다. 새 generation을 만들지 않으므로 pool이 중복되지 않고 사람의 검토 상태도 그대로 남는다.
+- E2E의 승격은 `upsert_archive`를 직접 호출하지 않고 기존 `promote_media_generation.py` CLI(`--execute`)를 그대로 실행한다.
+
+### 불변조건과 테스트
+
+| 불변조건 | 고정한 테스트 |
+|---|---|
+| Marketing youtube → MEDIA shorts | `test_marketing_generation.MediaPlatformInvariantTests.test_media_platform_mapping`, `test_youtube_keeps_marketing_platform_and_normalizes_media_platform`, `test_marketing_media_bridge.MappingTests.test_youtube_candidate_becomes_shorts_batch_item_with_same_content_id` |
+| youtube의 media_content_id는 기존 shorts 기준 `compute_content_id`와 일치 | `MediaPlatformInvariantTests.test_youtube_media_content_id_matches_existing_shorts_rule`(`run_media_batch` + `MediaArchiveRecord.from_item`과 비교), `test_youtube_save_links_media_content_ids` |
+| 기존 blog/threads/shorts content_id는 변경하지 않음 | `MediaPlatformInvariantTests.test_blog_threads_shorts_content_ids_unchanged` |
+| (content_id, generation_id) lineage가 brief_id까지 추적 가능 | `test_marketing_lineage.*`, `test_marketing_media_bridge.CliTests.test_bridge_cli_records_lineage_in_brief`, `test_marketing_e2e_lineage.test_lineage_from_brief_to_insight`, `test_lineage_persisted_only_in_tracked_brief_file` |
+| 다른 generation(기존 배치)의 같은 슬롯 성과는 귀속하지 않음 | `test_marketing_e2e_lineage.test_same_slot_from_batch_generation_is_not_attributed`, `test_marketing_lineage.ResolveAndInsightTests` |
+| marketing candidate는 자동 승인/승격하지 않음 | `test_marketing_media_bridge.SafetyTests`, `PoolTests.test_pool_written_unreviewed_and_discovered`, E2E의 승인 전 `plan_batch_promotion` 결과가 모두 `skip`인지 확인 |
+| not_requested rewrite는 valid로 위장하지 않음 | `test_marketing_media_bridge.MappingTests.test_not_requested_is_never_valid`, `CliTests.test_bridge_cli_skips_not_requested` |
+| 기존 MEDIA 모듈은 수정하지 않음 | `SafetyTests.test_bridge_module_imports_only_pool_apis`(bridge가 쓰는 MEDIA API를 pool 쓰기 API로 한정, upsert_archive/save_archive/promote/publish 사용 금지). 파일 미변경은 아래 diff 검증으로 확인 |
+| 새 환경에서 market demand → idea → brief 참조 유지 | `test_marketing_persistence.FreshEnvironmentTests`(Git이 추적하는 파일만 복사한 새 환경), `GitPolicyTests` |
+
+"기존 MEDIA 모듈은 수정하지 않음"의 범위:
+
+- 테스트가 직접 고정하는 것은 bridge가 사용하는 MEDIA API의 범위다.
+- MEDIA 파일이 바뀌지 않았다는 사실은 테스트가 아니라 검증 절차로 확인했다(`git diff 52fb0bb HEAD`). 파일 해시를 테스트에 고정하면 앞으로의 정당한 MEDIA 수정까지 막기 때문이다.
+- 이번 작업 전체에서 아래 파일은 변경되지 않았다: `media_archive.py`, `pipeline.py`, `generator.py`, `shorts_adapter.py`, `publish_history.py`, `performance/*`, `run_scout_dashboard.py`, `promote_media_generation.py`, `export_operational_data.py`, publisher, `threads_review.py`, `blog_publish_pack.py`.
+
+### 운영 절차(요약)
+
+```
+python scripts/marketing_brief.py --write generate BRIEF_ID --rewrite mock|llm
+python scripts/marketing_brief.py bridge BRIEF_ID              # 미리보기
+python scripts/marketing_brief.py --write bridge BRIEF_ID      # pool 저장 + lineage 기록
+# 대시보드 /media/generations 에서 사람이 검토/승인
+python scripts/promote_media_generation.py --archive data/tak_media_generation_marketing-BRIEF_ID.json \
+    --production-archive data/tak_media_archive.json --generation-id GEN_ID          # dry-run 후 --execute
+git add data/tak_marketing_briefs.json ...   # A 파일 커밋은 사람이 결정(6-21 원칙)
+```
+
+같은 content_id의 다른 generation이 이미 production에 있으면 기존 promote가 `conflict`로 막는다. 그 경우의 처리(supersede 등)는 기존 6-17/6-18 절차를 따른다.
