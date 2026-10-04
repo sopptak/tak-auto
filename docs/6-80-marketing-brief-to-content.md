@@ -31,6 +31,7 @@ Production Archive → 기존 downstream / 성과 수집 → marketing insight (
 ```
 
 데이터 보존 정책, YouTube 정규화, bridge, lineage의 상세는 [6-82](6-82-marketing-persistence-and-media-bridge-plan.md)에 있다.
+실제 운영 순서대로 한 바퀴 검증한 결과는 [6-84](6-84-marketing-operational-e2e.md)에 있다.
 
 기존 `generator.py` / `pipeline.py` / 발행 코드는 수정하지 않았다. 어댑터는 다음 기존 함수를 그대로 호출한다.
 

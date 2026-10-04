@@ -4,7 +4,7 @@
 
 코드: `content_engine/marketing/knowledge_links.py`(판정), `content_engine/marketing/store.py`(`link_knowledge`/`unlink_knowledge`), `content_engine/marketing/generation.py`(게이트), CLI: `scripts/marketing_brief.py knowledge`
 테스트: `tests/test_marketing_knowledge_links.py`
-관련 문서: [6-80](6-80-marketing-brief-to-content.md), [6-82](6-82-marketing-persistence-and-media-bridge-plan.md)
+관련 문서: [6-80](6-80-marketing-brief-to-content.md), [6-82](6-82-marketing-persistence-and-media-bridge-plan.md), 운영 E2E: [6-84](6-84-marketing-operational-e2e.md)
 
 ## 왜 필요한가
 
@@ -73,7 +73,7 @@ MEDIA 계층(`media_archive.py`, `pipeline.py`, `generator.py`, `run_scout_dashb
 
 - 연결 시점의 KNOWLEDGE 품질(근거 단위 수)은 확인하지 않는다. 근거가 부족한 KNOWLEDGE는 기존처럼 generate 단계에서 `insufficient_distinct_evidence`로 건너뛴다.
 - 연결/해제 이력(누가, 언제)은 기록하지 않는다. 브리프 파일의 Git 이력이 감사 기록 역할을 한다.
-- `review` 출력에는 연결된 KNOWLEDGE의 현재 승인 상태가 표시되지 않는다. 확인하려면 `knowledge add` 미리보기를 쓴다.
+- (6-84에서 해결) 이제 `review`가 연결된 KNOWLEDGE별 현재 승인 상태와 생성 가능한 approved 건수를 출력한다.
 
 ## 검증 결과 (2026-10-04)
 
