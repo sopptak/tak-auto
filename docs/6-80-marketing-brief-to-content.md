@@ -50,6 +50,7 @@ Production Archive → 기존 downstream / 성과 수집 → marketing insight (
 - 브리프가 `approved`가 아님(`draft`, `suggested`) 또는 `rejected`
 - `platform`이 비어 있음(공통 브리프). `platforms`로 파생한 플랫폼 브리프를 승인해야 한다.
 - `readiness_blockers`가 남아 있음: 승인 이후에도 현재 내용으로 승인 조건(시장 근거, 대상/문제/행동, 핵심 요소, 점수/신뢰도)을 다시 확인한다.
+- 연결된 KNOWLEDGE가 하나도 없음(`knowledge_ids` 비어 있음, 6-83에서 `generation_blockers`에 추가)
 - `brief.knowledge_ids`와 일치하는 **approved** KNOWLEDGE가 없음 → 명시적 차단 사유 반환
 
 `save_candidates`는 저장 직전에 저장소의 브리프를 다시 읽어 같은 게이트를 재확인한다. 생성 후 사람이 브리프를 편집(→ draft)하거나 반려했다면 저장하지 않는다.
@@ -115,6 +116,5 @@ python scripts/marketing_brief.py --write generate BRIEF_ID --rewrite llm   # TA
 
 - MEDIA 검토/아카이브 연결은 6-82의 `bridge`로 구현되었다.
 - 브리프 1개는 플랫폼 1개만 생성한다. 여러 플랫폼을 만들려면 플랫폼별 브리프를 각각 승인한다.
-- 브리프의 `knowledge_ids`를 사람이 지정하는 CLI는 아직 없다.
-  - 지금은 `draft --research`가 만든 KNOWLEDGE id만 자동으로 들어간다. 이 KNOWLEDGE는 pending이므로 기존 KNOWLEDGE 검토로 승인해야 생성에 쓸 수 있다.
-  - 이미 승인된 다른 KNOWLEDGE를 브리프에 붙이려면 브리프 파일을 직접 편집해야 한다.
+- 브리프의 `knowledge_ids` 관리: 6-83에서 완료했다. `knowledge add|remove BRIEF_ID KNOWLEDGE_ID`로 approved KNOWLEDGE만 연결/해제하며, JSON을 직접 편집할 필요가 없다. 자세한 내용은 [6-83](6-83-marketing-knowledge-linking.md)에 있다.
+- 생성 게이트(`generation_blockers`)는 연결된 KNOWLEDGE가 없는 브리프도 차단한다(6-83).
