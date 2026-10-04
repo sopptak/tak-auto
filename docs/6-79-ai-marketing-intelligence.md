@@ -5,6 +5,7 @@
 코드: `content_engine/marketing/`, CLI: `scripts/marketing_brief.py`, 테스트: `tests/test_marketing.py`.
 
 승인된 브리프를 콘텐츠 생성에 연결하는 단계: [6-80 MarketingBrief → 콘텐츠 생성 연결](6-80-marketing-brief-to-content.md)
+기존 브리프에 Perplexity 조사 근거를 붙이는 단계: [6-85 Perplexity Research Provider 연결](6-85-perplexity-research-provider.md)
 
 ## 흐름
 

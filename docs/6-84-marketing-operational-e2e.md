@@ -149,3 +149,4 @@ happy path가 끝난 뒤 임시 `data/`에 있는 파일은 정확히 8개다(�
 - 리서치 KNOWLEDGE는 생성 입력이 되지 않는다. 생성용 KNOWLEDGE를 따로 준비해 연결해야 한다(4번).
 - Marketing 데이터 파일(A 등급)의 실제 커밋은 사람이 결정한다(6-82). 아직 운영 data에 마케팅 파일이 없다.
 - 실제 LLM(`--rewrite llm`)과 실제 리서치 provider로는 검증하지 않았다(외부 호출 금지 범위).
+  리서치 provider 연결과 안전 정책은 [6-85](6-85-perplexity-research-provider.md)에 있다(실제 smoke test는 키가 없어 미실행).
