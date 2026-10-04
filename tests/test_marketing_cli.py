@@ -149,6 +149,32 @@ class MarketingCliTests(unittest.TestCase):
         self.assertIn("TAK_MEDIA_LLM_API_KEY", err)
         urlopen.assert_not_called()
 
+    def test_review_shows_linked_knowledge_status(self):
+        (self.data / "tak_brain_knowledge.json").write_text(json.dumps(
+            [knowledge().to_dict(), knowledge("knowledge-pending", status="pending").to_dict()], ensure_ascii=False),
+            encoding="utf-8")
+        brief = self.add(approved_brief("blog", knowledge_ids=("knowledge-gen-1", "knowledge-pending", "gone")))
+        code, out, _ = self.run_cli("review", brief.brief_id)
+        self.assertEqual(code, 0)
+        self.assertIn("연결된 KNOWLEDGE 3건 (생성 가능한 approved KNOWLEDGE 1건)", out)
+        self.assertIn("knowledge-gen-1 [approved]", out)
+        self.assertIn("knowledge-pending [pending]", out)
+        self.assertIn("gone [없음]", out)
+
+    def test_insights_prints_attribution(self):
+        from content_engine.marketing import MediaGenerationRef
+        from content_engine.performance.models import PerformanceRecord
+        from content_engine.performance.store import append_snapshot
+        brief = self.add(replace(approved_brief("youtube"), content_ids=("content-a",),
+                                 media_generations=(MediaGenerationRef("content-a", "gen-1"),)))
+        append_snapshot(self.data / "tak_performance.json", PerformanceRecord(
+            content_id="content-a", knowledge_id="k", platform="youtube", published_at="2026-10-04T00:00:00+00:00",
+            metric_collected_at="2026-10-05T00:00:00+00:00", metrics={"views": 10, "clicks": 1}, generation_id="gen-1"))
+        code, out, _ = self.run_cli("insights")
+        self.assertEqual(code, 0)
+        self.assertIn(f"- brief={brief.brief_id} platform=youtube content=content-a generation=gen-1 attention=10.0", out)
+        self.assertIn("conversion_rate=0.1", out)
+
 
 if __name__ == "__main__":
     unittest.main()

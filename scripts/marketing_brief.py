@@ -83,7 +83,7 @@ def _rewrite_provider(name: str | None):
     return OpenAICompatibleRewriteProvider.from_environment()
 
 
-def _print_review(brief, suggestions) -> None:
+def _print_review(brief, suggestions, knowledge_records=()) -> None:
     score = score_brief(brief)
     print(f"{brief.brief_id} [{brief.status}] platform={brief.platform or '공통'} topic={brief.topic}")
     print(f"점수 total={score.total_score} confidence={score.confidence} profile={score.profile}")
@@ -97,6 +97,11 @@ def _print_review(brief, suggestions) -> None:
     print(f"대기 중인 제안 {len(pending)}건")
     for item in pending:
         print(f"  {item.suggestion_id} {item.key} (confidence {item.confidence}, {item.basis}): {item.suggested_value}")
+    statuses = {record.id: record.knowledge_review_status for record in knowledge_records}
+    usable = [kid for kid in brief.knowledge_ids if statuses.get(kid) == "approved"]
+    print(f"연결된 KNOWLEDGE {len(brief.knowledge_ids)}건 (생성 가능한 approved KNOWLEDGE {len(usable)}건)")
+    for kid in brief.knowledge_ids:
+        print(f"  {kid} [{statuses.get(kid, '없음')}]")
     blockers = approval_blockers(brief)
     print("승인 차단:", " / ".join(blockers) if blockers else "없음(approve 가능)")
     blockers = generation_blockers(brief)
@@ -248,6 +253,10 @@ def main(argv: list[str] | None = None) -> int:
             archive = load_archive(archive_path) if archive_path.exists() else None
             insights = collect_marketing_insights(load_briefs(briefs_path), snapshots, archive)
             print(f"연결된 콘텐츠 성과 {len(insights)}건")
+            for item in insights:
+                observed = " ".join(f"{key}={value}" for key, value in item.observed.items() if value is not None)
+                print(f"- brief={item.brief_id} platform={item.platform} content={item.content_id} "
+                      f"generation={item.generation_id or '-'} {observed} (수집 {item.metric_collected_at})")
             for metric in ("conversion_rate", "engagement_rate"):
                 for attribute, row in attribute_lift(insights, metric).items():
                     if row["lift"] is not None:
@@ -263,7 +272,9 @@ def main(argv: list[str] | None = None) -> int:
                 print("(미리보기: 저장하려면 --write)")
         elif args.command == "review":
             suggestions = load_suggestions(suggestions_path) if suggestions_path.exists() else []
-            _print_review(_find(load_briefs(briefs_path), args.brief_id), suggestions)
+            knowledge_path = data / "tak_brain_knowledge.json"
+            records = load_knowledge_records(knowledge_path) if knowledge_path.exists() else []
+            _print_review(_find(load_briefs(briefs_path), args.brief_id), suggestions, records)
         elif args.command == "set":
             updated = update_element(briefs_path, args.brief_id, args.key, args.value)
             print(f"{args.key} 저장, status={updated.status}")
