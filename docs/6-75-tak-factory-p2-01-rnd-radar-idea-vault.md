@@ -92,6 +92,7 @@ P1 Threads Performance Collection 코드는 변경하지 않았다. IDEA의 `rel
 
 ## 완료 기록
 
+- 변경 파일: `.gitignore`, `data/tak_rnd_items.json`, `data/tak_idea_vault.json`, `tak_rnd/__init__.py`, `tak_rnd/models.py`, `tak_rnd/store.py`, `scripts/tak_rnd.py`, `tests/test_rnd_radar.py`, `tests/test_rnd_cli.py`, 본 문서.
 - 기준 원격: `origin/main` = `fa9eb32` (2026-10-04 확인)
 - 작업 branch: `p2-01-rnd-radar`
 - 구현 commit SHA: `cdef92d` (`feat: add TAK AUTO R&D radar and idea vault`)
