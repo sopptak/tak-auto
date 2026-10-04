@@ -50,3 +50,20 @@ data/tak_interview_questions.md
 # 6-55: Shorts Studio 로컬 Draft/이미지 asset - 사람이 편집 중인 작업 상태(Production Archive 아님)
 data/shorts_drafts/
 data/shorts_assets/
+
+# 84개 untracked 파일 정리(2026-10-04): 아래는 모두 Production
+# Archive(data/tak_media_archive.json)로부터 언제든 다시 만들 수 있는 로컬
+# 산출물이라 shorts_drafts/shorts_assets와 같은 원칙으로 git에 넣지 않는다.
+# - data/shorts/*.mp4: 로컬 QA 렌더링 테스트 영상(대용량 바이너리, Git LFS도
+#   불필요 - Production Archive 자체가 아니라 렌더러 품질 확인용 산출물).
+data/shorts/*.mp4
+# - data/shorts_scripts/: scripts/generate_approved_shorts_script.py가 승인된
+#   content_id마다 다시 만들 수 있는 ShortsScript JSON 저장소.
+data/shorts_scripts/
+# - data/blog_publish_pack_daily.md: scripts/generate_blog_publish_pack.py가
+#   Production Archive에서 매번 다시 만드는 게시 후보 Markdown(사람이 직접
+#   작성한 data/blog_draft_*.md와는 다르다 - 그 파일들은 추적 대상이다).
+data/blog_publish_pack_daily.md
+
+# Firebase CLI 로컬 캐시(머신별 산출물, 소스 아님).
+.firebase/
