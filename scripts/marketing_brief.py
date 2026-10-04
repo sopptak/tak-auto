@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AI Marketing Intelligence CLI. draft/platforms/suggest/generate/bridge는 기본이 미리보기이며 --write가 있어야 data/에 저장한다.
+"""AI Marketing Intelligence CLI. draft/platforms/suggest/generate/bridge/knowledge는 기본이 미리보기이며 --write가 있어야 data/에 저장한다.
 
   draft IDEA_ID [--research PROVIDER]  아이디어 -> (리서치 -> pending KNOWLEDGE) -> 브리프 초안
   score BRIEF_ID                        마케팅 점수(조회/참여/전환 분리)
@@ -16,6 +16,9 @@
   suggestion accept|reject SUGGESTION_ID  제안 반영/거절
   generate BRIEF_ID [--rewrite mock|llm]  승인 브리프 -> 기존 생성기 -> review_required 후보
                                         (기본 미리보기, --write일 때만 data/tak_marketing_contents.json 저장)
+  knowledge add|remove BRIEF_ID KNOWLEDGE_ID
+                                        브리프와 approved KNOWLEDGE 연결/해제(기본 미리보기, --write일 때만 저장).
+                                        knowledge_ids만 바꾸며 브리프 승인/콘텐츠/lineage는 그대로 둔다
   bridge BRIEF_ID                       저장된 후보 -> 기존 MEDIA generation pool(unreviewed)
                                         (기본 미리보기, --write일 때만 data/tak_media_generation_marketing-<brief_id>.json).
                                         검토는 대시보드 /media/generations, 승격은 scripts/promote_media_generation.py
@@ -37,7 +40,8 @@ if str(ROOT) not in sys.path:
 
 from content_engine.market_demand import load_demands, load_ideas
 from content_engine.marketing import (
-    CONTENTS_FILE, MarketingError, append_briefs, link_media_generation, bridge_to_generation_pool, load_candidates, mark_bridged, plan_bridge,
+    CONTENTS_FILE, MarketingError, append_briefs, check_knowledge_link, check_knowledge_unlink, link_knowledge,
+    link_media_generation, unlink_knowledge, bridge_to_generation_pool, load_candidates, mark_bridged, plan_bridge,
     pool_path_for, append_suggestions, approval_blockers, attribute_lift,
     brief_from_idea, build_content_prompt, collect_marketing_insights, derive_all_platform_briefs, generate_candidates,
     generation_blockers, link_content, load_briefs, load_suggestions, render_prompt_text, research_idea,
@@ -115,6 +119,48 @@ def _print_candidates(result) -> None:
         print(f"사유: {reason}")
 
 
+def _knowledge_command(args, briefs_path: Path, knowledge_path: Path) -> int:
+    brief = _find(load_briefs(briefs_path), args.brief_id)
+    print(f"brief_id: {brief.brief_id} (status={brief.status})")
+    print(f"knowledge_id: {args.knowledge_id}")
+    if args.action == "add":
+        records = load_knowledge_records(knowledge_path) if knowledge_path.exists() else []
+        check = check_knowledge_link(brief, args.knowledge_id, records)
+        print(f"KNOWLEDGE 존재: {'예' if check.exists else '아니오'}")
+        print(f"KNOWLEDGE status: {check.knowledge_status or '-'} (approved: {'예' if check.approved else '아니오'})")
+        print(f"이미 연결됨: {'예' if check.already_linked else '아니오'}")
+        if check.blockers:
+            print("연결 불가: " + " / ".join(check.blockers))
+            return 2
+        if check.already_linked:
+            print("이미 연결되어 있습니다. 변경하지 않습니다.")
+            return 0
+        print("연결 가능. 브리프 승인 상태는 바뀌지 않습니다.")
+        if args.write:
+            linked = link_knowledge(briefs_path, brief.brief_id, args.knowledge_id, records)
+            print(f"저장: knowledge_ids={list(linked.knowledge_ids)}")
+        else:
+            print("(미리보기: 저장하려면 --write)")
+        return 0
+    check = check_knowledge_unlink(brief, args.knowledge_id)
+    print(f"연결됨: {'예' if check.linked else '아니오'}")
+    print(f"제거 후 knowledge_ids: {list(check.remaining)}")
+    for warning in check.warnings:
+        print(f"경고: {warning}")
+    if check.blockers:
+        print("해제 불가: " + " / ".join(check.blockers))
+        return 2
+    if args.write:
+        unlinked = unlink_knowledge(briefs_path, brief.brief_id, args.knowledge_id)
+        print(f"저장: knowledge_ids={list(unlinked.knowledge_ids)} (콘텐츠/MEDIA/성과/lineage는 변경하지 않음)")
+        blockers = generation_blockers(unlinked)
+        if blockers:
+            print("생성 차단: " + " / ".join(blockers))
+    else:
+        print("(미리보기: 저장하려면 --write)")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--data-dir", type=Path, default=ROOT / "data")
@@ -150,6 +196,10 @@ def main(argv: list[str] | None = None) -> int:
     generate.add_argument("brief_id")
     generate.add_argument("--rewrite", choices=("mock", "llm"), help="생략하면 규칙 기반 초안만(재작성 없음)")
     sub.add_parser("bridge").add_argument("brief_id")
+    knowledge_cmd = sub.add_parser("knowledge")
+    knowledge_cmd.add_argument("action", choices=("add", "remove"))
+    knowledge_cmd.add_argument("brief_id")
+    knowledge_cmd.add_argument("knowledge_id")
     args = parser.parse_args(argv)
 
     data = args.data_dir
@@ -238,6 +288,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"저장: 후보 {saved}건(review_required), 브리프 연결 {len(result.candidates)}건. 발행하지 않습니다.")
             elif not args.write:
                 print("(미리보기: 저장하려면 --write. 저장해도 review_required이며 발행하지 않습니다)")
+        elif args.command == "knowledge":
+            return _knowledge_command(args, briefs_path, data / "tak_brain_knowledge.json")
         elif args.command == "bridge":
             brief = _find(load_briefs(briefs_path), args.brief_id)
             candidates = load_candidates(data / CONTENTS_FILE, brief.brief_id)

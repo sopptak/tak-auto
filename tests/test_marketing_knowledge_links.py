@@ -129,5 +129,103 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(MarketingBrief.from_dict(saved), linked)
 
 
+class CliTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.data = Path(self.tmp.name)
+        self.briefs = self.data / "tak_marketing_briefs.json"
+        (self.data / "tak_brain_knowledge.json").write_text(
+            json.dumps([record.to_dict() for record in RECORDS], ensure_ascii=False), encoding="utf-8")
+        self.brief = approved_brief("youtube", knowledge_ids=("k-approved",))
+        append_briefs(self.briefs, [self.brief])
+
+    def run_cli(self, *args):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.main(["--data-dir", str(self.data), *args])
+        return code, out.getvalue() + err.getvalue()
+
+    def stored(self):
+        return load_briefs(self.briefs)[0]
+
+    def test_add_preview_shows_fields_and_does_not_write(self):
+        before = self.briefs.read_bytes()
+        code, out = self.run_cli("knowledge", "add", self.brief.brief_id, "k-approved-2")
+        self.assertEqual(code, 0)
+        for text in (self.brief.brief_id, "k-approved-2", "KNOWLEDGE 존재: 예", "KNOWLEDGE status: approved",
+                     "approved: 예", "이미 연결됨: 아니오", "연결 가능", "미리보기"):
+            self.assertIn(text, out)
+        self.assertEqual(self.briefs.read_bytes(), before)
+
+    def test_add_write_saves(self):
+        code, out = self.run_cli("--write", "knowledge", "add", self.brief.brief_id, "k-approved-2")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.stored().knowledge_ids, ("k-approved", "k-approved-2"))
+        self.assertEqual(self.stored().status, "approved")
+
+    def test_add_blocked_cases(self):
+        before = self.briefs.read_bytes()
+        for kid, text in (("k-pending", "현재 pending"), ("k-rejected", "현재 rejected"),
+                          ("k-missing", "KNOWLEDGE 존재: 아니오")):
+            code, out = self.run_cli("--write", "knowledge", "add", self.brief.brief_id, kid)
+            self.assertEqual(code, 2, kid)
+            self.assertIn(text, out)
+            self.assertIn("연결 불가", out)
+        self.assertEqual(self.briefs.read_bytes(), before)
+
+    def test_add_duplicate_reported(self):
+        before = self.briefs.read_bytes()
+        code, out = self.run_cli("--write", "knowledge", "add", self.brief.brief_id, "k-approved")
+        self.assertEqual(code, 0)
+        self.assertIn("이미 연결됨: 예", out)
+        self.assertEqual(self.briefs.read_bytes(), before)
+
+    def test_add_to_rejected_brief_blocked(self):
+        rejected = approved_brief("blog", status="rejected")
+        append_briefs(self.briefs, [rejected])
+        code, out = self.run_cli("--write", "knowledge", "add", rejected.brief_id, "k-approved-2")
+        self.assertEqual(code, 2)
+        self.assertIn("rejected 브리프", out)
+
+    def test_remove_preview_then_write_last_knowledge(self):
+        before = self.briefs.read_bytes()
+        code, out = self.run_cli("knowledge", "remove", self.brief.brief_id, "k-approved")
+        self.assertEqual(code, 0)
+        self.assertIn("마지막 KNOWLEDGE", out)
+        self.assertIn("미리보기", out)
+        self.assertEqual(self.briefs.read_bytes(), before)
+
+        code, out = self.run_cli("--write", "knowledge", "remove", self.brief.brief_id, "k-approved")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.stored().knowledge_ids, ())
+        self.assertIn("생성 차단", out)
+        self.assertIn("연결된 KNOWLEDGE 없음", out)
+        code, out = self.run_cli("--write", "generate", self.brief.brief_id, "--rewrite", "mock")
+        self.assertEqual(code, 2)
+        self.assertIn("연결된 KNOWLEDGE 없음", out)
+
+    def test_remove_not_linked(self):
+        code, out = self.run_cli("--write", "knowledge", "remove", self.brief.brief_id, "k-approved-2")
+        self.assertEqual(code, 2)
+        self.assertIn("연결되어 있지 않은", out)
+
+    def test_remove_keeps_generated_media_and_performance_data(self):
+        self.assertEqual(self.run_cli("--write", "generate", self.brief.brief_id, "--rewrite", "mock")[0], 0)
+        self.assertEqual(self.run_cli("--write", "bridge", self.brief.brief_id)[0], 0)
+        (self.data / "tak_media_archive.json").write_text('[{"sentinel": "production"}]', encoding="utf-8")
+        (self.data / "tak_performance.json").write_text('[{"sentinel": "performance"}]', encoding="utf-8")
+        before_brief = self.stored()
+        self.assertTrue(before_brief.media_generations)
+        others = sorted(path for path in self.data.iterdir() if path != self.briefs)
+        snapshot = {path.name: path.read_bytes() for path in others}
+
+        self.assertEqual(self.run_cli("--write", "knowledge", "remove", self.brief.brief_id, "k-approved")[0], 0)
+        after_brief = self.stored()
+        self.assertEqual(after_brief, replace(before_brief, knowledge_ids=()))
+        self.assertEqual(sorted(path for path in self.data.iterdir() if path != self.briefs), others)
+        self.assertEqual({path.name: path.read_bytes() for path in others}, snapshot)
+
+
 if __name__ == "__main__":
     unittest.main()
