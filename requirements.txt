@@ -1,0 +1,8 @@
+# TAK AUTO 저장소 전체는 원칙적으로 표준 라이브러리만 사용한다
+# (content_engine/youtube_publisher.py, threads_publisher.py 등 참고).
+#
+# 예외: content_engine/shorts_renderer.py는 "티몽의 지혜" 브랜드 카드뉴스 Shorts를
+# 이미지로 합성해야 해서 Pillow가 필요하다. 영상 인코딩 자체는 시스템에 이미
+# 설치된 ffmpeg(subprocess 호출)를 그대로 사용하고 별도 Python 패키지를 추가하지
+# 않는다.
+Pillow>=10.0,<13.0
