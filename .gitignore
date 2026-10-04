@@ -41,6 +41,18 @@ data/*.json
 # 수 있다.
 !data/tak_media_archive.json
 
+# 6-82: Market Demand -> Idea -> MarketingBrief 계층의 원천 입력과 사람의 결정.
+# tak_market_demands.json은 수동 입력 원천 데이터이고 tak_idea_candidates.json이
+# demand_ids로 참조한다(없으면 marketing_brief.py draft가 실패). 브리프/제안 파일에는
+# 사람의 승인/반려/편집/accept 결정과 (content_id, generation_id) -> brief_id lineage가
+# 있다. tak_media_archive.json과 같은 원칙: 화이트리스트는 커밋을 허용할 뿐이며 실제
+# 커밋은 사람이 결정한다. tak_marketing_contents.json(승격 전 후보)은 generation pool과
+# 같은 C/D 등급이라 계속 무시한다(docs/6-82).
+!data/tak_market_demands.json
+!data/tak_idea_candidates.json
+!data/tak_marketing_briefs.json
+!data/tak_marketing_suggestions.json
+
 # TAK SCOUT/INTERVIEW 산출물도 매 실행마다 새로 생성/덮어쓰는 휘발성 파일이다.
 # data/scout_sources.json(설정)만 추적 대상이고, 나머지는 로컬 산출물이다.
 data/tak_scout_daily.md

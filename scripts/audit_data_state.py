@@ -134,6 +134,35 @@ FILE_SPECS: tuple[DataFileSpec, ...] = (
         "scripts/generate_blog_publish_pack.py가 매 실행마다 새로 생성. "
         "daily-media-prepare.yml에서 workflow artifact로만 보존(14일).",
     ),
+    # 6-82: Market Demand -> Idea -> MarketingBrief 계층(docs/6-82).
+    DataFileSpec(
+        "data/tak_market_demands.json",
+        "A: 원천 입력 (Git 추적)",
+        "scripts/market_demand.py --write가 추가하는 수동 입력 시장 수요. "
+        "tak_idea_candidates.json이 demand_ids로 참조한다.",
+    ),
+    DataFileSpec(
+        "data/tak_idea_candidates.json",
+        "A: 운영 상태 (Git 추적)",
+        "시장 수요에서 만든 아이디어 후보와 상태. marketing_brief.py draft의 입력.",
+    ),
+    DataFileSpec(
+        "data/tak_marketing_briefs.json",
+        "A: 운영 상태 (Git 추적)",
+        "MarketingBrief와 사람의 승인/반려/편집 결정, content_ids와 "
+        "(content_id, generation_id) -> brief_id lineage.",
+    ),
+    DataFileSpec(
+        "data/tak_marketing_suggestions.json",
+        "A: 운영 상태 (Git 추적)",
+        "브리프 빈칸 제안과 사람의 accept/reject 결정.",
+    ),
+    DataFileSpec(
+        "data/tak_marketing_contents.json",
+        "C/D: 승격 전 후보 (Git 미추적)",
+        "marketing_brief.py --write generate가 저장하는 review_required 후보. generation pool과 "
+        "같은 등급 - 사람의 결정과 lineage는 브리프/pool/production archive에 있다.",
+    ),
 )
 
 DIR_SPECS: tuple[DataDirSpec, ...] = (
