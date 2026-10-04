@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>개인정보처리방침 - 티몽의 지혜</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0;
+      padding: 24px 16px 48px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+        "Noto Sans KR", Arial, sans-serif;
+      line-height: 1.7;
+      max-width: 640px;
+      margin-left: auto;
+      margin-right: auto;
+      color: #1c1c1e;
+      background: #ffffff;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    h2 { font-size: 1.1rem; margin-top: 2rem; }
+    p.meta { color: #6b7280; font-size: 0.9rem; }
+    ul { padding-left: 1.25rem; }
+    li { margin-bottom: 0.4rem; }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e5e7eb;
+      font-size: 0.9rem;
+      color: #6b7280;
+    }
+    footer a { color: inherit; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #111114; color: #f4f4f5; }
+      p.meta { color: #a1a1aa; }
+      footer { border-top-color: #27272a; color: #a1a1aa; }
+    }
+  </style>
+</head>
+<body>
+  <h1>개인정보처리방침</h1>
+  <p class="meta">서비스: 티몽의 지혜 (개인 콘텐츠 자동화 프로젝트)</p>
+
+  <h2>1. 개요</h2>
+  <p>
+    "티몽의 지혜"는 운영자 1인이 자신의 채널에 게시할 콘텐츠를 기획·정리·제작·게시하는
+    개인 콘텐츠 자동화 프로젝트입니다. 이 웹페이지 자체는 방문자로부터 이름, 이메일,
+    쿠키, 접속 로그 등 어떠한 개인정보도 수집하지 않는 정적(static) 안내 페이지입니다.
+  </p>
+  <p>
+    이 문서는 본 프로젝트가 <strong>Google OAuth 2.0 및 YouTube Data API</strong>를
+    사용할 때 처리하는 인증정보의 범위와 관리 방식을 설명하기 위해 작성되었습니다.
+  </p>
+
+  <h2>2. Google OAuth 및 YouTube API 사용</h2>
+  <ul>
+    <li>운영자 본인이 소유한 YouTube 채널의 계정 인증을 위해 Google OAuth 2.0을 사용할 수 있습니다.</li>
+    <li>YouTube에 영상을 업로드하는 기능을 위해 필요한 최소한의 권한을 요청합니다.</li>
+    <li>콘텐츠 업로드를 위해 YouTube Data API를 사용할 수 있습니다.</li>
+  </ul>
+
+  <h2>3. 처리하는 인증정보와 관리 방식</h2>
+  <ul>
+    <li>Google OAuth 인증 과정에서 발급되는 Access Token / Refresh Token을 사용합니다.</li>
+    <li>이 인증정보는 안전하게 관리하며, 소스코드나 GitHub 등 공개 저장소(Git)에는 저장하지 않습니다.</li>
+    <li>인증정보는 운영자 본인의 YouTube 채널에 콘텐츠를 업로드하는 용도로만 사용하며, 제3자에게 제공하거나 판매하지 않습니다.</li>
+    <li>인증정보는 운영자가 접근 권한을 철회하거나 프로젝트 운영을 종료할 때까지 보관합니다.</li>
+  </ul>
+
+  <h2>4. 접근 권한 철회 방법</h2>
+  <p>
+    사용자는 언제든지 본인의 Google 계정에서 이 애플리케이션에 부여한 접근 권한을
+    철회할 수 있습니다.
+    <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">
+      Google 계정 &rarr; 보안 &rarr; 타사 앱 및 서비스 액세스 관리
+    </a>
+    페이지에서 확인 및 철회할 수 있습니다.
+  </p>
+
+  <h2>5. 수집하지 않는 정보</h2>
+  <p>
+    본 프로젝트는 이 웹페이지 방문자를 대상으로 별도의 회원가입, 로그인, 광고 추적,
+    분석(analytics) 쿠키 등을 운영하지 않으며, 위에서 설명한 OAuth 인증정보 외에는
+    개인정보를 수집·처리하지 않습니다.
+  </p>
+
+  <h2>6. 문의</h2>
+  <p>
+    본 방침에 대한 문의는 프로젝트 운영자에게 이메일로 연락해 주시기 바랍니다.<br>
+    이메일: <a href="mailto:mygolfdiary01@gmail.com">mygolfdiary01@gmail.com</a>
+  </p>
+
+  <h2>7. 변경 사항 고지</h2>
+  <p>
+    본 방침의 내용은 서비스 변경에 따라 수정될 수 있으며, 변경 시 이 페이지를 통해
+    고지합니다.
+  </p>
+  <p class="meta">최초 게시일: 2026-09-17</p>
+
+  <footer>
+    <p><a href="/">홈으로 돌아가기</a></p>
+  </footer>
+</body>
+</html>

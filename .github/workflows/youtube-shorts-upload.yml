@@ -1,0 +1,122 @@
+name: TAK YouTube Shorts Upload (scaffold, manual only)
+
+# 5-13 단계: "완성된 MP4 -> YouTube Shorts 업로드"만 담당하는 workflow 구조.
+# scripts/upload_youtube_short.py(무수정 재사용)를 사람이 직접 workflow_dispatch로
+# 실행하는 구조만 만든다 - schedule(cron) 트리거는 의도적으로 아직 넣지 않는다.
+# 다음 단계에서 영상 생성 파이프라인(TAK MEDIA Shorts 렌더링)과 이 workflow를
+# 연결하거나 cron을 추가하는 것을 검토한다.
+#
+# 이 workflow는 기존 daily-threads-post.yml, publish-approved-threads.yml을
+# 전혀 참조하거나 수정하지 않는다. Threads/TAK BRAIN 자동화와 완전히 독립적이다.
+on:
+  workflow_dispatch:
+    inputs:
+      video_path:
+        description: "업로드할 9:16 MP4 파일 경로 (저장소 내 경로)"
+        required: true
+        type: string
+      title:
+        description: "영상 제목 (최대 100자)"
+        required: true
+        type: string
+      description:
+        description: "영상 설명"
+        required: false
+        default: ""
+        type: string
+      tags:
+        description: "쉼표(,)로 구분한 해시태그/키워드"
+        required: false
+        default: ""
+        type: string
+      privacy:
+        description: "공개 상태"
+        required: true
+        default: "private"
+        type: choice
+        options:
+          - private
+          - unlisted
+          - public
+      dry_run:
+        description: "실제 YouTube 업로드 없이 미리보기만 (true = 미리보기, false = 실제 업로드)"
+        required: true
+        default: true
+        type: boolean
+
+# 업로드 이력 파일(data/youtube_publish_log.json)을 이 workflow가 직접 commit/push한다.
+permissions:
+  contents: write
+
+concurrency:
+  group: youtube-shorts-upload
+  cancel-in-progress: false
+
+jobs:
+  upload-short:
+    name: Upload YouTube Short (workflow_dispatch only)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Show Python version
+        run: python3 --version
+
+      - name: Run existing test suite
+        run: python3 -m unittest discover -s tests -p 'test*.py'
+
+      # dry-run 스텝: 토큰 환경변수를 아예 넘기지 않는다 - --dry-run 경로는
+      # YouTubeClient.from_environment() 호출 지점 자체에 도달하지 않는다.
+      - name: Upload YouTube Short (dry-run, no actual upload)
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          python3 scripts/upload_youtube_short.py \
+            --video "${{ github.event.inputs.video_path }}" \
+            --title "${{ github.event.inputs.title }}" \
+            --description "${{ github.event.inputs.description }}" \
+            --tags "${{ github.event.inputs.tags }}" \
+            --privacy "${{ github.event.inputs.privacy }}" \
+            --dry-run
+
+      - name: Upload YouTube Short (live, actual upload)
+        if: github.event.inputs.dry_run == 'false'
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          python3 scripts/upload_youtube_short.py \
+            --video "${{ github.event.inputs.video_path }}" \
+            --title "${{ github.event.inputs.title }}" \
+            --description "${{ github.event.inputs.description }}" \
+            --tags "${{ github.event.inputs.tags }}" \
+            --privacy "${{ github.event.inputs.privacy }}"
+
+      - name: Check for upload history changes
+        id: upload_diff
+        if: always()
+        run: |
+          if [ -f data/youtube_publish_log.json ]; then
+            git add data/youtube_publish_log.json
+            if git diff --cached --quiet -- data/youtube_publish_log.json; then
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push upload history
+        if: steps.upload_diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: update YouTube Shorts upload history"
+          git push
