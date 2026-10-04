@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AI Marketing Intelligence CLI. draft/platforms/suggest/generate는 기본이 미리보기이며 --write가 있어야 data/에 저장한다.
+"""AI Marketing Intelligence CLI. draft/platforms/suggest/generate/bridge는 기본이 미리보기이며 --write가 있어야 data/에 저장한다.
 
   draft IDEA_ID [--research PROVIDER]  아이디어 -> (리서치 -> pending KNOWLEDGE) -> 브리프 초안
   score BRIEF_ID                        마케팅 점수(조회/참여/전환 분리)
@@ -16,6 +16,9 @@
   suggestion accept|reject SUGGESTION_ID  제안 반영/거절
   generate BRIEF_ID [--rewrite mock|llm]  승인 브리프 -> 기존 생성기 -> review_required 후보
                                         (기본 미리보기, --write일 때만 data/tak_marketing_contents.json 저장)
+  bridge BRIEF_ID                       저장된 후보 -> 기존 MEDIA generation pool(unreviewed)
+                                        (기본 미리보기, --write일 때만 data/tak_media_generation_marketing-<brief_id>.json).
+                                        검토는 대시보드 /media/generations, 승격은 scripts/promote_media_generation.py
 
 set/approve/reject/suggestion/status/link는 사람의 결정이므로 실행 즉시 브리프 저장소에 반영된다.
 자동 발행은 하지 않는다. 외부 API는 --research 또는 generate --rewrite llm을 줄 때만 호출한다.
@@ -34,7 +37,8 @@ if str(ROOT) not in sys.path:
 
 from content_engine.market_demand import load_demands, load_ideas
 from content_engine.marketing import (
-    CONTENTS_FILE, MarketingError, append_briefs, append_suggestions, approval_blockers, attribute_lift,
+    CONTENTS_FILE, MarketingError, append_briefs, bridge_to_generation_pool, load_candidates, mark_bridged, plan_bridge,
+    pool_path_for, append_suggestions, approval_blockers, attribute_lift,
     brief_from_idea, build_content_prompt, collect_marketing_insights, derive_all_platform_briefs, generate_candidates,
     generation_blockers, link_content, load_briefs, load_suggestions, render_prompt_text, research_idea,
     resolve_suggestion, save_candidates, score_brief, set_brief_status, suggest_elements, update_element,
@@ -144,6 +148,7 @@ def main(argv: list[str] | None = None) -> int:
     generate = sub.add_parser("generate")
     generate.add_argument("brief_id")
     generate.add_argument("--rewrite", choices=("mock", "llm"), help="생략하면 규칙 기반 초안만(재작성 없음)")
+    sub.add_parser("bridge").add_argument("brief_id")
     args = parser.parse_args(argv)
 
     data = args.data_dir
@@ -230,6 +235,23 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"저장: 후보 {saved}건(review_required), 브리프 연결 {len(result.candidates)}건. 발행하지 않습니다.")
             elif not args.write:
                 print("(미리보기: 저장하려면 --write. 저장해도 review_required이며 발행하지 않습니다)")
+        elif args.command == "bridge":
+            brief = _find(load_briefs(briefs_path), args.brief_id)
+            candidates = load_candidates(data / CONTENTS_FILE, brief.brief_id)
+            plan = plan_bridge(brief, candidates)
+            pool = pool_path_for(data, brief.brief_id)
+            print(f"{brief.brief_id}: bridge 대상 {len(plan.items)}건 -> {pool.name} (review_status=unreviewed)")
+            for item, content_id in zip(plan.items, plan.content_ids):
+                print(f"- {content_id} {item.platform} generation_status={item.status}")
+            for reason in plan.skipped:
+                print(f"제외: {reason}")
+            if not args.write:
+                print("(미리보기: 저장하려면 --write. 승인/승격/발행은 하지 않습니다)")
+            elif plan.items:
+                result = bridge_to_generation_pool(brief, candidates, pool)
+                mark_bridged(data / CONTENTS_FILE, result)
+                print(f"저장: generation_id={result.generation_id}, {len(result.refs)}건. "
+                      "검토는 /media/generations, 승격은 promote_media_generation.py로 사람이 진행합니다.")
     except (MarketingError, ProviderError, ValueError, OSError) as error:
         print(f"오류: {error}", file=sys.stderr)
         return 2

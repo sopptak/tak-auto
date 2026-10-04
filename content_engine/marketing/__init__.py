@@ -6,6 +6,10 @@ from .briefs import (
 from .insight import (
     MarketingInsight, attribute_lift, collect_marketing_insights, marketing_attributes, split_metrics,
 )
+from .media_bridge import (
+    POOL_PREFIX, BridgePlan, BridgeResult, bridge_to_generation_pool, candidate_to_batch_item, load_candidates,
+    mark_bridged, plan_bridge, pool_path_for,
+)
 from .models import (
     BRIEF_STATUSES, DIMENSIONS, PLATFORMS, Design, Distribution, EvidenceItem, MarketingBrief, MarketingError,
     Psychology, Sales, Storytelling, compute_brief_id,
