@@ -63,6 +63,8 @@ def generation_blockers(brief: MarketingBrief) -> list[str]:
         blockers.append(f"approved 브리프만 생성할 수 있습니다(현재 {brief.status}).")
     if not brief.platform:
         blockers.append("플랫폼 브리프가 아닙니다(platform 없음). platforms로 파생한 브리프를 승인하세요.")
+    if not brief.knowledge_ids:
+        blockers.append("연결된 KNOWLEDGE 없음: knowledge add로 approved KNOWLEDGE를 연결하세요.")
     blockers += readiness_blockers(brief)
     return list(dict.fromkeys(blockers))
 

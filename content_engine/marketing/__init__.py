@@ -6,6 +6,9 @@ from .briefs import (
 from .insight import (
     MarketingInsight, attribute_lift, collect_marketing_insights, marketing_attributes, split_metrics,
 )
+from .knowledge_links import (
+    KnowledgeLinkCheck, KnowledgeUnlinkCheck, check_knowledge_link, check_knowledge_unlink,
+)
 from .lineage import active_generation_ids, resolve_brief, snapshot_generation_id
 from .media_bridge import (
     POOL_PREFIX, BridgePlan, BridgeResult, bridge_to_generation_pool, candidate_to_batch_item, load_candidates,
@@ -28,7 +31,7 @@ from .generation import (
     media_content_id, media_platform, save_candidates,
 )
 from .store import (
-    append_briefs, append_suggestions, link_content, link_media_generation, load_briefs, load_suggestions, resolve_suggestion,
+    append_briefs, append_suggestions, link_content, link_knowledge, link_media_generation, unlink_knowledge, load_briefs, load_suggestions, resolve_suggestion,
     set_brief_status, update_element,
 )
 from .suggestions import Suggestion, apply_suggestion, suggest_elements

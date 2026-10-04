@@ -11,8 +11,11 @@ import json
 from pathlib import Path
 import tempfile
 
+from tak_brain.models import KnowledgeRecord
+
 from .briefs import approval_blockers
 from .editing import set_element
+from .knowledge_links import check_knowledge_link, check_knowledge_unlink
 from .suggestions import Suggestion, apply_suggestion, with_status as suggestion_with_status
 from .models import (
     BRIEF_STATUSES, STATUS_APPROVED, STATUS_REJECTED, MarketingBrief, MarketingError, MediaGenerationRef,
@@ -90,6 +93,28 @@ def link_media_generation(path: Path | str, brief_id: str, content_id: str, gene
         content_ids = brief.content_ids if content_id in brief.content_ids else brief.content_ids + (content_id,)
         refs = brief.media_generations if ref in brief.media_generations else brief.media_generations + (ref,)
         return replace(brief, content_ids=content_ids, media_generations=refs)
+    return _update(path, brief_id, apply)
+
+
+def link_knowledge(path: Path | str, brief_id: str, knowledge_id: str, records: Sequence[KnowledgeRecord]) -> MarketingBrief:
+    """approved KNOWLEDGE를 브리프에 연결한다(knowledge_ids만 변경, 이미 연결되어 있으면 그대로)."""
+    def apply(brief: MarketingBrief) -> MarketingBrief:
+        check = check_knowledge_link(brief, knowledge_id, records)
+        if check.blockers:
+            raise MarketingError("KNOWLEDGE 연결 불가: " + " / ".join(check.blockers))
+        if check.already_linked:
+            return brief
+        return replace(brief, knowledge_ids=brief.knowledge_ids + (knowledge_id,))
+    return _update(path, brief_id, apply)
+
+
+def unlink_knowledge(path: Path | str, brief_id: str, knowledge_id: str) -> MarketingBrief:
+    """브리프에서 KNOWLEDGE 연결을 해제한다(knowledge_ids만 변경. status/content_ids/lineage는 그대로)."""
+    def apply(brief: MarketingBrief) -> MarketingBrief:
+        check = check_knowledge_unlink(brief, knowledge_id)
+        if check.blockers:
+            raise MarketingError("KNOWLEDGE 연결 해제 불가: " + " / ".join(check.blockers))
+        return replace(brief, knowledge_ids=check.remaining)
     return _update(path, brief_id, apply)
 
 
