@@ -94,5 +94,6 @@ P1 Threads Performance Collection 코드는 변경하지 않았다. IDEA의 `rel
 
 - 기준 원격: `origin/main` = `fa9eb32` (2026-10-04 확인)
 - 작업 branch: `p2-01-rnd-radar`
-- 구현 commit SHA: 작업 commit 후 여기에 기록
-- push 여부: 작업 branch push 결과에 따라 여기에 기록
+- 구현 commit SHA: `cdef92d` (`feat: add TAK AUTO R&D radar and idea vault`)
+- push 여부: 완료. `origin/p2-01-rnd-radar`에 push했고 `main`은 수정하지 않았다.
+- PR: 아직 생성하지 않았다. push 응답의 제안 URL은 `https://github.com/sopptak/tak-auto/pull/new/p2-01-rnd-radar`.
