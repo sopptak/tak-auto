@@ -8,11 +8,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
+from content_engine.media_archive import MediaArchiveRecord
 from content_engine.performance.models import PerformanceRecord
 
+from .lineage import active_generation_ids, snapshot_generation_id
 from .models import DIMENSIONS, MarketingBrief
 from .scoring import score_brief
 
@@ -54,17 +56,29 @@ class MarketingInsight:
     predicted: Mapping[str, float | None]  # attention/engagement/conversion/total
     observed: Mapping[str, float | None]  # split_metrics 결과
     metric_collected_at: str = ""
+    generation_id: str | None = None  # 귀속에 쓴 MEDIA generation(확인할 수 없으면 None)
 
     def to_dict(self) -> dict:
         return {"brief_id": self.brief_id, "content_id": self.content_id, "platform": self.platform,
                 "attributes": list(self.attributes), "predicted": dict(self.predicted),
-                "observed": dict(self.observed), "metric_collected_at": self.metric_collected_at}
+                "observed": dict(self.observed), "metric_collected_at": self.metric_collected_at,
+                "generation_id": self.generation_id}
 
 
 def collect_marketing_insights(
-    briefs: Sequence[MarketingBrief], latest_snapshots: Mapping[str, PerformanceRecord]
+    briefs: Sequence[MarketingBrief],
+    latest_snapshots: Mapping[str, PerformanceRecord],
+    archive_records: Iterable[MediaArchiveRecord] | None = None,
 ) -> list[MarketingInsight]:
-    """content_ids로 브리프와 연결된 콘텐츠의 최신 성과만 묶는다(연결 없는 성과는 무시)."""
+    """content_ids로 브리프와 연결된 콘텐츠의 최신 성과만 묶는다(연결 없는 성과는 무시).
+
+    브리프에 그 content_id의 media_generations(lineage)가 있으면 generation까지 맞는 성과만 귀속한다.
+    성과의 generation은 스냅샷의 generation_id, 없으면 ``archive_records``(production archive)의 활성
+    레코드에서 찾는다. 같은 content_id의 다른 generation(기존 배치 등) 성과는 브리프에 귀속하지 않는다.
+    generation을 확인할 근거가 전혀 없으면(archive_records 미지정 + 스냅샷 generation_id 없음) 기존처럼
+    content_id만으로 귀속한다(하위 호환).
+    """
+    active = active_generation_ids(archive_records) if archive_records is not None else None
     insights = []
     for brief in briefs:
         score = score_brief(brief)
@@ -74,10 +88,15 @@ def collect_marketing_insights(
             record = latest_snapshots.get(content_id)
             if record is None:
                 continue
+            generation_id = snapshot_generation_id(record, active)
+            expected = brief.generation_ids_for(content_id)
+            if expected and (record.generation_id or active is not None) and generation_id not in expected:
+                continue
             insights.append(MarketingInsight(
                 brief_id=brief.brief_id, content_id=content_id, platform=record.platform or brief.platform,
                 attributes=marketing_attributes(brief), predicted=predicted,
                 observed=split_metrics(record.metrics), metric_collected_at=record.metric_collected_at,
+                generation_id=generation_id,
             ))
     return insights
 

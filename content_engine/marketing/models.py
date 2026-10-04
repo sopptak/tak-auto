@@ -152,6 +152,25 @@ class EvidenceItem:
         return cls(**{key: str(data.get(key) or "") for key in ("kind", "title", "url", "snippet", "provider", "aspect")})
 
 
+@dataclass(frozen=True)
+class MediaGenerationRef:
+    """이 브리프에서 MEDIA generation pool로 넘어간 콘텐츠 1건: (content_id, generation_id) -> brief_id lineage."""
+
+    content_id: str
+    generation_id: str
+
+    def __post_init__(self) -> None:
+        if not self.content_id.strip() or not self.generation_id.strip():
+            raise MarketingError("media_generations 항목에는 content_id와 generation_id가 필요합니다.")
+
+    def to_dict(self) -> dict[str, str]:
+        return {"content_id": self.content_id, "generation_id": self.generation_id}
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "MediaGenerationRef":
+        return cls(content_id=str(data.get("content_id") or ""), generation_id=str(data.get("generation_id") or ""))
+
+
 def compute_brief_id(topic: str, platform: str, idea_id: str = "") -> str:
     raw = f"{idea_id}|{topic.strip().lower()}|{platform}"
     return "brief-" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
@@ -175,6 +194,9 @@ class MarketingBrief:
     idea_id: str = ""
     knowledge_ids: tuple[str, ...] = ()
     content_ids: tuple[str, ...] = ()  # 이 브리프로 만든 콘텐츠(성과 귀속용)
+    # MEDIA generation pool로 넘긴 (content_id, generation_id). 같은 content_id의 다른 generation(기존 배치 등)과
+    # 구분해 성과를 귀속하는 키. Git 추적 파일(tak_marketing_briefs.json)에 있어야 하므로 브리프에 둔다(6-82).
+    media_generations: tuple[MediaGenerationRef, ...] = ()
     status: str = STATUS_DRAFT
     requires_human_review: bool = True
     created_at: str = ""
@@ -198,6 +220,9 @@ class MarketingBrief:
         if bad:
             raise MarketingError(f"repurpose_targets에 알 수 없는 플랫폼: {bad}")
 
+    def generation_ids_for(self, content_id: str) -> frozenset[str]:
+        return frozenset(ref.generation_id for ref in self.media_generations if ref.content_id == content_id)
+
     def dimension(self, name: str) -> _Dimension:
         return getattr(self, name)
 
@@ -211,7 +236,8 @@ class MarketingBrief:
             "customer_problem": self.customer_problem, "desired_action": self.desired_action,
             "evidence": [item.to_dict() for item in self.evidence], "confidence": self.confidence,
             "platform": self.platform, "idea_id": self.idea_id, "knowledge_ids": list(self.knowledge_ids),
-            "content_ids": list(self.content_ids), "status": self.status,
+            "content_ids": list(self.content_ids),
+            "media_generations": [ref.to_dict() for ref in self.media_generations], "status": self.status,
             "requires_human_review": self.requires_human_review, "created_at": self.created_at,
         }
         for name in DIMENSIONS:
@@ -230,7 +256,9 @@ class MarketingBrief:
                 evidence=tuple(EvidenceItem.from_dict(item) for item in data.get("evidence") or ()),
                 confidence=float(data.get("confidence") or 0.0), platform=str(data.get("platform") or ""),
                 idea_id=str(data.get("idea_id") or ""), knowledge_ids=tuple(data.get("knowledge_ids") or ()),
-                content_ids=tuple(data.get("content_ids") or ()), status=str(data.get("status") or STATUS_DRAFT),
+                content_ids=tuple(data.get("content_ids") or ()),
+                media_generations=tuple(MediaGenerationRef.from_dict(item) for item in data.get("media_generations") or ()),
+                status=str(data.get("status") or STATUS_DRAFT),
                 requires_human_review=bool(data.get("requires_human_review", True)),
                 created_at=str(data.get("created_at") or ""), **dims,
             )

@@ -14,7 +14,9 @@ import tempfile
 from .briefs import approval_blockers
 from .editing import set_element
 from .suggestions import Suggestion, apply_suggestion, with_status as suggestion_with_status
-from .models import BRIEF_STATUSES, STATUS_APPROVED, STATUS_REJECTED, MarketingBrief, MarketingError
+from .models import (
+    BRIEF_STATUSES, STATUS_APPROVED, STATUS_REJECTED, MarketingBrief, MarketingError, MediaGenerationRef,
+)
 
 
 def _read(path: Path | str) -> list[dict]:
@@ -77,6 +79,17 @@ def link_content(path: Path | str, brief_id: str, content_id: str) -> MarketingB
         if content_id in brief.content_ids:
             return brief
         return replace(brief, content_ids=brief.content_ids + (content_id,))
+    return _update(path, brief_id, apply)
+
+
+def link_media_generation(path: Path | str, brief_id: str, content_id: str, generation_id: str) -> MarketingBrief:
+    """MEDIA pool로 넘긴 (content_id, generation_id)를 브리프에 기록한다(중복 없음). content_ids에도 연결한다."""
+    ref = MediaGenerationRef(content_id, generation_id)
+
+    def apply(brief: MarketingBrief) -> MarketingBrief:
+        content_ids = brief.content_ids if content_id in brief.content_ids else brief.content_ids + (content_id,)
+        refs = brief.media_generations if ref in brief.media_generations else brief.media_generations + (ref,)
+        return replace(brief, content_ids=content_ids, media_generations=refs)
     return _update(path, brief_id, apply)
 
 

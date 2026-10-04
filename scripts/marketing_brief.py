@@ -37,7 +37,7 @@ if str(ROOT) not in sys.path:
 
 from content_engine.market_demand import load_demands, load_ideas
 from content_engine.marketing import (
-    CONTENTS_FILE, MarketingError, append_briefs, bridge_to_generation_pool, load_candidates, mark_bridged, plan_bridge,
+    CONTENTS_FILE, MarketingError, append_briefs, link_media_generation, bridge_to_generation_pool, load_candidates, mark_bridged, plan_bridge,
     pool_path_for, append_suggestions, approval_blockers, attribute_lift,
     brief_from_idea, build_content_prompt, collect_marketing_insights, derive_all_platform_briefs, generate_candidates,
     generation_blockers, link_content, load_briefs, load_suggestions, render_prompt_text, research_idea,
@@ -46,6 +46,7 @@ from content_engine.marketing import (
 from content_engine.marketing.models import DIMENSIONS
 from content_engine.rewrite import MockRewriteProvider
 from tak_brain.knowledge import load_knowledge_records
+from content_engine.media_archive import load_archive
 from content_engine.performance.store import latest_snapshot_per_content
 from content_engine.providers import ProviderError, get_research_provider
 
@@ -193,7 +194,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "insights":
             perf = data / "tak_performance.json"
             snapshots = latest_snapshot_per_content(perf) if perf.exists() else {}
-            insights = collect_marketing_insights(load_briefs(briefs_path), snapshots)
+            archive_path = data / "tak_media_archive.json"
+            archive = load_archive(archive_path) if archive_path.exists() else None
+            insights = collect_marketing_insights(load_briefs(briefs_path), snapshots, archive)
             print(f"연결된 콘텐츠 성과 {len(insights)}건")
             for metric in ("conversion_rate", "engagement_rate"):
                 for attribute, row in attribute_lift(insights, metric).items():
@@ -250,6 +253,8 @@ def main(argv: list[str] | None = None) -> int:
             elif plan.items:
                 result = bridge_to_generation_pool(brief, candidates, pool)
                 mark_bridged(data / CONTENTS_FILE, result)
+                for content_id, generation_id in result.refs:
+                    link_media_generation(briefs_path, brief.brief_id, content_id, generation_id)
                 print(f"저장: generation_id={result.generation_id}, {len(result.refs)}건. "
                       "검토는 /media/generations, 승격은 promote_media_generation.py로 사람이 진행합니다.")
     except (MarketingError, ProviderError, ValueError, OSError) as error:

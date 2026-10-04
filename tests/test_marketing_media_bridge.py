@@ -197,6 +197,18 @@ class CliTests(BridgeFixture):
         self.assertIn("이미 bridge됨", out)
         self.assertEqual(len(load_archive(pool)), 3)
 
+    def test_bridge_cli_records_lineage_in_brief(self):
+        from content_engine.marketing import load_briefs, resolve_brief
+        self.run_cli("--write", "generate", self.brief.brief_id, "--rewrite", "mock")
+        self.run_cli("--write", "bridge", self.brief.brief_id)
+        records = load_archive(pool_path_for(self.data, self.brief.brief_id))
+        briefs = load_briefs(self.briefs)
+        self.assertEqual(len(briefs[0].media_generations), 3)
+        for record in records:
+            self.assertEqual(resolve_brief(briefs, record.content_id, record.generation_id), self.brief.brief_id)
+        self.run_cli("--write", "bridge", self.brief.brief_id)
+        self.assertEqual(len(load_briefs(self.briefs)[0].media_generations), 3)
+
     def test_bridge_cli_skips_not_requested(self):
         self.run_cli("--write", "generate", self.brief.brief_id)
         code, out, _ = self.run_cli("--write", "bridge", self.brief.brief_id)

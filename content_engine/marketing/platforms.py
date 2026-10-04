@@ -64,7 +64,7 @@ def derive_platform_brief(brief: MarketingBrief, platform: str) -> MarketingBrie
     )
     return replace(
         brief, brief_id=compute_brief_id(brief.topic, platform, brief.idea_id), platform=platform,
-        distribution=distribution, status="draft", requires_human_review=True, content_ids=(),
+        distribution=distribution, status="draft", requires_human_review=True, content_ids=(), media_generations=(),
     )
 
 

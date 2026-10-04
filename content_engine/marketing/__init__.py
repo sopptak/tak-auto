@@ -6,12 +6,14 @@ from .briefs import (
 from .insight import (
     MarketingInsight, attribute_lift, collect_marketing_insights, marketing_attributes, split_metrics,
 )
+from .lineage import active_generation_ids, resolve_brief, snapshot_generation_id
 from .media_bridge import (
     POOL_PREFIX, BridgePlan, BridgeResult, bridge_to_generation_pool, candidate_to_batch_item, load_candidates,
     mark_bridged, plan_bridge, pool_path_for,
 )
 from .models import (
     BRIEF_STATUSES, DIMENSIONS, PLATFORMS, Design, Distribution, EvidenceItem, MarketingBrief, MarketingError,
+    MediaGenerationRef,
     Psychology, Sales, Storytelling, compute_brief_id,
 )
 from .platforms import STRATEGIES, PlatformStrategy, derive_all_platform_briefs, derive_platform_brief
@@ -26,7 +28,7 @@ from .generation import (
     media_content_id, media_platform, save_candidates,
 )
 from .store import (
-    append_briefs, append_suggestions, link_content, load_briefs, load_suggestions, resolve_suggestion,
+    append_briefs, append_suggestions, link_content, link_media_generation, load_briefs, load_suggestions, resolve_suggestion,
     set_brief_status, update_element,
 )
 from .suggestions import Suggestion, apply_suggestion, suggest_elements
