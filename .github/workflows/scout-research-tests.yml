@@ -1,0 +1,34 @@
+name: TAK SCOUT research tests
+
+on:
+  pull_request:
+    paths:
+      - "tak_scout/**"
+      - "scripts/research_scout.py"
+      - "tests/test_perplexity_research.py"
+      - "tests/test_scout_research.py"
+      - ".github/workflows/scout-research-tests.yml"
+  push:
+    branches:
+      - "feature/perplexity-research-provider"
+    paths:
+      - "tak_scout/**"
+      - "scripts/research_scout.py"
+      - "tests/test_perplexity_research.py"
+      - "tests/test_scout_research.py"
+      - ".github/workflows/scout-research-tests.yml"
+
+jobs:
+  research-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Test Perplexity API adapter
+        run: python -m unittest discover -s tests -p "test_perplexity_research.py" -v
+      - name: Test SCOUT research orchestration
+        run: python -m unittest discover -s tests -p "test_scout_research.py" -v
