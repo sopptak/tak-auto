@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from tak_scout.models import ScoutCandidate
 from tak_scout.perplexity_research import ResearchResult
-from tak_scout.research import research_candidate, research_candidates, save_research_records, render_research_markdown
+from tak_scout.research import research_candidate, research_candidates, save_research_records, render_research_markdown, load_research_records, upsert_research_record
 
 def make_candidate(sid="scout-1"):
     return ScoutCandidate(sid, "경매 제도 변경", "RSS 요약", "https://example.test/a",
@@ -37,6 +37,18 @@ class ResearchTests(unittest.TestCase):
                 return ResearchResult(q, "ok", (), "sonar-pro")
         rows = research_candidates([make_candidate("a"), make_candidate("b")], P())
         self.assertEqual([r.status for r in rows], ["failed", "completed"])
+    def test_load_and_upsert_preserves_other_candidates(self):
+        first = research_candidate(make_candidate("first"), FakeProvider())
+        second = research_candidate(make_candidate("second"), FakeProvider())
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "research.json"
+            save_research_records([first], p)
+            upsert_research_record(p, second)
+            loaded = load_research_records(p)
+            self.assertEqual({r.scout_id for r in loaded}, {"first", "second"})
+            upsert_research_record(p, first)
+            self.assertEqual(len(load_research_records(p)), 2)
+
     def test_save_and_render(self):
         r = research_candidate(make_candidate(), FakeProvider())
         with tempfile.TemporaryDirectory() as d:
