@@ -12,7 +12,7 @@ from pathlib import Path
 import tempfile
 
 from blog_importer.models import utc_now
-from tak_brain.knowledge import validate_knowledge
+from tak_brain.knowledge import load_knowledge_records, validate_knowledge
 from tak_brain.models import KnowledgeRecord
 
 from .research import ResearchRecord
@@ -81,8 +81,10 @@ def upsert_research_knowledge(
     if existing_index is not None:
         existing = data[existing_index]
         if existing.get("knowledge_review_status") == "approved":
-            from tak_brain.knowledge import _knowledge_from_dict
-            return _knowledge_from_dict(existing), "already_approved"
+            approved = next((item for item in load_knowledge_records(target) if item.id == knowledge.id), None)
+            if approved is None:
+                raise ValueError("승인된 KNOWLEDGE를 다시 읽을 수 없습니다.")
+            return approved, "already_approved"
         if existing.get("knowledge_review_status") not in {"pending", None, ""}:
             raise ValueError("기존 KNOWLEDGE가 pending 상태가 아니므로 자동 갱신하지 않습니다.")
         # 재조사 결과를 pending 초안에 반영하되 생성 시각과 검토 메모는 보존한다.
