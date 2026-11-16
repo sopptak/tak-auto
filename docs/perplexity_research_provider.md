@@ -42,6 +42,18 @@ Optional search controls:
 - `search_recency_filter`: `day`, `week`, `month`, or `year`
 - `search_domain_filter`: tuple of hostnames, such as `("law.go.kr", "court.go.kr")`
 
+## Research profiles
+
+The CLI defaults to the `auction` profile for TAK AUTO's property-auction content workflow. It asks for relevant Korean court-auction issues only, prioritizes primary legal sources, distinguishes statutes and effective dates from case law, and requires lending estimates to be described as conditional rather than approved amounts. It does not force every listed legal issue into every answer.
+
+Use `--profile general` for subjects outside property auctions:
+
+```bash
+python3 scripts/research_scout.py --limit 3 --profile general
+```
+
+The dashboard uses the default auction profile. Optional `--domain` filters remain user-controlled; no narrow domain allowlist is forced because it could exclude relevant primary or contextual sources.
+
 ## Safety and behavior
 
 - No API request occurs when the provider is constructed.
