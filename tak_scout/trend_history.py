@@ -98,7 +98,7 @@ def save_history(observations: Iterable[KeywordObservation], path: Path | str) -
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=target.parent,
                                      delete=False) as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
-        handle.write("\\n")
+        handle.write("\n")
         temporary = Path(handle.name)
     temporary.replace(target)
 
@@ -185,4 +185,4 @@ def render_daily_report(report: dict[str, object]) -> str:
                   for x in opportunities] or ["- 후보 없음"])
     lines.extend(["", "## 데이터 한계", ""])
     lines.extend([f"- {x}" for x in report["limitations"]])
-    return "\\n".join(lines) + "\\n"
+    return "\n".join(lines) + "\n"
