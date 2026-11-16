@@ -147,3 +147,21 @@ python3 scripts/run_media_batch.py --id <knowledge-id>
 ```
 
 Start with dry-run (the default). Only use `--execute --as-generation` when the LLM credentials are configured and a generation-pool result is explicitly wanted. This does not promote to production or publish. Follow the existing review and promotion steps.
+
+
+## Research quality gate
+
+Every completed research report can be checked by `tak_scout.research_quality.assess_research_quality()`. The deterministic gate checks record completeness and provenance only:
+
+- response exists and status is completed
+- original SCOUT URL, original publication date, and research timestamp are recorded
+- citation URLs are valid HTTP(S) URLs
+- citation count and distinct source-host count
+
+The result is a completeness signal, **not a fact-check**. It does not open URLs, inspect source contents, confirm that a source supports a claim, establish source independence, or determine whether information is current. A high completeness score must never be described as verified facts. Legal, financial, policy, and numerical claims still require human review of primary sources.
+
+Run the quality tests:
+
+```bash
+python3 -m unittest discover -s tests -p 'test_research_quality.py' -v
+```
