@@ -90,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     save_daily_pack_json(candidates, args.output_json)
     save_daily_pack_markdown(candidates, args.output_md)
 
-    print(f"오늘의 후보 {len(candidates)}건 선정 완료 (최대 {args.max}건, 중복 제거 후 SCOUT SCORE 상위)")
+    print(f"오늘의 후보 {len(candidates)}건 선정 완료 (최대 {args.max}건, 중복 제거 후 범용 편집 적합도 점수 상위)")
     print()
     print("=== 반복 트렌드 키워드 (수집 피드 내부 신호) ===")
     for signal in trend_signals[:20]:
