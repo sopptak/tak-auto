@@ -1,7 +1,7 @@
-name: TAK SCOUT Daily Collect (5-19, collection + scoring only)
+name: TAK AUTO Daily Trend Discovery
 
 # 5-19 "Daily Tmong Content Pipeline"의 자동화 가능한 부분만 담당한다:
-# SCOUT 수집 -> SCOUT SCORE 기준 오늘의 후보 선정 -> 결과 파일 저장.
+# 공개 RSS 수집 -> 후보 선정 -> 키워드 이력·트렌드 리포트 생성.
 #
 # 이 workflow는 다음을 절대 하지 않는다(docs/5-19_daily_pipeline_investigation.md
 # 4장 그대로):
@@ -67,11 +67,14 @@ jobs:
           python3 scripts/run_scout.py \
             --max "${{ github.event.inputs.max_candidates || '5' }}"
 
-      - name: Check for SCOUT result changes
+      - name: Build daily trend report
+        run: python3 scripts/run_trend_report.py
+
+      - name: Check for SCOUT and trend result changes
         id: scout_diff
         run: |
-          git add data/tak_scout_daily.json data/tak_scout_daily.md
-          if git diff --cached --quiet -- data/tak_scout_daily.json data/tak_scout_daily.md; then
+          git add data/tak_scout_daily.json data/tak_scout_daily.md data/tak_auto_trend_daily.json data/tak_auto_trend_daily.md data/tak_auto_trend_history.json
+          if git diff --cached --quiet -- data/tak_scout_daily.json data/tak_scout_daily.md data/tak_auto_trend_daily.json data/tak_auto_trend_daily.md data/tak_auto_trend_history.json; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -85,5 +88,5 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: update today's TAK SCOUT candidates"
+          git commit -m "chore: update daily TAK AUTO trend report"
           git push
