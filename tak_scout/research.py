@@ -36,17 +36,44 @@ class ResearchRecord:
             "model": self.model, "status": self.status, "error": self.error,
         }
 
-def build_research_query(candidate: ScoutCandidate) -> str:
+def build_research_query(candidate: ScoutCandidate, *, profile: str = "auction") -> str:
+    """Build a source-led research brief. Auction is the default TAK AUTO content profile."""
+    if profile not in {"auction", "general"}:
+        raise ValueError("profile는 auction 또는 general이어야 합니다.")
+    common = (
+        "다음 소재를 한국어로 심층 조사하세요. 조사 기준일과 원문 발행일을 구분하고, "
+        "확인된 사실·해석·추정을 명확히 나누세요. 핵심 주장마다 근거 URL과 해당 근거가 "
+        "뒷받침하는 내용을 연결하세요. 상충하는 자료, 반대 근거, 불확실성도 숨기지 마세요. "
+        "법률·금융·정책은 공식 1차 자료를 우선하고, 보도자료·기사·블로그는 보조자료로 "
+        "취급하세요. 법령은 조문과 시행일, 판례는 법원·선고일·사건번호를 확인하고 "
+        "확인할 수 없으면 미확인으로 표시하세요. 자료에 없는 숫자·사실·사례를 만들지 마세요."
+    )
+    if profile == "auction":
+        focus = (
+            " 이 콘텐츠는 국내 부동산 법원경매 실무를 우선합니다. 다음 항목 중 소재와 "
+            "직접 관련된 것만 조사하세요: 경매와 공매의 구분, 매각절차와 기일, 말소기준권리, "
+            "등기부 권리관계, 임차인의 대항력·우선변제권·최우선변제, 배당요구 종기, "
+            "인수되는 권리와 소멸하는 권리, 유치권·법정지상권·분묘기지권, 명도 및 인도명령, "
+            "취득세·부가가치세 등 비용, 금융기관 경락잔금대출의 심사 변수. 모든 항목을 "
+            "기계적으로 나열하지 말고 해당 소재에 필요한 쟁점만 선택하세요. 법률 판단은 "
+            "국가법령정보센터·대법원 종합법률정보·대한민국 법원 경매정보 등 공식 원문을 "
+            "우선 확인하고, 대출 가능액은 확정·승인처럼 표현하지 말고 조건과 변수로 구분하세요. "
+            "다음 순서로 답하세요: 1) 사건·제도 핵심 2) 적용 법령·공식 근거와 기준일 "
+            "3) 경매 참여자 및 채권자·임차인별 영향 4) 실무 체크리스트 5) 반론·위험·예외 "
+            "6) 콘텐츠로 설명할 때 오해하기 쉬운 표현 7) 추가 확인 질문."
+        )
+    else:
+        focus = (
+            " 소재의 분야에 맞는 쟁점을 선택하고 다음 순서로 답하세요: 1) 핵심 사실 "
+            "2) 배경과 최근 변화 3) 이해관계자별 영향 4) 반론·위험·불확실성 "
+            "5) 콘텐츠 확인 질문."
+        )
     return (
-        "다음 소재를 한국어로 심층 조사하세요. 확인된 사실과 해석을 구분하고 "
-        "원문 발행일과 조사 기준일을 구분하세요. 핵심 주장마다 출처를 제시하고 "
-        "반대 근거와 불확실성을 포함하세요. 법률·금융·정책은 공식 1차 자료를 "
-        "우선하세요. 다음 순서로 답하세요: 1) 핵심 사실 2) 배경과 최근 변화 "
-        "3) 이해관계자별 영향 4) 반론·위험·불확실성 5) 콘텐츠 확인 질문.\n\n"
-        f"제목: {candidate.title}\n출처: {candidate.source_name}\n"
-        f"발행일: {candidate.published_at or '미확인'}\n"
-        f"기존 요약: {candidate.summary or '없음'}\n"
-        f"원문 URL: {candidate.source_url}\n카테고리: {candidate.category}"
+        common + focus + "\\n\\n"
+        f"제목: {candidate.title}\\n출처: {candidate.source_name}\\n"
+        f"발행일: {candidate.published_at or '미확인'}\\n"
+        f"기존 요약: {candidate.summary or '없음'}\\n"
+        f"원문 URL: {candidate.source_url}\\n카테고리: {candidate.category}"
     )
 
 def research_candidate(candidate: ScoutCandidate, provider: ResearchProvider, *,
