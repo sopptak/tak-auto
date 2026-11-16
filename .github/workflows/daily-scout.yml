@@ -9,7 +9,7 @@ name: TAK AUTO Daily Trend Discovery
 #   - KNOWLEDGE 생성/승인
 #   - TAK MEDIA 실행
 #   - Threads 게시, Blog 게시, YouTube 업로드
-# scripts/run_scout.py는 RSS 수집과 SCOUT SCORE 계산만 하며 LLM/외부 게시 API를
+# scripts/run_scout.py는 RSS 수집과 범용 편집 적합도 점수 계산만 하며 LLM/외부 게시 API를
 # 전혀 호출하지 않으므로, 이 workflow는 Threads/YouTube/LLM 관련 Secrets을 하나도
 # 쓰지 않는다.
 #
@@ -22,12 +22,12 @@ on:
   workflow_dispatch:
     inputs:
       max_candidates:
-        description: "오늘의 후보로 선정할 최대 개수(SCOUT SCORE 상위 기준)"
+        description: "오늘의 후보로 선정할 최대 개수(범용 편집 적합도 점수 기준)"
         required: true
         default: "5"
         type: string
 
-# data/tak_scout_daily.json, data/tak_scout_daily.md를 이 workflow가 직접
+# SCOUT 후보와 트렌드 리포트·날짜별 키워드 이력을 이 workflow가 직접
 # commit/push해야 하므로 저장소 쓰기 권한이 필요하다. 그 외 권한은 기본값(read)으로
 # 최소화한다(기존 daily-threads-post.yml과 동일한 원칙).
 permissions:
@@ -42,7 +42,7 @@ concurrency:
 
 jobs:
   collect-and-score:
-    name: Collect SCOUT candidates and select top N by score
+    name: Collect general trend candidates and build daily report
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -81,7 +81,7 @@ jobs:
           fi
 
       # 결과 파일에 실제 변경이 있을 때만 commit/push한다. commit 대상은
-      # data/tak_scout_daily.json, data/tak_scout_daily.md 두 파일로 한정한다 -
+      # SCOUT 후보 및 트렌드 리포트·이력 파일로 한정한다 -
       # Threads/YouTube/Blog 관련 파일은 이 workflow가 절대 건드리지 않는다.
       - name: Commit and push today's SCOUT candidates
         if: steps.scout_diff.outputs.changed == 'true'
