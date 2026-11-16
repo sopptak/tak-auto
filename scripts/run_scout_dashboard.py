@@ -93,6 +93,8 @@ from tak_scout import (
 )
 from tak_scout.dashboard_state import mark_skipped, skipped_scout_ids
 from tak_scout.interview_llm import FORCED_OPTION_D, FollowUpDecision, InterviewLLMProvider
+from tak_scout.perplexity_research import PerplexityResearchProvider
+from tak_scout.research import load_research_records, research_candidate, upsert_research_record
 from tak_scout.interview_session import (
     InterviewSession,
     InterviewTurnRecord,
@@ -223,6 +225,7 @@ class DashboardConfig:
     # 한다 - 이 화면에는 승인/거부 버튼이 없다). 기본값을 둬서 기존 호출부(테스트
     # 포함)가 이 필드를 넘기지 않아도 그대로 동작한다.
     insights_path: Path = ROOT / "data" / "tak_performance_insights.json"
+    research_path: Path = ROOT / "data" / "tak_scout_research.json"
     # 6-07 - MEDIA generation pool(6-06 설계) 파일 목록. 6-07에서는 읽기 전용
     # 조회만 가능했고, 6-08에서 승인/보류(review_status 변경) 액션이 추가됐다.
     # production archive(media_archive_path)와 달리 generation pool은 고정된
@@ -435,6 +438,7 @@ def render_candidate_list_html(
   <div class="actions">
     <a class="btn primary" href="{candidate_url}">이 소재로 답변하기</a>
     <a class="btn" href="{escape(candidate.source_url)}" target="_blank" rel="noopener">원문 보기</a>
+    <form method="post" action="{candidate_url}/research"><button class="btn" type="submit">🔎 Perplexity 조사</button></form>
     <form method="post" action="{candidate_url}/skip">
       <button class="btn ghost" type="submit">관심 없음</button>
     </form>
@@ -445,7 +449,7 @@ def render_candidate_list_html(
 
     body = f"""
 <h1>TAK SCOUT Dashboard</h1>
-<div class="nav-links"><a href="/operator">🧭 Operator Center</a><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/media/strategy">🎯 Strategy Gate</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/shorts-studio">🎬 Shorts Studio</a><a href="/money">💰 MONEY</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
+<div class="nav-links"><a href="/research">🔎 심층 조사 결과</a><a href="/operator">🧭 Operator Center</a><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/media/strategy">🎯 Strategy Gate</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/shorts-studio">🎬 Shorts Studio</a><a href="/money">💰 MONEY</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
 <div class="sub">오늘의 소재 {len(ranked)}건 · 점수 내림차순 (SCOUT SCORE MVP, LLM 미사용)</div>
 {"".join(cards) if cards else "<p>오늘 표시할 소재가 없습니다.</p>"}
 """
@@ -2531,7 +2535,9 @@ def handle_threads_approve_submission(
 
 
 def make_handler_class(
-    config: DashboardConfig, llm_provider: InterviewLLMProvider | None = None
+    config: DashboardConfig,
+    llm_provider: InterviewLLMProvider | None = None,
+    research_provider: PerplexityResearchProvider | None = None,
 ) -> type[BaseHTTPRequestHandler]:
     """`llm_provider`를 생략하면(기본값 None) LLM을 전혀 쓰지 않는다 - Phase 2와
     완전히 동일한 템플릿 전용 동작이다. content_engine의 MockRewriteProvider나
@@ -2630,6 +2636,26 @@ def make_handler_class(
                 return
             if path == "/money" or path.startswith("/money/"):
                 self._money("GET", path, query)
+                return
+
+            if path == "/research":
+                records = load_research_records(config.research_path)
+                cards = []
+                for record in reversed(records):
+                    cards.append('<div class="card"><div class="title">' + escape(record.candidate_title) + '</div><div class="meta">' + escape(record.status) + ' · ' + escape(record.researched_at) + '</div><a class="btn primary" href="/research/' + escape(record.scout_id) + '">결과 보기</a></div>')
+                body = '<h1>TAK SCOUT 심층 조사</h1><a href="/">오늘의 소재</a>' + (''.join(cards) or '<p>조사 결과가 없습니다. 소재 목록에서 Perplexity 조사를 실행하세요.</p>')
+                self._send_html(_page("TAK SCOUT 심층 조사", body))
+                return
+
+            if path.startswith("/research/"):
+                scout_id = unquote(path[len("/research/"):])
+                record = next((item for item in load_research_records(config.research_path) if item.scout_id == scout_id), None)
+                if record is None:
+                    self._send_html(_page("조사 결과 없음", '<a href="/research">목록으로</a><p>결과가 없습니다.</p>'), status=404)
+                    return
+                citations = ''.join('<li><a href="' + escape(url) + '" target="_blank" rel="noopener">' + escape(url) + '</a></li>' for url in record.citations)
+                body = '<a href="/research">← 조사 목록</a><h1>' + escape(record.candidate_title) + '</h1><div class="meta">원문 발행일: ' + escape(record.candidate_published_at or "미확인") + ' · 조사 시각: ' + escape(record.researched_at) + '</div><div class="body-block">' + escape(record.answer or record.error) + '</div><h2>인용 출처</h2><ol>' + (citations or '<li>인용 URL 없음</li>') + '</ol><a href="' + escape(record.candidate_url) + '" target="_blank" rel="noopener">원문 기사</a>'
+                self._send_html(_page("심층 조사 결과", body))
                 return
 
             if path == "/":
@@ -2968,6 +2994,23 @@ def make_handler_class(
             raw_body = self.rfile.read(length) if length else b""
             form = parse_qs(raw_body.decode("utf-8"))
 
+
+            if path.startswith("/candidate/") and path.endswith("/research"):
+                scout_id = unquote(path[len("/candidate/") : -len("/research")])
+                candidate = self._load_candidate_or_404(scout_id)
+                if candidate is None:
+                    return
+                if research_provider is None:
+                    self._send_html(_page("Perplexity 미설정", '<a href="/">돌아가기</a><div class="error">TAK_SCOUT_PERPLEXITY_API_KEY 환경변수가 설정되지 않았습니다.</div>'), status=503)
+                    return
+                try:
+                    record = research_candidate(candidate, research_provider)
+                    upsert_research_record(config.research_path, record)
+                except Exception as error:
+                    self._send_html(_page("조사 실패", '<a href="/">돌아가기</a><div class="error">저장 오류: ' + escape(type(error).__name__) + '</div>'), status=500)
+                    return
+                self._redirect("/research/" + scout_id)
+                return
 
             if path.startswith("/candidate/") and path.endswith("/answer"):
                 scout_id = unquote(path[len("/candidate/") : -len("/answer")])
@@ -3427,6 +3470,7 @@ def main(argv: list[str] | None = None) -> int:
         blog_history_path=args.blog_history,
         performance_path=args.performance,
         insights_path=args.insights,
+        research_path=ROOT / "data" / "tak_scout_research.json",
         generation_archive_paths=generation_archive_paths,
         shorts_drafts_path=args.shorts_drafts,
         ffmpeg=args.ffmpeg,
@@ -3444,7 +3488,13 @@ def main(argv: list[str] | None = None) -> int:
         llm_provider = None
         print("TAK SCOUT Dashboard: LLM 환경변수 미설정 - 템플릿 질문만 사용합니다.")
 
-    handler_class = make_handler_class(config, llm_provider=llm_provider)
+    try:
+        research_provider: PerplexityResearchProvider | None = PerplexityResearchProvider.from_environment()
+        print("TAK SCOUT Dashboard: Perplexity 심층 조사 연결됨")
+    except LLMConfigurationError:
+        research_provider = None
+        print("TAK SCOUT Dashboard: Perplexity API 키 미설정 - 심층 조사 기능은 비활성 상태입니다.")
+    handler_class = make_handler_class(config, llm_provider=llm_provider, research_provider=research_provider)
     server = ThreadingHTTPServer((args.host, args.port), handler_class)
     print(f"TAK SCOUT Dashboard 실행 중: http://{args.host}:{args.port}")
     print("Ctrl+C로 종료하세요.")
