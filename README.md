@@ -168,3 +168,8 @@ python3 scripts/check_naver_post.py --url "https://blog.naver.com/tmong2/2244071
 ## 3단계 이후 설계
 
 RAW 원본을 검토한 뒤의 지식 추출 설계는 [docs/knowledge_extraction_design.md](docs/knowledge_extraction_design.md)에 정리했습니다. 이 단계에서는 AI API를 연결하지 않고 데이터 구조와 원본-지식 연결 관계만 검증합니다.
+
+
+## TAK SCOUT Perplexity 심층 조사 MVP
+
+현재 기능 브랜치에는 Perplexity 조사 provider, SCOUT 후보별 조사·저장, TAK BRAIN 검토 초안 연결, 조사 기록 완전성 점검이 포함되어 있습니다. Windows에서 직접 실행하는 순서는 [Perplexity MVP Windows 빠른 시작](docs/perplexity_mvp_windows_quickstart.md)을 참고하세요. 기능 설명과 API 설정은 [Perplexity 조사 provider 안내](docs/perplexity_research_provider.md)에 있습니다. 이 기능은 검토용 초안을 만들며 사실 검증·자동 승인·자동 게시를 수행하지 않습니다.
