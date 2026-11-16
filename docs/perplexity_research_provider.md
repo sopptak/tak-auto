@@ -112,3 +112,22 @@ Run the full suite:
 ```bash
 python3 -m unittest discover -s tests -p 'test_perplexity_research.py' -v\npython3 -m unittest discover -s tests -p 'test_scout_research.py' -v\npython3 -m unittest discover -s tests -p 'test*.py' -v
 ```
+
+
+## Research -> TAK BRAIN handoff
+
+A completed research report offers **TAK BRAIN 검토 초안 만들기**. This creates an information-type `KnowledgeRecord` with `knowledge_review_status=pending`, preserves the SCOUT source URL and Perplexity citations, and marks current validity as requiring verification.
+
+- The research answer is stored as external factual information, not as the operator's personal experience or opinion.
+- Re-running research updates the matching pending research-derived KNOWLEDGE record.
+- An already approved record is never overwritten by a later research run.
+- Only the existing human KNOWLEDGE review process can approve the record. The bridge does not generate MEDIA or publish anything.
+
+Review the generated record with:
+
+```bash
+python3 scripts/review_knowledge.py --pending
+python3 scripts/review_knowledge.py --id <knowledge-id>
+```
+
+Approval remains an explicit human action using the existing review workflow.
