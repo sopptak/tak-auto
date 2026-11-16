@@ -17,8 +17,10 @@ on:
     paths:
       - "tak_scout/**"
       - "scripts/research_scout.py"
+      - "scripts/run_scout_dashboard.py"
       - "tests/test_perplexity_research.py"
       - "tests/test_scout_research.py"
+      - "tests/test_research_knowledge.py"
       - ".github/workflows/scout-research-tests.yml"
 
 jobs:
