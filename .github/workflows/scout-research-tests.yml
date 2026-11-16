@@ -8,6 +8,8 @@ on:
       - "scripts/run_scout_dashboard.py"
       - "tests/test_perplexity_research.py"
       - "tests/test_scout_research.py"
+      - "tests/test_research_knowledge.py"
+      - "tak_scout/research_knowledge.py"
       - ".github/workflows/scout-research-tests.yml"
   push:
     branches:
@@ -33,3 +35,5 @@ jobs:
         run: python -m unittest discover -s tests -p "test_perplexity_research.py" -v
       - name: Test SCOUT research orchestration
         run: python -m unittest discover -s tests -p "test_scout_research.py" -v
+      - name: Test research to pending KNOWLEDGE handoff
+        run: python -m unittest discover -s tests -p "test_research_knowledge.py" -v
