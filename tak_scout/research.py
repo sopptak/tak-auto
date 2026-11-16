@@ -69,16 +69,17 @@ def build_research_query(candidate: ScoutCandidate, *, profile: str = "auction")
             "5) 콘텐츠 확인 질문."
         )
     return (
-        common + focus + "\\n\\n"
-        f"제목: {candidate.title}\\n출처: {candidate.source_name}\\n"
-        f"발행일: {candidate.published_at or '미확인'}\\n"
-        f"기존 요약: {candidate.summary or '없음'}\\n"
-        f"원문 URL: {candidate.source_url}\\n카테고리: {candidate.category}"
+        common + focus + "\n\n"
+        f"제목: {candidate.title}\n출처: {candidate.source_name}\n"
+        f"발행일: {candidate.published_at or '미확인'}\n"
+        f"기존 요약: {candidate.summary or '없음'}\n"
+        f"원문 URL: {candidate.source_url}\n카테고리: {candidate.category}"
     )
 
 def research_candidate(candidate: ScoutCandidate, provider: ResearchProvider, *,
-                        recency: str | None = "month", domains: tuple[str, ...] = ()) -> ResearchRecord:
-    query = build_research_query(candidate)
+                        recency: str | None = "month", domains: tuple[str, ...] = (),
+                        profile: str = "auction") -> ResearchRecord:
+    query = build_research_query(candidate, profile=profile)
     try:
         result = provider.search(query, search_recency_filter=recency, search_domain_filter=domains)
     except Exception as error:  # one failure must not stop the batch; never persist exception text/secrets
@@ -90,8 +91,9 @@ def research_candidate(candidate: ScoutCandidate, provider: ResearchProvider, *,
         result.answer, result.citations, result.model)
 
 def research_candidates(candidates: list[ScoutCandidate], provider: ResearchProvider, *,
-                        recency: str | None = "month", domains: tuple[str, ...] = ()) -> list[ResearchRecord]:
-    return [research_candidate(c, provider, recency=recency, domains=domains) for c in candidates]
+                        recency: str | None = "month", domains: tuple[str, ...] = (),
+                        profile: str = "auction") -> list[ResearchRecord]:
+    return [research_candidate(c, provider, recency=recency, domains=domains, profile=profile) for c in candidates]
 
 def save_research_records(records: list[ResearchRecord], path: Path | str) -> None:
     target = Path(path)
