@@ -27,7 +27,7 @@ from tak_scout.collector import (
     save_daily_pack_json,
     save_daily_pack_markdown,
 )
-from tak_scout.scoring import top_candidates
+from tak_scout.trend_scoring import rank_trend_candidates
 from tak_scout.trends import aggregate_trends
 
 
@@ -79,13 +79,10 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"  성공: {result.name} - {result.candidate_count}건 수집")
 
-    # 5-19: 수집 순서(도착 순)가 아니라 TAK SCOUT SCORE(tak_scout.scoring, LLM 없는
-    # rule-based 점수) 기준 상위 --max건을 "오늘의 후보"로 선정한다. 점수 계산
-    # 로직 자체(scoring.py)는 전혀 수정하지 않았고, 기존에도 Dashboard "/" 화면이
-    # 같은 함수(rank_candidates)로 정렬해서 보여주던 것과 동일한 기준이다 - 여기서는
-    # "보여주는 순서"가 아니라 "선정되는 후보 자체"에 그 기준을 연결했을 뿐이다.
+    # 범용 콘텐츠 후보를 위해 기존 금융·경매 중심 SCOUT SCORE와 분리된 편집 적합도 점수를 사용한다.
+    # 이 점수는 검색량·대중 인기도가 아니라 최신성·주목 표현·토론 가능성 등의 휴리스틱이다.
     deduped = dedupe_candidates(raw_candidates)
-    ranked = top_candidates(deduped, n=args.max)
+    ranked = rank_trend_candidates(deduped)[:args.max]
     candidates = [candidate for candidate, _score in ranked]
     # 키워드 신호는 상위 후보 5건이 아니라 중복 제거된 전체 수집분에서 계산한다.
     trend_signals = aggregate_trends(deduped)
@@ -110,11 +107,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"   Source: {candidate.source_name}")
         print(f"   URL: {candidate.source_url}")
         print(
-            f"   A: {breakdown['content_interest']} / "
-            f"B: {breakdown['expertise_relevance']} / "
-            f"C: {breakdown['opinion_potential']} / "
-            f"D: {breakdown['monetization_relevance']} / "
-            f"E: {breakdown['recency']}"
+            f"   최신성: {breakdown['freshness']} / 주목 표현: {breakdown['attention_language']} / "
+            f"토론 가능성: {breakdown['discussion_potential']} / 구체성: {breakdown['specificity']} / "
+            f"출처 정보: {breakdown['source_metadata']}"
         )
         print()
     print(f"=== END TOP {len(candidates)} ===")
