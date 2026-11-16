@@ -7,9 +7,11 @@ on:
       - "scripts/research_scout.py"
       - "scripts/research_to_knowledge.py"
       - "scripts/run_scout_dashboard.py"
+      - "scripts/research_to_knowledge.py"
       - "tests/test_perplexity_research.py"
       - "tests/test_scout_research.py"
       - "tests/test_research_knowledge.py"
+      - "tests/test_research_quality.py"
       - "tak_scout/research_knowledge.py"
       - ".github/workflows/scout-research-tests.yml"
   push:
