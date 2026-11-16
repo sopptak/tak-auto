@@ -17,7 +17,7 @@ def main() -> int:
     parser.add_argument("--id", help="조사할 scout_id 하나")
     parser.add_argument("--limit", type=int, default=3)
     parser.add_argument("--recency", choices=("day","week","month","year","none"), default="month")
-    parser.add_argument("--domain", action="append", default=[])
+    parser.add_argument("--domain", action="append", default=[])\n    parser.add_argument("--profile", choices=("auction", "general"), default="auction",\n                        help="조사 프로필 (기본값: 국내 부동산 법원경매)")
     args = parser.parse_args()
     if args.limit < 1: parser.error("--limit은 1 이상이어야 합니다.")
     candidates = load_daily_pack(args.input)
@@ -29,7 +29,7 @@ def main() -> int:
     provider = PerplexityResearchProvider.from_environment()
     records = research_candidates(candidates, provider,
         recency=None if args.recency == "none" else args.recency,
-        domains=tuple(args.domain))
+        domains=tuple(args.domain), profile=args.profile)
     save_research_records(records, args.output)
     save_research_markdown(records, args.markdown)
     done = sum(r.status == "completed" for r in records)
