@@ -28,6 +28,7 @@ from tak_scout.collector import (
     save_daily_pack_markdown,
 )
 from tak_scout.scoring import top_candidates
+from tak_scout.trends import aggregate_trends
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -86,11 +87,20 @@ def main(argv: list[str] | None = None) -> int:
     deduped = dedupe_candidates(raw_candidates)
     ranked = top_candidates(deduped, n=args.max)
     candidates = [candidate for candidate, _score in ranked]
+    # 키워드 신호는 상위 후보 5건이 아니라 중복 제거된 전체 수집분에서 계산한다.
+    trend_signals = aggregate_trends(deduped)
 
     save_daily_pack_json(candidates, args.output_json)
     save_daily_pack_markdown(candidates, args.output_md)
 
     print(f"오늘의 후보 {len(candidates)}건 선정 완료 (최대 {args.max}건, 중복 제거 후 SCOUT SCORE 상위)")
+    print()
+    print("=== 반복 트렌드 키워드 (수집 피드 내부 신호) ===")
+    for signal in trend_signals[:20]:
+        print(f"- {signal.keyword}: 기사 {signal.candidate_count}건 / 출처 {signal.source_count}곳")
+    if not trend_signals:
+        print("반복 키워드 없음 (수집량 또는 출처 다양성 부족 가능)")
+    print("주의: 검색량·SNS 인기·전체 인터넷 트렌드를 측정한 값이 아닙니다.")
     print()
     print(f"=== TAK SCOUT TOP {len(candidates)} ===")
     print()
