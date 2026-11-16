@@ -11,9 +11,9 @@ from tak_scout.research import research_candidates, save_research_markdown, save
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", default="data/tak_scout_daily.json")
-    parser.add_argument("--output", default="data/tak_scout_research.json")
-    parser.add_argument("--markdown", default="data/tak_scout_research.md")
+    parser.add_argument("--input", default=str(ROOT / "data" / "tak_scout_daily.json"))
+    parser.add_argument("--output", default=str(ROOT / "data" / "tak_scout_research.json"))
+    parser.add_argument("--markdown", default=str(ROOT / "data" / "tak_scout_research.md"))
     parser.add_argument("--id", help="조사할 scout_id 하나")
     parser.add_argument("--limit", type=int, default=3)
     parser.add_argument("--recency", choices=("day","week","month","year","none"), default="month")
