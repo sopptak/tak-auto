@@ -20,10 +20,12 @@ on:
     paths:
       - "tak_scout/**"
       - "scripts/research_scout.py"
+      - "scripts/research_to_knowledge.py"
       - "scripts/run_scout_dashboard.py"
       - "tests/test_perplexity_research.py"
       - "tests/test_scout_research.py"
       - "tests/test_research_knowledge.py"
+      - "tests/test_research_quality.py"
       - ".github/workflows/scout-research-tests.yml"
 
 jobs:
@@ -42,3 +44,5 @@ jobs:
         run: python -m unittest discover -s tests -p "test_scout_research.py" -v
       - name: Test research to pending KNOWLEDGE handoff
         run: python -m unittest discover -s tests -p "test_research_knowledge.py" -v
+      - name: Test research quality gate
+        run: python -m unittest discover -s tests -p "test_research_quality.py" -v
