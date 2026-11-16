@@ -50,24 +50,23 @@ class ResearchTests(unittest.TestCase):
             self.assertEqual(len(load_research_records(p)), 2)
 
 
-    def test_default_profile_is_auction_specific_and_source_led(self):
+    def test_default_profile_is_general_trend_and_source_led(self):
         query = build_research_query(make_candidate())
-        self.assertIn("말소기준권리", query)
-        self.assertIn("국가법령정보센터", query)
-        self.assertIn("판례", query)
-        self.assertIn("확인된 사실·해석·추정", query)
-
-    def test_general_profile_is_available_without_auction_assumptions(self):
-        query = build_research_query(make_candidate(), profile="general")
         self.assertIn("이해관계자별 영향", query)
         self.assertNotIn("말소기준권리", query)
+        self.assertIn("확인된 사실·해석·추정", query)
+
+    def test_auction_profile_remains_available_as_an_explicit_specialty(self):
+        query = build_research_query(make_candidate(), profile="auction")
+        self.assertIn("말소기준권리", query)
+        self.assertIn("국가법령정보센터", query)
 
     def test_unknown_profile_is_rejected(self):
         with self.assertRaises(ValueError):
             build_research_query(make_candidate(), profile="unknown")
 
     def test_research_record_stores_the_selected_profile_prompt(self):
-        record = research_candidate(make_candidate(), FakeProvider(), profile="general")
+        record = research_candidate(make_candidate(), FakeProvider())
         self.assertIn("콘텐츠 확인 질문", record.query)
         self.assertNotIn("말소기준권리", record.query)
 
