@@ -16,6 +16,7 @@ from tak_brain.knowledge import load_knowledge_records, validate_knowledge
 from tak_brain.models import KnowledgeRecord
 
 from .research import ResearchRecord
+from .research_quality import assess_research_quality
 
 
 def _knowledge_id(scout_id: str) -> str:
@@ -36,6 +37,12 @@ def build_knowledge_from_research(record: ResearchRecord) -> KnowledgeRecord:
         f"RESEARCHED AT: {record.researched_at}",
     ]
     evidence.extend(f"PERPLEXITY CITATION: {url}" for url in record.citations)
+    quality = assess_research_quality(record)
+    evidence.append(
+        f"RESEARCH RECORD COMPLETENESS: {quality.level} ({quality.score}/100); "
+        "not a factual verification"
+    )
+    evidence.extend(f"RESEARCH REVIEW WARNING: {warning}" for warning in quality.warnings)
 
     knowledge = KnowledgeRecord(
         id=_knowledge_id(record.scout_id),
