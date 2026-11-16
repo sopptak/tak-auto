@@ -99,3 +99,40 @@ def save_research_markdown(records: list[ResearchRecord], path: Path | str) -> N
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(render_research_markdown(records), encoding="utf-8")
+
+
+def load_research_records(path: Path | str) -> list[ResearchRecord]:
+    """조사 저장소를 읽는다. 파일이 없으면 빈 목록, 잘못된 구조는 오류로 드러낸다."""
+    target = Path(path)
+    if not target.exists():
+        return []
+    data = json.loads(target.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or not isinstance(data.get("records"), list):
+        raise ValueError("TAK SCOUT research JSON 구조가 올바르지 않습니다.")
+    records: list[ResearchRecord] = []
+    for item in data["records"]:
+        if not isinstance(item, dict):
+            continue
+        records.append(ResearchRecord(
+            scout_id=str(item.get("scout_id") or ""),
+            candidate_title=str(item.get("candidate_title") or ""),
+            candidate_url=str(item.get("candidate_url") or ""),
+            source_name=str(item.get("source_name") or ""),
+            candidate_published_at=str(item.get("candidate_published_at") or ""),
+            researched_at=str(item.get("researched_at") or ""),
+            query=str(item.get("query") or ""),
+            answer=str(item.get("answer") or ""),
+            citations=tuple(url for url in item.get("citations", []) if isinstance(url, str)),
+            model=str(item.get("model") or ""),
+            status=str(item.get("status") or "completed"),
+            error=str(item.get("error") or ""),
+        ))
+    return records
+
+
+def upsert_research_record(path: Path | str, record: ResearchRecord) -> None:
+    """동일 scout_id의 재조사는 기존 레코드를 대체하고 다른 소재는 보존한다."""
+    records = load_research_records(path)
+    by_id = {item.scout_id: item for item in records}
+    by_id[record.scout_id] = record
+    save_research_records(list(by_id.values()), path)
