@@ -39,7 +39,7 @@ def main(argv: list[str] | None = None) -> int:
     updated.extend(observations_for_day(candidates, args.date))
     save_history(updated, args.history)
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
-    args.output_json.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    args.output_json.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     args.output_md.parent.mkdir(parents=True, exist_ok=True)
     args.output_md.write_text(render_daily_report(report), encoding="utf-8")
     print(f"TAK AUTO 트렌드 리포트 생성: 후보 {len(candidates)}건")
