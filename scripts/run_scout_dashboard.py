@@ -96,6 +96,7 @@ from tak_scout.interview_llm import FORCED_OPTION_D, FollowUpDecision, Interview
 from tak_scout.perplexity_research import PerplexityResearchProvider
 from tak_scout.research import load_research_records, research_candidate, upsert_research_record
 from tak_scout.research_knowledge import upsert_research_knowledge
+from tak_scout.research_quality import assess_research_quality
 from tak_scout.interview_session import (
     InterviewSession,
     InterviewTurnRecord,
@@ -2655,11 +2656,23 @@ def make_handler_class(
                     self._send_html(_page("조사 결과 없음", '<a href="/research">목록으로</a><p>결과가 없습니다.</p>'), status=404)
                     return
                 citations = ''.join('<li><a href="' + escape(url) + '" target="_blank" rel="noopener">' + escape(url) + '</a></li>' for url in record.citations)
+                quality = assess_research_quality(record)
+                quality_warnings = ''.join('<li>' + escape(item) + '</li>' for item in quality.warnings)
+                quality_checks = ''.join('<li>' + escape(item) + '</li>' for item in quality.checks)
+                quality_label = "기록 완성도 양호" if quality.level == "completeness_good" else "사람 검토 필요"
+                quality_html = (
+                    '<section class="card"><h2>조사 품질 점검: ' + escape(quality_label) + '</h2>'
+                    + '<p>완성도 점수: ' + str(quality.score) + '/100 · 인용 URL ' + str(quality.citation_count)
+                    + '개 · 출처 도메인 ' + str(quality.unique_hosts) + '개</p>'
+                    + '<p><strong>기록 확인</strong></p><ul>' + (quality_checks or '<li>없음</li>') + '</ul>'
+                    + '<p><strong>검토 경고</strong></p><ul>' + (quality_warnings or '<li>기록 완성도 경고 없음</li>') + '</ul>'
+                    + '<p><strong>주의:</strong> 기록 완성도 점검일 뿐, 주장의 사실성·출처의 독립성·최신성을 검증하지 않습니다.</p></section>'
+                )
                 notice = query.get("knowledge", [""])[0]
                 notice_text = {"created": "KNOWLEDGE 검토 초안을 생성했습니다. 상태는 pending입니다.", "updated_pending": "기존 pending KNOWLEDGE에 재조사 결과를 반영했습니다.", "already_approved": "이미 승인된 KNOWLEDGE는 변경하지 않았습니다."}.get(notice, "")
                 notice_html = '<div class="notice">' + escape(notice_text) + '</div>' if notice_text else ""
                 action = '<form method="post" action="/research/' + escape(record.scout_id) + '/knowledge"><button class="btn primary" type="submit">TAK BRAIN 검토 초안 만들기</button></form>' if record.status == "completed" else ""
-                body = '<a href="/research">← 조사 목록</a><h1>' + escape(record.candidate_title) + '</h1>' + notice_html + '<div class="meta">원문 발행일: ' + escape(record.candidate_published_at or "미확인") + ' · 조사 시각: ' + escape(record.researched_at) + '</div><div class="body-block">' + escape(record.answer or record.error) + '</div><h2>인용 출처</h2><ol>' + (citations or '<li>인용 URL 없음</li>') + '</ol><a href="' + escape(record.candidate_url) + '" target="_blank" rel="noopener">원문 기사</a>' + action
+                body = '<a href="/research">← 조사 목록</a><h1>' + escape(record.candidate_title) + '</h1>' + notice_html + quality_html + '<div class="meta">원문 발행일: ' + escape(record.candidate_published_at or "미확인") + ' · 조사 시각: ' + escape(record.researched_at) + '</div><div class="body-block">' + escape(record.answer or record.error) + '</div><h2>인용 출처</h2><ol>' + (citations or '<li>인용 URL 없음</li>') + '</ol><a href="' + escape(record.candidate_url) + '" target="_blank" rel="noopener">원문 기사</a>' + action
                 self._send_html(_page("심층 조사 결과", body))
                 return
 
