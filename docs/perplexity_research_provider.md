@@ -122,7 +122,9 @@ python3 -m unittest discover -s tests -p 'test_perplexity_research.py' -v
 Run the full suite:
 
 ```bash
-python3 -m unittest discover -s tests -p 'test_perplexity_research.py' -v\npython3 -m unittest discover -s tests -p 'test_scout_research.py' -v\npython3 -m unittest discover -s tests -p 'test*.py' -v
+python3 -m unittest discover -s tests -p 'test_perplexity_research.py' -v
+python3 -m unittest discover -s tests -p 'test_scout_research.py' -v
+python3 -m unittest discover -s tests -p 'test*.py' -v
 ```
 
 
@@ -177,3 +179,20 @@ Run the quality tests:
 ```bash
 python3 -m unittest discover -s tests -p 'test_research_quality.py' -v
 ```
+
+
+## One-command auction research workflow
+
+Preview selected candidates without network calls or file changes:
+
+```bash
+python3 scripts/run_auction_research_workflow.py --limit 3
+```
+
+Run Perplexity research and create/update pending KNOWLEDGE records in one operation:
+
+```bash
+python3 scripts/run_auction_research_workflow.py --limit 3 --execute
+```
+
+The command saves separate research JSON/Markdown reports and connects successful reports to TAK BRAIN as pending information records. It never approves KNOWLEDGE, generates MEDIA, promotes content, or publishes. The explicit `--execute` flag may incur Perplexity API charges.
