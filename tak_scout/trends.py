@@ -1,8 +1,7 @@
-"""Cross-source trend signals for TAK SCOUT.
+"""Keyword extraction and normalization for collected-feed trend signals.
 
-This module measures recurrence inside the feeds TAK SCOUT actually collected.
-It does NOT claim to measure public search volume, social engagement, or overall
-internet popularity. Those require dedicated trend-provider observations.
+Normalization is intentionally conservative: explicit aliases and token cleanup only.
+It does not claim semantic equivalence or infer search demand.
 """
 from __future__ import annotations
 
@@ -20,6 +19,16 @@ _STOPWORDS = frozenset({
     "있다", "없다", "the", "and", "for", "with", "from", "that",
     "this", "are", "was", "will", "have", "has", "its", "you",
 })
+# Only unambiguous spelling/abbreviation aliases. Extend with evidence and tests.
+_ALIASES = {
+    "a.i": "ai", "인공지능": "ai", "artificial intelligence": "ai",
+    "chat gpt": "chatgpt", "챗 지피티": "chatgpt",
+    "유튜브": "youtube", "youtube": "youtube",
+    "틱톡": "tiktok", "tiktok": "tiktok",
+    "스마트폰": "스마트폰",
+}
+_PHRASE_MIN_TOKENS = 2
+_PHRASE_MAX_TOKENS = 3
 
 
 @dataclass(frozen=True)
@@ -39,17 +48,33 @@ class TrendSignal:
         }
 
 
+def normalize_keyword(keyword: str) -> str:
+    value = re.sub(r"\\s+", " ", keyword.strip().lower())
+    value = _ALIASES.get(value, value)
+    return value
+
+
 def extract_keywords(candidate: ScoutCandidate) -> tuple[str, ...]:
-    """Extract simple title/summary tokens; no unsupported semantic inference."""
+    """Extract individual terms and 2-3 token phrases from title/summary."""
     text = f"{candidate.title} {candidate.summary}".lower()
-    return tuple(dict.fromkeys(
-        token for token in _TOKEN_RE.findall(text)
-        if token not in _STOPWORDS and not token.isdigit()
-    ))
+    tokens = [token for token in _TOKEN_RE.findall(text)
+              if token not in _STOPWORDS and not token.isdigit()]
+    keywords = []
+    for token in tokens:
+        normalized = normalize_keyword(token)
+        if normalized and normalized not in keywords:
+            keywords.append(normalized)
+    # Phrase candidates preserve useful context (e.g. 스마트 안경, 생성형 AI).
+    for size in range(_PHRASE_MIN_TOKENS, _PHRASE_MAX_TOKENS + 1):
+        for index in range(len(tokens) - size + 1):
+            phrase = normalize_keyword(" ".join(tokens[index:index + size]))
+            if phrase and phrase not in keywords:
+                keywords.append(phrase)
+    return tuple(keywords)
 
 
 def aggregate_trends(candidates: Iterable[ScoutCandidate]) -> list[TrendSignal]:
-    """Rank terms by how many distinct collected items and sources mention them."""
+    """Rank terms by distinct collected items and distinct source names."""
     mentions: dict[str, list[ScoutCandidate]] = defaultdict(list)
     for candidate in candidates:
         for keyword in extract_keywords(candidate):
@@ -67,18 +92,10 @@ def aggregate_trends(candidates: Iterable[ScoutCandidate]) -> list[TrendSignal]:
             source_count=len(unique_sources),
             candidate_ids=tuple(sorted(unique_items)),
         ))
-    return sorted(
-        signals,
-        key=lambda signal: (
-            signal.source_count,
-            signal.candidate_count,
-            signal.keyword,
-        ),
-        reverse=True,
-    )
+    return sorted(signals, key=lambda signal: (
+        signal.source_count, signal.candidate_count, signal.keyword), reverse=True)
 
 
 def trend_coverage_label(signals: Iterable[TrendSignal]) -> str:
-    """Describe only the observed scope, never general-population popularity."""
     count = len(tuple(signals))
     return f"수집 피드 내 반복 키워드 {count}개 (검색량·SNS 인기 측정 아님)"
