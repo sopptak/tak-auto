@@ -6,12 +6,14 @@ on:
       - "tak_scout/**"
       - "scripts/research_scout.py"
       - "scripts/research_to_knowledge.py"
+      - "scripts/run_auction_research_workflow.py"
       - "scripts/run_scout_dashboard.py"
       - "scripts/research_to_knowledge.py"
       - "tests/test_perplexity_research.py"
       - "tests/test_scout_research.py"
       - "tests/test_research_knowledge.py"
       - "tests/test_research_quality.py"
+      - "tests/test_auction_research_workflow.py"
       - "tak_scout/research_knowledge.py"
       - ".github/workflows/scout-research-tests.yml"
   push:
@@ -26,6 +28,8 @@ on:
       - "tests/test_scout_research.py"
       - "tests/test_research_knowledge.py"
       - "tests/test_research_quality.py"
+      - "tests/test_auction_research_workflow.py"
+      - "scripts/run_auction_research_workflow.py"
       - ".github/workflows/scout-research-tests.yml"
 
 jobs:
@@ -46,3 +50,5 @@ jobs:
         run: python -m unittest discover -s tests -p "test_research_knowledge.py" -v
       - name: Test research quality gate
         run: python -m unittest discover -s tests -p "test_research_quality.py" -v
+      - name: Test unified auction research workflow
+        run: python -m unittest discover -s tests -p "test_auction_research_workflow.py" -v
