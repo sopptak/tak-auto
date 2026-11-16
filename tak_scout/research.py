@@ -36,8 +36,8 @@ class ResearchRecord:
             "model": self.model, "status": self.status, "error": self.error,
         }
 
-def build_research_query(candidate: ScoutCandidate, *, profile: str = "auction") -> str:
-    """Build a source-led research brief. Auction is the default TAK AUTO content profile."""
+def build_research_query(candidate: ScoutCandidate, *, profile: str = "general") -> str:
+    """Build a source-led research brief. General trends are the default; auction is opt-in."""
     if profile not in {"auction", "general"}:
         raise ValueError("profile는 auction 또는 general이어야 합니다.")
     common = (
@@ -78,7 +78,7 @@ def build_research_query(candidate: ScoutCandidate, *, profile: str = "auction")
 
 def research_candidate(candidate: ScoutCandidate, provider: ResearchProvider, *,
                         recency: str | None = "month", domains: tuple[str, ...] = (),
-                        profile: str = "auction") -> ResearchRecord:
+                        profile: str = "general") -> ResearchRecord:
     query = build_research_query(candidate, profile=profile)
     try:
         result = provider.search(query, search_recency_filter=recency, search_domain_filter=domains)
@@ -92,7 +92,7 @@ def research_candidate(candidate: ScoutCandidate, provider: ResearchProvider, *,
 
 def research_candidates(candidates: list[ScoutCandidate], provider: ResearchProvider, *,
                         recency: str | None = "month", domains: tuple[str, ...] = (),
-                        profile: str = "auction") -> list[ResearchRecord]:
+                        profile: str = "general") -> list[ResearchRecord]:
     return [research_candidate(c, provider, recency=recency, domains=domains, profile=profile) for c in candidates]
 
 def save_research_records(records: list[ResearchRecord], path: Path | str) -> None:
