@@ -8,7 +8,7 @@ TAK AUTO 1은 특정 업종 전용이 아닌 범용 트렌드 키워드 발굴·
 
 1. 공개 RSS 수집: Google News Korea(전체·기술·비즈니스·과학·엔터테인먼트·건강), BBC Business/Technology, Hacker News, The Verge.
 2. 후보 중복 제거와 범용 편집 적합도 점수 정렬(최신성·주목 표현·토론 가능성·구체성·출처 메타데이터). 기존 금융·경매 중심 SCOUT SCORE는 레거시 용도로 보존한다.
-3. 제목·요약의 단어를 기반으로 피드 내부 반복 키워드 집계.
+3. 키워드 표기 정규화와 2~3단어 구문 추출 후 피드 내부 반복 키워드 집계.
 4. 날짜별 키워드 관측 이력 저장.
 5. 직전 관측일 대비 반복 건수가 증가한 키워드를 급상승 후보로 표시.
 6. 출처 다양성과 언급 건수를 이용한 편집 기회 참고 점수 산출.
@@ -27,6 +27,20 @@ python3 scripts/run_scout.py --max 30
 python3 scripts/run_trend_report.py
 python3 -m unittest discover -s tests -p 'test*.py' -v
 ```
+
+## 네이버 데이터랩 연동 준비
+
+공식 네이버 데이터랩 검색어 트렌드 API 어댑터와 CLI를 추가했다. 인증정보는 저장소에 넣지 않고 환경변수로만 전달한다.
+
+Windows PowerShell 예시:
+
+```powershell
+$env:NAVER_DATALAB_CLIENT_ID="발급받은 Client ID"
+$env:NAVER_DATALAB_CLIENT_SECRET="발급받은 Client Secret"
+python scripts/run_naver_datalab.py --group "AI=인공지능,생성형 AI" --group "스마트안경=스마트 안경,AI 안경" --start 2026-10-01 --end 2026-11-16
+```
+
+응답은 네이버 데이터랩이 제공하는 상대 검색 관심도 비율이다. 절대 검색량이 아니며, API 자격 증명이 설정되지 않으면 요청을 보내지 않는다. 현재 RSS 분석과는 별도 실행이며 아직 일일 자동 파이프라인에 결합하지 않았다.
 
 ## 지표의 정확한 의미와 한계
 
