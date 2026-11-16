@@ -39,6 +39,7 @@ from .answers import (
 )
 from .knowledge_bridge import append_scout_knowledge, build_knowledge_from_interview
 from .scoring import ScoutScore, rank_candidates, score_candidate, top_candidates
+from .perplexity_research import PerplexityResearchProvider, ResearchResult
 
 __all__ = [
     "ScoutCandidate",
@@ -77,4 +78,6 @@ __all__ = [
     "rank_candidates",
     "score_candidate",
     "top_candidates",
+    "PerplexityResearchProvider",
+    "ResearchResult",
 ]
