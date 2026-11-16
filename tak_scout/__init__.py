@@ -41,6 +41,7 @@ from .knowledge_bridge import append_scout_knowledge, build_knowledge_from_inter
 from .scoring import ScoutScore, rank_candidates, score_candidate, top_candidates
 from .perplexity_research import PerplexityResearchProvider, ResearchResult
 from .research import ResearchRecord, build_research_query, research_candidate, research_candidates, save_research_records, render_research_markdown, save_research_markdown, load_research_records, upsert_research_record
+from .research_knowledge import build_knowledge_from_research, upsert_research_knowledge
 
 __all__ = [
     "ScoutCandidate",
@@ -90,4 +91,6 @@ __all__ = [
     "save_research_markdown",
     "load_research_records",
     "upsert_research_record",
+    "build_knowledge_from_research",
+    "upsert_research_knowledge",
 ]
