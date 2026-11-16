@@ -84,11 +84,11 @@ The script does not change the source daily pack, create or approve KNOWLEDGE, g
 Run the focused tests:
 
 ```bash
-python3 -m unittest tests.test_perplexity_research -v
+python3 -m unittest discover -s tests -p 'test_perplexity_research.py' -v
 ```
 
 Run the full suite:
 
 ```bash
-python3 -m unittest discover -s tests -p 'test*.py' -v
+python3 -m unittest discover -s tests -p 'test_perplexity_research.py' -v\npython3 -m unittest discover -s tests -p 'test_scout_research.py' -v\npython3 -m unittest discover -s tests -p 'test*.py' -v
 ```
