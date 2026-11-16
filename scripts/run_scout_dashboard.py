@@ -95,6 +95,7 @@ from tak_scout.dashboard_state import mark_skipped, skipped_scout_ids
 from tak_scout.interview_llm import FORCED_OPTION_D, FollowUpDecision, InterviewLLMProvider
 from tak_scout.perplexity_research import PerplexityResearchProvider
 from tak_scout.research import load_research_records, research_candidate, upsert_research_record
+from tak_scout.research_knowledge import upsert_research_knowledge
 from tak_scout.interview_session import (
     InterviewSession,
     InterviewTurnRecord,
@@ -2654,7 +2655,11 @@ def make_handler_class(
                     self._send_html(_page("조사 결과 없음", '<a href="/research">목록으로</a><p>결과가 없습니다.</p>'), status=404)
                     return
                 citations = ''.join('<li><a href="' + escape(url) + '" target="_blank" rel="noopener">' + escape(url) + '</a></li>' for url in record.citations)
-                body = '<a href="/research">← 조사 목록</a><h1>' + escape(record.candidate_title) + '</h1><div class="meta">원문 발행일: ' + escape(record.candidate_published_at or "미확인") + ' · 조사 시각: ' + escape(record.researched_at) + '</div><div class="body-block">' + escape(record.answer or record.error) + '</div><h2>인용 출처</h2><ol>' + (citations or '<li>인용 URL 없음</li>') + '</ol><a href="' + escape(record.candidate_url) + '" target="_blank" rel="noopener">원문 기사</a>'
+                notice = query.get("knowledge", [""])[0]
+                notice_text = {"created": "KNOWLEDGE 검토 초안을 생성했습니다. 상태는 pending입니다.", "updated_pending": "기존 pending KNOWLEDGE에 재조사 결과를 반영했습니다.", "already_approved": "이미 승인된 KNOWLEDGE는 변경하지 않았습니다."}.get(notice, "")
+                notice_html = '<div class="notice">' + escape(notice_text) + '</div>' if notice_text else ""
+                action = '<form method="post" action="/research/' + escape(record.scout_id) + '/knowledge"><button class="btn primary" type="submit">TAK BRAIN 검토 초안 만들기</button></form>' if record.status == "completed" else ""
+                body = '<a href="/research">← 조사 목록</a><h1>' + escape(record.candidate_title) + '</h1>' + notice_html + '<div class="meta">원문 발행일: ' + escape(record.candidate_published_at or "미확인") + ' · 조사 시각: ' + escape(record.researched_at) + '</div><div class="body-block">' + escape(record.answer or record.error) + '</div><h2>인용 출처</h2><ol>' + (citations or '<li>인용 URL 없음</li>') + '</ol><a href="' + escape(record.candidate_url) + '" target="_blank" rel="noopener">원문 기사</a>' + action
                 self._send_html(_page("심층 조사 결과", body))
                 return
 
@@ -2994,6 +2999,20 @@ def make_handler_class(
             raw_body = self.rfile.read(length) if length else b""
             form = parse_qs(raw_body.decode("utf-8"))
 
+
+            if path.startswith("/research/") and path.endswith("/knowledge"):
+                scout_id = unquote(path[len("/research/") : -len("/knowledge")])
+                record = next((item for item in load_research_records(config.research_path) if item.scout_id == scout_id), None)
+                if record is None:
+                    self._send_html(_page("조사 결과 없음", '<a href="/research">조사 목록으로</a>'), status=404)
+                    return
+                try:
+                    _knowledge, status = upsert_research_knowledge(record, config.knowledge_path)
+                except (OSError, ValueError) as error:
+                    self._send_html(_page("KNOWLEDGE 생성 실패", '<a href="/research/' + escape(scout_id) + '">돌아가기</a><div class="error">' + escape(str(error)) + '</div>'), status=400)
+                    return
+                self._redirect('/research/' + scout_id + '?knowledge=' + status)
+                return
 
             if path.startswith("/candidate/") and path.endswith("/research"):
                 scout_id = unquote(path[len("/candidate/") : -len("/research")])
