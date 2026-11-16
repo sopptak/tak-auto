@@ -79,6 +79,26 @@ The script processes candidates sequentially. A failed candidate is recorded as 
 
 The script does not change the source daily pack, create or approve KNOWLEDGE, generate media, or publish to social platforms. The default limit is three because each candidate can incur a separate Perplexity API charge.
 
+## Dashboard integration
+
+The TAK SCOUT Dashboard now includes a **Perplexity 조사** action on each candidate card and a **심층 조사 결과** navigation link.
+
+Start the existing dashboard:
+
+```bash
+python3 scripts/run_scout_dashboard.py
+```
+
+When `TAK_SCOUT_PERPLEXITY_API_KEY` is present in the dashboard process environment:
+1. Open the dashboard's local URL (default `http://127.0.0.1:8000`).
+2. Select `🔎 Perplexity 조사` on a candidate card.
+3. The dashboard runs one research request, saves/updates that candidate's record, and opens its report.
+4. Use `심층 조사 결과` to return to saved reports.
+
+The Dashboard uses the same separate `data/tak_scout_research.json` store as the CLI. Re-running research for the same `scout_id` replaces only that candidate's previous research record; other candidates remain intact. Original SCOUT data, interview answers, KNOWLEDGE approval, MEDIA generation, and publishing are not changed.
+
+The research action makes a live API request and may incur a Perplexity charge. It is triggered only by an explicit button click; page views do not call the API.
+
 ## Tests
 
 Run the focused tests:
