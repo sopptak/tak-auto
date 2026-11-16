@@ -9,6 +9,46 @@
       "name": "Hacker News",
       "url": "https://news.ycombinator.com/rss",
       "category": "tech"
+    },
+    {
+      "name": "Google News Korea Top",
+      "url": "https://news.google.com/rss?hl=ko&gl=KR&ceid=KR:ko",
+      "category": "general"
+    },
+    {
+      "name": "Google News Korea Technology",
+      "url": "https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=ko&gl=KR&ceid=KR:ko",
+      "category": "tech"
+    },
+    {
+      "name": "Google News Korea Business",
+      "url": "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ko&gl=KR&ceid=KR:ko",
+      "category": "business"
+    },
+    {
+      "name": "Google News Korea Science",
+      "url": "https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=ko&gl=KR&ceid=KR:ko",
+      "category": "science"
+    },
+    {
+      "name": "Google News Korea Entertainment",
+      "url": "https://news.google.com/rss/headlines/section/topic/ENTERTAINMENT?hl=ko&gl=KR&ceid=KR:ko",
+      "category": "entertainment"
+    },
+    {
+      "name": "Google News Korea Health",
+      "url": "https://news.google.com/rss/headlines/section/topic/HEALTH?hl=ko&gl=KR&ceid=KR:ko",
+      "category": "health"
+    },
+    {
+      "name": "BBC Technology",
+      "url": "https://feeds.bbci.co.uk/news/technology/rss.xml",
+      "category": "tech"
+    },
+    {
+      "name": "The Verge",
+      "url": "https://www.theverge.com/rss/index.xml",
+      "category": "tech"
     }
   ]
 }
