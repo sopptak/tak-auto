@@ -131,3 +131,19 @@ python3 scripts/review_knowledge.py --id <knowledge-id>
 ```
 
 Approval remains an explicit human action using the existing review workflow.
+
+
+Batch conversion from saved reports is also available:
+
+```bash
+python3 scripts/research_to_knowledge.py --limit 3
+python3 scripts/review_knowledge.py --pending
+```
+
+After a human approves a research-derived KNOWLEDGE record, the existing MEDIA pipeline can consume it by its exact ID:
+
+```bash
+python3 scripts/run_media_batch.py --id <knowledge-id>
+```
+
+Start with dry-run (the default). Only use `--execute --as-generation` when the LLM credentials are configured and a generation-pool result is explicitly wanted. This does not promote to production or publish. Follow the existing review and promotion steps.
