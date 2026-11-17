@@ -62,6 +62,7 @@ Phase에서 한 줄도 수정하지 않았다.
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from html import escape
@@ -228,6 +229,7 @@ class DashboardConfig:
     # 포함)가 이 필드를 넘기지 않아도 그대로 동작한다.
     insights_path: Path = ROOT / "data" / "tak_performance_insights.json"
     research_path: Path = ROOT / "data" / "tak_scout_research.json"
+    trend_report_path: Path = ROOT / "data" / "tak_auto_trend_daily.json"
     # 6-07 - MEDIA generation pool(6-06 설계) 파일 목록. 6-07에서는 읽기 전용
     # 조회만 가능했고, 6-08에서 승인/보류(review_status 변경) 액션이 추가됐다.
     # production archive(media_archive_path)와 달리 generation pool은 고정된
@@ -451,7 +453,7 @@ def render_candidate_list_html(
 
     body = f"""
 <h1>TAK SCOUT Dashboard</h1>
-<div class="nav-links"><a href="/research">🔎 심층 조사 결과</a><a href="/operator">🧭 Operator Center</a><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/media/strategy">🎯 Strategy Gate</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/shorts-studio">🎬 Shorts Studio</a><a href="/money">💰 MONEY</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
+<div class="nav-links"><a href="/trends">📊 오늘의 트렌드</a><a href="/research">🔎 심층 조사 결과</a><a href="/operator">🧭 Operator Center</a><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/media/strategy">🎯 Strategy Gate</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/shorts-studio">🎬 Shorts Studio</a><a href="/money">💰 MONEY</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
 <div class="sub">오늘의 소재 {len(ranked)}건 · 점수 내림차순 (SCOUT SCORE MVP, LLM 미사용)</div>
 {"".join(cards) if cards else "<p>오늘 표시할 소재가 없습니다.</p>"}
 """
@@ -2638,6 +2640,30 @@ def make_handler_class(
                 return
             if path == "/money" or path.startswith("/money/"):
                 self._money("GET", path, query)
+                return
+
+            if path == "/trends":
+                from scripts.trends_web import render_trends_page
+
+                try:
+                    trend_report = json.loads(config.trend_report_path.read_text(encoding="utf-8"))
+                    if not isinstance(trend_report, dict):
+                        raise ValueError("트렌드 리포트 구조가 올바르지 않습니다.")
+                    trend_body = render_trends_page(
+                        trend_report, load_research_records(config.research_path)
+                    )
+                except FileNotFoundError:
+                    trend_body = (
+                        '<h1>TAK AUTO · 오늘의 트렌드</h1><a href="/">SCOUT 홈</a>'
+                        '<div class="card">아직 트렌드 리포트가 없습니다. '
+                        'GitHub Actions의 TAK AUTO Daily Trend Discovery를 실행하세요.</div>'
+                    )
+                except (OSError, ValueError, json.JSONDecodeError) as error:
+                    trend_body = (
+                        '<h1>트렌드 리포트 오류</h1><a href="/">SCOUT 홈</a>'
+                        '<div class="error">' + escape(type(error).__name__) + '</div>'
+                    )
+                self._send_html(_page("TAK AUTO 트렌드", trend_body))
                 return
 
             if path == "/research":
