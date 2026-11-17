@@ -1,5 +1,6 @@
 import base64
 from http.client import HTTPConnection
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -14,6 +15,21 @@ from scripts import run_trend_content_mvp as app
 
 
 class SocialOAuthRouteTests(unittest.TestCase):
+    def test_health_payload_reports_only_a_valid_short_render_revision(self):
+        payload = app._health_payload({
+            "TAK_SCOUT_PERPLEXITY_API_KEY": "private-key",
+            "TAK_WEB_USERNAME": "operator",
+            "TAK_WEB_PASSWORD": "private-password",
+            "TAK_AUTO_PUBLISHING_ENABLED": "false",
+            "RENDER_GIT_COMMIT": "abcdef0123456789abcdef0123456789abcdef01",
+        })
+        self.assertEqual(payload["revision"], "abcdef012345")
+        self.assertTrue(payload["ready"])
+        self.assertFalse(payload["publishing_enabled"])
+        self.assertNotIn("private-key", json.dumps(payload))
+        self.assertNotIn("private-password", json.dumps(payload))
+        self.assertIsNone(app._health_payload({"RENDER_GIT_COMMIT": "untrusted"})["revision"])
+
     def test_oauth_cookie_transport_security_comes_from_registered_callback(self):
         with patch.dict(os.environ, {"TAK_AUTO_PUBLIC_URL": "https://tak-auto.example"}, clear=False):
             self.assertTrue(app._oauth_cookie_is_secure("tiktok"))

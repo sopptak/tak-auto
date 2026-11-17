@@ -157,6 +157,22 @@ def _oauth_cookie_is_secure(platform: str) -> bool:
         return False
 
 
+def _health_payload(environ=None) -> dict[str, object]:
+    values = os.environ if environ is None else environ
+    raw_revision = str(values.get("RENDER_GIT_COMMIT", "")).strip().lower()
+    revision = raw_revision[:12] if len(raw_revision) == 40 and all(char in "0123456789abcdef" for char in raw_revision) else None
+    perplexity_ready = bool(values.get("TAK_SCOUT_PERPLEXITY_API_KEY"))
+    auth_ready = bool(values.get("TAK_WEB_USERNAME") and values.get("TAK_WEB_PASSWORD"))
+    publishing_enabled = str(values.get("TAK_AUTO_PUBLISHING_ENABLED", "")).strip().lower() == "true"
+    publisher_configured = bool(str(values.get("TAK_AUTO_PUBLISHER", "")).strip())
+    return {
+        "status": "ok", "perplexity_configured": perplexity_ready,
+        "web_auth_configured": auth_ready, "publishing_enabled": publishing_enabled,
+        "publisher_adapter_configured": publisher_configured,
+        "ready": perplexity_ready and auth_ready, "revision": revision,
+    }
+
+
 def _run_connection_verification(platform: str, checks: dict, *, environ=None, now=None) -> tuple[dict, str]:
     """Check one supported account and return a safe status-cache update."""
     if platform not in VERIFY_PLATFORMS:
@@ -568,17 +584,7 @@ def create_handler():
 
         def do_GET(self):
             if self.path == "/health":
-                perplexity_ready = bool(os.getenv("TAK_SCOUT_PERPLEXITY_API_KEY"))
-                auth_ready = bool(os.getenv("TAK_WEB_USERNAME") and os.getenv("TAK_WEB_PASSWORD"))
-                publishing_enabled = os.getenv("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true"
-                publisher_configured = bool(os.getenv("TAK_AUTO_PUBLISHER", "").strip())
-                payload = {
-                    "status": "ok", "perplexity_configured": perplexity_ready,
-                    "web_auth_configured": auth_ready, "publishing_enabled": publishing_enabled,
-                    "publisher_adapter_configured": publisher_configured,
-                    "ready": perplexity_ready and auth_ready,
-                }
-                self._respond(json.dumps(payload), content_type="application/json; charset=utf-8")
+                self._respond(json.dumps(_health_payload()), content_type="application/json; charset=utf-8")
                 return
             request_path = urlparse(self.path).path
             callback_prefix = "/connections/oauth/callback/"
