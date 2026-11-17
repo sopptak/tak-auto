@@ -5,7 +5,11 @@
 
 ## 실행 (Windows PowerShell)
 ```powershell
+git fetch origin
+# 로컬 브랜치가 이미 있으면:
 git switch feature/trend-content-factory-mvp
+# 처음 받는 PC라 로컬 브랜치가 없으면 위 switch 대신:
+# git switch --track origin/feature/trend-content-factory-mvp
 git pull origin feature/trend-content-factory-mvp
 $env:TAK_SCOUT_PERPLEXITY_API_KEY = "실제 Perplexity API 키"
 py scripts/run_trend_content_mvp.py
