@@ -10,6 +10,8 @@ on:
       - "content_engine/generator.py"
       - "scripts/research_trend_keyword.py"
       - "scripts/trends_web.py"
+      - "scripts/start_tak_auto_mvp.py"
+      - "tests/test_start_tak_auto_mvp.py"
       - "scripts/run_scout_dashboard.py"
       - "tests/test_trends_web.py"
       - "scripts/render_tak_auto_dashboard.py"
@@ -54,6 +56,8 @@ jobs:
           python-version: "3.11"
       - name: Test integrated trend dashboard
         run: python -m unittest discover -s tests -p "test_trends_web.py" -v
+      - name: Test one-command MVP launcher
+        run: python -m unittest discover -s tests -p "test_start_tak_auto_mvp.py" -v
       - name: Test approved research media bridge
         run: python -m unittest discover -s tests -p "test_research_media_bridge.py" -v
       - name: Test trend keyword research workflow
