@@ -162,7 +162,17 @@ def _make_preview(item: dict, trend_report: dict, provider=None) -> dict:
             "status": "preview_only_not_approved",
             "warning": "Perplexity가 작성한 검토용 초안입니다. 원문 사실 확인과 사람의 승인을 거쳐야 게시할 수 있습니다.",
             "blog": package["blog"],
-            "shorts": package["shorts"],
+            "shorts": [{
+                "title": package["shorts"].get("title", ""),
+                "body": "\\n".join(
+                    f"{scene.get('time', '')} | 화면: {scene.get('visual', '')} | "
+                    f"자막: {scene.get('caption', '')} | 내레이션: {scene.get('narration', '')}"
+                    for scene in package["shorts"]["scenes"]
+                ) + "\\n마무리 CTA: " + str(package["shorts"].get("closing_cta", "")),
+                "duration_seconds": package["shorts"].get("duration_seconds", 60),
+                "hook": package["shorts"].get("hook", ""),
+                "scenes": package["shorts"]["scenes"],
+            }],
             "threads": package["threads"],
             "source_urls": list(dict.fromkeys(urls + list(result.citations))),
             "content_model": result.model,
