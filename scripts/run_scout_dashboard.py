@@ -62,6 +62,8 @@ Phase에서 한 줄도 수정하지 않았다.
 from __future__ import annotations
 
 import argparse
+import base64
+import hmac
 import json
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
@@ -2571,6 +2573,30 @@ def make_handler_class(
         def log_message(self, format: str, *args: object) -> None:  # noqa: A002
             sys.stderr.write("[dashboard] " + (format % args) + "\n")
 
+        def _require_web_auth(self) -> bool:
+            username = os.environ.get("TAK_WEB_USERNAME", "")
+            password = os.environ.get("TAK_WEB_PASSWORD", "")
+            # 로컬 개발은 기존처럼 인증 없이 사용한다. 외부 바인딩에서는
+            # 자격 증명이 없으면 절대 공개 모드로 열지 않는다.
+            if self.server.server_address[0] in ("127.0.0.1", "::1", "localhost"):
+                return True
+            if not username or not password:
+                self.send_response(503)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b"Web authentication is not configured.")
+                return False
+            expected = "Basic " + base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
+            supplied = self.headers.get("Authorization", "")
+            if hmac.compare_digest(supplied, expected):
+                return True
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Basic realm="TAK AUTO MVP"')
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.end_headers()
+            self.wfile.write("로그인이 필요합니다.".encode("utf-8"))
+            return False
+
         def _send_html(self, body: bytes, status: int = 200) -> None:
             self.send_response(status)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -2638,6 +2664,8 @@ def make_handler_class(
             return candidate
 
         def do_GET(self) -> None:  # noqa: N802
+            if not self._require_web_auth():
+                return
             parsed = urlparse(self.path)
             path = parsed.path
             query = parse_qs(parsed.query)
@@ -3059,6 +3087,8 @@ def make_handler_class(
             self._send_html(_page("페이지 없음", "<p>페이지를 찾을 수 없습니다.</p>"), status=404)
 
         def do_POST(self) -> None:  # noqa: N802
+            if not self._require_web_auth():
+                return
             parsed = urlparse(self.path)
             path = parsed.path
             length = int(self.headers.get("Content-Length") or 0)
