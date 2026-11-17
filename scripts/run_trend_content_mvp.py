@@ -24,6 +24,8 @@ if str(ROOT) not in sys.path:
 
 from blog_importer.models import utc_now
 from content_engine.generator import generate_content_bundle
+from content_engine.publishing_queue import PublishingQueue, queue_dashboard
+from scripts.run_publishing_queue import start_scheduler
 from tak_brain.models import KnowledgeRecord
 from tak_scout.perplexity_research import PerplexityResearchProvider
 from tak_scout.trend_discovery import TrendDiscovery, TrendItem, discover_trends
@@ -51,6 +53,7 @@ CONFIGURED_DATA_DIR = Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))).e
 DATA_DIR, USING_EPHEMERAL_STORAGE = _resolve_writable_data_dir(CONFIGURED_DATA_DIR)
 TREND_PATH = DATA_DIR / "tak_auto_live_trends.json"
 PREVIEW_PATH = DATA_DIR / "tak_auto_content_previews.json"
+QUEUE_PATH = DATA_DIR / "tak_auto_publishing_queue.json"
 
 
 def _basic_auth_valid(header: str, username: str, password: str) -> bool:
@@ -240,7 +243,7 @@ def _make_preview(item: dict, trend_report: dict, provider=None) -> dict:
     }
 
 
-def _page(report: dict | None, previews: list[dict], error: str = "") -> str:
+def _page(report: dict | None, previews: list[dict], error: str = "", queue_snapshot: dict | None = None) -> str:
     error_html = f'<div class="error">{escape(error)}</div>' if error else ""
     if not report:
         report = {}
@@ -265,7 +268,7 @@ def _page(report: dict | None, previews: list[dict], error: str = "") -> str:
     <button type="submit">이 키워드로 콘텐츠 패키지 생성</button></form>
 </article>""")
     preview_cards = []
-    for preview in previews:
+    for preview_index, preview in enumerate(previews):
         blog = preview.get("blog") or {}
         shorts = preview.get("shorts") or []
         threads = preview.get("threads") or []
@@ -283,6 +286,15 @@ def _page(report: dict | None, previews: list[dict], error: str = "") -> str:
   <h3>Threads · {len(threads)}편</h3>
   {"".join(f'<div class="draft"><b>{escape(str(row.get("title", "")))}</b><button type="button" class="secondary copy" data-copy="thread-{len(preview_cards)}-{i}">Threads 글 복사</button><pre id="thread-{len(preview_cards)}-{i}">{escape(str(row.get("body", "")))}</pre></div>' for i, row in enumerate(threads))}
   <p class="meta">{" ".join(f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener">원문 출처</a>' for url in preview.get("source_urls", []))}</p>
+  <details><summary>플랫폼 게시 예약 및 승인</summary>
+    <p class="warning">승인 후에도 실제 게시 기능은 기본 비활성 상태입니다.</p>
+    <form method="post" action="/queue/approve" class="queue-form">
+      <input type="hidden" name="preview_index" value="{preview_index}">
+      <label>플랫폼 <select name="platform">{"".join(f'<option value="{platform}">{label}</option>' for platform, label in [("blog", "네이버 블로그"), ("youtube_shorts", "YouTube Shorts"), ("threads", "Threads"), ("instagram_reels", "Instagram Reels"), ("tiktok", "TikTok")])}</select></label>
+      <label>예약 시각 (한국시간) <input type="datetime-local" name="scheduled_at" required></label>
+      <button type="submit">승인하고 예약</button>
+    </form>
+  </details>
 </section>""")
     generated = escape(str(report.get("researched_at", "아직 조사 전")))
     return f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
@@ -300,6 +312,7 @@ button.secondary{{background:#475569}}.error{{background:#fee;border:1px solid #
 .warning{{background:#fff4d9;padding:12px;border-radius:9px}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.7 inherit;background:#f7f8fb;padding:14px;border-radius:9px}}
 a{{color:#3157c8}}.draft{{border-top:1px solid var(--line);padding:10px 0}}
 .copy{{margin:6px 0}}.copy.done{{background:#16794b}}
+table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;border-bottom:1px solid var(--line);text-align:left;overflow-wrap:anywhere}}.queue-form{{display:flex;flex-wrap:wrap;gap:12px;align-items:end}}label{{display:grid;gap:4px}}
 @media(max-width:560px){{h1{{font-size:22px}}.grid{{display:block}}}}
 </style></head><body><main>
 <header><h1>TAK AUTO · TREND CONTENT FACTORY</h1>
@@ -313,6 +326,7 @@ a{{color:#3157c8}}.draft{{border-top:1px solid var(--line);padding:10px 0}}
 <p class="meta">검색량 순위가 아니라 최신 근거·한국 독자 관련성·콘텐츠 설명 가치에 따른 편집 후보입니다.</p></section>
 <h2>발굴된 트렌드 {len(trends)}개</h2><div class="grid">{''.join(cards) or '<p>아직 조사 결과가 없습니다. 위 버튼으로 첫 조사를 실행하세요.</p>'}</div>
 <h2>생성한 콘텐츠 패키지 {len(previews)}개</h2>{''.join(preview_cards) or '<p>트렌드를 선택해 콘텐츠 패키지를 생성하세요.</p>'}
+{queue_dashboard(queue_snapshot or {"items": [], "history": []}, publishing_enabled=os.getenv("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true", pending_approvals=len(previews))}
 </main><script>
 document.addEventListener("click", async (event) => {{
   const button = event.target.closest("button.copy");
@@ -369,14 +383,22 @@ def create_handler():
             if self.path == "/health":
                 perplexity_ready = bool(os.getenv("TAK_SCOUT_PERPLEXITY_API_KEY"))
                 auth_ready = bool(os.getenv("TAK_WEB_USERNAME") and os.getenv("TAK_WEB_PASSWORD"))
-                payload = {"status": "ok", "perplexity_configured": perplexity_ready, "web_auth_configured": auth_ready, "ready": perplexity_ready and auth_ready}
+                publishing_enabled = os.getenv("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true"
+                publisher_configured = bool(os.getenv("TAK_AUTO_PUBLISHER", "").strip())
+                payload = {
+                    "status": "ok", "perplexity_configured": perplexity_ready,
+                    "web_auth_configured": auth_ready, "publishing_enabled": publishing_enabled,
+                    "publisher_adapter_configured": publisher_configured,
+                    "ready": perplexity_ready and auth_ready,
+                }
                 self._respond(json.dumps(payload), content_type="application/json; charset=utf-8")
                 return
             if not self._require_auth():
                 return
             report = _read_json(TREND_PATH, {})
             previews = _read_json(PREVIEW_PATH, [])
-            self._respond(_page(report, previews))
+            queue_snapshot = PublishingQueue(QUEUE_PATH).snapshot()
+            self._respond(_page(report, previews, queue_snapshot=queue_snapshot))
 
         def do_POST(self):
             if not self._require_auth():
@@ -394,13 +416,14 @@ def create_handler():
             form = parse_qs(self.rfile.read(length).decode("utf-8"))
             report = _read_json(TREND_PATH, {})
             previews = _read_json(PREVIEW_PATH, [])
+            queue = PublishingQueue(QUEUE_PATH)
             try:
                 if self.path == "/discover":
                     provider = PerplexityResearchProvider.from_environment()
                     discovered = discover_trends(provider)
                     report = discovered.to_dict()
                     _write_json(TREND_PATH, report)
-                    self._respond(_page(report, previews))
+                    self._respond(_page(report, previews, queue_snapshot=queue.snapshot()))
                     return
                 if self.path == "/generate":
                     if not report.get("trends"):
@@ -413,13 +436,39 @@ def create_handler():
                     previews = [row for row in previews if row.get("keyword") != preview["keyword"]]
                     previews.insert(0, preview)
                     _write_json(PREVIEW_PATH, previews[:10])
-                    self._respond(_page(report, previews[:10]))
+                    self._respond(_page(report, previews[:10], queue_snapshot=queue.snapshot()))
+                    return
+                if self.path == "/queue/approve":
+                    index = int(form.get("preview_index", ["-1"])[0])
+                    if index < 0 or index >= len(previews):
+                        raise ValueError("승인할 콘텐츠 초안을 찾을 수 없습니다.")
+                    platform = form.get("platform", [""])[0]
+                    local_time = datetime.strptime(form.get("scheduled_at", [""])[0], "%Y-%m-%dT%H:%M")
+                    scheduled_at = local_time.replace(tzinfo=KST)
+                    preview = previews[index]
+                    preview_key = json.dumps(preview, ensure_ascii=False, sort_keys=True)
+                    content_id = "trend-" + hashlib.sha256(preview_key.encode("utf-8")).hexdigest()[:20]
+                    if platform == "blog":
+                        payloads = [preview.get("blog") or {}]
+                    elif platform == "threads":
+                        payloads = preview.get("threads") or []
+                    else:
+                        shorts = preview.get("shorts") or []
+                        if not shorts:
+                            raise ValueError("이 콘텐츠에는 쇼츠 원고가 없습니다.")
+                        payloads = [shorts[0]]
+                    approver = os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user"
+                    enqueued = [queue.enqueue_approved(
+                        content_id=content_id, platform=platform, payload=payload,
+                        scheduled_at=scheduled_at, approved_by=approver,
+                    ) for payload in payloads]
+                    self._respond(_page(report, previews, f"{len(enqueued)}개 작업을 승인하고 예약했습니다.", queue.snapshot()))
                     return
                 self._respond(_page(report, previews, "지원하지 않는 요청입니다."), 404)
             except Exception as error:
                 # Never print request credentials or full exception payloads into the page.
                 message = str(error) if isinstance(error, (ValueError, RuntimeError)) else type(error).__name__
-                self._respond(_page(report, previews, message), 400)
+                self._respond(_page(report, previews, message, queue.snapshot()), 400)
 
         def log_message(self, _format, *_args):
             return
@@ -447,11 +496,14 @@ def main(argv: list[str] | None = None) -> int:
     print("Perplexity API 키: 설정됨" if os.getenv("TAK_SCOUT_PERPLEXITY_API_KEY") else "Perplexity API 키: 미설정")
     print("종료: Ctrl+C")
     server = ThreadingHTTPServer((args.host, args.port), create_handler())
+    scheduler_thread, scheduler_stop = start_scheduler(QUEUE_PATH)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\n종료합니다.")
     finally:
+        scheduler_stop.set()
+        scheduler_thread.join(timeout=2)
         server.server_close()
     return 0
 

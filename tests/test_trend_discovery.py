@@ -18,13 +18,13 @@ class TrendDiscoveryTests(unittest.TestCase):
         for index in range(1, 7):
             rows.append({
                 "rank": index,
-                "keyword": f"트렌드 키워드 {index}",
+                "keyword": f"분야{index} 트렌드 키워드 {index}",
                 "category": "AI·테크" if index % 2 else "생활",
                 "summary": "최근 공개된 발표와 자료에서 확인된 변화에 관한 설명입니다.",
                 "why_now": "최근 7일 안에 공식 발표가 공개되어 관심이 모이고 있습니다.",
                 "audience_question": "이 변화가 내 생활에 어떤 영향을 줄까요?",
                 "content_angle": "초보자 관점에서 실제 영향과 확인 방법을 비교합니다.",
-                "blog_title": f"트렌드 키워드 {index} 변화와 실제 영향 정리",
+                "blog_title": f"분야{index} 고유이슈{index}번의 핵심 영향",
                 "shorts_hook": "이 변화, 그냥 지나치면 놓칠 수 있습니다.",
                 "key_points": [
                     "공식 발표에서 확인된 첫 번째 주요 내용입니다.",
@@ -68,7 +68,7 @@ class TrendDiscoveryTests(unittest.TestCase):
         payload = json.loads(self._answer())
         for index, row in enumerate(payload["trends"]):
             row["keyword"] = f"독립적인 주제 {index}번"
-            row["blog_title"] = f"독립적인 주제 {index}번의 최신 변화"
+            row["blog_title"] = f"주제분야 {index}번만의 새 이슈"
             row["category"] = "경제·금융" if index < 5 else "건강"
         payload["trends"][0]["source_urls"] = ["https://unverified.example/nope"]
         result = ResearchResult("query", json.dumps(payload, ensure_ascii=False),
@@ -140,6 +140,19 @@ class TrendDiscoveryTests(unittest.TestCase):
         self.assertIn("YouTube 설명란", html)
         self.assertIn("Instagram 릴스 문안", html)
         self.assertIn("TikTok 설명문", html)
+
+    def test_dashboard_exposes_approval_schedule_and_disabled_publishing_status(self):
+        preview = {
+            "keyword": "예약 테스트", "blog": {"title": "제목", "body": "본문"},
+            "shorts": [{"title": "쇼츠", "body": "대본"}],
+            "threads": [{"title": "Threads", "body": "글"}],
+        }
+        html = _page({"trends": []}, [preview], queue_snapshot={"items": [], "history": []})
+        self.assertIn('action="/queue/approve"', html)
+        self.assertIn('name="scheduled_at"', html)
+        self.assertIn("승인 후에도 실제 게시 기능은 기본 비활성 상태입니다.", html)
+        self.assertIn("비활성화 (기본값)", html)
+        self.assertIn("pending approval: 1", html)
 
     def test_parses_perplexity_content_package(self):
         blog_body = "# 검색 유입형 제목\\n\\n" + ("독자가 궁금해하는 핵심 내용을 근거와 함께 설명합니다. " * 30)

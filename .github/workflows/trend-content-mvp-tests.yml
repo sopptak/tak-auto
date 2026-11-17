@@ -12,6 +12,9 @@ on:
       - "tak_brain/models.py"
       - "render.yaml"
       - "docs/trend_content_factory_mvp.md"
+      - "content_engine/publishing_queue.py"
+      - "scripts/run_publishing_queue.py"
+      - "tests/test_publishing_queue.py"
   push:
     branches:
       - "feature/trend-content-factory-mvp"
@@ -25,6 +28,9 @@ on:
       - "tak_brain/models.py"
       - "render.yaml"
       - "docs/trend_content_factory_mvp.md"
+      - "content_engine/publishing_queue.py"
+      - "scripts/run_publishing_queue.py"
+      - "tests/test_publishing_queue.py"
 
 jobs:
   trend-content-mvp:
@@ -36,5 +42,6 @@ jobs:
           python-version: "3.11"
       - name: Test Perplexity Agent API and trend discovery
         run: |
+          python -m unittest discover -s tests -p "test_publishing_queue.py" -v
           python -m unittest discover -s tests -p "test_perplexity_research.py" -v
           python -m unittest discover -s tests -p "test_trend_discovery.py" -v
