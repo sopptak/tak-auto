@@ -1,6 +1,6 @@
 import unittest
 
-from tak_scout.dashboard import render_dashboard
+from tak_scout.dashboard import render_dashboard, render_dashboard_markdown
 
 
 class TakAutoDashboardTests(unittest.TestCase):
@@ -29,6 +29,25 @@ class TakAutoDashboardTests(unittest.TestCase):
         self.assertIn("https://example.com/story", html)
         self.assertIn("검색량 미확인", html)
         self.assertIn("not_configured", html)
+
+    def test_markdown_dashboard_contains_clickable_source_and_limits(self):
+        report = {
+            "generated_on": "2026-11-17",
+            "top_keywords": [{"keyword": "ai", "candidate_count": 2, "source_count": 2,
+                              "candidate_ids": ["s1"]}],
+            "rising_keywords": [],
+            "content_opportunities": [{"keyword": "ai", "score": 60,
+                                       "candidate_count": 2, "source_count": 2,
+                                       "reasons": ["복수 출처"]}],
+            "limitations": ["검색량 미확인"],
+            "naver_datalab": {"status": "not_configured"},
+        }
+        candidates = [{"scout_id": "s1", "title": "AI 공개", "source_url": "https://example.com",
+                       "source_name": "Example"}]
+        markdown = render_dashboard_markdown(report, candidates)
+        self.assertIn("[AI 공개](https://example.com)", markdown)
+        self.assertIn("검색량 미확인", markdown)
+        self.assertIn("콘텐츠 기회 TOP 5", markdown)
 
     def test_dashboard_escapes_untrusted_html(self):
         report = {"generated_on": "today", "top_keywords": [
