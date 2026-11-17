@@ -278,6 +278,8 @@ def _page(report: dict | None, previews: list[dict], error: str = "") -> str:
   <pre id="blog-{len(preview_cards)}">{escape(str(blog.get('body', '')))}</pre>
   <h3>유튜브 쇼츠 · {len(shorts)}편</h3>
   {"".join(f'<div class="draft"><b>{escape(str(row.get("title", "")))}</b><button type="button" class="secondary copy" data-copy="short-{len(preview_cards)}-{i}">쇼츠 대본 복사</button><pre id="short-{len(preview_cards)}-{i}">{escape(str(row.get("body", "")))}</pre></div>' for i, row in enumerate(shorts))}
+  {"".join(f'<div class="draft"><b>{label}</b><button type="button" class="secondary copy" data-copy="caption-{len(preview_cards)}-{i}">문안 복사</button><pre id="caption-{len(preview_cards)}-{i}">{escape(str(shorts[i].get(field, "")))}</pre></div>' for i in range(len(shorts)) for label, field in [("YouTube 설명란", "youtube_description"), ("Instagram 릴스 문안", "instagram_caption"), ("TikTok 설명문", "tiktok_caption")])}
+  {"".join(f'<p class="meta">해시태그: {escape(" ".join("#" + str(tag).lstrip("#") for tag in shorts[i].get("hashtags", [])))}</p>' for i in range(len(shorts)))}
   <h3>Threads · {len(threads)}편</h3>
   {"".join(f'<div class="draft"><b>{escape(str(row.get("title", "")))}</b><button type="button" class="secondary copy" data-copy="thread-{len(preview_cards)}-{i}">Threads 글 복사</button><pre id="thread-{len(preview_cards)}-{i}">{escape(str(row.get("body", "")))}</pre></div>' for i, row in enumerate(threads))}
   <p class="meta">{" ".join(f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener">원문 출처</a>' for url in preview.get("source_urls", []))}</p>
