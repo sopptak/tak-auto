@@ -13,7 +13,7 @@ class TrendWebTests(unittest.TestCase):
                                  "current_count": 3, "change": 2}],
             "content_opportunities": [{"keyword": "생성형 AI", "score": 70,
                                        "candidate_count": 4, "source_count": 3,
-                                       "candidate_ids": ["scout-1"], "reasons": ["복수 출처"]}],
+                                       "candidate_ids": ["scout-1", "scout-2"], "reasons": ["복수 출처"]}],
         }
         html = render_trends_page(report, [SimpleNamespace(scout_id="scout-1")])
         self.assertIn("반복 키워드 TOP 20", html)
@@ -21,7 +21,7 @@ class TrendWebTests(unittest.TestCase):
         self.assertIn("생성형 AI", html)
         self.assertIn("/research/scout-1", html)
         self.assertIn("근거 기사 심층 조사", html)
-        self.assertIn('action="/candidate/scout-1/research"', html)
+        self.assertIn('action="/candidate/scout-2/research"', html)
         self.assertIn("전체 검색량이나 SNS 인기도가 아닙니다", html)
 
     def test_escapes_untrusted_keyword_html(self):
