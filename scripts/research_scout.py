@@ -18,8 +18,8 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=3)
     parser.add_argument("--recency", choices=("day","week","month","year","none"), default="month")
     parser.add_argument("--domain", action="append", default=[])
-    parser.add_argument("--profile", choices=("auction", "general"), default="auction",
-                        help="조사 프로필 (기본값: 국내 부동산 법원경매)")
+    parser.add_argument("--profile", choices=("auction", "general"), default="general",
+                        help="조사 프로필 (기본값: 범용 트렌드; 경매는 명시적으로 선택)")
     args = parser.parse_args()
     if args.limit < 1: parser.error("--limit은 1 이상이어야 합니다.")
     candidates = load_daily_pack(args.input)
