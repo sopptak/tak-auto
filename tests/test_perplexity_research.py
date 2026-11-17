@@ -176,7 +176,7 @@ class PerplexityResearchProviderTests(unittest.TestCase):
     def test_search_times_out_cleanly_when_background_run_never_finishes(self):
         provider = PerplexityResearchProvider(
             api_key="test-key",
-            max_wait_seconds=20,
+            max_wait_seconds=0,
             transport=lambda *_: {"id": "resp_slow", "status": "in_progress"},
             poll_transport=lambda *_: {"id": "resp_slow", "status": "in_progress"},
             sleep=lambda _delay: None,
