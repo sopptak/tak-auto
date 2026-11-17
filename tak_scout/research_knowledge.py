@@ -19,6 +19,18 @@ from .research import ResearchRecord
 from .research_quality import assess_research_quality
 
 
+def _research_key_points(answer: str) -> tuple[str, ...]:
+    """Preserve explicit source paragraphs/bullets as traceable points; do not invent summaries."""
+    points = []
+    for line in answer.splitlines():
+        value = line.strip().lstrip("-•* ").strip()
+        if len(value) >= 20:
+            points.append(value)
+    if len(points) < 2:
+        points = [part.strip() for part in answer.split("。") if len(part.strip()) >= 20]
+    return tuple(dict.fromkeys(points))
+
+
 def _knowledge_id(scout_id: str) -> str:
     digest = hashlib.sha256(scout_id.encode("utf-8")).hexdigest()[:16]
     return f"knowledge-research-{digest}"
