@@ -8,7 +8,11 @@ services:
       mkdir -p /var/data &&
       if [ -d data ] && [ ! -L data ]; then cp -an data/. /var/data/; rm -rf data; fi &&
       ln -sfn /var/data data &&
-      python scripts/start_tak_auto_mvp.py --host 0.0.0.0 --port $PORT
+      if [ -s data/tak_scout_daily.json ]; then
+        python scripts/start_tak_auto_mvp.py --skip-collect --host 0.0.0.0 --port $PORT;
+      else
+        python scripts/start_tak_auto_mvp.py --host 0.0.0.0 --port $PORT;
+      fi
     healthCheckPath: /health
     disk:
       name: tak-auto-data
