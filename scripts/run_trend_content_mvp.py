@@ -83,15 +83,46 @@ def _basic_auth_valid(header: str, username: str, password: str) -> bool:
     return bool(separator) and hmac.compare_digest(supplied_user, username) and hmac.compare_digest(supplied_password, password)
 
 
-def _same_origin(origin: str, host: str, forwarded_proto: str) -> bool:
+def _origin_key(value: str, *, allow_root_path: bool = False) -> tuple[str, str, int] | None:
+    """Normalize an HTTP origin, including default ports, without accepting URL paths."""
+    try:
+        parsed = urlparse(value)
+        scheme = parsed.scheme.lower()
+        hostname = (parsed.hostname or "").lower().rstrip(".")
+        port = parsed.port
+    except ValueError:
+        return None
+    if scheme not in {"http", "https"} or not hostname or parsed.username or parsed.password:
+        return None
+    if parsed.path not in ({"", "/"} if allow_root_path else {""}) or parsed.params or parsed.query or parsed.fragment:
+        return None
+    if port is None:
+        port = 443 if scheme == "https" else 80
+    return scheme, hostname, port
+
+
+def _same_origin(
+    origin: str,
+    host: str,
+    forwarded_proto: str,
+    trusted_public_url: str = "",
+) -> bool:
     """Reject cross-origin form submissions, including behind HTTPS proxies."""
     if not origin or not host:
         return False
-    parsed = urlparse(origin)
-    if parsed.scheme.lower() not in {"http", "https"}:
+    supplied_origin = _origin_key(origin)
+    if supplied_origin is None:
         return False
-    request_hostname = urlparse(f"//{host}").hostname or ""
-    is_loopback = request_hostname.lower() == "localhost"
+
+    # The configured public URL is authoritative behind a reverse proxy: the
+    # proxy may rewrite Host or append a default port before this handler sees it.
+    configured_origin = _origin_key(trusted_public_url, allow_root_path=True) if trusted_public_url.strip() else None
+    if configured_origin is not None:
+        return supplied_origin == configured_origin
+
+    request_host = urlparse(f"//{host}")
+    request_hostname = (request_host.hostname or "").lower().rstrip(".")
+    is_loopback = request_hostname == "localhost"
     if not is_loopback:
         try:
             is_loopback = ipaddress.ip_address(request_hostname).is_loopback
@@ -100,7 +131,8 @@ def _same_origin(origin: str, host: str, forwarded_proto: str) -> bool:
     # Local preview is served over plain HTTP; some browser bridges still attach
     # an HTTPS forwarded-proto header. Restrict this exception to loopback hosts.
     expected_scheme = "http" if is_loopback else (forwarded_proto or "https").split(",")[0].strip().lower()
-    return parsed.scheme.lower() == expected_scheme and parsed.netloc.lower() == host.lower()
+    expected_origin = _origin_key(f"{expected_scheme}://{host}")
+    return expected_origin is not None and supplied_origin == expected_origin
 
 
 def _read_json(path: Path, default):
@@ -652,7 +684,7 @@ def create_handler():
             host = self.headers.get("Host", "")
             origin = self.headers.get("Origin", "")
             forwarded_proto = self.headers.get("X-Forwarded-Proto", "http")
-            if not _same_origin(origin, host, forwarded_proto):
+            if not _same_origin(origin, host, forwarded_proto, os.getenv("TAK_AUTO_PUBLIC_URL", "")):
                 self._respond(_page(_read_json(TREND_PATH, {}), [], "허용되지 않은 출처의 요청입니다."), 403)
                 return
             length = int(self.headers.get("Content-Length", "0"))

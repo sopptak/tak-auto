@@ -286,3 +286,12 @@ class CloudWebSecurityTests(unittest.TestCase):
         self.assertFalse(_same_origin("", "tak.example.com", "https"))
         self.assertTrue(_same_origin("http://127.0.0.1:8765", "127.0.0.1:8765", "https"))
         self.assertFalse(_same_origin("https://127.0.0.1:8765", "127.0.0.1:8765", "https"))
+        self.assertTrue(_same_origin("https://tak.example.com:443", "tak.example.com", "https"))
+        self.assertTrue(_same_origin("https://tak.example.com", "tak.example.com:443", "https"))
+        self.assertFalse(_same_origin("https://tak.example.com:444", "tak.example.com", "https"))
+        self.assertFalse(_same_origin("https://tak.example.com/path", "tak.example.com", "https"))
+
+    def test_same_origin_uses_trusted_public_url_when_proxy_rewrites_host(self):
+        public_url = "https://tak.example.com/"
+        self.assertTrue(_same_origin("https://tak.example.com", "internal.render.local", "http", public_url))
+        self.assertFalse(_same_origin("https://evil.example", "internal.render.local", "http", public_url))
