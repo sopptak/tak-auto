@@ -3647,7 +3647,7 @@ def main(argv: list[str] | None = None) -> int:
         generation_archive_paths=generation_archive_paths,
         shorts_drafts_path=args.shorts_drafts,
         ffmpeg=args.ffmpeg,
-        money_scout_agent_enabled=not args.no_money_scout_agent,
+        money_scout_agent_enabled=(not args.no_money_scout_agent and os.environ.get("TAK_DISABLE_MONEY_SCOUT_AGENT", "").strip().lower() not in {"1", "true", "yes"}),
     )
 
     # scripts/run_media_batch.py, scripts/run_daily.py, scripts/tak_auto.py와 동일한
