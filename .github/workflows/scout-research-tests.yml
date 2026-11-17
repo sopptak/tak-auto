@@ -7,6 +7,9 @@ on:
       - "tak_scout/trend_history.py"
       - "tests/test_research_trend_keyword.py"
       - "scripts/research_trend_keyword.py"
+      - "scripts/trends_web.py"
+      - "scripts/run_scout_dashboard.py"
+      - "tests/test_trends_web.py"
       - "scripts/render_tak_auto_dashboard.py"
       - "tests/test_tak_auto_dashboard.py"
       - "scripts/research_scout.py"
@@ -47,6 +50,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Test integrated trend dashboard
+        run: python -m unittest discover -s tests -p "test_trends_web.py" -v
       - name: Test trend keyword research workflow
         run: python -m unittest discover -s tests -p "test_research_trend_keyword.py" -v
       - name: Test TAK AUTO dashboard renderer
