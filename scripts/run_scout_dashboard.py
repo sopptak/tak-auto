@@ -2706,7 +2706,7 @@ def make_handler_class(
                 cards = []
                 for record in reversed(records):
                     cards.append('<div class="card"><div class="title">' + escape(record.candidate_title) + '</div><div class="meta">' + escape(record.status) + ' · ' + escape(record.researched_at) + '</div><a class="btn primary" href="/research/' + escape(record.scout_id) + '">결과 보기</a></div>')
-                body = '<h1>TAK SCOUT 심층 조사</h1><a href="/">오늘의 소재</a>' + (''.join(cards) or '<p>조사 결과가 없습니다. 소재 목록에서 Perplexity 조사를 실행하세요.</p>')
+                body = '<h1>TAK SCOUT 심층 조사</h1><a href="/">오늘의 소재</a> · <a href="/trends">트렌드</a> · <a href="/knowledge">KNOWLEDGE 검토</a>' + (''.join(cards) or '<p>조사 결과가 없습니다. 소재 목록에서 Perplexity 조사를 실행하세요.</p>')
                 self._send_html(_page("TAK SCOUT 심층 조사", body))
                 return
 
