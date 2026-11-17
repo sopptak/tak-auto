@@ -20,41 +20,41 @@ PLATFORMS = (
         "required": ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"),
         "account_env": "YOUTUBE_CHANNEL_NAME", "expiry_env": "",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
-        "publish_note": "게시하려면 승인된 MP4 영상 파일도 필요합니다.",
+        "publish_note": "웹 로그인은 계정 확인용이며 YouTube Shorts 자동 게시 어댑터는 준비 중입니다.",
     },
     {
         "key": "tiktok", "name": "TikTok", "icon": "♪",
         "required": ("TIKTOK_ACCESS_TOKEN", "TIKTOK_OPEN_ID"),
         "account_env": "TIKTOK_USERNAME", "expiry_env": "TIKTOK_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
-        "publish_note": "게시하려면 TikTok 개발자 앱 승인과 MP4 파일이 필요합니다.",
+        "publish_note": "웹 로그인은 계정 확인용이며 TikTok 자동 게시 어댑터는 준비 중입니다.",
     },
     {
         "key": "instagram_reels", "name": "Instagram Reels", "icon": "◎",
         "required": ("INSTAGRAM_ACCESS_TOKEN", "INSTAGRAM_USER_ID"),
         "account_env": "INSTAGRAM_USERNAME", "expiry_env": "INSTAGRAM_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
-        "publish_note": "프로페셔널 계정, 게시 권한, MP4 미디어가 필요합니다.",
+        "publish_note": "웹 로그인은 계정 확인용이며 Instagram Reels 자동 게시 어댑터는 준비 중입니다.",
     },
     {
         "key": "facebook", "name": "Facebook 페이지", "icon": "f",
         "required": ("FACEBOOK_ACCESS_TOKEN", "FACEBOOK_PAGE_ID"),
         "account_env": "FACEBOOK_PAGE_NAME", "expiry_env": "FACEBOOK_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
-        "publish_note": "페이지 권한을 확인하고 게시 어댑터를 연결해야 합니다.",
+        "publish_note": "웹 로그인은 계정 확인용이며 Facebook 페이지 자동 게시 어댑터는 준비 중입니다.",
     },
     {
         "key": "threads", "name": "Threads", "icon": "@",
         "required": ("THREADS_ACCESS_TOKEN",),
         "account_env": "THREADS_USERNAME", "expiry_env": "THREADS_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
-        "publish_note": "Threads 텍스트 게시 API가 지원됩니다.",
+        "publish_note": "웹 로그인 토큰은 게시 어댑터에서 사용하지 않습니다. 게시하려면 별도의 THREADS_ACCESS_TOKEN 설정이 필요합니다.",
     },
     {
         "key": "blog", "name": "네이버 블로그", "icon": "N",
         "required": (), "account_env": "NAVER_BLOG_NAME", "expiry_env": "",
         "renewal": "자동 계정 토큰 없음 · 게시 후 사람이 완료 처리해야 합니다.",
-        "publish_note": "네이버 블로그 글쓰기 API가 종료되어 자동 게시를 지원하지 않습니다.",
+        "publish_note": "네이버 블로그 글쓰기 API 종료로 자동 게시를 지원하지 않습니다.",
         "manual": True,
     },
 )
@@ -241,7 +241,7 @@ def connection_dashboard(
     enabled_label = "활성화" if publishing_enabled else "비활성화 (기본값)"
     return f"""<section class="toolbar" id="account-connections">
 <h2>게시 계정 연결 현황</h2>
-<p>예약 게시 스위치: <b>{enabled_label}</b> · 게시 어댑터: <b>{'설정됨' if adapter_configured else '미설정'}</b> · SNS 로그인은 계정만 연결하며 게시 기능을 켜지 않습니다. 인증 토큰 원문은 이 화면에 표시하지 않습니다.</p>
+<p>예약 게시 스위치: <b>{enabled_label}</b> · 게시 어댑터: <b>{'설정됨' if adapter_configured else '미설정'}</b> · SNS 웹 로그인은 계정 확인용이며 게시 기능을 켜지 않습니다. 게시 토큰과 게시 어댑터 설정은 별도입니다. 인증 토큰 원문은 이 화면에 표시하지 않습니다.</p>
 {f'<p class="connection-verification-error">{escape(oauth_storage_error)}</p>' if oauth_storage_error else ''}
 <div class="connection-grid">{''.join(cards)}</div>
 </section>"""

@@ -124,6 +124,9 @@ class PublishingConnectionTests(unittest.TestCase):
         self.assertIn("게시 어댑터:", html)
         self.assertIn("미설정", html)
         self.assertIn("자동 게시를 지원하지 않습니다", html)
+        self.assertIn("웹 로그인은 계정 확인용", html)
+        self.assertIn("게시 토큰과 게시 어댑터 설정은 별도입니다", html)
+        self.assertIn("별도의 THREADS_ACCESS_TOKEN 설정이 필요합니다", html)
         self.assertNotIn('TIKTOK_ACCESS_TOKEN</p>', html)
 
     def test_dashboard_offers_web_login_for_each_social_account_and_never_renders_tokens(self):
