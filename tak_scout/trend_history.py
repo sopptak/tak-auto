@@ -38,6 +38,7 @@ class Opportunity:
     candidate_count: int
     source_count: int
     reasons: tuple[str, ...]
+    candidate_ids: tuple[str, ...] = ()
     limitations: tuple[str, ...] = (
         "검색량 미확인", "키워드 경쟁도 미확인", "SNS 반응 미확인",
     )
@@ -48,6 +49,7 @@ class Opportunity:
             "candidate_count": self.candidate_count,
             "source_count": self.source_count,
             "reasons": list(self.reasons),
+            "candidate_ids": list(self.candidate_ids),
             "limitations": list(self.limitations),
             "measurement": "heuristic_feed_opportunity",
         }
@@ -139,7 +141,7 @@ def score_opportunities(signals: Iterable[TrendSignal]) -> list[Opportunity]:
         if signal.source_count >= 2:
             reasons.append("복수 출처 교차 확인 가능")
         results.append(Opportunity(signal.keyword, score, signal.candidate_count,
-                                   signal.source_count, tuple(reasons)))
+                                   signal.source_count, tuple(reasons), signal.candidate_ids))
     return sorted(results, key=lambda x: (x.score, x.candidate_count, x.keyword),
                   reverse=True)
 
