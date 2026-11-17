@@ -6,6 +6,8 @@ on:
       - "tak_scout/**"
       - "tak_scout/trend_history.py"
       - "tests/test_research_trend_keyword.py"
+      - "tests/test_research_media_bridge.py"
+      - "content_engine/generator.py"
       - "scripts/research_trend_keyword.py"
       - "scripts/trends_web.py"
       - "scripts/run_scout_dashboard.py"
@@ -52,6 +54,8 @@ jobs:
           python-version: "3.11"
       - name: Test integrated trend dashboard
         run: python -m unittest discover -s tests -p "test_trends_web.py" -v
+      - name: Test approved research media bridge
+        run: python -m unittest discover -s tests -p "test_research_media_bridge.py" -v
       - name: Test trend keyword research workflow
         run: python -m unittest discover -s tests -p "test_research_trend_keyword.py" -v
       - name: Test TAK AUTO dashboard renderer
