@@ -20,6 +20,8 @@ class TrendWebTests(unittest.TestCase):
         self.assertIn("급상승 후보 TOP 10", html)
         self.assertIn("생성형 AI", html)
         self.assertIn("/research/scout-1", html)
+        self.assertIn("근거 기사 심층 조사", html)
+        self.assertIn('action="/candidate/scout-1/research"', html)
         self.assertIn("전체 검색량이나 SNS 인기도가 아닙니다", html)
 
     def test_escapes_untrusted_keyword_html(self):
