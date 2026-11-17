@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import tempfile
 from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 
@@ -28,7 +29,26 @@ from tak_scout.perplexity_research import PerplexityResearchProvider
 from tak_scout.trend_discovery import TrendDiscovery, TrendItem, discover_trends
 
 KST = ZoneInfo("Asia/Seoul")
-DATA_DIR = Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))).expanduser()
+def _resolve_writable_data_dir(configured: Path) -> tuple[Path, bool]:
+    """Use the configured data directory when writable; otherwise use ephemeral /tmp."""
+    candidates = [(configured, False)]
+    fallback = Path(tempfile.gettempdir()) / "tak-auto-data"
+    if fallback != configured:
+        candidates.append((fallback, True))
+    for candidate, is_fallback in candidates:
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(prefix=".tak-auto-write-test-", dir=candidate, delete=True):
+                pass
+            return candidate, is_fallback
+        except OSError:
+            continue
+    # Preserve the original configured path so the first write returns a clear error.
+    return configured, False
+
+
+CONFIGURED_DATA_DIR = Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))).expanduser()
+DATA_DIR, USING_EPHEMERAL_STORAGE = _resolve_writable_data_dir(CONFIGURED_DATA_DIR)
 TREND_PATH = DATA_DIR / "tak_auto_live_trends.json"
 PREVIEW_PATH = DATA_DIR / "tak_auto_content_previews.json"
 
@@ -275,7 +295,8 @@ a{{color:#3157c8}}.draft{{border-top:1px solid var(--line);padding:10px 0}}
 </style></head><body><main>
 <header><h1>TAK AUTO · TREND CONTENT FACTORY</h1>
 <p>최신 트렌드 발견 → Perplexity 조사 → 블로그·쇼츠·Threads 제작 → 트래픽 유도</p>
-<div>마지막 조사: {generated} · 모델: {escape(str(report.get('model', '미연결')))}</div></header>
+<div>마지막 조사: {generated} · 모델: {escape(str(report.get('model', '미연결')))}</div>
+{"<p>임시 저장소 사용 중: Render 무료 인스턴스에서는 재시작·재배포 시 조사 결과가 초기화될 수 있습니다.</p>" if USING_EPHEMERAL_STORAGE else ""}</header>
 {error_html}
 <section class="toolbar"><h2>최신 트렌드 조사</h2>
 <p>Perplexity가 최근 7일 공개 웹 자료를 바탕으로 여러 분야의 키워드 최대 20개를 발굴합니다. 선택 키워드 콘텐츠 생성에도 Perplexity API를 한 번 더 사용합니다.</p>
@@ -390,6 +411,8 @@ def main(argv: list[str] | None = None) -> int:
     print("TAK AUTO Trend Content Factory")
     print(f"바인딩: {args.host}:{args.port}")
     print(f"데이터 디렉터리: {DATA_DIR}")
+    if USING_EPHEMERAL_STORAGE:
+        print("주의: 설정된 저장 경로를 쓸 수 없어 임시 저장소(/tmp)를 사용합니다. 무료 인스턴스 재시작 시 데이터가 사라질 수 있습니다.")
     print("웹 인증: 설정됨" if os.getenv("TAK_WEB_USERNAME") and os.getenv("TAK_WEB_PASSWORD") else "웹 인증: 로컬 개발 모드")
     print("Perplexity API 키: 설정됨" if os.getenv("TAK_SCOUT_PERPLEXITY_API_KEY") else "Perplexity API 키: 미설정")
     print("종료: Ctrl+C")
