@@ -68,6 +68,9 @@ jobs:
             --max "${{ github.event.inputs.max_candidates || '5' }}"
 
       - name: Build daily trend report
+        env:
+          NAVER_DATALAB_CLIENT_ID: ${{ secrets.NAVER_DATALAB_CLIENT_ID }}
+          NAVER_DATALAB_CLIENT_SECRET: ${{ secrets.NAVER_DATALAB_CLIENT_SECRET }}
         run: python3 scripts/run_trend_report.py
 
       - name: Check for SCOUT and trend result changes
