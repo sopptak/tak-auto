@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 import json
+import re
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -29,6 +30,7 @@ class TrendItem:
     shorts_hook: str
     key_points: tuple[str, ...]
     source_urls: tuple[str, ...]
+    content_score: int
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -38,6 +40,7 @@ class TrendItem:
             "content_angle": self.content_angle, "blog_title": self.blog_title,
             "shorts_hook": self.shorts_hook, "key_points": list(self.key_points),
             "source_urls": list(self.source_urls),
+            "content_score": self.content_score,
         }
 
 
@@ -136,19 +139,56 @@ def _clean_text(value: object, field: str, *, required: bool = True) -> str:
     return cleaned
 
 
+def _tokens(value: str) -> set[str]:
+    normalized = re.sub(r"[^0-9a-z가-힣]+", " ", value.casefold())
+    return {token for token in normalized.split() if len(token) > 1}
+
+
+def _near_duplicate(left: str, right: str) -> bool:
+    a, b = _tokens(left), _tokens(right)
+    if not a or not b:
+        return False
+    overlap = len(a & b) / len(a | b)
+    containment = len(a & b) / min(len(a), len(b))
+    return overlap >= 0.62 or (containment >= 0.82 and min(len(a), len(b)) >= 2)
+
+
+def _content_score(*, keyword: str, summary: str, why_now: str,
+                   question: str, angle: str, points: tuple[str, ...],
+                   source_urls: tuple[str, ...]) -> int:
+    """Editorial score, not measured search volume or predicted views."""
+    score = 20
+    score += min(20, len(source_urls) * 10)
+    score += min(15, len(points) * 5)
+    score += 10 if len(summary) >= 45 else 0
+    score += 10 if len(why_now) >= 25 else 0
+    score += 10 if "?" in question or "?" in question or "?" in question else 0
+    score += 10 if len(angle) >= 25 else 0
+    score += 5 if len(keyword) >= 5 else 0
+    return min(100, score)
+
+
+def _category_key(category: str) -> str:
+    return re.sub(r"[^0-9a-z가-힣]", "", category.casefold())
+
+
 def parse_trend_result(result: ResearchResult, *, researched_at: str | None = None) -> TrendDiscovery:
     payload = _decode_json_object(result.answer)
     allowed_urls = set(result.citations)
-    trends: list[TrendItem] = []
-    seen: set[str] = set()
-    for raw in payload["trends"][:20]:
+    candidates: list[TrendItem] = []
+    seen_keywords: set[str] = set()
+    for raw in payload["trends"][:40]:
         if not isinstance(raw, dict):
             continue
         keyword = _clean_text(raw.get("keyword"), "keyword")
-        normalized = keyword.casefold()
-        if normalized in seen:
+        summary = _clean_text(raw.get("summary"), "summary")
+        why_now = _clean_text(raw.get("why_now"), "why_now")
+        question = _clean_text(raw.get("audience_question"), "audience_question")
+        angle = _clean_text(raw.get("content_angle"), "content_angle")
+        category = _clean_text(raw.get("category"), "category", required=False) or "기타"
+        normalized = " ".join(_tokens(keyword))
+        if not normalized or normalized in seen_keywords:
             continue
-        seen.add(normalized)
         raw_points = raw.get("key_points", [])
         points = tuple(
             item.strip() for item in raw_points
@@ -158,30 +198,54 @@ def parse_trend_result(result: ResearchResult, *, researched_at: str | None = No
         source_urls = tuple(dict.fromkeys(
             url for url in urls if isinstance(url, str) and url in allowed_urls
         )) if isinstance(urls, list) else ()
+        # Do not attach unrelated global citations to a trend with no matching source.
         if not source_urls:
-            source_urls = result.citations[:3]
-        trends.append(TrendItem(
-            rank=len(trends) + 1,
-            keyword=keyword,
-            category=_clean_text(raw.get("category"), "category", required=False) or "기타",
-            summary=_clean_text(raw.get("summary"), "summary"),
-            why_now=_clean_text(raw.get("why_now"), "why_now"),
-            audience_question=_clean_text(raw.get("audience_question"), "audience_question"),
-            content_angle=_clean_text(raw.get("content_angle"), "content_angle"),
+            continue
+        candidates.append(TrendItem(
+            rank=0, keyword=keyword, category=category, summary=summary,
+            why_now=why_now, audience_question=question, content_angle=angle,
             blog_title=_clean_text(raw.get("blog_title"), "blog_title"),
             shorts_hook=_clean_text(raw.get("shorts_hook"), "shorts_hook"),
-            key_points=points,
-            source_urls=source_urls,
+            key_points=points, source_urls=source_urls,
+            content_score=_content_score(
+                keyword=keyword, summary=summary, why_now=why_now,
+                question=question, angle=angle, points=points,
+                source_urls=source_urls,
+            ),
         ))
+        seen_keywords.add(normalized)
+
+    # Greedy editorial selection: prioritize quality while limiting same-category
+    # concentration and rejecting near-identical keyword/title concepts.
+    selected: list[TrendItem] = []
+    category_counts: dict[str, int] = {}
+    remaining = sorted(candidates, key=lambda item: item.content_score, reverse=True)
+    while remaining and len(selected) < 20:
+        eligible = [
+            item for item in remaining
+            if category_counts.get(_category_key(item.category), 0) < 4
+            and not any(_near_duplicate(item.keyword, chosen.keyword)
+                        or _near_duplicate(item.blog_title, chosen.blog_title)
+                        for chosen in selected)
+        ]
+        if not eligible:
+            break
+        chosen = eligible[0]
+        selected.append(chosen)
+        key = _category_key(chosen.category)
+        category_counts[key] = category_counts.get(key, 0) + 1
+        remaining.remove(chosen)
+
+    trends = [TrendItem(**{**item.__dict__, "rank": index})
+              for index, item in enumerate(selected, 1)]
     if len(trends) < 5:
-        raise ValueError(f"유효한 트렌드가 {len(trends)}개뿐입니다. 최소 5개가 필요합니다.")
+        raise ValueError(
+            f"출처·중복·품질 검증 후 유효한 트렌드가 {len(trends)}개뿐입니다. 최소 5개가 필요합니다."
+        )
     return TrendDiscovery(
         researched_at=researched_at or datetime.now(KST).isoformat(timespec="seconds"),
-        period="최근 7일",
-        model=result.model,
-        query=result.query,
-        trends=tuple(trends),
-        citations=result.citations,
+        period="최근 7일", model=result.model, query=result.query,
+        trends=tuple(trends), citations=result.citations,
     )
 
 
