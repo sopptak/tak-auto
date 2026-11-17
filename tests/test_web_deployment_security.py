@@ -19,6 +19,15 @@ class HostedDashboardSecurityTests(unittest.TestCase):
         self.assertIn('Web authentication is not configured.', source)
         self.assertIn('WWW-Authenticate', source)
 
+    def test_post_actions_reject_missing_or_cross_origin_origin_header(self):
+        source = (ROOT / "scripts" / "run_scout_dashboard.py").read_text(encoding="utf-8")
+        post = source.index("def do_POST")
+        section = source[post:post + 1800]
+        self.assertIn('origin = self.headers.get("Origin", "")', section)
+        self.assertIn('request_host = self.headers.get("Host", "")', section)
+        self.assertIn('if not origin or urlparse(origin).netloc.lower() != request_host.lower():', section)
+        self.assertIn('self.send_response(403)', section)
+
     def test_health_endpoint_is_public_and_minimal(self):
         source = (ROOT / "scripts" / "run_scout_dashboard.py").read_text(encoding="utf-8")
         health = source.index('if parsed.path == "/health":')
