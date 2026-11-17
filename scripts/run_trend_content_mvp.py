@@ -268,14 +268,46 @@ def _parse_content_package(answer: str) -> dict:
     blog = package.get("blog")
     shorts = package.get("shorts")
     threads = package.get("threads")
-    if not isinstance(blog, dict) or len(str(blog.get("body", "")).strip()) < 500:
+    if not isinstance(blog, dict):
+        raise ValueError("블로그 원고 구조가 올바르지 않습니다. 다시 생성하세요.")
+    for field, label in (("title", "제목"), ("meta_description", "검색 설명"),
+                         ("focus_keyword", "핵심 키워드"), ("body", "본문")):
+        if not isinstance(blog.get(field), str) or not blog[field].strip():
+            raise ValueError(f"블로그 {label}이 비어 있거나 문자열이 아닙니다. 다시 생성하세요.")
+    if len(blog["body"].strip()) < 500:
         raise ValueError("블로그 본문이 없거나 500자 미만입니다. 다시 생성하세요.")
-    if not isinstance(shorts, dict) or not isinstance(shorts.get("scenes"), list) or len(shorts["scenes"]) < 5:
-        raise ValueError("쇼츠 장면 구성이 부족합니다. 최소 5개 장면이 필요합니다.")
+    if not isinstance(shorts, dict):
+        raise ValueError("쇼츠 원고 구조가 올바르지 않습니다. 다시 생성하세요.")
+    for field, label in (("title", "제목"), ("hook", "도입 문장"), ("closing_cta", "마무리 안내"),
+                         ("youtube_description", "YouTube 설명란"),
+                         ("instagram_caption", "Instagram 문안"),
+                         ("tiktok_caption", "TikTok 문안")):
+        if not isinstance(shorts.get(field), str) or not shorts[field].strip():
+            raise ValueError(f"쇼츠 {label}이 비어 있거나 문자열이 아닙니다. 다시 생성하세요.")
+    duration = shorts.get("duration_seconds")
+    if isinstance(duration, bool) or not isinstance(duration, int) or not 30 <= duration <= 90:
+        raise ValueError("쇼츠 길이는 30~90초 사이의 숫자여야 합니다. 다시 생성하세요.")
+    scenes = shorts.get("scenes")
+    if not isinstance(scenes, list) or not 5 <= len(scenes) <= 8:
+        raise ValueError("쇼츠는 5~8개 장면이 필요합니다. 다시 생성하세요.")
+    for index, scene in enumerate(scenes, 1):
+        if not isinstance(scene, dict):
+            raise ValueError(f"쇼츠 {index}번째 장면 구조가 올바르지 않습니다. 다시 생성하세요.")
+        for field, label in (("time", "시간"), ("visual", "화면 구성"),
+                             ("caption", "자막"), ("narration", "내레이션")):
+            if not isinstance(scene.get(field), str) or not scene[field].strip():
+                raise ValueError(f"쇼츠 {index}번째 장면의 {label}이 비어 있습니다. 다시 생성하세요.")
+    hashtags = shorts.get("hashtags", [])
+    if not isinstance(hashtags, list) or any(not isinstance(tag, str) or not tag.strip() for tag in hashtags):
+        raise ValueError("쇼츠 해시태그 형식이 올바르지 않습니다. 다시 생성하세요.")
     if not isinstance(threads, list) or len(threads) != 2:
         raise ValueError("Threads 초안은 정확히 2개가 필요합니다.")
-    for post in threads:
-        if not isinstance(post, dict) or not str(post.get("body", "")).strip() or len(str(post["body"])) > 500:
+    for index, post in enumerate(threads, 1):
+        if not isinstance(post, dict):
+            raise ValueError(f"Threads {index}번째 초안 구조가 올바르지 않습니다.")
+        if not isinstance(post.get("title"), str) or not post["title"].strip():
+            raise ValueError(f"Threads {index}번째 초안 제목이 비어 있습니다.")
+        if not isinstance(post.get("body"), str) or not post["body"].strip() or len(post["body"]) > 500:
             raise ValueError("Threads 본문은 비어 있지 않고 500자 이하여야 합니다.")
     return package
 

@@ -176,6 +176,9 @@ class TrendDiscoveryTests(unittest.TestCase):
         parsed = _parse_content_package(json.dumps(package, ensure_ascii=False))
         self.assertEqual(len(parsed["shorts"]["scenes"]), 6)
         self.assertEqual(len(parsed["threads"]), 2)
+        package["shorts"]["scenes"][0] = {"time": "00-08초"}
+        with self.assertRaisesRegex(ValueError, "화면 구성"):
+            _parse_content_package(json.dumps(package, ensure_ascii=False))
 
     def test_rejects_too_short_blog(self):
         invalid = {
@@ -204,7 +207,11 @@ class TrendDiscoveryTests(unittest.TestCase):
                                "scenes": [{"time": f"{i*8:02d}-{i*8+8:02d}초",
                                            "visual": "화면", "caption": "자막",
                                            "narration": "내레이션"} for i in range(6)],
-                               "closing_cta": "댓글을 남겨주세요."},
+                               "closing_cta": "댓글을 남겨주세요.",
+                               "youtube_description": "YouTube 설명",
+                               "instagram_caption": "Instagram 문안",
+                               "tiktok_caption": "TikTok 문안",
+                               "hashtags": ["생성형AI"]},
                     "threads": [{"title": "글1", "body": "첫 번째 Threads 글입니다."},
                                 {"title": "글2", "body": "두 번째 Threads 글입니다."}],
                 }
