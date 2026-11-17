@@ -6,7 +6,8 @@ This command measures recurrence inside configured feeds, not public search volu
 from __future__ import annotations
 
 import argparse
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 import json
 import sys
@@ -29,7 +30,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--history", type=Path, default=ROOT / "data" / "tak_auto_trend_history.json")
     parser.add_argument("--output-json", type=Path, default=ROOT / "data" / "tak_auto_trend_daily.json")
     parser.add_argument("--output-md", type=Path, default=ROOT / "data" / "tak_auto_trend_daily.md")
-    parser.add_argument("--date", default=date.today().isoformat(), help="관측일 YYYY-MM-DD (테스트·재처리용)")
+    parser.add_argument("--date", default=datetime.now(ZoneInfo("Asia/Seoul")).date().isoformat(), help="관측일 YYYY-MM-DD (KST 기준, 테스트·재처리용)")
     args = parser.parse_args(argv)
     if not args.input.exists():
         parser.error(f"SCOUT 입력 파일이 없습니다: {args.input}")
