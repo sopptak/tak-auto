@@ -37,7 +37,7 @@ class HostedDashboardSecurityTests(unittest.TestCase):
 
     def test_render_reuses_persisted_scout_data_after_restart(self):
         config = (ROOT / "render.yaml").read_text(encoding="utf-8")
-        self.assertIn("if [ -s data/tak_scout_daily.json ]; then", config)
+        self.assertIn("if [ -s data/tak_auto_trend_daily.json ]; then", config)
         self.assertIn("--skip-collect --host 0.0.0.0", config)
         self.assertIn("else", config)
 
