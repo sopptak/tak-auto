@@ -63,6 +63,8 @@ jobs:
         run: python -m unittest discover -s tests -p "test_start_tak_auto_mvp.py" -v
       - name: Test approved research media bridge
         run: python -m unittest discover -s tests -p "test_research_media_bridge.py" -v
+      - name: Test TAK MEDIA approved-only batch and dry-run
+        run: python -m unittest discover -s tests -p "test_media_batch.py" -v
       - name: Test trend keyword research workflow
         run: python -m unittest discover -s tests -p "test_research_trend_keyword.py" -v
       - name: Test TAK AUTO dashboard renderer
