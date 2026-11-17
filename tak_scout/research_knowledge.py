@@ -60,7 +60,7 @@ def build_knowledge_from_research(record: ResearchRecord) -> KnowledgeRecord:
         created_at=record.researched_at or utc_now(),
         knowledge_review_status="pending",
         summary=record.answer[:500],
-        key_points=(),
+        key_points=_research_key_points(record.answer),
         factual_information=record.answer,
         current_validity="조사 시점 기준이며 최신성 및 원문 확인 필요",
         verification_required=True,
