@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from tak_scout.perplexity_research import ResearchResult
 from tak_scout.trend_discovery import build_trend_query, parse_trend_result
 from scripts.run_trend_content_mvp import (
-    _basic_auth_valid, _make_preview, _parse_content_package, _same_origin,
+    _basic_auth_valid, _make_preview, _page, _parse_content_package, _same_origin,
     _resolve_writable_data_dir,
 )
 
@@ -121,6 +121,22 @@ class TrendDiscoveryTests(unittest.TestCase):
         self.assertEqual(len(preview["threads"]), 5)
         self.assertTrue(preview["source_urls"])
         self.assertIn("미리보기", preview["warning"])
+
+
+    def test_preview_page_has_copy_controls_for_each_platform(self):
+        preview = {
+            "keyword": "테스트 주제",
+            "warning": "검토용 초안",
+            "blog": {"title": "블로그 제목", "body": "블로그 본문"},
+            "shorts": [{"title": "쇼츠 제목", "body": "쇼츠 대본"}],
+            "threads": [{"title": "Threads 제목", "body": "Threads 본문"}],
+            "source_urls": ["https://example.com/source"],
+        }
+        html = _page({"trends": []}, [preview])
+        self.assertIn("블로그 원고 복사", html)
+        self.assertIn("쇼츠 대본 복사", html)
+        self.assertIn("Threads 글 복사", html)
+        self.assertIn("navigator.clipboard.writeText", html)
 
     def test_parses_perplexity_content_package(self):
         blog_body = "# 검색 유입형 제목\\n\\n" + ("독자가 궁금해하는 핵심 내용을 근거와 함께 설명합니다. " * 30)
