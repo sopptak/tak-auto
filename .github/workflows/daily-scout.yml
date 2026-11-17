@@ -1,7 +1,7 @@
 name: TAK AUTO Daily Trend Discovery
 
 # 5-19 "Daily Tmong Content Pipeline"의 자동화 가능한 부분만 담당한다:
-# 공개 RSS 수집 -> 후보 선정 -> 키워드 이력·트렌드 리포트 생성.
+# 공개 RSS 수집 -> 후보 선정 -> 키워드 이력·트렌드 리포트 -> 읽기 전용 대시보드 생성.
 #
 # 이 workflow는 다음을 절대 하지 않는다(docs/5-19_daily_pipeline_investigation.md
 # 4장 그대로):
@@ -80,14 +80,14 @@ jobs:
         id: scout_diff
         run: |
           git add data/tak_scout_daily.json data/tak_scout_daily.md data/tak_auto_trend_daily.json data/tak_auto_trend_daily.md data/tak_auto_trend_history.json data/tak_auto_dashboard.html data/tak_auto_dashboard.md
-          if git diff --cached --quiet -- data/tak_scout_daily.json data/tak_scout_daily.md data/tak_auto_trend_daily.json data/tak_auto_trend_daily.md data/tak_auto_trend_history.json data/tak_auto_dashboard.html; then
+          if git diff --cached --quiet -- data/tak_scout_daily.json data/tak_scout_daily.md data/tak_auto_trend_daily.json data/tak_auto_trend_daily.md data/tak_auto_trend_history.json data/tak_auto_dashboard.html data/tak_auto_dashboard.md; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
       # 결과 파일에 실제 변경이 있을 때만 commit/push한다. commit 대상은
-      # SCOUT 후보 및 트렌드 리포트·이력 파일로 한정한다 -
+      # SCOUT 후보, 트렌드 리포트·이력, 읽기 전용 대시보드로 한정한다 -
       # Threads/YouTube/Blog 관련 파일은 이 workflow가 절대 건드리지 않는다.
       - name: Commit and push today's SCOUT candidates
         if: steps.scout_diff.outputs.changed == 'true'
