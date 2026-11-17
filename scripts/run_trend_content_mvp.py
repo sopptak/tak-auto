@@ -112,13 +112,13 @@ def _build_content_prompt(item: dict, trend_report: dict) -> str:
 - 자료에 없는 숫자·통계·인용·사례·발언·URL을 만들지 마세요.
 - 원문 출처 URL은 위 verified_source_urls만 사용하세요.
 - 블로그는 검색 의도에 답하는 충분한 본문(한국어 1,200자 이상 목표), 소제목, 체크포인트, 요약, 자연스러운 다음 행동 CTA를 포함하세요.
-- 쇼츠는 약 60초 분량으로 6~8개 장면을 구성하세요. 각 장면은 time, visual, caption, narration을 포함하고 첫 3초 후킹과 마지막 행동 유도를 포함하세요.
+- 쇼츠는 약 60초 분량으로 6~8개 장면을 구성하세요. 각 장면은 time, visual, caption, narration을 포함하고 첫 3초 후킹과 마지막 행동 유도를 포함하세요. 세로 9:16(1080x1920) 기준으로 화면 중앙 안전영역에 핵심 피사체와 자막을 배치하고, 자막은 한 화면 최대 2줄·짧은 문장으로 작성하며 화면 가장자리 잘림을 피하도록 visual에 구도를 구체적으로 지시하세요.
 - Threads는 각각 독립적으로 읽혀도 되는 후킹 중심 글 2개를 만들고 각 본문은 500자 이내로 하세요.
 - 같은 내용을 세 번 반복하지 말고 플랫폼별 문법에 맞게 재구성하세요.
 - 결과는 아래 JSON 객체 하나로만 출력하세요. 코드펜스나 설명은 붙이지 마세요.
 {{
   "blog": {{"title":"검색형 제목","meta_description":"검색 결과 설명","focus_keyword":"핵심 키워드","body":"Markdown 본문"}},
-  "shorts": {{"title":"쇼츠 제목","duration_seconds":60,"hook":"첫 3초 후킹","scenes":[{{"time":"00-05초","visual":"화면 구성","caption":"화면 자막","narration":"내레이션"}}],"closing_cta":"마지막 행동 유도"}},
+  "shorts": {{"title":"쇼츠 제목","duration_seconds":60,"hook":"첫 3초 후킹","scenes":[{{"time":"00-05초","visual":"9:16 화면 구도와 안전영역을 포함한 화면 구성","caption":"짧은 자막","narration":"내레이션"}}],"closing_cta":"마지막 행동 유도","youtube_description":"유튜브 설명란 문안","instagram_caption":"인스타그램 릴스 설명문","tiktok_caption":"틱톡 설명문","hashtags":["해시태그1","해시태그2"]}},
   "threads": [{{"title":"후킹 제목","body":"Threads 본문"}},{{"title":"후킹 제목","body":"Threads 본문"}}]
 }}"""
 
@@ -216,6 +216,10 @@ def _make_preview(item: dict, trend_report: dict, provider=None) -> dict:
                 "duration_seconds": package["shorts"].get("duration_seconds", 60),
                 "hook": package["shorts"].get("hook", ""),
                 "scenes": package["shorts"]["scenes"],
+                "youtube_description": package["shorts"].get("youtube_description", ""),
+                "instagram_caption": package["shorts"].get("instagram_caption", ""),
+                "tiktok_caption": package["shorts"].get("tiktok_caption", ""),
+                "hashtags": package["shorts"].get("hashtags", []),
             }],
             "threads": package["threads"],
             "source_urls": list(dict.fromkeys(urls + list(result.citations))),
