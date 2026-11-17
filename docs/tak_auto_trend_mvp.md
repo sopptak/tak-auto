@@ -20,6 +20,7 @@ TAK AUTO 1은 특정 업종 전용이 아닌 범용 트렌드 키워드 발굴·
 - `data/tak_scout_daily.json`, `data/tak_scout_daily.md`: 오늘 수집한 후보
 - `data/tak_auto_trend_daily.json`, `data/tak_auto_trend_daily.md`: TOP 키워드, 상승 후보, 콘텐츠 기회 후보
 - `data/tak_auto_trend_history.json`: 날짜별 키워드 관측 이력
+- `data/tak_auto_dashboard.md`: GitHub에서 바로 읽을 수 있는 Markdown 대시보드(원문 링크 포함)
 - `data/tak_auto_dashboard.html`: 모바일 대응 단일 HTML 대시보드(원문 출처 링크 포함)
 
 로컬 실행:
@@ -46,7 +47,7 @@ python scripts/run_naver_datalab.py --group "AI=인공지능,생성형 AI" --gro
 
 ## MVP 실행 방법
 
-코드를 로컬에 저장하지 않고 실행하려면 GitHub 저장소의 Actions에서 `TAK AUTO Daily Trend Discovery`를 선택한 뒤 `Run workflow`를 누른다. 기본 후보 수는 5개이며 필요하면 변경할 수 있다. 실행이 완료되면 해당 workflow가 생성한 `data/tak_auto_dashboard.html`을 저장소에서 확인한다. 이 기능 브랜치는 아직 Draft PR 상태이므로 기본 브랜치의 정기 실행과는 별개다. 기본 브랜치에서 운영하려면 PR 검토·승인 후 병합이 필요하다.
+코드를 로컬에 저장하지 않고 실행하려면 GitHub 저장소의 Actions에서 `TAK AUTO Daily Trend Discovery`를 선택한 뒤 `Run workflow`를 누른다. 기본 후보 수는 5개이며 필요하면 변경할 수 있다. 실행이 완료되면 `data/tak_auto_dashboard.md`를 GitHub에서 바로 읽는다. HTML 버전은 `data/tak_auto_dashboard.html`에 함께 생성된다. 이 기능 브랜치는 아직 Draft PR 상태이므로 기본 브랜치의 정기 실행과는 별개다. 기본 브랜치에서 운영하려면 PR 검토·승인 후 병합이 필요하다.
 
 대시보드는 읽기 전용이며 외부 게시나 콘텐츠 자동 승인을 하지 않는다. 현재는 트렌드 발견과 원문 탐색까지가 MVP 1차 범위이고, 키워드 선택 후 블로그·Threads·쇼츠 초안 생성은 다음 통합 단계다.
 
