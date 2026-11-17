@@ -301,11 +301,11 @@ def create_handler():
             self.wfile.write(encoded)
 
         def _require_auth(self):
-            if _basic_auth_valid(
-                self.headers.get("Authorization", ""),
-                os.getenv("TAK_WEB_USERNAME", "").strip(),
-                os.getenv("TAK_WEB_PASSWORD", ""),
-            ):
+            username = os.getenv("TAK_WEB_USERNAME", "").strip()
+            password = os.getenv("TAK_WEB_PASSWORD", "")
+            if not username and not password and self.server.server_address[0] in {"127.0.0.1", "localhost"}:
+                return True
+            if _basic_auth_valid(self.headers.get("Authorization", ""), username, password):
                 return True
             self.send_response(401)
             self.send_header("WWW-Authenticate", 'Basic realm="TAK AUTO", charset="UTF-8"')
