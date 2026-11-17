@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from tak_scout.perplexity_research import ResearchResult
 from tak_scout.trend_discovery import build_trend_query, parse_trend_result
-from scripts.run_trend_content_mvp import _make_preview
+from scripts.run_trend_content_mvp import _make_preview, _parse_content_package
 
 
 class TrendDiscoveryTests(unittest.TestCase):
