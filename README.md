@@ -2,6 +2,20 @@
 
 > 탁멍이가 결정하면, AI가 실행한다.
 
+## 현재 주력: TAK AUTO 1 — 범용 트렌드 발굴
+
+TAK AUTO 1은 공개 RSS 기반으로 오늘의 반복 키워드, 직전 관측일 대비 증가 키워드, 콘텐츠 기회 후보를 찾는 범용 콘텐츠 기획 도구입니다. 경매 전용 기능은 후속 제품 TAK AUTO 2의 영역으로 분리하며 기존 코드는 호환성을 위해 보존합니다.
+
+- [트렌드 MVP 실행·운영 안내](docs/tak_auto_trend_mvp.md)
+- [기능 브랜치의 작업 현황 및 코드](https://github.com/sopptak/tak-auto/tree/feature/perplexity-research-provider)
+- GitHub Actions에서 **TAK AUTO Daily Trend Discovery**를 수동 실행할 수 있습니다.
+- 실행 결과: `data/tak_auto_dashboard.html` (읽기 전용 대시보드), 키워드 JSON/Markdown 리포트
+- 현재 1차 MVP는 트렌드 발견·원문 탐색까지이며, 콘텐츠 초안 생성 통합은 다음 단계입니다.
+
+검색량·SNS 인기·키워드 경쟁도를 측정한 것처럼 표현하지 않습니다. 네이버 데이터랩은 인증정보가 등록된 경우 상대 검색 관심도만 별도 표시합니다. 외부 게시와 콘텐츠 승인은 사람의 검토 전 자동 실행하지 않습니다.
+
+## 기존 TAK BRAIN 블로그 원문 파일럿
+
 현재 프로젝트는 2003년부터 축적한 네이버 블로그 글을 TAK BRAIN의 원천 데이터로 넣는 파일럿 환경입니다. 네이버 로그인, 크롤링, 게시 자동화는 포함하지 않습니다. 사용자가 글 10개를 JSON 또는 Markdown 파일로 `input/`에 넣고 데이터 경계를 검증하는 데 초점을 둡니다.
 
 ## 설치
