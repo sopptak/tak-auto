@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 from dataclasses import asdict
 from datetime import datetime
 from html import escape
@@ -67,7 +68,7 @@ def _make_preview(item: dict, trend_report: dict) -> dict:
         *[f"확인할 핵심 사실: {point}" for point in points],
     ])
     knowledge = KnowledgeRecord(
-        id="trend-preview-" + str(item.get("rank", 0)) + "-" + str(abs(hash(keyword))),
+        id="trend-preview-" + hashlib.sha256(keyword.encode("utf-8")).hexdigest()[:16],
         source_raw_id="trend-preview:" + keyword,
         source_url=urls[0],
         title=str(item.get("blog_title") or keyword),
