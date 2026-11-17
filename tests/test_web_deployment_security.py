@@ -1,0 +1,37 @@
+"""Hosted web MVP deployment safety checks."""
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class HostedDashboardSecurityTests(unittest.TestCase):
+    def test_get_and_post_require_authentication(self):
+        source = (ROOT / "scripts" / "run_scout_dashboard.py").read_text(encoding="utf-8")
+        self.assertIn('def _require_web_auth(self)', source)
+        self.assertIn('if not self._require_web_auth():', source)
+        self.assertEqual(source.count('if not self._require_web_auth():'), 2)
+
+    def test_external_bind_without_credentials_fails_closed(self):
+        source = (ROOT / "scripts" / "run_scout_dashboard.py").read_text(encoding="utf-8")
+        self.assertIn('TAK_WEB_USERNAME', source)
+        self.assertIn('TAK_WEB_PASSWORD', source)
+        self.assertIn('Web authentication is not configured.', source)
+        self.assertIn('WWW-Authenticate', source)
+
+    def test_health_endpoint_is_public_and_minimal(self):
+        source = (ROOT / "scripts" / "run_scout_dashboard.py").read_text(encoding="utf-8")
+        health = source.index('if parsed.path == "/health":')
+        auth = source.index('if not self._require_web_auth():', health)
+        self.assertLess(health, auth)
+        self.assertIn('self.wfile.write(b"ok")', source[health:auth])
+
+    def test_render_blueprint_uses_persistent_disk_and_secrets(self):
+        config = (ROOT / "render.yaml").read_text(encoding="utf-8")
+        for required in ("mountPath: /var/data", "sizeGB: 1", "TAK_WEB_USERNAME", "TAK_WEB_PASSWORD", "healthCheckPath: /health"):
+            self.assertIn(required, config)
+        self.assertIn("ln -sfn /var/data data", config)
+
+
+if __name__ == "__main__":
+    unittest.main()
