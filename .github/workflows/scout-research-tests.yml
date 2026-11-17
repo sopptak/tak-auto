@@ -34,6 +34,7 @@ on:
       - "tests/test_6_37_media_strategy_gate.py"
       - "tests/test_6_38_operator_control_center.py"
       - "tests/test_6_39_first_operating_day_and_data_readiness.py"
+      - "tests/test_web_deployment_security.py"
       - "tak_scout/research_knowledge.py"
       - ".github/workflows/scout-research-tests.yml"
   push:
@@ -110,3 +111,5 @@ jobs:
         run: python -m unittest discover -s tests -p "test_6_38_operator_control_center.py" -v
       - name: Test first operating day readiness
         run: python -m unittest discover -s tests -p "test_6_39_first_operating_day_and_data_readiness.py" -v
+      - name: Test hosted web deployment security
+        run: python -m unittest discover -s tests -p "test_web_deployment_security.py" -v
