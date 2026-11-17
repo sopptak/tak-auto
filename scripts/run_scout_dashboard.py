@@ -3095,6 +3095,16 @@ def make_handler_class(
         def do_POST(self) -> None:  # noqa: N802
             if not self._require_web_auth():
                 return
+            # Basic Auth 브라우저 자격 증명이 교차 사이트 폼 제출에 재사용되는
+            # CSRF를 막기 위해 모든 브라우저 POST는 동일 출처 Origin만 허용한다.
+            origin = self.headers.get("Origin", "")
+            request_host = self.headers.get("Host", "")
+            if not origin or urlparse(origin).netloc.lower() != request_host.lower():
+                self.send_response(403)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.end_headers()
+                self.wfile.write("허용되지 않은 요청 출처입니다.".encode("utf-8"))
+                return
             parsed = urlparse(self.path)
             path = parsed.path
             length = int(self.headers.get("Content-Length") or 0)
