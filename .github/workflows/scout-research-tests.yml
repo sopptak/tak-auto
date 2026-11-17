@@ -73,6 +73,8 @@ jobs:
         run: python -m unittest discover -s tests -p "test_scout_research.py" -v
       - name: Test research to pending KNOWLEDGE handoff
         run: python -m unittest discover -s tests -p "test_research_knowledge.py" -v
+      - name: Test TAK BRAIN KNOWLEDGE review lifecycle
+        run: python -m unittest discover -s tests -p "test_knowledge.py" -v
       - name: Test research quality gate
         run: python -m unittest discover -s tests -p "test_research_quality.py" -v
       - name: Test unified auction research workflow
