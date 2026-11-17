@@ -88,3 +88,49 @@ a{{color:#244bc2;text-decoration:none}}a:hover{{text-decoration:underline}}ul{{p
 <footer><p class="muted">TAK AUTO · 사람이 검토하고 승인하기 전 외부 게시를 하지 않습니다.</p></footer>
 </main></body></html>
 """
+
+
+def render_dashboard_markdown(report: dict[str, Any], candidates: list[dict[str, Any]]) -> str:
+    """Render a GitHub-native dashboard that can be read without downloading HTML."""
+    lines = [
+        f"# TAK AUTO 대시보드 — {report.get('generated_on', '')}", "",
+        f"- 반복 키워드: {len(report.get('top_keywords', []))}개",
+        f"- 급상승 후보: {len(report.get('rising_keywords', []))}개",
+        f"- 콘텐츠 기회: {len(report.get('content_opportunities', []))}개",
+        f"- 네이버 데이터랩: {report.get('naver_datalab', {}).get('status', '미연결')}",
+        "", "## 반복 키워드 TOP 20", "",
+        "| 순위 | 키워드 | 피드 언급 | 출처 수 |",
+        "|---:|---|---:|---:|",
+    ]
+    for index, row in enumerate(report.get("top_keywords", []), 1):
+        lines.append(f"| {index} | {row.get('keyword', '')} | {row.get('candidate_count', 0)} | {row.get('source_count', 0)} |")
+    if not report.get("top_keywords"):
+        lines.append("| - | 반복 키워드 없음 | 0 | 0 |")
+    lines.extend(["", "## 급상승 후보 TOP 10", "",
+                  "| 키워드 | 이전 관측 | 오늘 관측 | 증가 |",
+                  "|---|---:|---:|---:|"])
+    for row in report.get("rising_keywords", []):
+        lines.append(f"| {row.get('keyword', '')} | {row.get('previous_count', 0)} | {row.get('current_count', 0)} | +{row.get('change', 0)} |")
+    if not report.get("rising_keywords"):
+        lines.append("| 비교 데이터 부족 또는 증가 없음 | - | - | - |")
+    lines.extend(["", "## 콘텐츠 기회 TOP 5", ""])
+    by_id = {str(row.get("scout_id", "")): row for row in candidates}
+    ids_by_keyword = {str(row.get("keyword", "")): row.get("candidate_ids", []) for row in report.get("top_keywords", [])}
+    for index, row in enumerate(report.get("content_opportunities", []), 1):
+        lines.extend([f"### {index}. {row.get('keyword', '')} — {row.get('score', 0)}점",
+                      f"- 언급 {row.get('candidate_count', 0)}건 / 출처 {row.get('source_count', 0)}곳",
+                      "- 근거: " + " · ".join(row.get("reasons", []))])
+        ids = row.get("candidate_ids", ids_by_keyword.get(str(row.get("keyword", "")), []))
+        for candidate_id in ids[:3]:
+            item = by_id.get(str(candidate_id))
+            if item:
+                lines.append(f"- 원문: [{item.get('title', '출처')}]({item.get('source_url', '')}) · {item.get('source_name', '')}")
+    lines.extend(["", "## 오늘의 소재", ""])
+    for item in candidates:
+        lines.append(f"- [{item.get('title', '제목')}]({item.get('source_url', '')}) · {item.get('source_name', '')}")
+    if not candidates:
+        lines.append("- 오늘 수집된 소재가 없습니다.")
+    lines.extend(["", "## 데이터 한계", ""])
+    lines.extend(f"- {item}" for item in report.get("limitations", []))
+    lines.append("- RSS 반복 횟수는 전체 검색량·SNS 인기·키워드 경쟁도가 아닙니다.")
+    return "\n".join(lines) + "\n"
