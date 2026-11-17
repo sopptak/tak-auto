@@ -82,7 +82,7 @@ def _build_content_prompt(item: dict, trend_report: dict) -> str:
 def _parse_content_package(answer: str) -> dict:
     text = answer.strip()
     if text.startswith("```"):
-        text = text.split("\\n", 1)[-1]
+        text = text.split("\n", 1)[-1]
         if text.rstrip().endswith("```"):
             text = text.rstrip()[:-3].strip()
     start = text.find("{")
@@ -269,6 +269,13 @@ def create_handler():
             self._respond(_page(report, previews))
 
         def do_POST(self):
+            host = self.headers.get("Host", "")
+            origin = self.headers.get("Origin", "")
+            port = self.server.server_address[1]
+            allowed_origins = {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
+            if host not in {f"127.0.0.1:{port}", f"localhost:{port}"} or origin not in allowed_origins:
+                self._respond(_page(_read_json(TREND_PATH, {}), [], "허용되지 않은 출처의 요청입니다."), 403)
+                return
             length = int(self.headers.get("Content-Length", "0"))
             if length > 16_384:
                 self._respond(_page(_read_json(TREND_PATH, {}), [], "요청이 너무 큽니다."), 413)
