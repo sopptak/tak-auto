@@ -2032,6 +2032,13 @@ def render_operator_center_html(summary) -> str:
 <h1>Operator Control Center</h1>
 <div class="sub">generated_at: {escape(summary.generated_at)} | SYSTEM: <strong>{escape(summary.system_status)}</strong></div>
 
+<h2>첫 운영 시작 순서</h2>
+<div class="card"><strong>1. 트렌드 확인</strong><div class="sub">오늘의 반복·상승 키워드와 콘텐츠 기회를 확인합니다.</div><a href="/trends">오늘의 트렌드 열기 →</a></div>
+<div class="card"><strong>2. 근거 심층 조사</strong><div class="sub">관심 소재를 조사합니다. Perplexity 키가 없으면 이 단계는 비활성 상태입니다.</div><a href="/research">심층 조사 결과 →</a></div>
+<div class="card"><strong>3. KNOWLEDGE 검토</strong><div class="sub">조사 결과를 지식 후보로 만들고, 사람이 사실과 출처를 확인한 뒤 승인합니다.</div><a href="/knowledge">KNOWLEDGE 검토 →</a></div>
+<div class="card"><strong>4. 콘텐츠 초안 생성·검수</strong><div class="sub">승인된 KNOWLEDGE만 MEDIA 생성에 사용합니다. 생성 결과는 게시 전 사람이 검수합니다.</div><a href="/media">TAK MEDIA 열기 →</a></div>
+<div class="sub">주의: 초안 생성과 게시 승인은 별도 단계입니다. 이 화면은 상태 확인용이며 자동 게시를 실행하지 않습니다.</div>
+
 <h2>TODAY STATUS</h2>
 {_swa_row_html(summary.git_status)}
 {_swa_row_html(summary.test_status)}
