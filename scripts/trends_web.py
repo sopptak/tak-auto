@@ -12,7 +12,7 @@ def render_trends_page(report: dict[str, Any], research_records: list[Any] | Non
     opportunities = report.get("content_opportunities", [])
     lines = [
         '<h1>TAK AUTO · 오늘의 트렌드</h1>',
-        '<div class="nav-links"><a href="/">← 기존 SCOUT 홈</a> <a href="/research">심층 조사 결과</a></div>',
+        '<div class="nav-links"><a href="/">← 기존 SCOUT 홈</a> <a href="/research">심층 조사 결과</a> <a href="/knowledge">KNOWLEDGE 검토</a></div>',
         '<div class="sub">기준일: ' + escape(str(report.get("generated_on", "미수집"))) +
         ' · 측정 범위: 등록된 공개 RSS 피드</div>',
         '<section class="card"><h2>반복 키워드 TOP 20</h2>',
