@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from html import escape
 import os
 from typing import Mapping
+from urllib.parse import urlsplit
 
 from .threads_publisher import ThreadsClient
 from .youtube_publisher import YouTubeClient
@@ -82,7 +83,11 @@ def _expiry_label(value: str, now: datetime) -> tuple[str, str]:
 def verify_publishing_connection(platform: str, environ: Mapping[str, str] | None = None) -> dict[str, str]:
     """Make an explicit read-only API check for platforms with a profile endpoint."""
     if platform == "threads":
-        profile = ThreadsClient.from_environment(environ).get_profile()
+        client = ThreadsClient.from_environment(environ)
+        api_url = urlsplit(client.api_base)
+        if api_url.scheme != "https" or api_url.hostname != "graph.threads.net":
+            raise ValueError("Threads 계정 확인은 공식 HTTPS API 주소에서만 실행할 수 있습니다.")
+        profile = client.get_profile()
         return {"account_id": profile.id, "account_name": profile.username}
     if platform == "youtube_shorts":
         profile = YouTubeClient.from_environment(environ).get_channel_profile()

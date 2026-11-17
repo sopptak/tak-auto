@@ -83,6 +83,7 @@ class PublishingConnectionTests(unittest.TestCase):
 
     def test_verify_dispatch_uses_read_only_profile_clients(self):
         with patch("content_engine.publishing_connections.ThreadsClient.from_environment") as threads_factory:
+            threads_factory.return_value.api_base = "https://graph.threads.net"
             threads_factory.return_value.get_profile.return_value = SimpleNamespace(id="thread-id", username="tak_auto")
             self.assertEqual(
                 verify_publishing_connection("threads", {"THREADS_ACCESS_TOKEN": "secret"}),
@@ -98,6 +99,13 @@ class PublishingConnectionTests(unittest.TestCase):
             )
         with self.assertRaisesRegex(ValueError, "아직 지원하지 않습니다"):
             verify_publishing_connection("tiktok", {})
+
+    def test_threads_verification_rejects_non_official_api_host_before_sending_token(self):
+        with patch("content_engine.publishing_connections.ThreadsClient.from_environment") as factory:
+            factory.return_value.api_base = "https://example.invalid"
+            with self.assertRaisesRegex(ValueError, "공식 HTTPS API 주소"):
+                verify_publishing_connection("threads", {"THREADS_ACCESS_TOKEN": "secret"})
+        factory.return_value.get_profile.assert_not_called()
 
     def test_dashboard_shows_connection_cards_expiration_and_publish_switch(self):
         html = connection_dashboard({
