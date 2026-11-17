@@ -162,7 +162,7 @@ def _content_score(*, keyword: str, summary: str, why_now: str,
     score += min(15, len(points) * 5)
     score += 10 if len(summary) >= 45 else 0
     score += 10 if len(why_now) >= 25 else 0
-    score += 10 if "?" in question or "?" in question or "?" in question else 0
+    score += 10 if "?" in question or "？" in question else 0
     score += 10 if len(angle) >= 25 else 0
     score += 5 if len(keyword) >= 5 else 0
     return min(100, score)
