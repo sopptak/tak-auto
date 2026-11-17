@@ -1,9 +1,11 @@
+import json
 import unittest
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from tak_scout.perplexity_research import ResearchResult
 from tak_scout.trend_discovery import build_trend_query, parse_trend_result
+from scripts.run_trend_content_mvp import _make_preview
 
 
 class TrendDiscoveryTests(unittest.TestCase):
@@ -27,7 +29,6 @@ class TrendDiscoveryTests(unittest.TestCase):
                 ],
                 "source_urls": ["https://example.com/source"],
             })
-        import json
         return json.dumps({"trends": rows}, ensure_ascii=False)
 
     def test_query_requests_broad_recent_korean_trends_and_json(self):
@@ -37,39 +38,58 @@ class TrendDiscoveryTests(unittest.TestCase):
         self.assertIn("여행·레저", query)
         self.assertIn('"trends"', query)
 
-    def test_parse_preserves_only_cited_urls_and_limits_to_twenty(self):
-        answer = self._answer()
-        result = ResearchResult("query", answer, ("https://example.com/source",), "sonar-pro")
+    def test_parse_preserves_only_cited_urls(self):
+        result = ResearchResult("query", self._answer(),
+                                ("https://example.com/source",), "sonar-pro")
         parsed = parse_trend_result(result, researched_at="2026-11-17T09:00:00+09:00")
         self.assertEqual(len(parsed.trends), 6)
         self.assertEqual(parsed.trends[0].rank, 1)
         self.assertEqual(parsed.trends[0].source_urls, ("https://example.com/source",))
-        self.assertEqual(parsed.trends[0].key_points[0], "공식 발표에서 확인된 첫 번째 주요 내용입니다.")
+        self.assertEqual(parsed.trends[0].key_points[0],
+                         "공식 발표에서 확인된 첫 번째 주요 내용입니다.")
 
-    def test_rejects_insufficient_or_uncited_payload(self):
-        import json
-        payload = {"trends": [{"keyword": "one"}]}
-        result = ResearchResult("query", json.dumps(payload), (), "sonar-pro")
+    def test_rejects_insufficient_payload(self):
+        result = ResearchResult("query", json.dumps({"trends": [{"keyword": "one"}]}),
+                                (), "sonar-pro")
         with self.assertRaises(ValueError):
             parse_trend_result(result)
 
     def test_duplicate_keywords_are_removed(self):
-        import json
-        rows = []
-        base = {
-            "keyword": "중복 키워드", "category": "기타",
-            "summary": "최근 발표와 자료에서 확인된 구체적인 변화입니다.",
-            "why_now": "최근 7일 안에 새로운 발표가 나왔습니다.",
-            "audience_question": "무엇이 달라졌나요?",
-            "content_angle": "실제 이용자 관점에서 설명합니다.",
-            "blog_title": "중복 키워드 정리", "shorts_hook": "이 변화가 시작됐습니다.",
-            "key_points": ["첫 번째 확인된 핵심 사실에 대한 설명입니다.", "두 번째 확인된 핵심 사실에 대한 설명입니다.", "세 번째 확인된 핵심 사실에 대한 설명입니다."],
-            "source_urls": ["https://example.com/source"],
-        }
-        rows = [dict(base) for _ in range(6)]
-        result = ResearchResult("query", json.dumps({"trends": rows}, ensure_ascii=False), ("https://example.com/source",), "sonar-pro")
+        payload = json.loads(self._answer())
+        payload["trends"] = [payload["trends"][0]] * 6
+        result = ResearchResult("query", json.dumps(payload, ensure_ascii=False),
+                                ("https://example.com/source",), "sonar-pro")
         with self.assertRaises(ValueError):
             parse_trend_result(result)
 
+    def test_selected_trend_generates_preview_bundle_without_publishing(self):
+        report = {
+            "citations": ["https://example.com/source"],
+            "trends": [{
+                "rank": 1, "keyword": "생성형 AI 활용",
+                "category": "AI·테크",
+                "summary": "기업과 개인의 생성형 AI 활용 방식이 최근 공개 자료에서 구체화되고 있습니다.",
+                "why_now": "최근 7일 동안 주요 서비스의 기능 발표와 이용 사례가 이어졌습니다.",
+                "audience_question": "일반 이용자는 어떤 기능부터 써보면 좋을까요?",
+                "content_angle": "무료·유료 기능 차이와 실제 활용 시 주의점을 비교합니다.",
+                "blog_title": "생성형 AI 활용법과 무료·유료 기능 차이",
+                "shorts_hook": "AI를 쓰는데 아직 이 기능을 모른다고요?",
+                "key_points": [
+                    "새 기능 발표에서 확인된 주요 사용 사례를 정리합니다.",
+                    "무료와 유료 이용 조건은 서비스별로 다릅니다.",
+                    "개인정보와 결과 검증을 고려해 사용해야 합니다.",
+                ],
+                "source_urls": ["https://example.com/source"],
+            }],
+        }
+        preview = _make_preview(report["trends"][0], report)
+        self.assertEqual(preview["status"], "preview_only_not_approved")
+        self.assertIsNotNone(preview["blog"])
+        self.assertEqual(len(preview["shorts"]), 3)
+        self.assertEqual(len(preview["threads"]), 5)
+        self.assertTrue(preview["source_urls"])
+        self.assertIn("미리보기", preview["warning"])
 
-if __
+
+if __name__ == "__main__":
+    unittest.main()
