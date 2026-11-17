@@ -35,6 +35,12 @@ class HostedDashboardSecurityTests(unittest.TestCase):
         self.assertLess(health, auth)
         self.assertIn('self.wfile.write(b"ok")', source[health:auth])
 
+    def test_hosted_service_disables_local_browser_agent(self):
+        config = (ROOT / "render.yaml").read_text(encoding="utf-8")
+        source = (ROOT / "scripts" / "run_scout_dashboard.py").read_text(encoding="utf-8")
+        self.assertIn("TAK_DISABLE_MONEY_SCOUT_AGENT", config)
+        self.assertIn('os.environ.get("TAK_DISABLE_MONEY_SCOUT_AGENT"', source)
+
     def test_render_reuses_persisted_scout_data_after_restart(self):
         config = (ROOT / "render.yaml").read_text(encoding="utf-8")
         self.assertIn("if [ -s data/tak_auto_trend_daily.json ]; then", config)
