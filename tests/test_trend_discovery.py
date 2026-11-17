@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 import unittest
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -7,6 +8,7 @@ from tak_scout.perplexity_research import ResearchResult
 from tak_scout.trend_discovery import build_trend_query, parse_trend_result
 from scripts.run_trend_content_mvp import (
     _basic_auth_valid, _make_preview, _parse_content_package, _same_origin,
+    _resolve_writable_data_dir,
 )
 
 
@@ -170,6 +172,13 @@ class TrendDiscoveryTests(unittest.TestCase):
         self.assertEqual(len(preview["shorts"][0]["scenes"]), 6)
         self.assertEqual(len(preview["threads"]), 2)
         self.assertIn("https://example.com/extra", preview["source_urls"])
+
+
+    def test_unwritable_configured_data_dir_falls_back_to_tmp(self):
+        selected, is_fallback = _resolve_writable_data_dir(Path("/proc/tak-auto-not-writable"))
+        self.assertTrue(is_fallback)
+        self.assertTrue(selected.is_dir())
+        self.assertIn("tak-auto-data", str(selected))
 
 
 if __name__ == "__main__":
