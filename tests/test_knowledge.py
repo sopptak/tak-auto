@@ -2,9 +2,13 @@ import ast
 import inspect
 import textwrap
 import unittest
+import json
+import tempfile
+from pathlib import Path
 
 from blog_importer.models import BlogPost
 from tak_brain import KnowledgeRecord, RawContent, select_approved, set_review_status, transform_raw
+from tak_brain.knowledge import review_knowledge_file, load_knowledge_records
 
 
 class KnowledgePipelineTests(unittest.TestCase):
@@ -42,6 +46,32 @@ class KnowledgePipelineTests(unittest.TestCase):
         rejected = set_review_status(transform_raw(self.raw), "rejected")
 
         self.assertEqual(select_approved([pending, approved, rejected]), (approved,))
+
+    def test_review_knowledge_file_approves_pending_record(self):
+        knowledge = transform_raw(self.raw)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "knowledge.json"
+            path.write_text(json.dumps([knowledge.to_dict()], ensure_ascii=False), encoding="utf-8")
+
+            reviewed = review_knowledge_file(path, knowledge.id, "approved", "원문 확인 완료")
+
+            self.assertEqual(reviewed.knowledge_review_status, "approved")
+            self.assertEqual(reviewed.review_note, "원문 확인 완료")
+            saved = load_knowledge_records(path)
+            self.assertEqual(saved[0].knowledge_review_status, "approved")
+            self.assertTrue(saved[0].reviewed_at)
+
+    def test_review_knowledge_file_rejects_unknown_status_without_mutation(self):
+        knowledge = transform_raw(self.raw)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "knowledge.json"
+            original = json.dumps([knowledge.to_dict()], ensure_ascii=False)
+            path.write_text(original, encoding="utf-8")
+
+            with self.assertRaises(ValueError):
+                review_knowledge_file(path, knowledge.id, "published")
+
+            self.assertEqual(path.read_text(encoding="utf-8"), original)
 
     def test_invalid_review_status_is_rejected(self):
         with self.assertRaises(ValueError):
