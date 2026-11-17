@@ -35,3 +35,32 @@ py scripts/run_trend_content_mvp.py
 ```powershell
 py -m unittest discover -s tests -p "test_trend_discovery.py" -v
 ```
+
+## 클라우드 웹 실행 (PC 상시 실행 불필요)
+
+이 브랜치의 `render.yaml`에는 기존 서비스 설정을 유지하면서 별도 웹 서비스 `tak-auto-trend-factory`를 추가했습니다. Render의 Persistent Disk에 조사 결과와 콘텐츠 초안을 저장합니다.
+
+### 최초 배포
+1. Render 계정에서 **New + → Blueprint**를 선택합니다.
+2. GitHub 저장소 `sopptak/tak-auto`를 연결합니다.
+3. 브랜치 `feature/trend-content-factory-mvp`를 선택하고 Blueprint를 생성합니다.
+4. Blueprint 리소스 중 `tak-auto-trend-factory`가 추가되는지 확인합니다. 기존 `tak-auto-mvp` 서비스가 이미 연결되어 있다면 중복 생성하지 않도록 리소스 목록을 먼저 확인합니다.
+5. 새 서비스의 Environment에 아래 3개 값을 입력합니다.
+   - `TAK_WEB_USERNAME`: 웹 로그인 아이디
+   - `TAK_WEB_PASSWORD`: 충분히 길고 추측하기 어려운 웹 로그인 비밀번호
+   - `TAK_SCOUT_PERPLEXITY_API_KEY`: Perplexity API 키
+6. 저장 후 배포가 끝나면 Render가 제공하는 `https://...onrender.com` 주소로 접속합니다. 브라우저의 인증 창에 위 아이디와 비밀번호를 입력합니다.
+
+### 운영 방식
+- Render가 GitHub 브랜치의 코드를 받아 빌드하고 웹 서버를 실행합니다.
+- 서버는 `0.0.0.0` 및 Render가 지정하는 `PORT`에서 실행됩니다.
+- `/health`는 호스팅 상태 확인용이며, 실제 화면과 작업 요청은 Basic Authentication으로 보호됩니다.
+- POST 요청은 동일 출처 검사를 통과해야 처리됩니다.
+- 데이터는 Persistent Disk 경로 `/var/data/trend-factory`에 저장되므로 일반 재배포 후에도 유지됩니다.
+- Perplexity API 키와 웹 비밀번호는 GitHub에 넣지 않습니다. Render 대시보드의 비밀 환경변수로만 등록합니다.
+- 게시 자동화는 연결하지 않았습니다. 생성 결과는 검토용 초안이며, 외부 게시 전 사람의 승인이 필요합니다.
+
+### 비용 및 제한
+- 현재 Blueprint는 Persistent Disk를 사용하는 Render Starter 웹 서비스를 정의합니다. Render의 유료 서비스 및 디스크 요금이 발생할 수 있으므로 배포 확정 전에 Render 화면에서 예상 비용을 확인하세요.
+- Render 계정 연결, 비밀 환경변수 입력, 유료 서비스 생성은 계정 소유자가 직접 승인해야 합니다. 이 저장소 변경만으로 실제 서비스가 자동 생성되거나 공개 주소가 발급되는 것은 아닙니다.
+- Perplexity 호출은 트렌드 조사 1회, 키워드 콘텐츠 생성 1회 이상이므로 API 사용료가 발생할 수 있습니다.
