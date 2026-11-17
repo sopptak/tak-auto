@@ -2674,6 +2674,9 @@ def make_handler_class(
             if not self._require_web_auth():
                 return
             path = parsed.path
+            if path == "/" and os.environ.get("TAK_WEB_LANDING_PATH", "").strip() == "/trends":
+                self._redirect("/trends")
+                return
             query = parse_qs(parsed.query)
             saved = query.get("saved", ["0"])[0] == "1"
 
