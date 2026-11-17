@@ -52,6 +52,34 @@ class TrendDiscoveryTests(unittest.TestCase):
         self.assertEqual(parsed.trends[0].key_points[0],
                          "공식 발표에서 확인된 첫 번째 주요 내용입니다.")
 
+
+    def test_near_duplicate_topics_are_removed_and_editorial_score_is_exposed(self):
+        payload = json.loads(self._answer())
+        payload["trends"][1]["keyword"] = "트렌드 키워드 1 최신 정보"
+        payload["trends"][1]["blog_title"] = payload["trends"][0]["blog_title"]
+        result = ResearchResult("query", json.dumps(payload, ensure_ascii=False),
+                                ("https://example.com/source",), "sonar-pro")
+        parsed = parse_trend_result(result)
+        self.assertEqual(len(parsed.trends), 5)
+        self.assertTrue(all(0 <= item.content_score <= 100 for item in parsed.trends))
+        self.assertEqual([item.rank for item in parsed.trends], list(range(1, 6)))
+
+    def test_category_concentration_is_limited_and_uncited_items_are_excluded(self):
+        payload = json.loads(self._answer())
+        for index, row in enumerate(payload["trends"]):
+            row["keyword"] = f"독립적인 주제 {index}번"
+            row["blog_title"] = f"독립적인 주제 {index}번의 최신 변화"
+            row["category"] = "경제·금융" if index < 5 else "건강"
+        payload["trends"][0]["source_urls"] = ["https://unverified.example/nope"]
+        result = ResearchResult("query", json.dumps(payload, ensure_ascii=False),
+                                ("https://example.com/source",), "sonar-pro")
+        parsed = parse_trend_result(result)
+        counts = {}
+        for item in parsed.trends:
+            counts[item.category] = counts.get(item.category, 0) + 1
+        self.assertLessEqual(counts.get("경제·금융", 0), 4)
+        self.assertNotIn("독립적인 주제 0번", [item.keyword for item in parsed.trends])
+
     def test_rejects_insufficient_payload(self):
         result = ResearchResult("query", json.dumps({"trends": [{"keyword": "one"}]}),
                                 (), "sonar-pro")
