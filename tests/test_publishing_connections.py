@@ -1,7 +1,11 @@
 import unittest
 from datetime import datetime, timezone
+from types import SimpleNamespace
+from unittest.mock import patch
 
-from content_engine.publishing_connections import connection_dashboard, publishing_connection_statuses
+from content_engine.publishing_connections import (
+    connection_dashboard, publishing_connection_statuses, verify_publishing_connection,
+)
 
 
 class PublishingConnectionTests(unittest.TestCase):
@@ -50,6 +54,50 @@ class PublishingConnectionTests(unittest.TestCase):
         self.assertEqual(statuses["threads"]["label"], "토큰 만료")
         self.assertEqual(statuses["instagram_reels"]["state"], "attention")
         self.assertEqual(statuses["instagram_reels"]["expires_in"], "만료일 형식 오류")
+
+    def test_recent_api_verification_sets_real_account_name_and_stale_results_need_refresh(self):
+        env = {"THREADS_ACCESS_TOKEN": "secret", "THREADS_USERNAME": "old_name"}
+        cache = {"threads": {
+            "status": "verified", "account_id": "123", "account_name": "verified_name",
+            "checked_at": "2026-11-17T00:00:00Z",
+        }}
+        current = datetime(2026, 11, 17, 0, 30, tzinfo=timezone.utc)
+        recent = {row["key"]: row for row in publishing_connection_statuses(env, now=current, verification_cache=cache)}
+        self.assertEqual(recent["threads"]["state"], "verified")
+        self.assertEqual(recent["threads"]["account_name"], "verified_name")
+        self.assertIn("마지막 확인: 2026-11-17 09:00", recent["threads"]["checked_at_label"])
+
+        cache["threads"]["checked_at"] = "2026-11-15T00:00:00Z"
+        stale = {row["key"]: row for row in publishing_connection_statuses(env, now=current, verification_cache=cache)}
+        self.assertEqual(stale["threads"]["state"], "attention")
+        self.assertEqual(stale["threads"]["label"], "재확인 필요")
+
+    def test_dashboard_only_offers_live_api_check_for_supported_configured_accounts(self):
+        html = connection_dashboard({
+            "THREADS_ACCESS_TOKEN": "secret",
+            "YOUTUBE_CLIENT_ID": "id", "YOUTUBE_CLIENT_SECRET": "secret", "YOUTUBE_REFRESH_TOKEN": "refresh",
+        })
+        self.assertIn('action="/connections/verify"', html)
+        self.assertIn("계정 연결 확인", html)
+        self.assertIn("API 계정 확인 기능 준비 중", html)
+
+    def test_verify_dispatch_uses_read_only_profile_clients(self):
+        with patch("content_engine.publishing_connections.ThreadsClient.from_environment") as threads_factory:
+            threads_factory.return_value.get_profile.return_value = SimpleNamespace(id="thread-id", username="tak_auto")
+            self.assertEqual(
+                verify_publishing_connection("threads", {"THREADS_ACCESS_TOKEN": "secret"}),
+                {"account_id": "thread-id", "account_name": "tak_auto"},
+            )
+        with patch("content_engine.publishing_connections.YouTubeClient.from_environment") as youtube_factory:
+            youtube_factory.return_value.get_channel_profile.return_value = SimpleNamespace(
+                channel_id="channel-id", title="TAK AUTO",
+            )
+            self.assertEqual(
+                verify_publishing_connection("youtube_shorts", {"YOUTUBE_REFRESH_TOKEN": "secret"}),
+                {"account_id": "channel-id", "account_name": "TAK AUTO"},
+            )
+        with self.assertRaisesRegex(ValueError, "아직 지원하지 않습니다"):
+            verify_publishing_connection("tiktok", {})
 
     def test_dashboard_shows_connection_cards_expiration_and_publish_switch(self):
         html = connection_dashboard({

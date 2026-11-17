@@ -26,6 +26,7 @@ from urllib.request import Request, urlopen
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos"
 VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
+CHANNELS_URL = "https://www.googleapis.com/youtube/v3/channels"
 
 # YouTube Shorts 카드뉴스/정보형 콘텐츠 기본 카테고리: "People & Blogs"
 DEFAULT_CATEGORY_ID = "22"
@@ -50,6 +51,14 @@ class YouTubeUploadResult:
     @property
     def url(self) -> str:
         return f"https://youtu.be/{self.video_id}"
+
+
+@dataclass(frozen=True)
+class YouTubeChannelProfile:
+    """Authenticated YouTube channel identity returned by channels.list."""
+
+    channel_id: str
+    title: str
 
 
 def _safe_http_error_message(prefix: str, error: HTTPError) -> str:
@@ -282,6 +291,27 @@ YouTubeTokenTransport = Callable[[str, str, str, float], Mapping[str, object]]
 YouTubeUploadTransport = Callable[[str, Mapping[str, object], Path, float], Mapping[str, object]]
 YouTubeStatsTransport = Callable[[str, Sequence[str], float], Mapping[str, object]]
 YouTubeStatusTransport = Callable[[str, str, float], Mapping[str, object]]
+YouTubeChannelTransport = Callable[[str, float], Mapping[str, object]]
+
+
+def _default_channel_transport(access_token: str, timeout_seconds: float) -> Mapping[str, object]:
+    """Read the authenticated channel identity with channels.list(mine=true)."""
+    query = urlencode({"part": "snippet", "mine": "true"})
+    request = Request(
+        f"{CHANNELS_URL}?{query}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        method="GET",
+    )
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        raise YouTubeAPIError(_safe_http_error_message("YouTube Channel", error)) from None
+    except Exception as error:
+        raise YouTubeAPIError(f"YouTube 계정 확인 통신 실패: {type(error).__name__}") from None
+    if not isinstance(data, dict):
+        raise YouTubeAPIError("YouTube 계정 확인 응답 형식이 올바르지 않습니다.")
+    return data
 
 
 @dataclass(frozen=True)
@@ -296,6 +326,7 @@ class YouTubeClient:
     upload_transport: YouTubeUploadTransport = _default_upload_transport
     stats_transport: YouTubeStatsTransport = _default_stats_transport
     status_transport: YouTubeStatusTransport = _default_status_transport
+    channel_transport: YouTubeChannelTransport = _default_channel_transport
 
     @classmethod
     def from_environment(
@@ -304,6 +335,7 @@ class YouTubeClient:
         token_transport: YouTubeTokenTransport = _default_token_transport,
         upload_transport: YouTubeUploadTransport = _default_upload_transport,
         stats_transport: YouTubeStatsTransport = _default_stats_transport,
+        channel_transport: YouTubeChannelTransport = _default_channel_transport,
     ) -> "YouTubeClient":
         values = os.environ if environ is None else environ
         client_id = values.get("YOUTUBE_CLIENT_ID", "").strip()
@@ -331,6 +363,7 @@ class YouTubeClient:
             token_transport=token_transport,
             upload_transport=upload_transport,
             stats_transport=stats_transport,
+            channel_transport=channel_transport,
         )
 
     def _get_access_token(self) -> str:
@@ -338,6 +371,21 @@ class YouTubeClient:
             self.client_id, self.client_secret, self.refresh_token, self.timeout_seconds
         )
         return str(data["access_token"])
+
+    def get_channel_profile(self) -> YouTubeChannelProfile:
+        """Verify OAuth access and return the authenticated channel's display name."""
+        access_token = self._get_access_token()
+        response = self.channel_transport(access_token, self.timeout_seconds)
+        items = response.get("items") if isinstance(response, Mapping) else None
+        if not isinstance(items, list) or not items or not isinstance(items[0], dict):
+            raise YouTubeAPIError("인증된 YouTube 채널을 찾을 수 없습니다.")
+        channel = items[0]
+        snippet = channel.get("snippet") or {}
+        channel_id = channel.get("id")
+        title = snippet.get("title") if isinstance(snippet, Mapping) else None
+        if not channel_id or not title:
+            raise YouTubeAPIError("YouTube 채널 응답에 채널 ID 또는 이름이 없습니다.")
+        return YouTubeChannelProfile(channel_id=str(channel_id), title=str(title))
 
     def get_video_statistics(self, video_ids: Sequence[str]) -> Mapping[str, object]:
         """videos.list(part=statistics)로 영상 조회수/좋아요/댓글 수를 조회한다(6-01).

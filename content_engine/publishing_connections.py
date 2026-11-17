@@ -1,10 +1,16 @@
 """Safe, read-only publishing-account configuration status for the dashboard."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from html import escape
 import os
 from typing import Mapping
+
+from .threads_publisher import ThreadsClient
+from .youtube_publisher import YouTubeClient
+
+
+VERIFY_PLATFORMS = frozenset({"threads", "youtube_shorts"})
 
 
 PLATFORMS = (
@@ -73,10 +79,22 @@ def _expiry_label(value: str, now: datetime) -> tuple[str, str]:
     return f"{hours}시간 후 만료", "valid"
 
 
+def verify_publishing_connection(platform: str, environ: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Make an explicit read-only API check for platforms with a profile endpoint."""
+    if platform == "threads":
+        profile = ThreadsClient.from_environment(environ).get_profile()
+        return {"account_id": profile.id, "account_name": profile.username}
+    if platform == "youtube_shorts":
+        profile = YouTubeClient.from_environment(environ).get_channel_profile()
+        return {"account_id": profile.channel_id, "account_name": profile.title}
+    raise ValueError("이 플랫폼의 API 계정 확인은 아직 지원하지 않습니다.")
+
+
 def publishing_connection_statuses(
     environ: Mapping[str, str] | None = None,
     *,
     now: datetime | None = None,
+    verification_cache: Mapping[str, Mapping[str, str]] | None = None,
 ) -> list[dict[str, object]]:
     values = os.environ if environ is None else environ
     current = now or datetime.now(timezone.utc)
@@ -100,11 +118,35 @@ def publishing_connection_statuses(
             state, label = "attention", "만료일 확인 필요"
         else:
             state, label = "configured", "인증 정보 설정됨 · 계정 확인 전"
+        verification = (verification_cache or {}).get(platform["key"], {})
+        verification_message = ""
+        checked_at_label = ""
+        if isinstance(verification, Mapping) and verification.get("checked_at"):
+            try:
+                checked_at = datetime.fromisoformat(str(verification["checked_at"]).replace("Z", "+00:00"))
+                if checked_at.tzinfo is None:
+                    checked_at = checked_at.replace(tzinfo=timezone.utc)
+                age_seconds = (current.astimezone(timezone.utc) - checked_at.astimezone(timezone.utc)).total_seconds()
+                checked_at_label = "마지막 확인: " + checked_at.astimezone(timezone(timedelta(hours=9))).strftime("%Y-%m-%d %H:%M")
+                if state not in {"missing", "expired", "manual"} and expiry_state != "invalid":
+                    if 0 <= age_seconds <= 86400 and verification.get("status") == "verified":
+                        state, label = "verified", "연결 확인됨"
+                        account_name = str(verification.get("account_name") or account_name)
+                    elif 0 <= age_seconds <= 86400 and verification.get("status") == "failed":
+                        state, label = "verification_failed", "연결 확인 실패"
+                        verification_message = str(verification.get("message") or "플랫폼 계정을 확인할 수 없습니다.")
+                        account_name = str(verification.get("account_name") or account_name)
+                    elif age_seconds > 86400:
+                        state, label = "attention", "재확인 필요"
+            except (TypeError, ValueError):
+                state, label = "attention", "확인 시각 오류"
         statuses.append({
             "key": platform["key"], "name": platform["name"], "icon": platform["icon"],
             "state": state, "label": label, "account_name": account_name or "계정명 확인 필요",
             "missing": missing, "expires_in": expires_in, "renewal": platform["renewal"],
             "publish_note": platform["publish_note"],
+            "verification_supported": platform["key"] in VERIFY_PLATFORMS,
+            "verification_message": verification_message, "checked_at_label": checked_at_label,
         })
     return statuses
 
@@ -113,20 +155,31 @@ def connection_dashboard(
     environ: Mapping[str, str] | None = None,
     *,
     now: datetime | None = None,
+    verification_cache: Mapping[str, Mapping[str, str]] | None = None,
 ) -> str:
     values = os.environ if environ is None else environ
     publishing_enabled = values.get("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true"
     adapter_configured = bool(values.get("TAK_AUTO_PUBLISHER", "").strip())
-    statuses = publishing_connection_statuses(values, now=now)
+    statuses = publishing_connection_statuses(values, now=now, verification_cache=verification_cache)
     cards = []
     for row in statuses:
         state = str(row["state"])
         missing = ", ".join(str(name) for name in row["missing"])
         account = escape(str(row["account_name"]))
         expiry = f'<p class="connection-expiry">{escape(str(row["expires_in"]))}</p>' if row["expires_in"] else ""
+        verification_message = f'<p class="connection-verification-error">{escape(str(row["verification_message"]))}</p>' if row["verification_message"] else ""
+        checked_at = f'<p class="meta">{escape(str(row["checked_at_label"]))}</p>' if row["checked_at_label"] else ""
+        if row["verification_supported"] and not row["missing"] and state != "expired":
+            verify_control = f'<form method="post" action="/connections/verify"><input type="hidden" name="platform" value="{escape(str(row["key"]))}"><button type="submit" class="secondary">계정 연결 확인</button></form>'
+        elif row["verification_supported"] and row["missing"]:
+            verify_control = '<p class="meta">필수 인증 정보를 설정하면 API 확인을 실행할 수 있습니다.</p>'
+        elif not row["verification_supported"] and state != "manual":
+            verify_control = '<p class="meta">API 계정 확인 기능 준비 중</p>'
+        else:
+            verify_control = ""
         cards.append(f"""<article class="connection-card state-{escape(state)}">
 <div class="connection-heading"><span class="connection-icon">{escape(str(row['icon']))}</span><b>{escape(str(row['name']))}</b><span class="connection-state">{escape(str(row['label']))}</span></div>
-<p class="connection-account">{account}</p>{expiry}
+<p class="connection-account">{account}</p>{expiry}{checked_at}{verification_message}{verify_control}
 <p class="meta">{escape(str(row['renewal']))}</p>
 <p class="connection-note">{escape(str(row['publish_note']))}</p>
 {f'<p class="connection-missing">필요 설정: {escape(missing)}</p>' if missing else ''}

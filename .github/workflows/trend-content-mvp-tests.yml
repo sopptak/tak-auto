@@ -17,8 +17,11 @@ on:
       - "tests/test_publishing_queue.py"
       - "content_engine/publishing_connections.py"
       - "tests/test_publishing_connections.py"
+      - "tests/test_publishing_connection_routes.py"
       - "content_engine/trend_publishers.py"
       - "tests/test_trend_publishers.py"
+      - "content_engine/youtube_publisher.py"
+      - "tests/test_youtube_performance_client.py"
   push:
     branches:
       - "feature/trend-content-factory-mvp"
@@ -37,8 +40,11 @@ on:
       - "tests/test_publishing_queue.py"
       - "content_engine/publishing_connections.py"
       - "tests/test_publishing_connections.py"
+      - "tests/test_publishing_connection_routes.py"
       - "content_engine/trend_publishers.py"
       - "tests/test_trend_publishers.py"
+      - "content_engine/youtube_publisher.py"
+      - "tests/test_youtube_performance_client.py"
 
 jobs:
   trend-content-mvp:
@@ -52,6 +58,8 @@ jobs:
         run: |
           python -m unittest discover -s tests -p "test_publishing_queue.py" -v
           python -m unittest discover -s tests -p "test_publishing_connections.py" -v
+          python -m unittest discover -s tests -p "test_publishing_connection_routes.py" -v
           python -m unittest discover -s tests -p "test_trend_publishers.py" -v
+          python -m unittest discover -s tests -p "test_youtube_performance_client.py" -v
           python -m unittest discover -s tests -p "test_perplexity_research.py" -v
           python -m unittest discover -s tests -p "test_trend_discovery.py" -v

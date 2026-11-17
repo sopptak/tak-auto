@@ -7,7 +7,7 @@ import base64
 import hashlib
 import hmac
 from dataclasses import asdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -24,7 +24,10 @@ if str(ROOT) not in sys.path:
 
 from blog_importer.models import utc_now
 from content_engine.generator import generate_content_bundle
-from content_engine.publishing_connections import connection_dashboard
+from content_engine.publishing_connections import (
+    VERIFY_PLATFORMS, connection_dashboard, publishing_connection_statuses,
+    verify_publishing_connection,
+)
 from content_engine.publishing_queue import PublishingQueue, queue_dashboard
 from scripts.run_publishing_queue import start_scheduler
 from tak_brain.models import KnowledgeRecord
@@ -55,6 +58,7 @@ DATA_DIR, USING_EPHEMERAL_STORAGE = _resolve_writable_data_dir(CONFIGURED_DATA_D
 TREND_PATH = DATA_DIR / "tak_auto_live_trends.json"
 PREVIEW_PATH = DATA_DIR / "tak_auto_content_previews.json"
 QUEUE_PATH = DATA_DIR / "tak_auto_publishing_queue.json"
+CONNECTION_CHECKS_PATH = DATA_DIR / "publishing_connection_checks.json"
 
 
 def _basic_auth_valid(header: str, username: str, password: str) -> bool:
@@ -89,6 +93,43 @@ def _write_json(path: Path, payload) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(path)
+
+
+def _read_connection_checks() -> dict:
+    try:
+        checks = _read_json(CONNECTION_CHECKS_PATH, {})
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return checks if isinstance(checks, dict) else {}
+
+
+def _run_connection_verification(platform: str, checks: dict, *, environ=None, now=None) -> tuple[dict, str]:
+    """Check one supported account and return a safe status-cache update."""
+    if platform not in VERIFY_PLATFORMS:
+        raise ValueError("현재 API 계정 확인을 지원하지 않는 플랫폼입니다.")
+    values = os.environ if environ is None else environ
+    current = now or datetime.now(timezone.utc)
+    rows = {row["key"]: row for row in publishing_connection_statuses(values)}
+    status = rows[platform]
+    if status["missing"]:
+        raise ValueError("필요한 인증 환경변수를 먼저 설정하세요: " + ", ".join(status["missing"]))
+    if status["state"] == "expired":
+        raise ValueError("토큰이 만료되어 계정을 확인할 수 없습니다.")
+    try:
+        profile = verify_publishing_connection(platform, values)
+        checks[platform] = {
+            "status": "verified", "account_id": profile["account_id"],
+            "account_name": profile["account_name"], "checked_at": current.isoformat(),
+        }
+        message = f"{status['name']} 계정 연결을 확인했습니다: {profile['account_name']}"
+    except (ValueError, RuntimeError) as error:
+        account_env = "THREADS_USERNAME" if platform == "threads" else "YOUTUBE_CHANNEL_NAME"
+        checks[platform] = {
+            "status": "failed", "account_name": values.get(account_env, ""),
+            "message": str(error)[:240], "checked_at": current.isoformat(),
+        }
+        message = f"{status['name']} 계정 확인 실패: {error}"
+    return checks, message
 
 
 def _build_content_prompt(item: dict, trend_report: dict) -> str:
@@ -244,7 +285,12 @@ def _make_preview(item: dict, trend_report: dict, provider=None) -> dict:
     }
 
 
-def _page(report: dict | None, previews: list[dict], error: str = "", queue_snapshot: dict | None = None) -> str:
+def _page(
+    report: dict | None, previews: list[dict], error: str = "",
+    queue_snapshot: dict | None = None, connection_checks: dict | None = None,
+) -> str:
+    if connection_checks is None:
+        connection_checks = _read_connection_checks()
     error_html = f'<div class="error">{escape(error)}</div>' if error else ""
     if not report:
         report = {}
@@ -314,7 +360,7 @@ button.secondary{{background:#475569}}.error{{background:#fee;border:1px solid #
 a{{color:#3157c8}}.draft{{border-top:1px solid var(--line);padding:10px 0}}
 .copy{{margin:6px 0}}.copy.done{{background:#16794b}}
 table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;border-bottom:1px solid var(--line);text-align:left;overflow-wrap:anywhere}}.queue-form{{display:flex;flex-wrap:wrap;gap:12px;align-items:end}}label{{display:grid;gap:4px}}
-.connection-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-top:16px}}.connection-card{{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fbfcfe}}.connection-heading{{display:flex;align-items:center;gap:9px;flex-wrap:wrap}}.connection-icon{{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#e7edf8;color:#3157c8;font-weight:800}}.connection-state{{margin-left:auto;font-size:12px;font-weight:700}}.connection-account{{font-size:18px;font-weight:700;margin:10px 0 2px}}.connection-expiry{{font-size:13px;font-weight:700;color:#956500;margin:2px 0}}.connection-note{{font-size:13px;margin:8px 0 0}}.connection-missing{{font-size:12px;color:#9c3d39;overflow-wrap:anywhere}}.state-configured .connection-state{{color:#16794b}}.state-expired .connection-state,.state-missing .connection-state{{color:#b42318}}.state-manual .connection-state,.state-attention .connection-state{{color:#956500}}
+.connection-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-top:16px}}.connection-card{{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fbfcfe}}.connection-heading{{display:flex;align-items:center;gap:9px;flex-wrap:wrap}}.connection-icon{{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#e7edf8;color:#3157c8;font-weight:800}}.connection-state{{margin-left:auto;font-size:12px;font-weight:700}}.connection-account{{font-size:18px;font-weight:700;margin:10px 0 2px}}.connection-expiry{{font-size:13px;font-weight:700;color:#956500;margin:2px 0}}.connection-note{{font-size:13px;margin:8px 0 0}}.connection-missing{{font-size:12px;color:#9c3d39;overflow-wrap:anywhere}}.connection-verification-error{{font-size:12px;color:#b42318}}.connection-card form{{margin:8px 0}}.state-configured .connection-state,.state-verified .connection-state{{color:#16794b}}.state-expired .connection-state,.state-missing .connection-state,.state-verification_failed .connection-state{{color:#b42318}}.state-manual .connection-state,.state-attention .connection-state{{color:#956500}}
 @media(max-width:560px){{h1{{font-size:22px}}.grid{{display:block}}}}
 </style></head><body><main>
 <header><h1>TAK AUTO · TREND CONTENT FACTORY</h1>
@@ -322,7 +368,7 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 <div>마지막 조사: {generated} · 모델: {escape(str(report.get('model', '미연결')))}</div>
 {"<p>임시 저장소 사용 중: Render 무료 인스턴스에서는 재시작·재배포 시 조사 결과가 초기화될 수 있습니다.</p>" if USING_EPHEMERAL_STORAGE else ""}</header>
 {error_html}
-{connection_dashboard()}
+{connection_dashboard(verification_cache=connection_checks)}
 <section class="toolbar"><h2>최신 트렌드 조사</h2>
 <p>Perplexity가 최근 7일 공개 웹 자료를 바탕으로 여러 분야의 키워드 최대 20개를 발굴합니다. 선택 키워드 콘텐츠 생성에도 Perplexity API를 한 번 더 사용합니다.</p>
 <form method="post" action="/discover"><button type="submit">Perplexity 최신 트렌드 TOP 20 조사</button></form>
@@ -468,17 +514,25 @@ def create_handler():
                     ) for payload_index, payload in enumerate(payloads)]
                     self._respond(_page(report, previews, f"{len(enqueued)}개 작업을 승인하고 예약했습니다.", queue.snapshot()))
                     return
+                if self.path == "/connections/verify":
+                    platform = form.get("platform", [""])[0]
+                    checks = _read_connection_checks()
+                    checks, message = _run_connection_verification(platform, checks)
+                    _write_json(CONNECTION_CHECKS_PATH, checks)
+                    self._respond(_page(report, previews, message, queue.snapshot(), checks))
+                    return
                 if self.path == "/queue/confirm-published":
+                    current = datetime.now(timezone.utc)
                     queue.confirm_published(
                         form.get("item_id", [""])[0],
                         remote_id=form.get("remote_id", [""])[0],
                         reviewed_by=os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user",
-                        now=utc_now(),
+                        now=current,
                     )
                     self._respond(_page(report, previews, "플랫폼 게시 이력을 확인 완료로 기록했습니다.", queue.snapshot()))
                     return
                 if self.path == "/queue/retry":
-                    current = utc_now()
+                    current = datetime.now(timezone.utc)
                     queue.retry_after_review(
                         form.get("item_id", [""])[0],
                         scheduled_at=current + timedelta(seconds=45),
