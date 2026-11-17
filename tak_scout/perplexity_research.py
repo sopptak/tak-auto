@@ -1,4 +1,4 @@
-"""Perplexity Sonar 기반 TAK SCOUT 조사 provider.
+"""Perplexity Agent API 기반 TAK SCOUT 조사 provider.
 
 공개 웹 검색 결과를 바탕으로 조사 답변과 원문 URL을 반환한다.
 네트워크 호출은 search() 시점에만 발생하며 API 키는 환경변수에서만 읽는다.
@@ -11,15 +11,16 @@ from dataclasses import dataclass
 import json
 import os
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 from content_engine import LLMConfigurationError, LLMResponseError
 
 
-DEFAULT_ENDPOINT = "https://api.perplexity.ai/chat/completions"
-DEFAULT_MODEL = "sonar-pro"
+DEFAULT_ENDPOINT = "https://api.perplexity.ai/v1/agent"
+DEFAULT_MODEL = "perplexity/sonar"
 DEFAULT_TIMEOUT_SECONDS = 45.0
+LEGACY_MODEL_ALIASES = {"sonar-pro": DEFAULT_MODEL, "sonar": DEFAULT_MODEL}
 
 ResearchTransport = Callable[
     [str, Mapping[str, str], Mapping[str, object], float],
@@ -92,23 +93,59 @@ def _valid_http_url(value: object) -> str | None:
     return value
 
 
+def _extract_response_text(response: Mapping[str, object]) -> str:
+    """Agent API의 output[]에서 message/output_text 텍스트를 모은다."""
+    output = response.get("output", [])
+    if not isinstance(output, list):
+        raise LLMResponseError("Perplexity Agent 응답의 output이 목록이 아닙니다.")
+
+    chunks: list[str] = []
+    for item in output:
+        if not isinstance(item, dict) or item.get("type") != "message":
+            continue
+        content = item.get("content", [])
+        if not isinstance(content, list):
+            continue
+        for part in content:
+            if (
+                isinstance(part, dict)
+                and part.get("type") == "output_text"
+                and isinstance(part.get("text"), str)
+            ):
+                chunks.append(part["text"])
+
+    answer = "".join(chunks).strip()
+    if not answer:
+        raise LLMResponseError("Perplexity Agent 응답에 output_text가 없습니다.")
+    return answer
+
+
 def _extract_citations(response: Mapping[str, object]) -> tuple[str, ...]:
-    raw = response.get("citations", [])
-    if not isinstance(raw, list):
+    """Agent API output[]의 search_results item에서 원문 URL을 추출한다."""
+    output = response.get("output", [])
+    if not isinstance(output, list):
         return ()
     citations: list[str] = []
     seen: set[str] = set()
-    for item in raw:
-        url = _valid_http_url(item)
-        if url and url not in seen:
-            citations.append(url)
-            seen.add(url)
+    for item in output:
+        if not isinstance(item, dict) or item.get("type") != "search_results":
+            continue
+        results = item.get("results", [])
+        if not isinstance(results, list):
+            continue
+        for result in results:
+            if not isinstance(result, dict):
+                continue
+            url = _valid_http_url(result.get("url"))
+            if url and url not in seen:
+                citations.append(url)
+                seen.add(url)
     return tuple(citations)
 
 
 @dataclass(frozen=True)
 class PerplexityResearchProvider:
-    """Perplexity Sonar API client. Transport 주입으로 네트워크 없는 테스트가 가능하다."""
+    """Perplexity Agent API client. Transport 주입으로 네트워크 없는 테스트가 가능하다."""
 
     api_key: str
     model: str = DEFAULT_MODEL
@@ -129,6 +166,7 @@ class PerplexityResearchProvider:
                 "TAK_SCOUT_PERPLEXITY_API_KEY 환경변수가 필요합니다."
             )
         model = values.get("TAK_SCOUT_PERPLEXITY_MODEL", DEFAULT_MODEL).strip()
+        model = LEGACY_MODEL_ALIASES.get(model, model)
         endpoint = values.get("TAK_SCOUT_PERPLEXITY_ENDPOINT", DEFAULT_ENDPOINT).strip()
         if not model:
             raise LLMConfigurationError("TAK_SCOUT_PERPLEXITY_MODEL 값이 비어 있습니다.")
@@ -162,47 +200,67 @@ class PerplexityResearchProvider:
         search_recency_filter: str | None = None,
         search_domain_filter: tuple[str, ...] = (),
     ) -> ResearchResult:
-        """웹 검색을 수행하고 답변 및 Perplexity가 반환한 인용 URL을 돌려준다."""
+        """웹 검색을 수행하고 답변 및 Agent API가 반환한 원문 URL을 돌려준다."""
         if not isinstance(query, str) or not query.strip():
             raise ValueError("query는 비어 있지 않은 문자열이어야 합니다.")
 
-        payload: dict[str, object] = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": query.strip()},
-            ],
-        }
+        filters: dict[str, object] = {}
         if search_recency_filter:
-            if search_recency_filter not in {"day", "week", "month", "year"}:
-                raise ValueError("search_recency_filter는 day/week/month/year 중 하나여야 합니다.")
-            payload["search_recency_filter"] = search_recency_filter
+            if search_recency_filter not in {"hour", "day", "week", "month", "year"}:
+                raise ValueError(
+                    "search_recency_filter는 hour/day/week/month/year 중 하나여야 합니다."
+                )
+            filters["search_recency_filter"] = search_recency_filter
         if search_domain_filter:
             domains = [domain.strip().lower() for domain in search_domain_filter if domain.strip()]
-            if any("/" in domain or "://" in domain for domain in domains):
-                raise ValueError("search_domain_filter에는 도메인만 지정해야 합니다.")
+            if len(domains) > 20:
+                raise ValueError("search_domain_filter는 최대 20개까지 지정할 수 있습니다.")
+            if any("/" in domain or "://" in domain or len(domain) > 253 for domain in domains):
+                raise ValueError("search_domain_filter에는 유효한 도메인만 지정해야 합니다.")
             if domains:
-                payload["search_domain_filter"] = domains
+                filters["search_domain_filter"] = domains
 
+        web_search: dict[str, object] = {"type": "web_search"}
+        if filters:
+            web_search["filters"] = filters
+        payload: dict[str, object] = {
+            "model": self.model,
+            "instructions": system_prompt,
+            "input": query.strip(),
+            "tools": [web_search],
+            "tool_choice": {"type": "web_search"},
+        }
         response = self.transport(
             self.endpoint, self._headers(), payload, self.timeout_seconds
         )
-        try:
-            choices = response["choices"]
-            message = choices[0]["message"]  # type: ignore[index]
-            answer = message["content"]  # type: ignore[index]
-        except (KeyError, IndexError, TypeError) as error:
-            raise LLMResponseError(
-                "Perplexity 응답에 choices[0].message.content가 필요합니다."
-            ) from error
-        if not isinstance(answer, str) or not answer.strip():
-            raise LLMResponseError("Perplexity 답변이 비어 있거나 문자열이 아닙니다.")
 
+        status = response.get("status")
+        if status in {"failed", "cancelled"}:
+            error = response.get("error")
+            message = error.get("message") if isinstance(error, dict) else None
+            raise LLMResponseError(
+                f"Perplexity Agent 작업 {status}: "
+                + (message[:300] if isinstance(message, str) and message else "상세 오류 없음")
+            )
+        if status == "incomplete":
+            details = response.get("incomplete_details")
+            reason = details.get("reason") if isinstance(details, dict) else None
+            raise LLMResponseError(
+                f"Perplexity Agent 응답이 불완전합니다: {reason or '원인 미상'}"
+            )
+        if status not in {None, "completed"}:
+            raise LLMResponseError(f"Perplexity Agent 상태가 완료되지 않았습니다: {status}")
+
+        answer = _extract_response_text(response)
         response_model = response.get("model")
-        model = response_model.strip() if isinstance(response_model, str) and response_model.strip() else self.model
+        model = (
+            response_model.strip()
+            if isinstance(response_model, str) and response_model.strip()
+            else self.model
+        )
         return ResearchResult(
             query=query.strip(),
-            answer=answer.strip(),
+            answer=answer,
             citations=_extract_citations(response),
             model=model,
         )
