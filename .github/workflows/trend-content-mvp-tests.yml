@@ -1,0 +1,30 @@
+name: TAK AUTO trend content MVP tests
+
+on:
+  pull_request:
+    paths:
+      - "tak_scout/trend_discovery.py"
+      - "scripts/run_trend_content_mvp.py"
+      - "tests/test_trend_discovery.py"
+      - "content_engine/generator.py"
+      - "tak_brain/models.py"
+  push:
+    branches:
+      - "feature/trend-content-factory-mvp"
+    paths:
+      - "tak_scout/trend_discovery.py"
+      - "scripts/run_trend_content_mvp.py"
+      - "tests/test_trend_discovery.py"
+      - "content_engine/generator.py"
+      - "tak_brain/models.py"
+
+jobs:
+  trend-content-mvp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Test Perplexity trend discovery and content preview
+        run: python -m unittest discover -s tests -p "test_trend_discovery.py" -v
