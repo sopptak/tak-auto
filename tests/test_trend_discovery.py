@@ -5,7 +5,9 @@ from zoneinfo import ZoneInfo
 
 from tak_scout.perplexity_research import ResearchResult
 from tak_scout.trend_discovery import build_trend_query, parse_trend_result
-from scripts.run_trend_content_mvp import _make_preview, _parse_content_package
+from scripts.run_trend_content_mvp import (
+    _basic_auth_valid, _make_preview, _parse_content_package, _same_origin,
+)
 
 
 class TrendDiscoveryTests(unittest.TestCase):
@@ -172,3 +174,19 @@ class TrendDiscoveryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CloudWebSecurityTests(unittest.TestCase):
+    def test_basic_auth_accepts_only_matching_credentials(self):
+        import base64
+        token = base64.b64encode("owner:strong-password".encode()).decode()
+        self.assertTrue(_basic_auth_valid("Basic " + token, "owner", "strong-password"))
+        self.assertFalse(_basic_auth_valid("Basic " + token, "owner", "wrong-password"))
+        self.assertFalse(_basic_auth_valid("", "owner", "strong-password"))
+        self.assertFalse(_basic_auth_valid("Basic !!!", "owner", "strong-password"))
+
+    def test_same_origin_allows_render_https_proxy_and_rejects_cross_origin(self):
+        self.assertTrue(_same_origin("https://tak.example.com", "tak.example.com", "https"))
+        self.assertFalse(_same_origin("https://evil.example", "tak.example.com", "https"))
+        self.assertFalse(_same_origin("http://tak.example.com", "tak.example.com", "https"))
+        self.assertFalse(_same_origin("", "tak.example.com", "https"))
