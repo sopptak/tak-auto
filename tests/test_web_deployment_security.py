@@ -35,6 +35,12 @@ class HostedDashboardSecurityTests(unittest.TestCase):
         self.assertLess(health, auth)
         self.assertIn('self.wfile.write(b"ok")', source[health:auth])
 
+    def test_render_reuses_persisted_scout_data_after_restart(self):
+        config = (ROOT / "render.yaml").read_text(encoding="utf-8")
+        self.assertIn("if [ -s data/tak_scout_daily.json ]; then", config)
+        self.assertIn("--skip-collect --host 0.0.0.0", config)
+        self.assertIn("else", config)
+
     def test_render_blueprint_uses_persistent_disk_and_secrets(self):
         config = (ROOT / "render.yaml").read_text(encoding="utf-8")
         for required in ("mountPath: /var/data", "sizeGB: 1", "TAK_WEB_USERNAME", "TAK_WEB_PASSWORD", "healthCheckPath: /health"):
