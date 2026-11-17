@@ -27,3 +27,8 @@
 
 ## 실행
 기존 Dashboard 실행 명령을 그대로 사용한다. 데이터가 없으면 `/trends`에 수집 안내가 표시된다. 별도 웹 프레임워크나 의존성은 추가하지 않는다.
+
+## 조사 결과에서 콘텐츠 초안으로
+Perplexity 조사 결과를 KNOWLEDGE로 연결할 때 조사 본문의 명시적 문단·불릿을 key_points로 보존한다. 승인된 외부 정보형 KNOWLEDGE는 TAK MEDIA 생성기에서 factual_information, summary, key_points를 근거 단위로 사용한다. 조사 내용을 개인 경험이나 작성자 의견으로 바꾸지 않는다. 생성물은 Blog 1, Shorts 3, Threads 5개이며 각 초안은 원문 URL, 인용 근거, 근거 단위 ID를 유지한다. 승인 전 외부 게시를 허용하지 않는다.
+
+자동 테스트는 `tests/test_research_media_bridge.py`에서 승인 전 차단 원칙과 승인 후 9개 초안 생성, 출처·근거 추적성을 확인한다.
