@@ -1,7 +1,9 @@
 import json
 from pathlib import Path
+import tempfile
 import unittest
 from datetime import datetime
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from tak_scout.perplexity_research import ResearchResult
@@ -241,7 +243,17 @@ class TrendDiscoveryTests(unittest.TestCase):
 
 
     def test_unwritable_configured_data_dir_falls_back_to_tmp(self):
-        selected, is_fallback = _resolve_writable_data_dir(Path("/proc/tak-auto-not-writable"))
+        with tempfile.TemporaryDirectory() as directory:
+            configured = Path(directory) / "blocked"
+            original_mkdir = Path.mkdir
+
+            def deny_configured_directory(path, *args, **kwargs):
+                if path == configured:
+                    raise PermissionError("simulated unwritable directory")
+                return original_mkdir(path, *args, **kwargs)
+
+            with patch.object(Path, "mkdir", deny_configured_directory):
+                selected, is_fallback = _resolve_writable_data_dir(configured)
         self.assertTrue(is_fallback)
         self.assertTrue(selected.is_dir())
         self.assertIn("tak-auto-data", str(selected))
