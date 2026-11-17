@@ -106,6 +106,7 @@ from tak_scout.interview_session import (
 )
 from tak_scout.title_translation import TitleTranslation, translations_by_scout_id, upsert_translation
 from tak_brain import KnowledgeRecord, load_knowledge_records
+from tak_brain.knowledge import review_knowledge_file
 from content_engine import LLMConfigurationError
 from content_engine.media_archive import (
     MediaArchiveRecord,
@@ -2666,6 +2667,40 @@ def make_handler_class(
                 self._send_html(_page("TAK AUTO 트렌드", trend_body))
                 return
 
+            if path == "/knowledge":
+                try:
+                    pending_records = [
+                        item for item in load_knowledge_records(config.knowledge_path)
+                        if item.knowledge_review_status == "pending"
+                    ]
+                except FileNotFoundError:
+                    pending_records = []
+                cards = []
+                for item in reversed(pending_records):
+                    points = "".join("<li>" + escape(str(point)) + "</li>" for point in item.key_points[:8])
+                    evidence = "".join("<li>" + escape(str(value)) + "</li>" for value in item.evidence[:8])
+                    cards.append(
+                        '<section class="card"><h2>' + escape(item.title) + '</h2>'
+                        '<div class="meta">ID: ' + escape(item.id) + ' · 검토 대기</div>'
+                        '<p>' + escape(item.summary or item.lesson or "") + '</p>'
+                        '<h3>핵심 내용</h3><ul>' + (points or '<li>추출된 핵심 내용 없음</li>') + '</ul>'
+                        '<h3>출처·근거</h3><ul>' + (evidence or '<li>근거 없음</li>') + '</ul>'
+                        '<p><a target="_blank" rel="noopener" href="' + escape(item.source_url or "") + '">원문 열기</a></p>'
+                        '<form method="post" action="/knowledge/' + escape(item.id) + '/approve">'
+                        '<button class="btn primary" type="submit">검토 후 승인</button></form> '
+                        '<form method="post" action="/knowledge/' + escape(item.id) + '/reject">'
+                        '<input name="review_note" placeholder="거절 사유(선택)">'
+                        '<button class="btn ghost" type="submit">거절</button></form></section>'
+                    )
+                body = (
+                    '<h1>TAK BRAIN · KNOWLEDGE 검토</h1>'
+                    '<div class="nav-links"><a href="/trends">트렌드</a> <a href="/research">심층 조사</a></div>'
+                    '<p>승인된 자료만 콘텐츠 초안 생성에 사용됩니다. 원문과 인용 출처를 직접 확인하세요.</p>'
+                    + (''.join(cards) if cards else '<div class="card">검토 대기 KNOWLEDGE가 없습니다.</div>')
+                )
+                self._send_html(_page("KNOWLEDGE 검토", body))
+                return
+
             if path == "/research":
                 records = load_research_records(config.research_path)
                 cards = []
@@ -3038,6 +3073,33 @@ def make_handler_class(
             raw_body = self.rfile.read(length) if length else b""
             form = parse_qs(raw_body.decode("utf-8"))
 
+
+            if path.startswith("/knowledge/") and (path.endswith("/approve") or path.endswith("/reject")):
+                suffix = "/approve" if path.endswith("/approve") else "/reject"
+                knowledge_id = unquote(path[len("/knowledge/") : -len(suffix)])
+                try:
+                    records = load_knowledge_records(config.knowledge_path)
+                    target = next((item for item in records if item.id == knowledge_id), None)
+                    if target is None:
+                        self._send_html(_page("KNOWLEDGE 없음", '<a href="/knowledge">목록으로</a>'), status=404)
+                        return
+                    if target.knowledge_review_status != "pending":
+                        self._redirect("/knowledge")
+                        return
+                    status = "approved" if suffix == "/approve" else "rejected"
+                    review_knowledge_file(
+                        config.knowledge_path, knowledge_id, status,
+                        form.get("review_note", [None])[0],
+                    )
+                except (OSError, ValueError, KeyError) as error:
+                    self._send_html(
+                        _page("검토 처리 실패", '<a href="/knowledge">목록으로</a><div class="error">'
+                                + escape(str(error)) + '</div>'),
+                        status=400,
+                    )
+                    return
+                self._redirect("/knowledge")
+                return
 
             if path.startswith("/research/") and path.endswith("/knowledge"):
                 scout_id = unquote(path[len("/research/") : -len("/knowledge")])
