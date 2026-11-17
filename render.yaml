@@ -21,6 +21,8 @@ services:
     envVars:
       - key: TAK_DISABLE_MONEY_SCOUT_AGENT
         value: true
+      - key: TAK_WEB_LANDING_PATH
+        value: /trends
       - key: TAK_WEB_USERNAME
         sync: false
       - key: TAK_WEB_PASSWORD
