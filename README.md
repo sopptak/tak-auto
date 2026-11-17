@@ -9,7 +9,7 @@ TAK AUTO 1은 공개 RSS 기반으로 오늘의 반복 키워드, 직전 관측�
 - [트렌드 MVP 실행·운영 안내](docs/tak_auto_trend_mvp.md)
 - [기능 브랜치의 작업 현황 및 코드](https://github.com/sopptak/tak-auto/tree/feature/perplexity-research-provider)
 - GitHub Actions에서 **TAK AUTO Daily Trend Discovery**를 수동 실행할 수 있습니다.
-- 실행 결과: `data/tak_auto_dashboard.html` (읽기 전용 대시보드), 키워드 JSON/Markdown 리포트
+- 실행 결과: `data/tak_auto_dashboard.md` (GitHub에서 바로 보는 대시보드), `data/tak_auto_dashboard.html` (모바일 HTML), 키워드 JSON/Markdown 리포트
 - 현재 1차 MVP는 트렌드 발견·원문 탐색까지이며, 콘텐츠 초안 생성 통합은 다음 단계입니다.
 
 검색량·SNS 인기·키워드 경쟁도를 측정한 것처럼 표현하지 않습니다. 네이버 데이터랩은 인증정보가 등록된 경우 상대 검색 관심도만 별도 표시합니다. 외부 게시와 콘텐츠 승인은 사람의 검토 전 자동 실행하지 않습니다.
