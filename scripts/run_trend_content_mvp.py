@@ -6,6 +6,7 @@ import argparse
 import base64
 import hashlib
 import hmac
+import ipaddress
 from http.cookies import SimpleCookie
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
@@ -87,7 +88,18 @@ def _same_origin(origin: str, host: str, forwarded_proto: str) -> bool:
     if not origin or not host:
         return False
     parsed = urlparse(origin)
-    expected_scheme = (forwarded_proto or "https").split(",")[0].strip().lower()
+    if parsed.scheme.lower() not in {"http", "https"}:
+        return False
+    request_hostname = urlparse(f"//{host}").hostname or ""
+    is_loopback = request_hostname.lower() == "localhost"
+    if not is_loopback:
+        try:
+            is_loopback = ipaddress.ip_address(request_hostname).is_loopback
+        except ValueError:
+            pass
+    # Local preview is served over plain HTTP; some browser bridges still attach
+    # an HTTPS forwarded-proto header. Restrict this exception to loopback hosts.
+    expected_scheme = "http" if is_loopback else (forwarded_proto or "https").split(",")[0].strip().lower()
     return parsed.scheme.lower() == expected_scheme and parsed.netloc.lower() == host.lower()
 
 

@@ -277,3 +277,5 @@ class CloudWebSecurityTests(unittest.TestCase):
         self.assertFalse(_same_origin("https://evil.example", "tak.example.com", "https"))
         self.assertFalse(_same_origin("http://tak.example.com", "tak.example.com", "https"))
         self.assertFalse(_same_origin("", "tak.example.com", "https"))
+        self.assertTrue(_same_origin("http://127.0.0.1:8765", "127.0.0.1:8765", "https"))
+        self.assertFalse(_same_origin("https://127.0.0.1:8765", "127.0.0.1:8765", "https"))
