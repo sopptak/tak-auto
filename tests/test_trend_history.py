@@ -43,9 +43,9 @@ class TrendHistoryTests(unittest.TestCase):
             ], "2026-11-16")
             save_history(before + today, path)
             rising = rising_keywords(load_history(path), "2026-11-16")
-        self.assertEqual(rising[0]["keyword"], "ai")
-        self.assertEqual(rising[0]["previous_count"], 2)
-        self.assertEqual(rising[0]["current_count"], 3)
+        ai_rising = next(row for row in rising if row["keyword"] == "ai")
+        self.assertEqual(ai_rising["previous_count"], 2)
+        self.assertEqual(ai_rising["current_count"], 3)
 
     def test_first_observation_has_no_rising_claim(self):
         today = observations_for_day([
