@@ -90,6 +90,85 @@ class TrendDiscoveryTests(unittest.TestCase):
         self.assertTrue(preview["source_urls"])
         self.assertIn("미리보기", preview["warning"])
 
+    def test_parses_perplexity_content_package(self):
+        blog_body = "# 검색 유입형 제목\\n\\n" + ("독자가 궁금해하는 핵심 내용을 근거와 함께 설명합니다. " * 30)
+        package = {
+            "blog": {"title": "검색형 제목", "meta_description": "검색 설명",
+                     "focus_keyword": "트렌드", "body": blog_body},
+            "shorts": {"title": "60초 쇼츠", "duration_seconds": 60,
+                       "hook": "첫 3초 후킹",
+                       "scenes": [{"time": f"{i*8:02d}-{i*8+8:02d}초",
+                                   "visual": "관련 화면", "caption": "핵심 자막",
+                                   "narration": "근거에 기반한 내레이션"} for i in range(6)],
+                       "closing_cta": "댓글로 의견을 남겨주세요."},
+            "threads": [{"title": "후킹 1", "body": "첫 번째 독립적인 Threads 글입니다."},
+                        {"title": "후킹 2", "body": "두 번째 독립적인 Threads 글입니다."}],
+        }
+        parsed = _parse_content_package(json.dumps(package, ensure_ascii=False))
+        self.assertEqual(len(parsed["shorts"]["scenes"]), 6)
+        self.assertEqual(len(parsed["threads"]), 2)
+
+    def test_rejects_too_short_blog(self):
+        invalid = {
+            "blog": {"title": "짧음", "body": "짧은 본문"},
+            "shorts": {"scenes": [{"time": "x"}] * 5},
+            "threads": [{"body": "a"}, {"body": "b"}],
+        }
+        with self.assertRaises(ValueError):
+            _parse_content_package(json.dumps(invalid))
+
+    def test_llm_preview_uses_perplexity_and_returns_one_shorts_script(self):
+        class FakeProvider:
+            def __init__(self):
+                self.query = ""
+                self.recency = None
+
+            def search(self, query, **kwargs):
+                self.query = query
+                self.recency = kwargs.get("search_recency_filter")
+                body = "# 제목\\n\\n" + ("확인된 사실과 독자에게 미치는 영향을 설명합니다. " * 30)
+                package = {
+                    "blog": {"title": "검색형 블로그 제목", "meta_description": "설명",
+                             "focus_keyword": "생성형 AI", "body": body},
+                    "shorts": {"title": "60초 쇼츠", "duration_seconds": 60,
+                               "hook": "첫 3초 후킹",
+                               "scenes": [{"time": f"{i*8:02d}-{i*8+8:02d}초",
+                                           "visual": "화면", "caption": "자막",
+                                           "narration": "내레이션"} for i in range(6)],
+                               "closing_cta": "댓글을 남겨주세요."},
+                    "threads": [{"title": "글1", "body": "첫 번째 Threads 글입니다."},
+                                {"title": "글2", "body": "두 번째 Threads 글입니다."}],
+                }
+                return ResearchResult(query, json.dumps(package, ensure_ascii=False),
+                                       ("https://example.com/extra",), "sonar-pro")
+
+        report = {
+            "researched_at": "2026-11-17T09:00:00+09:00",
+            "citations": ["https://example.com/source"],
+            "trends": [],
+        }
+        item = {
+            "rank": 1, "keyword": "생성형 AI", "category": "AI·테크",
+            "summary": "최근 공개 자료에서 확인된 생성형 AI의 변화입니다.",
+            "why_now": "최근 7일 안에 주요 서비스의 신규 기능이 발표됐습니다.",
+            "audience_question": "어떤 기능을 먼저 써야 할까요?",
+            "content_angle": "실제 이용자 관점에서 기능과 주의점을 비교합니다.",
+            "blog_title": "생성형 AI 최신 기능 정리",
+            "key_points": ["첫 번째 사실을 설명하는 근거 문장입니다.",
+                           "두 번째 사실을 설명하는 근거 문장입니다.",
+                           "세 번째 사실을 설명하는 근거 문장입니다."],
+            "source_urls": ["https://example.com/source"],
+        }
+        provider = FakeProvider()
+        preview = _make_preview(item, report, provider=provider)
+        self.assertEqual(provider.recency, "week")
+        self.assertIn("verified_source_urls", provider.query)
+        self.assertEqual(preview["status"], "preview_only_not_approved")
+        self.assertEqual(len(preview["shorts"]), 1)
+        self.assertEqual(len(preview["shorts"][0]["scenes"]), 6)
+        self.assertEqual(len(preview["threads"]), 2)
+        self.assertIn("https://example.com/extra", preview["source_urls"])
+
 
 if __name__ == "__main__":
     unittest.main()
