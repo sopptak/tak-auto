@@ -137,6 +137,9 @@ class TrendDiscoveryTests(unittest.TestCase):
         self.assertIn("쇼츠 대본 복사", html)
         self.assertIn("Threads 글 복사", html)
         self.assertIn("navigator.clipboard.writeText", html)
+        self.assertIn("YouTube 설명란", html)
+        self.assertIn("Instagram 릴스 문안", html)
+        self.assertIn("TikTok 설명문", html)
 
     def test_parses_perplexity_content_package(self):
         blog_body = "# 검색 유입형 제목\\n\\n" + ("독자가 궁금해하는 핵심 내용을 근거와 함께 설명합니다. " * 30)
@@ -148,7 +151,7 @@ class TrendDiscoveryTests(unittest.TestCase):
                        "scenes": [{"time": f"{i*8:02d}-{i*8+8:02d}초",
                                    "visual": "관련 화면", "caption": "핵심 자막",
                                    "narration": "근거에 기반한 내레이션"} for i in range(6)],
-                       "closing_cta": "댓글로 의견을 남겨주세요."},
+                       "closing_cta": "댓글로 의견을 남겨주세요.", "youtube_description": "유튜브 설명", "instagram_caption": "인스타 문안", "tiktok_caption": "틱톡 문안", "hashtags": ["정보"]},
             "threads": [{"title": "후킹 1", "body": "첫 번째 독립적인 Threads 글입니다."},
                         {"title": "후킹 2", "body": "두 번째 독립적인 Threads 글입니다."}],
         }
@@ -214,6 +217,9 @@ class TrendDiscoveryTests(unittest.TestCase):
         self.assertEqual(preview["status"], "preview_only_not_approved")
         self.assertEqual(len(preview["shorts"]), 1)
         self.assertEqual(len(preview["shorts"][0]["scenes"]), 6)
+        self.assertIn("youtube_description", preview["shorts"][0])
+        self.assertIn("instagram_caption", preview["shorts"][0])
+        self.assertIn("tiktok_caption", preview["shorts"][0])
         self.assertEqual(len(preview["threads"]), 2)
         self.assertIn("https://example.com/extra", preview["source_urls"])
 
