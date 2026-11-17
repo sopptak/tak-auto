@@ -2664,9 +2664,15 @@ def make_handler_class(
             return candidate
 
         def do_GET(self) -> None:  # noqa: N802
+            parsed = urlparse(self.path)
+            if parsed.path == "/health":
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b"ok")
+                return
             if not self._require_web_auth():
                 return
-            parsed = urlparse(self.path)
             path = parsed.path
             query = parse_qs(parsed.query)
             saved = query.get("saved", ["0"])[0] == "1"
