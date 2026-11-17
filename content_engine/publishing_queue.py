@@ -1,8 +1,7 @@
 """Persistent, approval-gated publishing queue for the trend content factory.
 
-The queue deliberately has no platform API clients. A worker can only call a
-publisher supplied by its caller, and the production entry point remains
-disabled unless TAK_AUTO_PUBLISHING_ENABLED=true is explicitly configured.
+The queue calls only a publisher supplied by its worker. The production entry
+point remains disabled unless TAK_AUTO_PUBLISHING_ENABLED=true is explicit.
 """
 from __future__ import annotations
 
@@ -22,6 +21,18 @@ _QUEUE_LOCK = threading.RLock()
 
 class QueueError(ValueError):
     """Invalid queue state or operation."""
+
+
+class PermanentPublishError(RuntimeError):
+    """An adapter/configuration issue that should not be retried automatically."""
+
+
+class PublishUncertainError(RuntimeError):
+    """The provider may have accepted the post; stop and require manual reconciliation."""
+
+    def __init__(self, message: str, *, remote_id: str = "") -> None:
+        super().__init__(message)
+        self.remote_id = remote_id
 
 
 def _utc(value: datetime | None = None) -> datetime:
@@ -119,6 +130,61 @@ class PublishingQueue:
             _write(self.path, data)
             return item
 
+    def confirm_published(
+        self, item_id: str, *, remote_id: str, reviewed_by: str, now: datetime | None = None
+    ) -> dict[str, Any]:
+        """Resolve an uncertain job after an operator confirms it was published."""
+        if not remote_id.strip() or not reviewed_by.strip():
+            raise QueueError("외부 게시 ID와 확인한 운영자 이름이 필요합니다.")
+        current = _utc(now)
+        with _QUEUE_LOCK:
+            data = _read(self.path)
+            item = self._find(data, item_id)
+            if item.get("status") != "needs_review":
+                raise QueueError("수동 검토 상태인 작업만 게시 완료로 확인할 수 있습니다.")
+            key = item["idempotency_key"]
+            existing = next((row for row in data["history"] if row.get("idempotency_key") == key), None)
+            if existing:
+                raise QueueError("이 작업의 게시 이력이 이미 존재합니다.")
+            record = {
+                "content_id": item["content_id"], "platform": item["platform"],
+                "remote_id": remote_id.strip(), "published_at": _iso(current),
+                "idempotency_key": key, "reconciled_by": reviewed_by.strip(),
+            }
+            data["history"].append(record)
+            item.update(
+                status="published", remote_id=remote_id.strip(), published_at=record["published_at"],
+                updated_at=_iso(current), last_error="",
+                last_review={"decision": "confirmed_published", "reviewed_by": reviewed_by.strip(), "reviewed_at": _iso(current)},
+            )
+            _write(self.path, data)
+            return item
+
+    def retry_after_review(
+        self, item_id: str, *, scheduled_at: datetime, reviewed_by: str, now: datetime | None = None
+    ) -> dict[str, Any]:
+        """Retry only after a person confirms the platform did not publish the job."""
+        if not reviewed_by.strip():
+            raise QueueError("확인한 운영자 이름이 필요합니다.")
+        current = _utc(now)
+        scheduled = _utc(scheduled_at)
+        if scheduled <= current:
+            raise QueueError("재시도 예약 시각은 현재보다 뒤여야 합니다.")
+        with _QUEUE_LOCK:
+            data = _read(self.path)
+            item = self._find(data, item_id)
+            if item.get("status") != "needs_review":
+                raise QueueError("수동 검토 상태인 작업만 다시 예약할 수 있습니다.")
+            if int(item.get("attempts", 0)) >= MAX_ATTEMPTS:
+                raise QueueError("최대 시도 횟수에 도달해 다시 예약할 수 없습니다.")
+            item.update(
+                status="scheduled", scheduled_at=_iso(scheduled), next_attempt_at=_iso(scheduled),
+                updated_at=_iso(current), last_error="",
+                last_review={"decision": "confirmed_not_published", "reviewed_by": reviewed_by.strip(), "reviewed_at": _iso(current)},
+            )
+            _write(self.path, data)
+            return item
+
     @staticmethod
     def _find(data: dict[str, Any], item_id: str) -> dict[str, Any]:
         for item in data["items"]:
@@ -146,6 +212,20 @@ class PublishingQueue:
         results = []
         published_keys = {record.get("idempotency_key") for record in data["history"]}
         for item in data["items"]:
+            if item.get("status") == "processing":
+                try:
+                    started = datetime.fromisoformat(item["updated_at"])
+                except (KeyError, ValueError, TypeError):
+                    started = current - timedelta(minutes=6)
+                if (current - _utc(started)).total_seconds() >= 300:
+                    item.update(
+                        status="needs_review",
+                        last_error="작업 중단 또는 응답 저장 실패 가능성: 플랫폼 게시 여부를 먼저 확인하세요.",
+                        updated_at=_iso(current),
+                    )
+                    changed = True
+                    results.append(item)
+                continue
             if item.get("status") != "scheduled" or not item.get("approved"):
                 continue
             try:
@@ -171,8 +251,16 @@ class PublishingQueue:
             item["attempts"] = int(item.get("attempts", 0)) + 1
             item.update(status="processing", updated_at=_iso(current))
             changed = True
+            # Persist the in-flight marker before calling a platform. If the process
+            # dies after the platform accepts a post, the next run will require a
+            # human check instead of blindly posting the same content again.
+            _write(self.path, data)
             try:
-                remote_id = publisher(item["platform"], item["payload"], key)
+                # Give built-in adapters the queue's stable content identity while
+                # keeping this internal field out of the stored/editor payload.
+                payload_for_adapter = dict(item["payload"])
+                payload_for_adapter["_content_id"] = item["content_id"]
+                remote_id = publisher(item["platform"], payload_for_adapter, key)
                 record = {
                     "content_id": item["content_id"], "platform": item["platform"],
                     "remote_id": str(remote_id), "published_at": _iso(current),
@@ -181,6 +269,16 @@ class PublishingQueue:
                 data["history"].append(record)
                 published_keys.add(key)
                 item.update(status="published", last_error="", updated_at=_iso(current), published_at=record["published_at"])
+            except PublishUncertainError as error:
+                item.update(
+                    status="needs_review", last_error=f"{type(error).__name__}: {error}"[:500],
+                    remote_id=getattr(error, "remote_id", ""), updated_at=_iso(current),
+                )
+            except PermanentPublishError as error:
+                item.update(
+                    status="failed", last_error=f"{type(error).__name__}: {error}"[:500],
+                    updated_at=_iso(current),
+                )
             except Exception as error:  # retain an auditable, bounded retry state
                 retry_at = current + timedelta(seconds=min(60 * (2 ** (item["attempts"] - 1)), 3600))
                 item.update(
@@ -199,17 +297,25 @@ def queue_dashboard(
 ) -> str:
     items = list(snapshot.get("items", []))
     history = list(snapshot.get("history", []))
-    statuses = ("pending approval", "scheduled", "processing", "published", "failed", "rejected")
+    statuses = ("pending approval", "scheduled", "processing", "needs_review", "published", "failed", "rejected")
     counts = {status: sum(row.get("status") == status for row in items) for status in statuses}
     counts["pending approval"] = pending_approvals
     cards = []
     for item in sorted(items, key=lambda row: (row.get("scheduled_at", ""), row.get("created_at", ""))):
         title = item.get("payload", {}).get("title") or item.get("payload", {}).get("keyword") or item.get("content_id", "")
+        actions = ""
+        if item.get("status") == "needs_review":
+            item_id = _html(item.get("id", ""))
+            if int(item.get("attempts", 0)) < MAX_ATTEMPTS:
+                retry_action = f'<form method="post" action="/queue/retry"><input type="hidden" name="item_id" value="{item_id}"><button type="submit" class="secondary">미게시 확인 후 재시도</button></form>'
+            else:
+                retry_action = "<span>최대 시도 횟수 도달</span>"
+            actions = f'''<form method="post" action="/queue/confirm-published" class="queue-form"><input type="hidden" name="item_id" value="{item_id}"><label>외부 게시 ID<input name="remote_id" required></label><button type="submit">게시 완료로 기록</button></form>{retry_action}'''
         cards.append(
-            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td></tr>".format(
+            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td></tr>".format(
                 _html(title), _html(item.get("platform", "")), _html(item.get("status", "")),
                 _html(item.get("scheduled_at", "")), item.get("attempts", 0), MAX_ATTEMPTS,
-                _html(item.get("last_error", "")),
+                _html(item.get("last_error", "")), actions,
             )
         )
     history_rows = []
@@ -222,8 +328,8 @@ def queue_dashboard(
     state = "활성화" if publishing_enabled else "비활성화 (기본값)"
     return f"""<section class="toolbar" id="publishing-queue">
 <h2>게시 운영 대시보드</h2><p>실제 게시: <b>{state}</b></p><p>{summary}</p>
-<h3>대기열</h3><table><thead><tr><th>콘텐츠</th><th>플랫폼</th><th>상태</th><th>예약 시각</th><th>시도</th><th>최근 오류</th></tr></thead>
-<tbody>{''.join(cards) or '<tr><td colspan="6">대기열이 비어 있습니다.</td></tr>'}</tbody></table>
+<h3>대기열</h3><p class="meta">수동 확인 상태는 플랫폼에서 게시 여부를 확인한 뒤 아래 동작으로 이력을 정리하거나 제한된 재시도를 할 수 있습니다.</p><table><thead><tr><th>콘텐츠</th><th>플랫폼</th><th>상태</th><th>예약 시각</th><th>시도</th><th>최근 오류</th><th>수동 확인</th></tr></thead>
+<tbody>{''.join(cards) or '<tr><td colspan="7">대기열이 비어 있습니다.</td></tr>'}</tbody></table>
 <h3>플랫폼별 게시 이력 ({len(history)})</h3><table><thead><tr><th>게시 시각</th><th>플랫폼</th><th>콘텐츠 ID</th><th>외부 게시 ID</th></tr></thead>
 <tbody>{''.join(history_rows) or '<tr><td colspan="4">아직 게시 이력이 없습니다.</td></tr>'}</tbody></table>
 </section>"""

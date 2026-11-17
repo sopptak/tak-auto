@@ -7,7 +7,7 @@ import base64
 import hashlib
 import hmac
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -24,6 +24,7 @@ if str(ROOT) not in sys.path:
 
 from blog_importer.models import utc_now
 from content_engine.generator import generate_content_bundle
+from content_engine.publishing_connections import connection_dashboard
 from content_engine.publishing_queue import PublishingQueue, queue_dashboard
 from scripts.run_publishing_queue import start_scheduler
 from tak_brain.models import KnowledgeRecord
@@ -313,6 +314,7 @@ button.secondary{{background:#475569}}.error{{background:#fee;border:1px solid #
 a{{color:#3157c8}}.draft{{border-top:1px solid var(--line);padding:10px 0}}
 .copy{{margin:6px 0}}.copy.done{{background:#16794b}}
 table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;border-bottom:1px solid var(--line);text-align:left;overflow-wrap:anywhere}}.queue-form{{display:flex;flex-wrap:wrap;gap:12px;align-items:end}}label{{display:grid;gap:4px}}
+.connection-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-top:16px}}.connection-card{{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fbfcfe}}.connection-heading{{display:flex;align-items:center;gap:9px;flex-wrap:wrap}}.connection-icon{{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#e7edf8;color:#3157c8;font-weight:800}}.connection-state{{margin-left:auto;font-size:12px;font-weight:700}}.connection-account{{font-size:18px;font-weight:700;margin:10px 0 2px}}.connection-expiry{{font-size:13px;font-weight:700;color:#956500;margin:2px 0}}.connection-note{{font-size:13px;margin:8px 0 0}}.connection-missing{{font-size:12px;color:#9c3d39;overflow-wrap:anywhere}}.state-configured .connection-state{{color:#16794b}}.state-expired .connection-state,.state-missing .connection-state{{color:#b42318}}.state-manual .connection-state,.state-attention .connection-state{{color:#956500}}
 @media(max-width:560px){{h1{{font-size:22px}}.grid{{display:block}}}}
 </style></head><body><main>
 <header><h1>TAK AUTO · TREND CONTENT FACTORY</h1>
@@ -320,6 +322,7 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 <div>마지막 조사: {generated} · 모델: {escape(str(report.get('model', '미연결')))}</div>
 {"<p>임시 저장소 사용 중: Render 무료 인스턴스에서는 재시작·재배포 시 조사 결과가 초기화될 수 있습니다.</p>" if USING_EPHEMERAL_STORAGE else ""}</header>
 {error_html}
+{connection_dashboard()}
 <section class="toolbar"><h2>최신 트렌드 조사</h2>
 <p>Perplexity가 최근 7일 공개 웹 자료를 바탕으로 여러 분야의 키워드 최대 20개를 발굴합니다. 선택 키워드 콘텐츠 생성에도 Perplexity API를 한 번 더 사용합니다.</p>
 <form method="post" action="/discover"><button type="submit">Perplexity 최신 트렌드 TOP 20 조사</button></form>
@@ -459,10 +462,30 @@ def create_handler():
                         payloads = [shorts[0]]
                     approver = os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user"
                     enqueued = [queue.enqueue_approved(
-                        content_id=content_id, platform=platform, payload=payload,
+                        content_id=f"{content_id}-{platform}-{payload_index + 1}",
+                        platform=platform, payload=payload,
                         scheduled_at=scheduled_at, approved_by=approver,
-                    ) for payload in payloads]
+                    ) for payload_index, payload in enumerate(payloads)]
                     self._respond(_page(report, previews, f"{len(enqueued)}개 작업을 승인하고 예약했습니다.", queue.snapshot()))
+                    return
+                if self.path == "/queue/confirm-published":
+                    queue.confirm_published(
+                        form.get("item_id", [""])[0],
+                        remote_id=form.get("remote_id", [""])[0],
+                        reviewed_by=os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user",
+                        now=utc_now(),
+                    )
+                    self._respond(_page(report, previews, "플랫폼 게시 이력을 확인 완료로 기록했습니다.", queue.snapshot()))
+                    return
+                if self.path == "/queue/retry":
+                    current = utc_now()
+                    queue.retry_after_review(
+                        form.get("item_id", [""])[0],
+                        scheduled_at=current + timedelta(seconds=45),
+                        reviewed_by=os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user",
+                        now=current,
+                    )
+                    self._respond(_page(report, previews, "미게시 확인을 기록하고 제한된 재시도를 예약했습니다.", queue.snapshot()))
                     return
                 self._respond(_page(report, previews, "지원하지 않는 요청입니다."), 404)
             except Exception as error:

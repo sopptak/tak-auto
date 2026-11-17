@@ -71,9 +71,20 @@ py -m unittest discover -s tests -p "test_trend_discovery.py" -v
 - 웹 서버의 예약 작업자가 30초마다 예약 시각이 된 작업을 확인합니다. Render Persistent Disk를 사용하는 경우 재시작 뒤에도 대기열과 플랫폼별 게시 이력이 유지됩니다.
 - 중복 방지 키는 콘텐츠 ID, 플랫폼, 게시 본문을 기준으로 결정적으로 계산합니다. 같은 항목을 다시 승인해도 새 작업이 만들어지지 않습니다.
 - 실패 작업은 1분, 2분 간격으로 최대 3회 시도하며, 작업별 오류와 상태를 대시보드에 남깁니다. 성공 이력은 플랫폼, 콘텐츠 ID, 외부 게시 ID, 게시 시각별로 보관합니다.
-- 실제 게시 기능은 기본 비활성화입니다. `TAK_AUTO_PUBLISHING_ENABLED=true` 설정과 `TAK_AUTO_PUBLISHER=모듈:함수` 어댑터를 함께 명시한 경우에만 worker가 어댑터를 호출합니다. 게시 어댑터가 없으면 실패 처리로도 기록하지 않고 실행을 거부합니다.
+- 외부 API가 요청을 받았는지 불분명한 경우는 자동 재시도하지 않고 `needs_review`로 멈춥니다. 작업 직전 상태를 디스크에 기록해 서버가 중단되어도 자동 중복 게시를 피합니다.
+- `needs_review` 작업은 계정에서 게시 여부를 확인한 뒤, 외부 게시 ID로 완료 이력을 기록하거나 미게시 확인을 남기고 남은 시도 횟수 안에서 재예약할 수 있습니다.
+- 실제 게시 기능은 Render 설정에서도 `TAK_AUTO_PUBLISHING_ENABLED=false`로 고정되어 있습니다. `true`와 `TAK_AUTO_PUBLISHER=모듈:함수`를 함께 명시한 경우에만 worker가 게시 어댑터를 호출합니다.
+- `content_engine.trend_publishers:publish`는 Threads 텍스트 게시와 기존 Threads 이력 중복 확인을 지원합니다. 현재 실제 연결 설정과 플랫폼 승인이 준비되어야 하며, YouTube·Instagram·TikTok·Facebook·네이버 블로그 어댑터는 지원하지 않아 실패 처리로 닫힙니다. 네이버 블로그는 수동 게시입니다.
 - 게시 대시보드에는 예약 상태, 시도 횟수, 오류, 플랫폼별 게시 이력이 표시됩니다. `TAK_AUTO_PUBLISHING_ENABLED`를 설정하지 않으면 대시보드에 비활성 상태로 표시되고 예약 작업은 외부 API를 호출하지 않습니다.
 - 독립 worker 실행이 필요하면 `py scripts/run_publishing_queue.py --once`를 사용합니다. 지속 확인은 `py scripts/run_publishing_queue.py --watch`를 사용합니다. 웹 서버는 같은 persistent data 디렉터리를 쓰는 예약 작업자를 기본으로 시작합니다.
+
+## 게시 계정 연결 현황
+- 대시보드에서 YouTube, TikTok, Instagram, Threads, Facebook 페이지, 네이버 블로그의 인증 정보 설정 여부, 표시 계정명, 설정된 토큰 만료 시각을 카드 형태로 확인합니다. 비밀 토큰 원문은 화면에 표시하지 않습니다.
+- 인증 정보가 등록되어 있다는 표시만으로 실제 계정 인증이 검증된 것은 아닙니다. 카드에는 연결 설정 여부와 계정 확인 여부를 구분합니다. 계정명은 플랫폼별 `*_USERNAME`, `*_CHANNEL_NAME`, `*_PAGE_NAME` 환경변수로, 선택 만료 시각은 각 플랫폼의 `*_ACCESS_TOKEN_EXPIRES_AT` ISO 8601 환경변수로 표시합니다.
+- YouTube OAuth refresh token은 액세스 토큰을 자동 갱신합니다.
+- 네이버 블로그는 자동 계정 연결 대신 수동 게시로 표시합니다. 네이버 블로그 글쓰기 Open API는 종료됐고 블로그 앱 URL Scheme도 지원 종료되어, 대시보드가 계정 비밀번호로 자동 게시를 시도하지 않습니다.
+- Instagram/TikTok은 앱 승인·계정 권한과 영상 파일 준비가 필요합니다. YouTube Shorts도 승인된 MP4가 있어야 합니다. 이들 adapter가 설정되지 않으면 queue worker는 게시하지 않습니다.
+- 연결 현황은 환경변수 존재 여부를 읽는 방식이며, 플랫폼에 인증 요청을 보내지 않습니다. 실제 API 계정 검증은 아직 제공되지 않습니다.
 
 
 ## Perplexity Agent API 전환

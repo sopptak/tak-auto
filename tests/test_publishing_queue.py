@@ -3,7 +3,10 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from content_engine.publishing_queue import MAX_ATTEMPTS, PublishingQueue, QueueError, queue_dashboard
+from content_engine.publishing_queue import (
+    MAX_ATTEMPTS, PermanentPublishError, PublishUncertainError, PublishingQueue,
+    QueueError, queue_dashboard,
+)
 from scripts.run_publishing_queue import run_once
 
 
@@ -51,12 +54,13 @@ class PublishingQueueTests(unittest.TestCase):
     def test_future_job_waits_and_success_records_platform_history(self):
         item = self.enqueue()
         calls = []
-        publisher = lambda platform, payload, key: calls.append((platform, key)) or "remote-42"
+        publisher = lambda platform, payload, key: calls.append((platform, payload["_content_id"], key)) or "remote-42"
         self.assertEqual(self.queue.run_due(publisher, enabled=True, now=self.now), [])
         due = self.now + timedelta(minutes=2)
         result = self.queue.run_due(publisher, enabled=True, now=due)
         self.assertEqual(result[0]["status"], "published")
-        self.assertEqual(calls, [("blog", item["idempotency_key"])])
+        self.assertEqual(calls, [("blog", item["content_id"], item["idempotency_key"])])
+        self.assertNotIn("_content_id", item["payload"])
         history = self.queue.snapshot()["history"]
         self.assertEqual(history[0]["platform"], "blog")
         self.assertEqual(history[0]["remote_id"], "remote-42")
@@ -84,6 +88,78 @@ class PublishingQueueTests(unittest.TestCase):
         self.assertEqual(third["attempts"], MAX_ATTEMPTS)
         self.assertEqual(len(calls), MAX_ATTEMPTS)
         self.assertEqual(self.queue.run_due(fail, enabled=True, now=second_time + timedelta(days=1)), [])
+
+    def test_uncertain_result_is_persisted_for_human_review_without_retry(self):
+        self.enqueue()
+        calls = []
+
+        def uncertain(*_args):
+            calls.append(1)
+            in_flight = self.queue.snapshot()["items"][0]
+            self.assertEqual(in_flight["status"], "processing")
+            self.assertEqual(in_flight["attempts"], 1)
+            raise PublishUncertainError("provider response was lost", remote_id="post-123")
+
+        result = self.queue.run_due(uncertain, enabled=True, now=self.now + timedelta(minutes=2))[0]
+        self.assertEqual(result["status"], "needs_review")
+        self.assertEqual(result["remote_id"], "post-123")
+        self.assertEqual(self.queue.run_due(uncertain, enabled=True, now=self.now + timedelta(days=1)), [])
+        self.assertEqual(len(calls), 1)
+
+    def test_permanent_adapter_error_is_not_retried(self):
+        self.enqueue()
+        calls = []
+
+        def unsupported(*_args):
+            calls.append(1)
+            raise PermanentPublishError("platform not supported")
+
+        result = self.queue.run_due(unsupported, enabled=True, now=self.now + timedelta(minutes=2))[0]
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["attempts"], 1)
+        self.assertEqual(self.queue.run_due(unsupported, enabled=True, now=self.now + timedelta(days=1)), [])
+        self.assertEqual(len(calls), 1)
+
+    def test_operator_can_confirm_uncertain_post_and_record_remote_history(self):
+        item = self.enqueue()
+        due = self.now + timedelta(minutes=2)
+        self.queue.run_due(
+            lambda *_args: (_ for _ in ()).throw(PublishUncertainError("response lost")),
+            enabled=True, now=due,
+        )
+        resolved = self.queue.confirm_published(
+            item["id"], remote_id="https://threads.example/post/123", reviewed_by="operator", now=due + timedelta(minutes=1),
+        )
+        self.assertEqual(resolved["status"], "published")
+        self.assertEqual(resolved["last_review"]["decision"], "confirmed_published")
+        self.assertEqual(self.queue.snapshot()["history"][0]["remote_id"], "https://threads.example/post/123")
+
+    def test_operator_can_retry_only_after_confirming_not_published(self):
+        item = self.enqueue()
+        due = self.now + timedelta(minutes=2)
+        self.queue.run_due(
+            lambda *_args: (_ for _ in ()).throw(PublishUncertainError("response lost")),
+            enabled=True, now=due,
+        )
+        retry_at = due + timedelta(minutes=1)
+        reviewed = self.queue.retry_after_review(
+            item["id"], scheduled_at=retry_at, reviewed_by="operator", now=due + timedelta(seconds=1),
+        )
+        self.assertEqual(reviewed["status"], "scheduled")
+        self.assertEqual(reviewed["attempts"], 1)
+        self.assertEqual(reviewed["last_review"]["decision"], "confirmed_not_published")
+        calls = []
+        self.queue.run_due(lambda *_args: calls.append(1) or "remote-after-check", enabled=True, now=retry_at)
+        self.assertEqual(calls, [1])
+
+    def test_dashboard_offers_manual_reconciliation_only_when_required(self):
+        item = self.enqueue()
+        data = self.queue.snapshot()
+        data["items"][0]["status"] = "needs_review"
+        html = queue_dashboard(data, publishing_enabled=False)
+        self.assertIn("/queue/confirm-published", html)
+        self.assertIn("/queue/retry", html)
+        self.assertIn(item["id"], html)
 
     def test_platforms_have_separate_idempotency_and_history(self):
         self.enqueue(platform="blog")

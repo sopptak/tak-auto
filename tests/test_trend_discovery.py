@@ -140,6 +140,8 @@ class TrendDiscoveryTests(unittest.TestCase):
         self.assertIn("YouTube 설명란", html)
         self.assertIn("Instagram 릴스 문안", html)
         self.assertIn("TikTok 설명문", html)
+        self.assertIn("게시 계정 연결 현황", html)
+        self.assertIn("네이버 블로그", html)
 
     def test_dashboard_exposes_approval_schedule_and_disabled_publishing_status(self):
         preview = {
@@ -153,6 +155,7 @@ class TrendDiscoveryTests(unittest.TestCase):
         self.assertIn("승인 후에도 실제 게시 기능은 기본 비활성 상태입니다.", html)
         self.assertIn("비활성화 (기본값)", html)
         self.assertIn("pending approval: 1", html)
+        self.assertIn("계정명 확인 필요", html)
 
     def test_parses_perplexity_content_package(self):
         blog_body = "# 검색 유입형 제목\\n\\n" + ("독자가 궁금해하는 핵심 내용을 근거와 함께 설명합니다. " * 30)
