@@ -54,7 +54,7 @@ Phase에서 한 줄도 수정하지 않았다.
     - KNOWLEDGE 자동 승인 (pending까지만 - 승인은 review_knowledge.py로 사람이)
     - TAK MEDIA 실행
     - Threads/Naver 게시 (Threads 검수 화면도 승인까지만 - 실제 API 호출은 하지 않음)
-    - 외부 네트워크에 노출(기본적으로 127.0.0.1에만 바인딩)
+    - 기본 실행은 127.0.0.1에만 바인딩하며, 외부 바인딩 시 설정된 Basic Auth가 없으면 요청을 거부
     - LLM 실패를 사용자에게 노출(항상 조용히 템플릿으로 fallback)
     - Threads 사용자 수정 문장을 LLM으로 다시 보내 재작성하는 것(5-11 Phase 2)
 """
@@ -62,6 +62,9 @@ Phase에서 한 줄도 수정하지 않았다.
 from __future__ import annotations
 
 import argparse
+import base64
+import hmac
+import json
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from html import escape
@@ -93,6 +96,10 @@ from tak_scout import (
 )
 from tak_scout.dashboard_state import mark_skipped, skipped_scout_ids
 from tak_scout.interview_llm import FORCED_OPTION_D, FollowUpDecision, InterviewLLMProvider
+from tak_scout.perplexity_research import PerplexityResearchProvider
+from tak_scout.research import load_research_records, research_candidate, upsert_research_record
+from tak_scout.research_knowledge import upsert_research_knowledge
+from tak_scout.research_quality import assess_research_quality
 from tak_scout.interview_session import (
     InterviewSession,
     InterviewTurnRecord,
@@ -101,6 +108,7 @@ from tak_scout.interview_session import (
 )
 from tak_scout.title_translation import TitleTranslation, translations_by_scout_id, upsert_translation
 from tak_brain import KnowledgeRecord, load_knowledge_records
+from tak_brain.knowledge import review_knowledge_file
 from content_engine import LLMConfigurationError
 from content_engine.media_archive import (
     MediaArchiveRecord,
@@ -223,6 +231,8 @@ class DashboardConfig:
     # 한다 - 이 화면에는 승인/거부 버튼이 없다). 기본값을 둬서 기존 호출부(테스트
     # 포함)가 이 필드를 넘기지 않아도 그대로 동작한다.
     insights_path: Path = ROOT / "data" / "tak_performance_insights.json"
+    research_path: Path = ROOT / "data" / "tak_scout_research.json"
+    trend_report_path: Path = ROOT / "data" / "tak_auto_trend_daily.json"
     # 6-07 - MEDIA generation pool(6-06 설계) 파일 목록. 6-07에서는 읽기 전용
     # 조회만 가능했고, 6-08에서 승인/보류(review_status 변경) 액션이 추가됐다.
     # production archive(media_archive_path)와 달리 generation pool은 고정된
@@ -435,6 +445,7 @@ def render_candidate_list_html(
   <div class="actions">
     <a class="btn primary" href="{candidate_url}">이 소재로 답변하기</a>
     <a class="btn" href="{escape(candidate.source_url)}" target="_blank" rel="noopener">원문 보기</a>
+    <form method="post" action="{candidate_url}/research"><button class="btn" type="submit">🔎 Perplexity 조사</button></form>
     <form method="post" action="{candidate_url}/skip">
       <button class="btn ghost" type="submit">관심 없음</button>
     </form>
@@ -445,7 +456,7 @@ def render_candidate_list_html(
 
     body = f"""
 <h1>TAK SCOUT Dashboard</h1>
-<div class="nav-links"><a href="/operator">🧭 Operator Center</a><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/media/strategy">🎯 Strategy Gate</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/shorts-studio">🎬 Shorts Studio</a><a href="/money">💰 MONEY</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
+<div class="nav-links"><a href="/trends">📊 오늘의 트렌드</a><a href="/research">🔎 심층 조사 결과</a><a href="/operator">🧭 Operator Center</a><a href="/threads">Threads 검수</a><a href="/media">📱 TAK MEDIA</a><a href="/media/strategy">🎯 Strategy Gate</a><a href="/publish-readiness">✅ Publish Readiness</a><a href="/shorts-studio">🎬 Shorts Studio</a><a href="/money">💰 MONEY</a><a href="/performance">📈 Performance</a><a href="/performance/insights">🔎 Insights</a></div>
 <div class="sub">오늘의 소재 {len(ranked)}건 · 점수 내림차순 (SCOUT SCORE MVP, LLM 미사용)</div>
 {"".join(cards) if cards else "<p>오늘 표시할 소재가 없습니다.</p>"}
 """
@@ -2023,6 +2034,13 @@ def render_operator_center_html(summary) -> str:
 <h1>Operator Control Center</h1>
 <div class="sub">generated_at: {escape(summary.generated_at)} | SYSTEM: <strong>{escape(summary.system_status)}</strong></div>
 
+<h2>첫 운영 시작 순서</h2>
+<div class="card"><strong>1. 트렌드 확인</strong><div class="sub">오늘의 반복·상승 키워드와 콘텐츠 기회를 확인합니다.</div><a href="/trends">오늘의 트렌드 열기 →</a></div>
+<div class="card"><strong>2. 근거 심층 조사</strong><div class="sub">관심 소재를 조사합니다. Perplexity 키가 없으면 이 단계는 비활성 상태입니다.</div><a href="/research">심층 조사 결과 →</a></div>
+<div class="card"><strong>3. KNOWLEDGE 검토</strong><div class="sub">조사 결과를 지식 후보로 만들고, 사람이 사실과 출처를 확인한 뒤 승인합니다.</div><a href="/knowledge">KNOWLEDGE 검토 →</a></div>
+<div class="card"><strong>4. 콘텐츠 초안 생성·검수</strong><div class="sub">승인된 KNOWLEDGE만 MEDIA 생성에 사용합니다. 생성 결과는 게시 전 사람이 검수합니다.</div><a href="/media">TAK MEDIA 열기 →</a></div>
+<div class="sub">주의: 초안 생성과 게시 승인은 별도 단계입니다. 이 화면은 상태 확인용이며 자동 게시를 실행하지 않습니다.</div>
+
 <h2>TODAY STATUS</h2>
 {_swa_row_html(summary.git_status)}
 {_swa_row_html(summary.test_status)}
@@ -2531,7 +2549,9 @@ def handle_threads_approve_submission(
 
 
 def make_handler_class(
-    config: DashboardConfig, llm_provider: InterviewLLMProvider | None = None
+    config: DashboardConfig,
+    llm_provider: InterviewLLMProvider | None = None,
+    research_provider: PerplexityResearchProvider | None = None,
 ) -> type[BaseHTTPRequestHandler]:
     """`llm_provider`를 생략하면(기본값 None) LLM을 전혀 쓰지 않는다 - Phase 2와
     완전히 동일한 템플릿 전용 동작이다. content_engine의 MockRewriteProvider나
@@ -2552,6 +2572,30 @@ def make_handler_class(
 
         def log_message(self, format: str, *args: object) -> None:  # noqa: A002
             sys.stderr.write("[dashboard] " + (format % args) + "\n")
+
+        def _require_web_auth(self) -> bool:
+            username = os.environ.get("TAK_WEB_USERNAME", "")
+            password = os.environ.get("TAK_WEB_PASSWORD", "")
+            # 로컬 개발은 기존처럼 인증 없이 사용한다. 외부 바인딩에서는
+            # 자격 증명이 없으면 절대 공개 모드로 열지 않는다.
+            if self.server.server_address[0] in ("127.0.0.1", "::1", "localhost"):
+                return True
+            if not username or not password:
+                self.send_response(503)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b"Web authentication is not configured.")
+                return False
+            expected = "Basic " + base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
+            supplied = self.headers.get("Authorization", "")
+            if hmac.compare_digest(supplied, expected):
+                return True
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Basic realm="TAK AUTO MVP"')
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.end_headers()
+            self.wfile.write("로그인이 필요합니다.".encode("utf-8"))
+            return False
 
         def _send_html(self, body: bytes, status: int = 200) -> None:
             self.send_response(status)
@@ -2621,7 +2665,18 @@ def make_handler_class(
 
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
+            if parsed.path == "/health":
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b"ok")
+                return
+            if not self._require_web_auth():
+                return
             path = parsed.path
+            if path == "/" and os.environ.get("TAK_WEB_LANDING_PATH", "").strip() == "/trends":
+                self._redirect("/trends")
+                return
             query = parse_qs(parsed.query)
             saved = query.get("saved", ["0"])[0] == "1"
 
@@ -2630,6 +2685,100 @@ def make_handler_class(
                 return
             if path == "/money" or path.startswith("/money/"):
                 self._money("GET", path, query)
+                return
+
+            if path == "/trends":
+                from scripts.trends_web import render_trends_page
+
+                try:
+                    trend_report = json.loads(config.trend_report_path.read_text(encoding="utf-8"))
+                    if not isinstance(trend_report, dict):
+                        raise ValueError("트렌드 리포트 구조가 올바르지 않습니다.")
+                    trend_body = render_trends_page(
+                        trend_report, load_research_records(config.research_path)
+                    )
+                except FileNotFoundError:
+                    trend_body = (
+                        '<h1>TAK AUTO · 오늘의 트렌드</h1><a href="/">SCOUT 홈</a>'
+                        '<div class="card">아직 트렌드 리포트가 없습니다. '
+                        'GitHub Actions의 TAK AUTO Daily Trend Discovery를 실행하세요.</div>'
+                    )
+                except (OSError, ValueError, json.JSONDecodeError) as error:
+                    trend_body = (
+                        '<h1>트렌드 리포트 오류</h1><a href="/">SCOUT 홈</a>'
+                        '<div class="error">' + escape(type(error).__name__) + '</div>'
+                    )
+                self._send_html(_page("TAK AUTO 트렌드", trend_body))
+                return
+
+            if path == "/knowledge":
+                try:
+                    pending_records = [
+                        item for item in load_knowledge_records(config.knowledge_path)
+                        if item.knowledge_review_status == "pending"
+                    ]
+                except FileNotFoundError:
+                    pending_records = []
+                cards = []
+                for item in reversed(pending_records):
+                    points = "".join("<li>" + escape(str(point)) + "</li>" for point in item.key_points[:8])
+                    evidence = "".join("<li>" + escape(str(value)) + "</li>" for value in item.evidence[:8])
+                    cards.append(
+                        '<section class="card"><h2>' + escape(item.title) + '</h2>'
+                        '<div class="meta">ID: ' + escape(item.id) + ' · 검토 대기</div>'
+                        '<p>' + escape(item.summary or item.lesson or "") + '</p>'
+                        '<h3>핵심 내용</h3><ul>' + (points or '<li>추출된 핵심 내용 없음</li>') + '</ul>'
+                        '<h3>출처·근거</h3><ul>' + (evidence or '<li>근거 없음</li>') + '</ul>'
+                        '<p><a target="_blank" rel="noopener" href="' + escape(item.source_url or "") + '">원문 열기</a></p>'
+                        '<form method="post" action="/knowledge/' + escape(item.id) + '/approve">'
+                        '<button class="btn primary" type="submit">검토 후 승인</button></form> '
+                        '<form method="post" action="/knowledge/' + escape(item.id) + '/reject">'
+                        '<input name="review_note" placeholder="거절 사유(선택)">'
+                        '<button class="btn ghost" type="submit">거절</button></form></section>'
+                    )
+                body = (
+                    '<h1>TAK BRAIN · KNOWLEDGE 검토</h1>'
+                    '<div class="nav-links"><a href="/trends">트렌드</a> <a href="/research">심층 조사</a></div>'
+                    '<p>승인된 자료만 콘텐츠 초안 생성에 사용됩니다. 원문과 인용 출처를 직접 확인하세요.</p>'
+                    + (''.join(cards) if cards else '<div class="card">검토 대기 KNOWLEDGE가 없습니다.</div>')
+                )
+                self._send_html(_page("KNOWLEDGE 검토", body))
+                return
+
+            if path == "/research":
+                records = load_research_records(config.research_path)
+                cards = []
+                for record in reversed(records):
+                    cards.append('<div class="card"><div class="title">' + escape(record.candidate_title) + '</div><div class="meta">' + escape(record.status) + ' · ' + escape(record.researched_at) + '</div><a class="btn primary" href="/research/' + escape(record.scout_id) + '">결과 보기</a></div>')
+                body = '<h1>TAK SCOUT 심층 조사</h1><a href="/">오늘의 소재</a> · <a href="/trends">트렌드</a> · <a href="/knowledge">KNOWLEDGE 검토</a>' + (''.join(cards) or '<p>조사 결과가 없습니다. 소재 목록에서 Perplexity 조사를 실행하세요.</p>')
+                self._send_html(_page("TAK SCOUT 심층 조사", body))
+                return
+
+            if path.startswith("/research/"):
+                scout_id = unquote(path[len("/research/"):])
+                record = next((item for item in load_research_records(config.research_path) if item.scout_id == scout_id), None)
+                if record is None:
+                    self._send_html(_page("조사 결과 없음", '<a href="/research">목록으로</a><p>결과가 없습니다.</p>'), status=404)
+                    return
+                citations = ''.join('<li><a href="' + escape(url) + '" target="_blank" rel="noopener">' + escape(url) + '</a></li>' for url in record.citations)
+                quality = assess_research_quality(record)
+                quality_warnings = ''.join('<li>' + escape(item) + '</li>' for item in quality.warnings)
+                quality_checks = ''.join('<li>' + escape(item) + '</li>' for item in quality.checks)
+                quality_label = "기록 완성도 양호" if quality.level == "completeness_good" else "사람 검토 필요"
+                quality_html = (
+                    '<section class="card"><h2>조사 품질 점검: ' + escape(quality_label) + '</h2>'
+                    + '<p>완성도 점수: ' + str(quality.score) + '/100 · 인용 URL ' + str(quality.citation_count)
+                    + '개 · 출처 도메인 ' + str(quality.unique_hosts) + '개</p>'
+                    + '<p><strong>기록 확인</strong></p><ul>' + (quality_checks or '<li>없음</li>') + '</ul>'
+                    + '<p><strong>검토 경고</strong></p><ul>' + (quality_warnings or '<li>기록 완성도 경고 없음</li>') + '</ul>'
+                    + '<p><strong>주의:</strong> 기록 완성도 점검일 뿐, 주장의 사실성·출처의 독립성·최신성을 검증하지 않습니다.</p></section>'
+                )
+                notice = query.get("knowledge", [""])[0]
+                notice_text = {"created": "KNOWLEDGE 검토 초안을 생성했습니다. 상태는 pending입니다.", "updated_pending": "기존 pending KNOWLEDGE에 재조사 결과를 반영했습니다.", "already_approved": "이미 승인된 KNOWLEDGE는 변경하지 않았습니다."}.get(notice, "")
+                notice_html = '<div class="notice">' + escape(notice_text) + '</div>' if notice_text else ""
+                action = '<form method="post" action="/research/' + escape(record.scout_id) + '/knowledge"><button class="btn primary" type="submit">TAK BRAIN 검토 초안 만들기</button></form>' if record.status == "completed" else ""
+                body = '<a href="/research">← 조사 목록</a><h1>' + escape(record.candidate_title) + '</h1>' + notice_html + quality_html + '<div class="meta">원문 발행일: ' + escape(record.candidate_published_at or "미확인") + ' · 조사 시각: ' + escape(record.researched_at) + '</div><div class="body-block">' + escape(record.answer or record.error) + '</div><h2>인용 출처</h2><ol>' + (citations or '<li>인용 URL 없음</li>') + '</ol><a href="' + escape(record.candidate_url) + '" target="_blank" rel="noopener">원문 기사</a>' + action
+                self._send_html(_page("심층 조사 결과", body))
                 return
 
             if path == "/":
@@ -2947,6 +3096,18 @@ def make_handler_class(
             self._send_html(_page("페이지 없음", "<p>페이지를 찾을 수 없습니다.</p>"), status=404)
 
         def do_POST(self) -> None:  # noqa: N802
+            if not self._require_web_auth():
+                return
+            # Basic Auth 브라우저 자격 증명이 교차 사이트 폼 제출에 재사용되는
+            # CSRF를 막기 위해 모든 브라우저 POST는 동일 출처 Origin만 허용한다.
+            origin = self.headers.get("Origin", "")
+            request_host = self.headers.get("Host", "")
+            if not origin or urlparse(origin).netloc.lower() != request_host.lower():
+                self.send_response(403)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.end_headers()
+                self.wfile.write("허용되지 않은 요청 출처입니다.".encode("utf-8"))
+                return
             parsed = urlparse(self.path)
             path = parsed.path
             length = int(self.headers.get("Content-Length") or 0)
@@ -2968,6 +3129,64 @@ def make_handler_class(
             raw_body = self.rfile.read(length) if length else b""
             form = parse_qs(raw_body.decode("utf-8"))
 
+
+            if path.startswith("/knowledge/") and (path.endswith("/approve") or path.endswith("/reject")):
+                suffix = "/approve" if path.endswith("/approve") else "/reject"
+                knowledge_id = unquote(path[len("/knowledge/") : -len(suffix)])
+                try:
+                    records = load_knowledge_records(config.knowledge_path)
+                    target = next((item for item in records if item.id == knowledge_id), None)
+                    if target is None:
+                        self._send_html(_page("KNOWLEDGE 없음", '<a href="/knowledge">목록으로</a>'), status=404)
+                        return
+                    if target.knowledge_review_status != "pending":
+                        self._redirect("/knowledge")
+                        return
+                    status = "approved" if suffix == "/approve" else "rejected"
+                    review_knowledge_file(
+                        config.knowledge_path, knowledge_id, status,
+                        form.get("review_note", [None])[0],
+                    )
+                except (OSError, ValueError, KeyError) as error:
+                    self._send_html(
+                        _page("검토 처리 실패", '<a href="/knowledge">목록으로</a><div class="error">'
+                                + escape(str(error)) + '</div>'),
+                        status=400,
+                    )
+                    return
+                self._redirect("/knowledge")
+                return
+
+            if path.startswith("/research/") and path.endswith("/knowledge"):
+                scout_id = unquote(path[len("/research/") : -len("/knowledge")])
+                record = next((item for item in load_research_records(config.research_path) if item.scout_id == scout_id), None)
+                if record is None:
+                    self._send_html(_page("조사 결과 없음", '<a href="/research">조사 목록으로</a>'), status=404)
+                    return
+                try:
+                    _knowledge, status = upsert_research_knowledge(record, config.knowledge_path)
+                except (OSError, ValueError) as error:
+                    self._send_html(_page("KNOWLEDGE 생성 실패", '<a href="/research/' + escape(scout_id) + '">돌아가기</a><div class="error">' + escape(str(error)) + '</div>'), status=400)
+                    return
+                self._redirect('/research/' + scout_id + '?knowledge=' + status)
+                return
+
+            if path.startswith("/candidate/") and path.endswith("/research"):
+                scout_id = unquote(path[len("/candidate/") : -len("/research")])
+                candidate = self._load_candidate_or_404(scout_id)
+                if candidate is None:
+                    return
+                if research_provider is None:
+                    self._send_html(_page("Perplexity 미설정", '<a href="/">돌아가기</a><div class="error">TAK_SCOUT_PERPLEXITY_API_KEY 환경변수가 설정되지 않았습니다.</div>'), status=503)
+                    return
+                try:
+                    record = research_candidate(candidate, research_provider)
+                    upsert_research_record(config.research_path, record)
+                except Exception as error:
+                    self._send_html(_page("조사 실패", '<a href="/">돌아가기</a><div class="error">저장 오류: ' + escape(type(error).__name__) + '</div>'), status=500)
+                    return
+                self._redirect("/research/" + scout_id)
+                return
 
             if path.startswith("/candidate/") and path.endswith("/answer"):
                 scout_id = unquote(path[len("/candidate/") : -len("/answer")])
@@ -3427,10 +3646,11 @@ def main(argv: list[str] | None = None) -> int:
         blog_history_path=args.blog_history,
         performance_path=args.performance,
         insights_path=args.insights,
+        research_path=ROOT / "data" / "tak_scout_research.json",
         generation_archive_paths=generation_archive_paths,
         shorts_drafts_path=args.shorts_drafts,
         ffmpeg=args.ffmpeg,
-        money_scout_agent_enabled=not args.no_money_scout_agent,
+        money_scout_agent_enabled=(not args.no_money_scout_agent and os.environ.get("TAK_DISABLE_MONEY_SCOUT_AGENT", "").strip().lower() not in {"1", "true", "yes"}),
     )
 
     # scripts/run_media_batch.py, scripts/run_daily.py, scripts/tak_auto.py와 동일한
@@ -3444,7 +3664,13 @@ def main(argv: list[str] | None = None) -> int:
         llm_provider = None
         print("TAK SCOUT Dashboard: LLM 환경변수 미설정 - 템플릿 질문만 사용합니다.")
 
-    handler_class = make_handler_class(config, llm_provider=llm_provider)
+    try:
+        research_provider: PerplexityResearchProvider | None = PerplexityResearchProvider.from_environment()
+        print("TAK SCOUT Dashboard: Perplexity 심층 조사 연결됨")
+    except LLMConfigurationError:
+        research_provider = None
+        print("TAK SCOUT Dashboard: Perplexity API 키 미설정 - 심층 조사 기능은 비활성 상태입니다.")
+    handler_class = make_handler_class(config, llm_provider=llm_provider, research_provider=research_provider)
     server = ThreadingHTTPServer((args.host, args.port), handler_class)
     print(f"TAK SCOUT Dashboard 실행 중: http://{args.host}:{args.port}")
     print("Ctrl+C로 종료하세요.")

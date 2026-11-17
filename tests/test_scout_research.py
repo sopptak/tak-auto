@@ -1,0 +1,82 @@
+"""Tests for TAK SCOUT research orchestration; no live API calls."""
+from pathlib import Path
+import json
+import tempfile
+import unittest
+from tak_scout.models import ScoutCandidate
+from tak_scout.perplexity_research import ResearchResult
+from tak_scout.research import build_research_query, research_candidate, research_candidates, save_research_records, render_research_markdown, load_research_records, upsert_research_record
+
+def make_candidate(sid="scout-1"):
+    return ScoutCandidate(sid, "경매 제도 변경", "RSS 요약", "https://example.test/a",
+                          "2026-11-15", "테스트 출처", "경매")
+
+class FakeProvider:
+    def __init__(self, fail=False): self.fail, self.calls = fail, 0
+    def search(self, query, **kwargs):
+        self.calls += 1
+        if self.fail: raise RuntimeError("do not persist secret")
+        return ResearchResult(query, "확인된 사실과 해석", ("https://example.test/source",), "sonar-pro")
+
+class ResearchTests(unittest.TestCase):
+    def test_success_keeps_scout_lineage_and_citations(self):
+        r = research_candidate(make_candidate(), FakeProvider())
+        self.assertEqual(r.scout_id, "scout-1")
+        self.assertEqual(r.status, "completed")
+        self.assertEqual(r.citations, ("https://example.test/source",))
+    def test_failure_does_not_leak_exception_message(self):
+        r = research_candidate(make_candidate(), FakeProvider(True))
+        self.assertEqual(r.status, "failed")
+        self.assertEqual(r.error, "RuntimeError")
+    def test_batch_continues_after_failure(self):
+        class P:
+            def __init__(self): self.n=0
+            def search(self, q, **kw):
+                self.n += 1
+                if self.n == 1: raise RuntimeError()
+                return ResearchResult(q, "ok", (), "sonar-pro")
+        rows = research_candidates([make_candidate("a"), make_candidate("b")], P())
+        self.assertEqual([r.status for r in rows], ["failed", "completed"])
+    def test_load_and_upsert_preserves_other_candidates(self):
+        first = research_candidate(make_candidate("first"), FakeProvider())
+        second = research_candidate(make_candidate("second"), FakeProvider())
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "research.json"
+            save_research_records([first], p)
+            upsert_research_record(p, second)
+            loaded = load_research_records(p)
+            self.assertEqual({r.scout_id for r in loaded}, {"first", "second"})
+            upsert_research_record(p, first)
+            self.assertEqual(len(load_research_records(p)), 2)
+
+
+    def test_default_profile_is_general_trend_and_source_led(self):
+        query = build_research_query(make_candidate())
+        self.assertIn("이해관계자별 영향", query)
+        self.assertNotIn("말소기준권리", query)
+        self.assertIn("확인된 사실·해석·추정", query)
+
+    def test_auction_profile_remains_available_as_an_explicit_specialty(self):
+        query = build_research_query(make_candidate(), profile="auction")
+        self.assertIn("말소기준권리", query)
+        self.assertIn("국가법령정보센터", query)
+
+    def test_unknown_profile_is_rejected(self):
+        with self.assertRaises(ValueError):
+            build_research_query(make_candidate(), profile="unknown")
+
+    def test_research_record_stores_the_selected_profile_prompt(self):
+        record = research_candidate(make_candidate(), FakeProvider())
+        self.assertIn("콘텐츠 확인 질문", record.query)
+        self.assertNotIn("말소기준권리", record.query)
+
+    def test_save_and_render(self):
+        r = research_candidate(make_candidate(), FakeProvider())
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "research.json"
+            save_research_records([r], p)
+            data = json.loads(p.read_text(encoding="utf-8"))
+        self.assertEqual(data["records"][0]["scout_id"], "scout-1")
+        self.assertIn("https://example.test/source", render_research_markdown([r]))
+
+if __name__ == "__main__": unittest.main()

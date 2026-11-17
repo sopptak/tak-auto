@@ -632,6 +632,19 @@ class DashboardRouteJsonTests(unittest.TestCase):
         summary = build_operator_summary(_base_inputs())
         self.assertEqual(json.loads(json.dumps(summary.to_dict())), summary.to_dict())
 
+    def test_operator_dashboard_explains_first_run_sequence(self) -> None:
+        summary = build_operator_summary(_base_inputs())
+        html = render_operator_center_html(summary)
+        for label, route in (
+            ("첫 운영 시작 순서", "/trends"),
+            ("심층 조사 결과", "/research"),
+            ("KNOWLEDGE 검토", "/knowledge"),
+            ("TAK MEDIA 열기", "/media"),
+        ):
+            self.assertIn(label, html)
+            self.assertIn(route, html)
+        self.assertIn("자동 게시를 실행하지 않습니다", html)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,6 +2,21 @@
 
 > 탁멍이가 결정하면, AI가 실행한다.
 
+## 현재 주력: TAK AUTO 1 — 범용 트렌드 발굴
+
+TAK AUTO 1은 공개 RSS 기반으로 오늘의 반복 키워드, 직전 관측일 대비 증가 키워드, 콘텐츠 기회 후보를 찾는 범용 콘텐츠 기획 도구입니다. 경매 전용 기능은 후속 제품 TAK AUTO 2의 영역으로 분리하며 기존 코드는 호환성을 위해 보존합니다.
+
+- [트렌드 MVP 실행·운영 안내](docs/tak_auto_trend_mvp.md)
+- **Notebook 2 원클릭 시작:** `py scripts/start_tak_auto_mvp.py`
+- [기능 브랜치의 작업 현황 및 코드](https://github.com/sopptak/tak-auto/tree/feature/perplexity-research-provider)
+- GitHub Actions에서 **TAK AUTO Daily Trend Discovery**를 수동 실행할 수 있습니다.
+- 실행 결과: `data/tak_auto_dashboard.md` (GitHub에서 바로 보는 대시보드), `data/tak_auto_dashboard.html` (모바일 HTML), 키워드 JSON/Markdown 리포트
+- 통합 MVP 흐름: 트렌드 발견 → 근거 기사 조사 → KNOWLEDGE 사람 승인 → 콘텐츠 초안 생성(실제 LLM 재작성은 별도 키·명시 실행 필요).
+
+검색량·SNS 인기·키워드 경쟁도를 측정한 것처럼 표현하지 않습니다. 네이버 데이터랩은 인증정보가 등록된 경우 상대 검색 관심도만 별도 표시합니다. 외부 게시와 콘텐츠 승인은 사람의 검토 전 자동 실행하지 않습니다.
+
+## 기존 TAK BRAIN 블로그 원문 파일럿
+
 현재 프로젝트는 2003년부터 축적한 네이버 블로그 글을 TAK BRAIN의 원천 데이터로 넣는 파일럿 환경입니다. 네이버 로그인, 크롤링, 게시 자동화는 포함하지 않습니다. 사용자가 글 10개를 JSON 또는 Markdown 파일로 `input/`에 넣고 데이터 경계를 검증하는 데 초점을 둡니다.
 
 ## 설치
@@ -168,3 +183,8 @@ python3 scripts/check_naver_post.py --url "https://blog.naver.com/tmong2/2244071
 ## 3단계 이후 설계
 
 RAW 원본을 검토한 뒤의 지식 추출 설계는 [docs/knowledge_extraction_design.md](docs/knowledge_extraction_design.md)에 정리했습니다. 이 단계에서는 AI API를 연결하지 않고 데이터 구조와 원본-지식 연결 관계만 검증합니다.
+
+
+## TAK SCOUT Perplexity 심층 조사 MVP
+
+현재 기능 브랜치에는 Perplexity 조사 provider, SCOUT 후보별 조사·저장, TAK BRAIN 검토 초안 연결, 조사 기록 완전성 점검이 포함되어 있습니다. Windows에서 직접 실행하는 순서는 [Perplexity MVP Windows 빠른 시작](docs/perplexity_mvp_windows_quickstart.md)을 참고하세요. 기능 설명과 API 설정은 [Perplexity 조사 provider 안내](docs/perplexity_research_provider.md)에 있습니다. 이 기능은 검토용 초안을 만들며 사실 검증·자동 승인·자동 게시를 수행하지 않습니다.

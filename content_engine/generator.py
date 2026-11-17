@@ -18,6 +18,8 @@ _CONTENT_FIELDS = (
     "lesson",
     "reusable_principle",
     "derived_insight",
+    "factual_information",
+    "summary",
 )
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
 
@@ -40,6 +42,9 @@ def _evidence_units(knowledge: KnowledgeRecord) -> tuple[EvidenceUnit, ...]:
             EvidenceUnit(f"{field_name}:{index}", field_name, sentence)
             for index, sentence in enumerate(sentences, start=1)
         )
+    for index, point in enumerate(knowledge.key_points, start=1):
+        if isinstance(point, str) and point.strip():
+            units.append(EvidenceUnit(f"key_point:{index}", "key_point", point.strip()))
     return tuple(units)
 
 
@@ -266,9 +271,19 @@ def _experience_content(brief: ContentBrief) -> tuple[tuple[ShortDraft, ...], tu
 
 
 def _criterion_content(brief: ContentBrief, profile: str) -> tuple[tuple[ShortDraft, ...], tuple[ThreadDraft, ...]]:
-    question_fields = ("problem", "lesson")
-    principle_fields = ("reusable_principle", "lesson")
-    caution_fields = ("lesson", "reusable_principle")
+    # External research stays factual; it is not rewritten as personal experience.
+    is_external_research = brief.knowledge_type == "정보" and any(
+        unit.field_name in {"factual_information", "summary", "key_point"}
+        for unit in brief.evidence_units
+    )
+    if is_external_research:
+        question_fields = ("summary", "factual_information", "key_point")
+        principle_fields = ("key_point", "factual_information", "lesson")
+        caution_fields = ("factual_information", "key_point", "summary")
+    else:
+        question_fields = ("problem", "lesson")
+        principle_fields = ("reusable_principle", "lesson")
+        caution_fields = ("lesson", "reusable_principle")
     short_titles = (
         "재무 판단의 출발점" if profile == "finance" else "판단이 시작되는 질문",
         "함께 살펴볼 기준",

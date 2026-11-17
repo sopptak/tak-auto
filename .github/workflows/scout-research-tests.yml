@@ -1,0 +1,115 @@
+name: TAK SCOUT research tests
+
+on:
+  pull_request:
+    paths:
+      - "tak_scout/**"
+      - "tak_brain/**"
+      - "tak_scout/trend_history.py"
+      - "tests/test_research_trend_keyword.py"
+      - "tests/test_research_media_bridge.py"
+      - "content_engine/generator.py"
+      - "scripts/research_trend_keyword.py"
+      - "scripts/trends_web.py"
+      - "scripts/start_tak_auto_mvp.py"
+      - "tests/test_start_tak_auto_mvp.py"
+      - "scripts/run_scout_dashboard.py"
+      - "tests/test_trends_web.py"
+      - "scripts/render_tak_auto_dashboard.py"
+      - "tests/test_tak_auto_dashboard.py"
+      - "scripts/research_scout.py"
+      - "scripts/research_to_knowledge.py"
+      - "scripts/run_auction_research_workflow.py"
+      - "scripts/run_scout_dashboard.py"
+      - "scripts/research_to_knowledge.py"
+      - "tests/test_perplexity_research.py"
+      - "tests/test_scout_research.py"
+      - "tests/test_research_knowledge.py"
+      - "tests/test_knowledge.py"
+      - "tests/test_research_quality.py"
+      - "tests/test_auction_research_workflow.py"
+      - "tests/test_6_34_performance_loop_and_monetization.py"
+      - "tests/test_6_35_performance_feedback_loop.py"
+      - "tests/test_6_36_performance_insight_operations.py"
+      - "tests/test_6_37_media_strategy_gate.py"
+      - "tests/test_6_38_operator_control_center.py"
+      - "tests/test_6_39_first_operating_day_and_data_readiness.py"
+      - "tests/test_web_deployment_security.py"
+      - "tak_scout/research_knowledge.py"
+      - ".github/workflows/scout-research-tests.yml"
+  push:
+    branches:
+      - "feature/perplexity-research-provider"
+    paths:
+      - "tak_scout/**"
+      - "tak_brain/**"
+      - "content_engine/**"
+      - "scripts/research_scout.py"
+      - "scripts/research_to_knowledge.py"
+      - "scripts/run_scout_dashboard.py"
+      - "scripts/run_media_batch.py"
+      - "scripts/start_tak_auto_mvp.py"
+      - "tests/test_perplexity_research.py"
+      - "tests/test_scout_research.py"
+      - "tests/test_research_knowledge.py"
+      - "tests/test_research_media_bridge.py"
+      - "tests/test_media_batch.py"
+      - "tests/test_research_quality.py"
+      - "tests/test_auction_research_workflow.py"
+      - "tests/test_6_34_performance_loop_and_monetization.py"
+      - "tests/test_6_35_performance_feedback_loop.py"
+      - "tests/test_6_36_performance_insight_operations.py"
+      - "tests/test_6_37_media_strategy_gate.py"
+      - "tests/test_6_38_operator_control_center.py"
+      - "tests/test_6_39_first_operating_day_and_data_readiness.py"
+      - "scripts/run_auction_research_workflow.py"
+      - ".github/workflows/scout-research-tests.yml"
+
+jobs:
+  research-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Test integrated trend dashboard
+        run: python -m unittest discover -s tests -p "test_trends_web.py" -v
+      - name: Test one-command MVP launcher
+        run: python -m unittest discover -s tests -p "test_start_tak_auto_mvp.py" -v
+      - name: Test approved research media bridge
+        run: python -m unittest discover -s tests -p "test_research_media_bridge.py" -v
+      - name: Test TAK MEDIA approved-only batch and dry-run
+        run: python -m unittest discover -s tests -p "test_media_batch.py" -v
+      - name: Test trend keyword research workflow
+        run: python -m unittest discover -s tests -p "test_research_trend_keyword.py" -v
+      - name: Test TAK AUTO dashboard renderer
+        run: python -m unittest discover -s tests -p "test_tak_auto_dashboard.py" -v
+      - name: Test Perplexity API adapter
+        run: python -m unittest discover -s tests -p "test_perplexity_research.py" -v
+      - name: Test SCOUT research orchestration
+        run: python -m unittest discover -s tests -p "test_scout_research.py" -v
+      - name: Test research to pending KNOWLEDGE handoff
+        run: python -m unittest discover -s tests -p "test_research_knowledge.py" -v
+      - name: Test TAK BRAIN KNOWLEDGE review lifecycle
+        run: python -m unittest discover -s tests -p "test_knowledge.py" -v
+      - name: Test research quality gate
+        run: python -m unittest discover -s tests -p "test_research_quality.py" -v
+      - name: Test unified auction research workflow
+        run: python -m unittest discover -s tests -p "test_auction_research_workflow.py" -v
+      - name: Test performance loop and monetization
+        run: python -m unittest discover -s tests -p "test_6_34_performance_loop_and_monetization.py" -v
+      - name: Test performance feedback loop
+        run: python -m unittest discover -s tests -p "test_6_35_performance_feedback_loop.py" -v
+      - name: Test performance insight operations
+        run: python -m unittest discover -s tests -p "test_6_36_performance_insight_operations.py" -v
+      - name: Test media strategy gate
+        run: python -m unittest discover -s tests -p "test_6_37_media_strategy_gate.py" -v
+      - name: Test operator control center
+        run: python -m unittest discover -s tests -p "test_6_38_operator_control_center.py" -v
+      - name: Test first operating day readiness
+        run: python -m unittest discover -s tests -p "test_6_39_first_operating_day_and_data_readiness.py" -v
+      - name: Test hosted web deployment security
+        run: python -m unittest discover -s tests -p "test_web_deployment_security.py" -v

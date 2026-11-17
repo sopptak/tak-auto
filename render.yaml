@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: tak-auto-mvp
+    runtime: python
+    plan: starter
+    buildCommand: python -m compileall -q scripts content_engine tak_scout tak_brain
+    startCommand: >-
+      mkdir -p /var/data &&
+      if [ -d data ] && [ ! -L data ]; then cp -an data/. /var/data/; rm -rf data; fi &&
+      ln -sfn /var/data data &&
+      if [ -s data/tak_auto_trend_daily.json ]; then
+        python scripts/start_tak_auto_mvp.py --skip-collect --host 0.0.0.0 --port $PORT;
+      else
+        python scripts/start_tak_auto_mvp.py --host 0.0.0.0 --port $PORT;
+      fi
+    healthCheckPath: /health
+    disk:
+      name: tak-auto-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: TAK_DISABLE_MONEY_SCOUT_AGENT
+        value: true
+      - key: TAK_WEB_LANDING_PATH
+        value: /trends
+      - key: TAK_WEB_USERNAME
+        sync: false
+      - key: TAK_WEB_PASSWORD
+        sync: false
+      - key: TAK_SCOUT_PERPLEXITY_API_KEY
+        sync: false
+      - key: NAVER_DATALAB_CLIENT_ID
+        sync: false
+      - key: NAVER_DATALAB_CLIENT_SECRET
+        sync: false
+      - key: TAK_MEDIA_LLM_API_KEY
+        sync: false
+      - key: TAK_MEDIA_LLM_ENDPOINT
+        sync: false
+      - key: TAK_MEDIA_LLM_MODEL
+        sync: false
