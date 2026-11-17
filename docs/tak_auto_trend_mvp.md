@@ -49,7 +49,19 @@ python scripts/run_naver_datalab.py --group "AI=인공지능,생성형 AI" --gro
 
 코드를 로컬에 저장하지 않고 실행하려면 GitHub 저장소의 Actions에서 `TAK AUTO Daily Trend Discovery`를 선택한 뒤 `Run workflow`를 누른다. 기본 후보 수는 5개이며 필요하면 변경할 수 있다. 실행이 완료되면 `data/tak_auto_dashboard.md`를 GitHub에서 바로 읽는다. HTML 버전은 `data/tak_auto_dashboard.html`에 함께 생성된다. 이 기능 브랜치는 아직 Draft PR 상태이므로 기본 브랜치의 정기 실행과는 별개다. 기본 브랜치에서 운영하려면 PR 검토·승인 후 병합이 필요하다.
 
-대시보드는 읽기 전용이며 외부 게시나 콘텐츠 자동 승인을 하지 않는다. 현재는 트렌드 발견과 원문 탐색까지가 MVP 1차 범위이고, 키워드 선택 후 블로그·Threads·쇼츠 초안 생성은 다음 통합 단계다.
+대시보드는 읽기 전용이며 외부 게시나 콘텐츠 자동 승인을 하지 않는다. 현재는 트렌드 발견과 원문 탐색까지가 MVP 1차 범위이고, 키워드 선택 후 Perplexity 근거 조사까지는 `scripts/research_trend_keyword.py`로 실행할 수 있다. 조사 결과는 기존 TAK SCOUT Dashboard의 `/research` 화면에서 검토하고, 필요하면 TAK BRAIN의 pending KNOWLEDGE 초안으로 넘긴다. 아직 블로그·Threads·쇼츠 초안의 자동 생성까지 연결된 것은 아니다.
+
+
+## 트렌드 키워드 심층 조사
+
+GitHub Actions 또는 Notebook 2의 실행 환경에서 오늘의 콘텐츠 기회 목록에 있는 키워드를 지정해 조사한다. Perplexity API 키는 환경변수로만 전달한다.
+
+```powershell
+$env:TAK_SCOUT_PERPLEXITY_API_KEY="발급받은 API 키"
+python scripts/research_trend_keyword.py --keyword "생성형 AI"
+```
+
+기본 조사 프로필은 general이며, 경매 프로필은 명시적으로 `--profile auction`을 지정할 때만 사용한다. 조사 대상은 트렌드 리포트가 연결한 원본 소재로 제한한다. 결과는 `data/tak_scout_research.json`과 Markdown에 누적 저장한다. 원문 근거가 연결되지 않는 키워드는 조사를 시작하지 않는다. API 응답은 검토용이며 자동 사실 승인·KNOWLEDGE 승인·외부 게시를 하지 않는다.
 
 ## 지표의 정확한 의미와 한계
 
