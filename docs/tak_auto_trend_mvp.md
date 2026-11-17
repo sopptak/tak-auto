@@ -49,7 +49,7 @@ python scripts/run_naver_datalab.py --group "AI=인공지능,생성형 AI" --gro
 
 코드를 로컬에 저장하지 않고 실행하려면 GitHub 저장소의 Actions에서 `TAK AUTO Daily Trend Discovery`를 선택한 뒤 `Run workflow`를 누른다. 기본 후보 수는 5개이며 필요하면 변경할 수 있다. 실행이 완료되면 `data/tak_auto_dashboard.md`를 GitHub에서 바로 읽는다. HTML 버전은 `data/tak_auto_dashboard.html`에 함께 생성된다. 이 기능 브랜치는 아직 Draft PR 상태이므로 기본 브랜치의 정기 실행과는 별개다. 기본 브랜치에서 운영하려면 PR 검토·승인 후 병합이 필요하다.
 
-대시보드는 읽기 전용이며 외부 게시나 콘텐츠 자동 승인을 하지 않는다. 현재는 트렌드 발견과 원문 탐색까지가 MVP 1차 범위이고, 키워드 선택 후 Perplexity 근거 조사까지는 `scripts/research_trend_keyword.py`로 실행할 수 있다. 조사 결과는 기존 TAK SCOUT Dashboard의 `/research` 화면에서 검토하고, 필요하면 TAK BRAIN의 pending KNOWLEDGE 초안으로 넘긴다. 아직 블로그·Threads·쇼츠 초안의 자동 생성까지 연결된 것은 아니다.
+대시보드는 읽기 전용이며 외부 게시나 콘텐츠 자동 승인을 하지 않는다. 현재 기능 브랜치에는 트렌드 발견부터 대시보드, 근거 기사 Perplexity 조사, pending KNOWLEDGE 초안 생성, 승인 자료 기반 콘텐츠 초안 생성까지 연결되어 있다. 실행은 `scripts/start_tak_auto_mvp.py` 한 번으로 시작한다. 상세 절차는 아래 실행 안내를 따른다.
 
 
 ## 트렌드 키워드 심층 조사
@@ -83,3 +83,56 @@ RSS는 공개 피드만 사용한다. 로그인, 접근 제한 우회, 비공개
 - 출처별 수집량 정규화 및 키워드 구문/동의어 정규화
 - 최소 2~4주 데이터 축적 후 안정적인 추세 비교
 - 콘텐츠 성과(조회·클릭·체류·전환) 피드백 루프
+
+
+## 통합 MVP 원클릭 실행 (Notebook 2 / Windows)
+
+저장소 루트에서 아래 한 줄로 공개 RSS 수집 → 트렌드 리포트 생성 → 기존 통합 대시보드 실행을 순서대로 수행한다.
+
+```powershell
+py scripts/start_tak_auto_mvp.py
+```
+
+브라우저에서 `http://127.0.0.1:8000/trends`를 열면 트렌드 기회 TOP 5와 기사별 조사 액션을 확인할 수 있다. 포트 변경은 `--port 8001`, 기존 수집 데이터 재사용은 `--skip-collect`, 데이터만 갱신하고 대시보드를 띄우지 않으려면 `--no-dashboard`를 사용한다.
+
+```powershell
+py scripts/start_tak_auto_mvp.py --skip-collect --port 8001
+```
+
+실행 데이터는 `data/` 아래에 저장되며 GitHub 소스 코드와 분리된다. 대시보드는 기본적으로 `127.0.0.1`에만 바인딩한다.
+
+### 키 설정 및 실제 작업 흐름
+
+Perplexity 조사 기능을 사용하려면 같은 PowerShell 창에서 API 키를 설정한 뒤 대시보드를 실행한다.
+
+```powershell
+$env:TAK_SCOUT_PERPLEXITY_API_KEY="실제_API_키"
+py scripts/start_tak_auto_mvp.py
+```
+
+1. `/trends`에서 콘텐츠 기회 키워드와 근거 기사를 확인한다.
+2. 근거 기사 카드의 `근거 기사 심층 조사`를 누른다. 이 동작에서만 Perplexity API 요청과 비용이 발생할 수 있다.
+3. 조사 결과에서 인용 URL을 직접 확인한다.
+4. `TAK BRAIN 검토 초안 만들기`를 눌러 KNOWLEDGE를 `pending`으로 저장한다.
+5. 별도 사람 검토 후 승인된 KNOWLEDGE만 TAK MEDIA 생성 파이프라인에서 사용한다. 배치 기본값은 Dry-run이며, 실제 LLM 호출은 `--execute`를 명시해야 한다.
+
+미설정 상태는 실행 시 콘솔에 표시된다. Perplexity 키가 없으면 조사 기능은 비활성화되고, 네이버 데이터랩 키가 없으면 RSS 기반 트렌드만 표시된다. 미디어 LLM 키가 없으면 실제 LLM 재작성은 실행할 수 없다.
+
+### 콘텐츠 초안 생성
+
+승인된 KNOWLEDGE를 기준으로 먼저 네트워크 호출 없는 Dry-run을 확인한다.
+
+```powershell
+py scripts/run_media_batch.py
+```
+
+실제 LLM 재작성 및 검증 결과를 generation pool에 저장하려면 다음 환경변수와 명시적 실행 옵션이 필요하다.
+
+```powershell
+$env:TAK_MEDIA_LLM_API_KEY="실제_API_키"
+$env:TAK_MEDIA_LLM_ENDPOINT="호환_API_엔드포인트"
+$env:TAK_MEDIA_LLM_MODEL="모델명"
+py scripts/run_media_batch.py --execute --as-generation
+```
+
+이 명령은 production archive를 변경하지 않는다. 생성 결과는 Dashboard의 `/media/generations`에서 검토하며, 사람이 별도로 승인·승격해야 한다. 자동 게시 기능은 수행하지 않는다.
