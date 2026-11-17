@@ -15,6 +15,7 @@ def render_dashboard(report: dict[str, Any], candidates: list[dict[str, Any]]) -
     top = report.get("top_keywords", [])
     rising = report.get("rising_keywords", [])
     opportunities = report.get("content_opportunities", [])
+    ids_by_keyword = {str(row.get("keyword", "")): row.get("candidate_ids", []) for row in top}
 
     keyword_rows = "".join(
         f"<tr><td>{_cell(i)}</td><td><strong>{_cell(row.get('keyword'))}</strong></td>"
@@ -29,7 +30,7 @@ def render_dashboard(report: dict[str, Any], candidates: list[dict[str, Any]]) -
     opportunity_cards = []
     for row in opportunities:
         linked = []
-        for candidate_id in row.get("candidate_ids", []):
+        for candidate_id in row.get("candidate_ids", ids_by_keyword.get(str(row.get("keyword", "")), [])):
             candidate = by_id.get(str(candidate_id))
             if candidate:
                 linked.append(candidate)
