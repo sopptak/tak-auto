@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
+import hmac
 from dataclasses import asdict
 from datetime import datetime
 from html import escape
@@ -26,8 +28,30 @@ from tak_scout.perplexity_research import PerplexityResearchProvider
 from tak_scout.trend_discovery import TrendDiscovery, TrendItem, discover_trends
 
 KST = ZoneInfo("Asia/Seoul")
-TREND_PATH = ROOT / "data" / "tak_auto_live_trends.json"
-PREVIEW_PATH = ROOT / "data" / "tak_auto_content_previews.json"
+DATA_DIR = Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))).expanduser()
+TREND_PATH = DATA_DIR / "tak_auto_live_trends.json"
+PREVIEW_PATH = DATA_DIR / "tak_auto_content_previews.json"
+
+
+def _basic_auth_valid(header: str, username: str, password: str) -> bool:
+    """Constant-time Basic Auth check; never logs credentials."""
+    if not username or not password or not header.startswith("Basic "):
+        return False
+    try:
+        decoded = base64.b64decode(header[6:], validate=True).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return False
+    supplied_user, separator, supplied_password = decoded.partition(":")
+    return bool(separator) and hmac.compare_digest(supplied_user, username) and hmac.compare_digest(supplied_password, password)
+
+
+def _same_origin(origin: str, host: str, forwarded_proto: str) -> bool:
+    """Reject cross-origin form submissions, including behind HTTPS proxies."""
+    if not origin or not host:
+        return False
+    parsed = urlparse(origin)
+    expected_scheme = (forwarded_proto or "https").split(",")[0].strip().lower()
+    return parsed.scheme.lower() == expected_scheme and parsed.netloc.lower() == host.lower()
 
 
 def _read_json(path: Path, default):
@@ -264,26 +288,52 @@ a{{color:#3157c8}}.draft{{border-top:1px solid var(--line);padding:10px 0}}
 
 def create_handler():
     class Handler(BaseHTTPRequestHandler):
-        def _respond(self, body: str, status: int = 200):
+        def _respond(self, body: str, status: int = 200, content_type: str = "text/html; charset=utf-8"):
             encoded = body.encode("utf-8")
             self.send_response(status)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(encoded)))
             self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
             self.end_headers()
             self.wfile.write(encoded)
 
+        def _require_auth(self):
+            if _basic_auth_valid(
+                self.headers.get("Authorization", ""),
+                os.getenv("TAK_WEB_USERNAME", "").strip(),
+                os.getenv("TAK_WEB_PASSWORD", ""),
+            ):
+                return True
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Basic realm="TAK AUTO", charset="UTF-8"')
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return False
+
         def do_GET(self):
+            if self.path == "/health":
+                perplexity_ready = bool(os.getenv("TAK_SCOUT_PERPLEXITY_API_KEY"))
+                auth_ready = bool(os.getenv("TAK_WEB_USERNAME") and os.getenv("TAK_WEB_PASSWORD"))
+                payload = {"status": "ok", "perplexity_configured": perplexity_ready, "web_auth_configured": auth_ready, "ready": perplexity_ready and auth_ready}
+                self._respond(json.dumps(payload), content_type="application/json; charset=utf-8")
+                return
+            if not self._require_auth():
+                return
             report = _read_json(TREND_PATH, {})
             previews = _read_json(PREVIEW_PATH, [])
             self._respond(_page(report, previews))
 
         def do_POST(self):
+            if not self._require_auth():
+                return
             host = self.headers.get("Host", "")
             origin = self.headers.get("Origin", "")
-            port = self.server.server_address[1]
-            allowed_origins = {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
-            if host not in {f"127.0.0.1:{port}", f"localhost:{port}"} or origin not in allowed_origins:
+            forwarded_proto = self.headers.get("X-Forwarded-Proto", "http")
+            if not _same_origin(origin, host, forwarded_proto):
                 self._respond(_page(_read_json(TREND_PATH, {}), [], "허용되지 않은 출처의 요청입니다."), 403)
                 return
             length = int(self.headers.get("Content-Length", "0"))
@@ -328,15 +378,19 @@ def create_handler():
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--host", default="127.0.0.1", help="MVP 기본값은 이 PC에서만 접속")
-    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--host", default=os.getenv("TAK_AUTO_HOST", "127.0.0.1"), help="바인딩 주소 (클라우드: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=int(os.getenv("PORT", "8765")))
     args = parser.parse_args(argv)
-    if args.host not in {"127.0.0.1", "localhost"}:
-        parser.error("초기 MVP는 로컬 접속만 허용합니다. 외부 배포는 인증 기능 추가 후 진행하세요.")
+    if args.host not in {"127.0.0.1", "localhost"} and not (
+        os.getenv("TAK_WEB_USERNAME", "").strip() and os.getenv("TAK_WEB_PASSWORD", "")
+    ):
+        parser.error("외부 공개 서버는 TAK_WEB_USERNAME과 TAK_WEB_PASSWORD 인증 설정이 필수입니다.")
     if not 1 <= args.port <= 65535:
         parser.error("--port는 1~65535 범위여야 합니다.")
     print("TAK AUTO Trend Content Factory")
-    print(f"열기: http://{args.host}:{args.port}")
+    print(f"바인딩: {args.host}:{args.port}")
+    print(f"데이터 디렉터리: {DATA_DIR}")
+    print("웹 인증: 설정됨" if os.getenv("TAK_WEB_USERNAME") and os.getenv("TAK_WEB_PASSWORD") else "웹 인증: 로컬 개발 모드")
     print("Perplexity API 키: 설정됨" if os.getenv("TAK_SCOUT_PERPLEXITY_API_KEY") else "Perplexity API 키: 미설정")
     print("종료: Ctrl+C")
     server = ThreadingHTTPServer((args.host, args.port), create_handler())
