@@ -79,7 +79,7 @@ jobs:
       - name: Check for SCOUT and trend result changes
         id: scout_diff
         run: |
-          git add data/tak_scout_daily.json data/tak_scout_daily.md data/tak_auto_trend_daily.json data/tak_auto_trend_daily.md data/tak_auto_trend_history.json data/tak_auto_dashboard.html
+          git add data/tak_scout_daily.json data/tak_scout_daily.md data/tak_auto_trend_daily.json data/tak_auto_trend_daily.md data/tak_auto_trend_history.json data/tak_auto_dashboard.html data/tak_auto_dashboard.md
           if git diff --cached --quiet -- data/tak_scout_daily.json data/tak_scout_daily.md data/tak_auto_trend_daily.json data/tak_auto_trend_daily.md data/tak_auto_trend_history.json data/tak_auto_dashboard.html; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
