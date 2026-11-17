@@ -149,5 +149,41 @@ class PerplexityResearchProviderTests(unittest.TestCase):
             provider.search("query")
 
 
+    def test_search_uses_background_mode_and_polls_until_completed(self):
+        post_calls = []
+        poll_calls = []
+        def fake_transport(endpoint, headers, payload, timeout):
+            post_calls.append((endpoint, payload))
+            return {"id": "resp_test123", "status": "queued"}
+        def fake_poll(url, headers, timeout):
+            poll_calls.append(url)
+            return agent_response()
+        provider = PerplexityResearchProvider(
+            api_key="test-key",
+            transport=fake_transport,
+            poll_transport=fake_poll,
+            sleep=lambda _delay: None,
+        )
+        result = provider.search("최근 AI 정책 동향")
+        self.assertEqual(result.answer, "검증 결과입니다.")
+        self.assertTrue(post_calls[0][1]["background"])
+        self.assertEqual(post_calls[0][1]["max_steps"], 3)
+        self.assertEqual(
+            poll_calls,
+            ["https://api.perplexity.ai/v1/responses/resp_test123"],
+        )
+
+    def test_search_times_out_cleanly_when_background_run_never_finishes(self):
+        provider = PerplexityResearchProvider(
+            api_key="test-key",
+            max_wait_seconds=20,
+            transport=lambda *_: {"id": "resp_slow", "status": "in_progress"},
+            poll_transport=lambda *_: {"id": "resp_slow", "status": "in_progress"},
+            sleep=lambda _delay: None,
+        )
+        with self.assertRaisesRegex(LLMResponseError, "아직 진행 중"):
+            provider.search("slow query")
+
+
 if __name__ == "__main__":
     unittest.main()
