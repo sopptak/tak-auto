@@ -185,4 +185,19 @@ def render_daily_report(report: dict[str, object]) -> str:
                   for x in opportunities] or ["- 후보 없음"])
     lines.extend(["", "## 데이터 한계", ""])
     lines.extend([f"- {x}" for x in report["limitations"]])
+    datalab = report.get("naver_datalab")
+    if isinstance(datalab, dict):
+        lines.extend(["", "## 네이버 데이터랩 상대 검색 관심도", ""])
+        status = datalab.get("status", "unknown")
+        lines.append(f"- 상태: {status}")
+        if status == "success":
+            lines.append("- 측정값은 검색어 그룹별 상대 비율이며 절대 검색량이 아닙니다.")
+            result = datalab.get("result", {})
+            for series in result.get("results", []):
+                points = series.get("data", [])
+                latest = points[-1].get("ratio") if points else None
+                if latest is not None:
+                    lines.append(f"- {series.get('title', '')}: 최근 상대 지수 {latest}")
+        else:
+            lines.append(f"- 안내: {datalab.get('message', '데이터랩 결과 없음')}")
     return "\n".join(lines) + "\n"
