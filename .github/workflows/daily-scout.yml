@@ -56,6 +56,9 @@ jobs:
       - name: Show Python version
         run: python3 --version
 
+      - name: Install application dependencies
+        run: python3 -m pip install --disable-pip-version-check -r requirements.txt
+
       # 테스트가 실패하면 이후 단계(실제 RSS 수집/결과 commit)로 진행하지 않는다.
       - name: Run existing test suite
         run: python3 -m unittest discover -s tests -p 'test*.py'

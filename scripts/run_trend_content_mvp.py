@@ -6,6 +6,7 @@ import argparse
 import base64
 import hashlib
 import hmac
+from http.cookies import SimpleCookie
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from html import escape
@@ -13,6 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import secrets
 import sys
 import tempfile
 from urllib.parse import parse_qs, urlparse
@@ -29,6 +31,10 @@ from content_engine.publishing_connections import (
     verify_publishing_connection,
 )
 from content_engine.publishing_queue import PublishingQueue, queue_dashboard
+from content_engine.social_oauth import (
+    FLOW_TTL_SECONDS, OAuthFlowRegistry, OAuthTokenVault, PROVIDERS, SocialOAuthClient,
+    SocialOAuthError, build_callback_error_page, callback_uri, facebook_page_selection_page, setup_status,
+)
 from scripts.run_publishing_queue import start_scheduler
 from tak_brain.models import KnowledgeRecord
 from tak_scout.perplexity_research import PerplexityResearchProvider
@@ -59,6 +65,9 @@ TREND_PATH = DATA_DIR / "tak_auto_live_trends.json"
 PREVIEW_PATH = DATA_DIR / "tak_auto_content_previews.json"
 QUEUE_PATH = DATA_DIR / "tak_auto_publishing_queue.json"
 CONNECTION_CHECKS_PATH = DATA_DIR / "publishing_connection_checks.json"
+OAUTH_TOKENS_PATH = DATA_DIR / "social_oauth_tokens.enc"
+OAUTH_FLOW_REGISTRY = OAuthFlowRegistry()
+_PENDING_FACEBOOK_CHOICES: dict[str, dict[str, object]] = {}
 
 
 def _basic_auth_valid(header: str, username: str, password: str) -> bool:
@@ -101,6 +110,43 @@ def _read_connection_checks() -> dict:
     except (OSError, json.JSONDecodeError):
         return {}
     return checks if isinstance(checks, dict) else {}
+
+
+def _oauth_vault() -> OAuthTokenVault:
+    return OAuthTokenVault(OAUTH_TOKENS_PATH, os.getenv("TAK_AUTO_OAUTH_ENCRYPTION_KEY", ""))
+
+
+def _read_oauth_connections() -> tuple[dict[str, dict[str, str]], str]:
+    if not os.getenv("TAK_AUTO_OAUTH_ENCRYPTION_KEY", "").strip():
+        return {}, ""
+    try:
+        return _oauth_vault().public_connections(), ""
+    except SocialOAuthError as error:
+        return {}, str(error)
+
+
+def _oauth_setup_statuses(storage_error: str = "") -> dict[str, dict[str, object]]:
+    statuses = {platform: setup_status(platform) for platform in PROVIDERS}
+    if storage_error:
+        for status in statuses.values():
+            status["ready"] = False
+            status["missing"] = [*status.get("missing", []), "SNS 암호화 저장소 확인"]
+    return statuses
+
+
+def _cookie_value(header: str, name: str) -> str:
+    parsed = SimpleCookie()
+    try:
+        parsed.load(header)
+        morsel = parsed.get(name)
+        return morsel.value if morsel else ""
+    except Exception:
+        return ""
+
+
+def _oauth_cookie(name: str, value: str, *, secure: bool, clear: bool = False) -> str:
+    age = 0 if clear else FLOW_TTL_SECONDS
+    return f"{name}={value}; Path=/; Max-Age={age}; HttpOnly; SameSite=Lax" + ("; Secure" if secure else "")
 
 
 def _run_connection_verification(platform: str, checks: dict, *, environ=None, now=None) -> tuple[dict, str]:
@@ -291,6 +337,8 @@ def _page(
 ) -> str:
     if connection_checks is None:
         connection_checks = _read_connection_checks()
+    oauth_connections, oauth_storage_error = _read_oauth_connections()
+    oauth_setup = _oauth_setup_statuses(oauth_storage_error)
     error_html = f'<div class="error">{escape(error)}</div>' if error else ""
     if not report:
         report = {}
@@ -354,13 +402,13 @@ h1{{margin:0;font-size:28px}}header p{{color:#d4def0}}h2{{margin-top:30px}}
 .toolbar,.trend,.preview{{background:white;border:1px solid var(--line);border-radius:14px;padding:18px;margin:14px 0}}
 .grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}}
 .trend h3{{font-size:20px;margin:6px 0}}.meta{{color:var(--muted);font-size:13px}}.hook{{font-weight:700;color:#9a4b13}}
-button{{border:0;border-radius:9px;padding:11px 15px;background:var(--accent);color:white;font-weight:700;cursor:pointer}}
+button{{border:0;border-radius:9px;padding:11px 15px;background:var(--accent);color:white;font-weight:700;cursor:pointer}}button:disabled{{opacity:.55;cursor:not-allowed}}
 button.secondary{{background:#475569}}.error{{background:#fee;border:1px solid #d88;padding:12px;border-radius:10px}}
 .warning{{background:#fff4d9;padding:12px;border-radius:9px}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.7 inherit;background:#f7f8fb;padding:14px;border-radius:9px}}
 a{{color:#3157c8}}.draft{{border-top:1px solid var(--line);padding:10px 0}}
 .copy{{margin:6px 0}}.copy.done{{background:#16794b}}
 table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;border-bottom:1px solid var(--line);text-align:left;overflow-wrap:anywhere}}.queue-form{{display:flex;flex-wrap:wrap;gap:12px;align-items:end}}label{{display:grid;gap:4px}}
-.connection-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-top:16px}}.connection-card{{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fbfcfe}}.connection-heading{{display:flex;align-items:center;gap:9px;flex-wrap:wrap}}.connection-icon{{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#e7edf8;color:#3157c8;font-weight:800}}.connection-state{{margin-left:auto;font-size:12px;font-weight:700}}.connection-account{{font-size:18px;font-weight:700;margin:10px 0 2px}}.connection-expiry{{font-size:13px;font-weight:700;color:#956500;margin:2px 0}}.connection-note{{font-size:13px;margin:8px 0 0}}.connection-missing{{font-size:12px;color:#9c3d39;overflow-wrap:anywhere}}.connection-verification-error{{font-size:12px;color:#b42318}}.connection-card form{{margin:8px 0}}.state-configured .connection-state,.state-verified .connection-state{{color:#16794b}}.state-expired .connection-state,.state-missing .connection-state,.state-verification_failed .connection-state{{color:#b42318}}.state-manual .connection-state,.state-attention .connection-state{{color:#956500}}
+.connection-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-top:16px}}.connection-card{{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fbfcfe}}.connection-heading{{display:flex;align-items:center;gap:9px;flex-wrap:wrap}}.connection-icon{{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#e7edf8;color:#3157c8;font-weight:800}}.connection-state{{margin-left:auto;font-size:12px;font-weight:700}}.connection-account{{font-size:18px;font-weight:700;margin:10px 0 2px}}.connection-expiry{{font-size:13px;font-weight:700;color:#956500;margin:2px 0}}.connection-note{{font-size:13px;margin:8px 0 0}}.connection-missing{{font-size:12px;color:#9c3d39;overflow-wrap:anywhere}}.connection-verification-error{{font-size:12px;color:#b42318}}.connection-card form{{margin:8px 0}}.connection-button{{display:inline-block;padding:9px 13px;background:#3157c8;color:white;text-decoration:none;border-radius:9px;font-weight:700}}.connection-card details{{font-size:12px;overflow-wrap:anywhere}}.connection-card code{{overflow-wrap:anywhere}}.state-configured .connection-state,.state-verified .connection-state{{color:#16794b}}.state-expired .connection-state,.state-missing .connection-state,.state-verification_failed .connection-state{{color:#b42318}}.state-manual .connection-state,.state-attention .connection-state{{color:#956500}}
 @media(max-width:560px){{h1{{font-size:22px}}.grid{{display:block}}}}
 </style></head><body><main>
 <header><h1>TAK AUTO · TREND CONTENT FACTORY</h1>
@@ -368,7 +416,7 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 <div>마지막 조사: {generated} · 모델: {escape(str(report.get('model', '미연결')))}</div>
 {"<p>임시 저장소 사용 중: Render 무료 인스턴스에서는 재시작·재배포 시 조사 결과가 초기화될 수 있습니다.</p>" if USING_EPHEMERAL_STORAGE else ""}</header>
 {error_html}
-{connection_dashboard(verification_cache=connection_checks)}
+{connection_dashboard(verification_cache=connection_checks, oauth_connections=oauth_connections, oauth_setup=oauth_setup, oauth_storage_error=oauth_storage_error)}
 <section class="toolbar"><h2>최신 트렌드 조사</h2>
 <p>Perplexity가 최근 7일 공개 웹 자료를 바탕으로 여러 분야의 키워드 최대 20개를 발굴합니다. 선택 키워드 콘텐츠 생성에도 Perplexity API를 한 번 더 사용합니다.</p>
 <form method="post" action="/discover"><button type="submit">Perplexity 최신 트렌드 TOP 20 조사</button></form>
@@ -402,7 +450,7 @@ document.addEventListener("click", async (event) => {{
 
 def create_handler():
     class Handler(BaseHTTPRequestHandler):
-        def _respond(self, body: str, status: int = 200, content_type: str = "text/html; charset=utf-8"):
+        def _respond(self, body: str, status: int = 200, content_type: str = "text/html; charset=utf-8", *, cookie: str | list[str] = ""):
             encoded = body.encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", content_type)
@@ -410,7 +458,12 @@ def create_handler():
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("X-Frame-Options", "DENY")
-            self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+            self.send_header("Referrer-Policy", "no-referrer")
+            if isinstance(cookie, list):
+                for value in cookie:
+                    self.send_header("Set-Cookie", value)
+            elif cookie:
+                self.send_header("Set-Cookie", cookie)
             self.end_headers()
             self.wfile.write(encoded)
 
@@ -428,6 +481,83 @@ def create_handler():
             self.end_headers()
             return False
 
+        def _redirect(self, location: str, *, cookie: str = ""):
+            self.send_response(303)
+            self.send_header("Location", location)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            if cookie:
+                self.send_header("Set-Cookie", cookie)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def _start_oauth(self, platform: str):
+            if platform not in PROVIDERS:
+                self._respond("지원하지 않는 SNS입니다.", 404, "text/plain; charset=utf-8")
+                return
+            try:
+                _, storage_error = _read_oauth_connections()
+                if storage_error:
+                    raise SocialOAuthError(storage_error)
+                setup = setup_status(platform)
+                if not setup["ready"]:
+                    raise SocialOAuthError("웹 연결 설정이 필요합니다: " + ", ".join(str(x) for x in setup["missing"]))
+                redirect = callback_uri(platform)
+                verifier = secrets.token_urlsafe(64)[:96] if platform == "youtube_shorts" else ""
+                state, _ = OAUTH_FLOW_REGISTRY.create(platform, redirect, verifier=verifier)
+                url = SocialOAuthClient().authorization_url(platform, redirect, state, verifier)
+                secure = self.headers.get("X-Forwarded-Proto", "https").split(",")[0].strip().lower() == "https"
+                self._redirect(url, cookie=_oauth_cookie(f"tak_oauth_{platform}", state, secure=secure))
+            except SocialOAuthError as error:
+                self._respond(_page(_read_json(TREND_PATH, {}), _read_json(PREVIEW_PATH, []), str(error)), 400)
+
+        def _finish_oauth(self, platform: str):
+            cookie_platform = platform if platform in PROVIDERS else "invalid"
+            cookie_name = f"tak_oauth_{cookie_platform}"
+            secure = self.headers.get("X-Forwarded-Proto", "https").split(",")[0].strip().lower() == "https"
+            clear_cookie = _oauth_cookie(cookie_name, "", secure=secure, clear=True)
+            try:
+                if platform not in PROVIDERS:
+                    raise SocialOAuthError("지원하지 않는 SNS입니다.")
+                query = parse_qs(urlparse(self.path).query)
+                state = query.get("state", [""])[0]
+                cookie_state = _cookie_value(self.headers.get("Cookie", ""), cookie_name)
+                flow = OAUTH_FLOW_REGISTRY.consume(platform, state, cookie_state)
+                if query.get("error"):
+                    raise SocialOAuthError("SNS 로그인이 취소되었거나 권한 승인이 거부되었습니다.")
+                code = query.get("code", [""])[0]
+                result = SocialOAuthClient().complete(
+                    platform, code, str(flow["redirect_uri"]), str(flow.get("verifier", "")), state=state,
+                )
+                if platform == "facebook":
+                    choices = result.get("choices", [])
+                    if not isinstance(choices, list) or not choices:
+                        raise SocialOAuthError("연결할 Facebook 페이지가 없습니다.")
+                    now = datetime.now(timezone.utc)
+                    for key, value in list(_PENDING_FACEBOOK_CHOICES.items()):
+                        try:
+                            created = datetime.fromisoformat(str(value.get("created_at", "")))
+                            if now - created > timedelta(seconds=FLOW_TTL_SECONDS):
+                                _PENDING_FACEBOOK_CHOICES.pop(key, None)
+                        except (TypeError, ValueError):
+                            _PENDING_FACEBOOK_CHOICES.pop(key, None)
+                    if len(_PENDING_FACEBOOK_CHOICES) >= 100:
+                        raise SocialOAuthError("페이지 선택이 너무 많이 대기 중입니다. 잠시 후 다시 시도하세요.")
+                    selection_id = secrets.token_urlsafe(32)
+                    _PENDING_FACEBOOK_CHOICES[selection_id] = {
+                        "choices": choices, "scopes": str(result.get("scopes", "")),
+                        "created_at": now.isoformat(),
+                    }
+                    select_cookie = _oauth_cookie("tak_facebook_selection", selection_id, secure=secure)
+                    self._respond(facebook_page_selection_page(selection_id, choices), cookie=[clear_cookie, select_cookie])
+                    return
+                _oauth_vault().save(platform, result["tokens"], result["profile"], scopes=str(result.get("scopes", "")))
+                self._redirect("/?connected=" + platform, cookie=clear_cookie)
+            except (SocialOAuthError, KeyError, TypeError, ValueError) as error:
+                safe_message = str(error) if isinstance(error, SocialOAuthError) else "SNS 연결 정보를 처리하지 못했습니다. 다시 연결하세요."
+                self._respond(build_callback_error_page(platform, safe_message), 400, cookie=clear_cookie)
+
         def do_GET(self):
             if self.path == "/health":
                 perplexity_ready = bool(os.getenv("TAK_SCOUT_PERPLEXITY_API_KEY"))
@@ -442,7 +572,16 @@ def create_handler():
                 }
                 self._respond(json.dumps(payload), content_type="application/json; charset=utf-8")
                 return
+            request_path = urlparse(self.path).path
+            callback_prefix = "/connections/oauth/callback/"
+            if request_path.startswith(callback_prefix):
+                self._finish_oauth(request_path[len(callback_prefix):])
+                return
             if not self._require_auth():
+                return
+            oauth_prefix = "/connections/oauth/"
+            if request_path.startswith(oauth_prefix):
+                self._start_oauth(request_path[len(oauth_prefix):])
                 return
             report = _read_json(TREND_PATH, {})
             previews = _read_json(PREVIEW_PATH, [])
@@ -463,10 +602,43 @@ def create_handler():
                 self._respond(_page(_read_json(TREND_PATH, {}), [], "요청이 너무 큽니다."), 413)
                 return
             form = parse_qs(self.rfile.read(length).decode("utf-8"))
+            if self.path == "/connections/oauth/facebook/select":
+                selection_id = form.get("selection_id", [""])[0]
+                cookie_id = _cookie_value(self.headers.get("Cookie", ""), "tak_facebook_selection")
+                if not selection_id or not cookie_id or not hmac.compare_digest(selection_id, cookie_id):
+                    self._respond(_page(_read_json(TREND_PATH, {}), [], "Facebook 페이지 선택 요청이 만료되었습니다. 다시 연결하세요."), 400)
+                    return
+                pending = _PENDING_FACEBOOK_CHOICES.pop(selection_id, None)
+                if not pending:
+                    self._respond(_page(_read_json(TREND_PATH, {}), [], "Facebook 페이지 선택 시간이 만료되었습니다. 다시 연결하세요."), 400)
+                    return
+                try:
+                    created_at = datetime.fromisoformat(str(pending["created_at"]))
+                    if datetime.now(timezone.utc) - created_at > timedelta(seconds=FLOW_TTL_SECONDS):
+                        raise ValueError("expired")
+                    choices = pending.get("choices", [])
+                    index = int(form.get("page_index", ["-1"])[0])
+                    if not isinstance(choices, list) or index < 0 or index >= len(choices):
+                        raise ValueError("invalid page")
+                    selected = choices[index]
+                    tokens = {"access_token": selected["access_token"], "expires_in": selected.get("expires_in", 0)}
+                    profile = {"account_id": selected["account_id"], "account_name": selected["account_name"]}
+                    _oauth_vault().save("facebook", tokens, profile, scopes=str(pending.get("scopes", "")))
+                    secure = self.headers.get("X-Forwarded-Proto", "http").split(",")[0].strip().lower() == "https"
+                    self._redirect("/?connected=facebook", cookie=_oauth_cookie("tak_facebook_selection", "", secure=secure, clear=True))
+                except (KeyError, TypeError, ValueError, SocialOAuthError) as error:
+                    safe_message = str(error) if isinstance(error, SocialOAuthError) else "Facebook 페이지 선택을 완료하지 못했습니다. 다시 연결하세요."
+                    self._respond(_page(_read_json(TREND_PATH, {}), [], safe_message), 400)
+                return
             report = _read_json(TREND_PATH, {})
             previews = _read_json(PREVIEW_PATH, [])
             queue = PublishingQueue(QUEUE_PATH)
             try:
+                if self.path == "/connections/disconnect":
+                    platform = form.get("platform", [""])[0]
+                    _oauth_vault().disconnect(platform)
+                    self._redirect("/?disconnected=" + platform)
+                    return
                 if self.path == "/discover":
                     provider = PerplexityResearchProvider.from_environment()
                     discovered = discover_trends(provider)

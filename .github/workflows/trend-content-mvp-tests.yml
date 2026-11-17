@@ -22,6 +22,11 @@ on:
       - "tests/test_trend_publishers.py"
       - "content_engine/youtube_publisher.py"
       - "tests/test_youtube_performance_client.py"
+      - "content_engine/social_oauth.py"
+      - "tests/test_social_oauth.py"
+      - "tests/test_social_oauth_routes.py"
+      - "docs/social_account_oauth_setup.md"
+      - "requirements.txt"
   push:
     branches:
       - "feature/trend-content-factory-mvp"
@@ -45,6 +50,11 @@ on:
       - "tests/test_trend_publishers.py"
       - "content_engine/youtube_publisher.py"
       - "tests/test_youtube_performance_client.py"
+      - "content_engine/social_oauth.py"
+      - "tests/test_social_oauth.py"
+      - "tests/test_social_oauth_routes.py"
+      - "docs/social_account_oauth_setup.md"
+      - "requirements.txt"
 
 jobs:
   trend-content-mvp:
@@ -54,8 +64,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Install OAuth token encryption dependency
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
       - name: Test Perplexity Agent API and trend discovery
         run: |
+          python -m unittest discover -s tests -p "test_social_oauth.py" -v
+          python -m unittest discover -s tests -p "test_social_oauth_routes.py" -v
           python -m unittest discover -s tests -p "test_publishing_queue.py" -v
           python -m unittest discover -s tests -p "test_publishing_connections.py" -v
           python -m unittest discover -s tests -p "test_publishing_connection_routes.py" -v

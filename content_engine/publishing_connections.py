@@ -100,6 +100,7 @@ def publishing_connection_statuses(
     *,
     now: datetime | None = None,
     verification_cache: Mapping[str, Mapping[str, str]] | None = None,
+    oauth_connections: Mapping[str, Mapping[str, str]] | None = None,
 ) -> list[dict[str, object]]:
     values = os.environ if environ is None else environ
     current = now or datetime.now(timezone.utc)
@@ -124,9 +125,34 @@ def publishing_connection_statuses(
         else:
             state, label = "configured", "인증 정보 설정됨 · 계정 확인 전"
         verification = (verification_cache or {}).get(platform["key"], {})
+        oauth_connection = (oauth_connections or {}).get(platform["key"], {})
         verification_message = ""
         checked_at_label = ""
-        if isinstance(verification, Mapping) and verification.get("checked_at"):
+        oauth_connected = isinstance(oauth_connection, Mapping) and bool(oauth_connection.get("account_id"))
+        if oauth_connected:
+            account_name = str(oauth_connection.get("account_name") or account_name)
+            checked_at = str(oauth_connection.get("connected_at", ""))
+            if checked_at:
+                try:
+                    connected_at = datetime.fromisoformat(checked_at.replace("Z", "+00:00"))
+                    if connected_at.tzinfo is None:
+                        connected_at = connected_at.replace(tzinfo=timezone.utc)
+                    checked_at_label = "연결 시각: " + connected_at.astimezone(timezone(timedelta(hours=9))).strftime("%Y-%m-%d %H:%M")
+                except (TypeError, ValueError):
+                    checked_at_label = ""
+            linked_expiry = str(oauth_connection.get("expires_at", ""))
+            if linked_expiry:
+                expires_in, expiry_state = _expiry_label(linked_expiry, current)
+                if expiry_state == "expired":
+                    state, label = "expired", "토큰 만료 · 다시 연결 필요"
+                elif expiry_state == "invalid":
+                    state, label = "attention", "만료일 확인 필요"
+                else:
+                    state, label = "verified", "계정 연결됨"
+            else:
+                state, label = "verified", "계정 연결됨"
+            missing = []
+        elif isinstance(verification, Mapping) and verification.get("checked_at"):
             try:
                 checked_at = datetime.fromisoformat(str(verification["checked_at"]).replace("Z", "+00:00"))
                 if checked_at.tzinfo is None:
@@ -161,20 +187,43 @@ def connection_dashboard(
     *,
     now: datetime | None = None,
     verification_cache: Mapping[str, Mapping[str, str]] | None = None,
+    oauth_connections: Mapping[str, Mapping[str, str]] | None = None,
+    oauth_setup: Mapping[str, Mapping[str, object]] | None = None,
+    oauth_storage_error: str = "",
 ) -> str:
     values = os.environ if environ is None else environ
     publishing_enabled = values.get("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true"
     adapter_configured = bool(values.get("TAK_AUTO_PUBLISHER", "").strip())
-    statuses = publishing_connection_statuses(values, now=now, verification_cache=verification_cache)
+    statuses = publishing_connection_statuses(values, now=now, verification_cache=verification_cache,
+                                               oauth_connections=oauth_connections)
     cards = []
     for row in statuses:
         state = str(row["state"])
-        missing = ", ".join(str(name) for name in row["missing"])
+        setup = (oauth_setup or {}).get(str(row["key"]), {})
+        missing = ", ".join(str(name) for name in setup.get("missing", [])) if setup else ", ".join(str(name) for name in row["missing"])
         account = escape(str(row["account_name"]))
         expiry = f'<p class="connection-expiry">{escape(str(row["expires_in"]))}</p>' if row["expires_in"] else ""
         verification_message = f'<p class="connection-verification-error">{escape(str(row["verification_message"]))}</p>' if row["verification_message"] else ""
         checked_at = f'<p class="meta">{escape(str(row["checked_at_label"]))}</p>' if row["checked_at_label"] else ""
-        if row["verification_supported"] and not row["missing"] and state != "expired":
+        connected = isinstance(oauth_connections, Mapping) and bool(oauth_connections.get(str(row["key"]), {}).get("account_id"))
+        connect_controls = ""
+        if connected:
+            connect_controls = f'''<p><a class="button connection-button" href="/connections/oauth/{escape(str(row['key']))}">계정 다시 연결</a></p>
+<form method="post" action="/connections/disconnect"><input type="hidden" name="platform" value="{escape(str(row['key']))}"><button class="secondary" type="submit">이 앱에서 연결 해제</button></form>'''
+        elif setup.get("ready"):
+            connect_controls = f'<p><a class="button connection-button" href="/connections/oauth/{escape(str(row["key"]))}">계정 연결</a></p>'
+        elif setup:
+            missing_setup = ", ".join(str(name) for name in setup.get("missing", []))
+            redirect_uri = str(setup.get("redirect_uri", ""))
+            connect_controls = f'''<p><button type="button" class="secondary" disabled>계정 연결 설정 필요</button></p>
+<p class="meta">웹 연결 준비에 필요한 서비스 설정을 먼저 완료하세요.</p>
+<details><summary>연결 설정 보기</summary><p class="connection-missing">필요 설정: {escape(missing_setup)}</p>
+{f'<p class="meta">OAuth 콜백 주소: <code>{escape(redirect_uri)}</code></p>' if redirect_uri else ''}</details>'''
+            if row["verification_supported"] and not row["missing"] and state != "expired":
+                connect_controls += f'<form method="post" action="/connections/verify"><input type="hidden" name="platform" value="{escape(str(row["key"]))}"><button type="submit" class="secondary">기존 토큰 확인</button></form>'
+        if connect_controls:
+            verify_control = connect_controls
+        elif row["verification_supported"] and not row["missing"] and state != "expired":
             verify_control = f'<form method="post" action="/connections/verify"><input type="hidden" name="platform" value="{escape(str(row["key"]))}"><button type="submit" class="secondary">계정 연결 확인</button></form>'
         elif row["verification_supported"] and row["missing"]:
             verify_control = '<p class="meta">필수 인증 정보를 설정하면 API 확인을 실행할 수 있습니다.</p>'
@@ -192,6 +241,7 @@ def connection_dashboard(
     enabled_label = "활성화" if publishing_enabled else "비활성화 (기본값)"
     return f"""<section class="toolbar" id="account-connections">
 <h2>게시 계정 연결 현황</h2>
-<p>예약 게시 스위치: <b>{enabled_label}</b> · 게시 어댑터: <b>{'설정됨' if adapter_configured else '미설정'}</b> · 인증 토큰 원문은 이 화면에 표시하지 않습니다.</p>
+<p>예약 게시 스위치: <b>{enabled_label}</b> · 게시 어댑터: <b>{'설정됨' if adapter_configured else '미설정'}</b> · SNS 로그인은 계정만 연결하며 게시 기능을 켜지 않습니다. 인증 토큰 원문은 이 화면에 표시하지 않습니다.</p>
+{f'<p class="connection-verification-error">{escape(oauth_storage_error)}</p>' if oauth_storage_error else ''}
 <div class="connection-grid">{''.join(cards)}</div>
 </section>"""

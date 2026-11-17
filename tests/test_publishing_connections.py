@@ -126,6 +126,34 @@ class PublishingConnectionTests(unittest.TestCase):
         self.assertIn("자동 게시를 지원하지 않습니다", html)
         self.assertNotIn('TIKTOK_ACCESS_TOKEN</p>', html)
 
+    def test_dashboard_offers_web_login_for_each_social_account_and_never_renders_tokens(self):
+        setup = {key: {"ready": True, "missing": [], "redirect_uri": f"https://example.test/connections/oauth/callback/{key}"}
+                 for key in ("youtube_shorts", "tiktok", "instagram_reels", "facebook", "threads", "blog")}
+        linked = {"threads": {
+            "account_id": "thread-id", "account_name": "tak_auto", "connected_at": "2026-11-17T00:00:00+00:00",
+            "expires_at": "", "granted_scopes": "threads_basic", "access_token": "never-render-this-token",
+        }}
+        html = connection_dashboard({"TAK_AUTO_PUBLISHING_ENABLED": "false"}, oauth_connections=linked, oauth_setup=setup)
+        for platform in setup:
+            self.assertIn(f'href="/connections/oauth/{platform}"', html)
+        self.assertIn("계정 연결됨", html)
+        self.assertIn("tak_auto", html)
+        self.assertIn('action="/connections/disconnect"', html)
+        self.assertNotIn("never-render-this-token", html)
+        self.assertIn("게시 기능을 켜지 않습니다", html)
+
+    def test_dashboard_shows_provider_callback_and_setup_without_secrets(self):
+        html = connection_dashboard({}, oauth_setup={"youtube_shorts": {
+            "ready": False,
+            "missing": ["YOUTUBE_OAUTH_CLIENT_SECRET", "TAK_AUTO_OAUTH_ENCRYPTION_KEY"],
+            "redirect_uri": "https://example.test/connections/oauth/callback/youtube_shorts",
+        }})
+        self.assertIn("YOUTUBE_OAUTH_CLIENT_SECRET", html)
+        self.assertIn("TAK_AUTO_OAUTH_ENCRYPTION_KEY", html)
+        self.assertIn("https://example.test/connections/oauth/callback/youtube_shorts", html)
+        self.assertIn("계정 연결 설정 필요", html)
+        self.assertNotIn("client_secret=", html)
+
 
 if __name__ == "__main__":
     unittest.main()

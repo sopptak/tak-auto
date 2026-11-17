@@ -44,7 +44,7 @@ services:
     name: tak-auto-trend-factory
     runtime: python
     plan: starter
-    buildCommand: python -m compileall -q scripts content_engine tak_scout tak_brain blog_importer
+    buildCommand: python -m pip install --disable-pip-version-check -r requirements.txt && python -m compileall -q scripts content_engine tak_scout tak_brain blog_importer
     startCommand: python scripts/run_trend_content_mvp.py --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     disk:
@@ -58,6 +58,36 @@ services:
         value: /var/data/trend-factory
       - key: TAK_AUTO_PUBLISHING_ENABLED
         value: false
+      - key: TAK_AUTO_PUBLIC_URL
+        value: https://tak-auto-trend-factory.onrender.com
+      - key: TAK_AUTO_OAUTH_ENCRYPTION_KEY
+        sync: false
+      - key: YOUTUBE_OAUTH_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: TIKTOK_CLIENT_KEY
+        sync: false
+      - key: TIKTOK_CLIENT_SECRET
+        sync: false
+      - key: INSTAGRAM_APP_ID
+        sync: false
+      - key: INSTAGRAM_APP_SECRET
+        sync: false
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
+      - key: THREADS_APP_ID
+        sync: false
+      - key: THREADS_APP_SECRET
+        sync: false
+      - key: NAVER_LOGIN_CLIENT_ID
+        sync: false
+      - key: NAVER_LOGIN_CLIENT_SECRET
+        sync: false
+      - key: META_GRAPH_API_VERSION
+        value: v27.0
       - key: TAK_WEB_USERNAME
         sync: false
       - key: TAK_WEB_PASSWORD

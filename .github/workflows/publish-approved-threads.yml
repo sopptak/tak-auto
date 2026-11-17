@@ -61,6 +61,9 @@ jobs:
       - name: Show Python version
         run: python3 --version
 
+      - name: Install OAuth token encryption dependency
+        run: python3 -m pip install --disable-pip-version-check -r requirements.txt
+
       # 테스트가 실패하면 이후 단계(발행 스텝, commit 스텝)로 진행하지 않는다.
       # GitHub Actions는 이 스텝이 실패하면, 아래 발행 스텝들의 if 조건이
       # always()/failure() 등을 쓰지 않는 한 자동으로 건너뛴다.
