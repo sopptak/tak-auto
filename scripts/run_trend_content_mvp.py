@@ -43,7 +43,73 @@ def _write_json(path: Path, payload) -> None:
     temporary.replace(path)
 
 
-def _make_preview(item: dict, trend_report: dict) -> dict:
+def _build_content_prompt(item: dict, trend_report: dict) -> str:
+    sources = item.get("source_urls") or trend_report.get("citations") or []
+    facts = {
+        "keyword": item.get("keyword"),
+        "category": item.get("category"),
+        "summary": item.get("summary"),
+        "why_now": item.get("why_now"),
+        "audience_question": item.get("audience_question"),
+        "content_angle": item.get("content_angle"),
+        "key_points": item.get("key_points", []),
+        "verified_source_urls": sources,
+        "research_date": trend_report.get("researched_at"),
+    }
+    return f"""당신은 한국어 검색 유입과 영상 시청 지속시간을 설계하는 전문 콘텐츠 에디터입니다.
+아래 Perplexity 트렌드 조사 자료만 사실의 출발점으로 삼아 게시 직전 검토가 가능한 콘텐츠 패키지를 작성하세요.
+
+자료:
+{json.dumps(facts, ensure_ascii=False, indent=2)}
+
+작성 원칙:
+- 독자의 검색 의도에 직접 답하고, 제목은 구체적이며 과장하지 마세요.
+- 확인된 사실, 해석, 전망을 분리하고 불확실한 내용은 단정하지 마세요.
+- 자료에 없는 숫자·통계·인용·사례·발언·URL을 만들지 마세요.
+- 원문 출처 URL은 위 verified_source_urls만 사용하세요.
+- 블로그는 검색 의도에 답하는 충분한 본문(한국어 1,200자 이상 목표), 소제목, 체크포인트, 요약, 자연스러운 다음 행동 CTA를 포함하세요.
+- 쇼츠는 약 60초 분량으로 6~8개 장면을 구성하세요. 각 장면은 time, visual, caption, narration을 포함하고 첫 3초 후킹과 마지막 행동 유도를 포함하세요.
+- Threads는 각각 독립적으로 읽혀도 되는 후킹 중심 글 2개를 만들고 각 본문은 500자 이내로 하세요.
+- 같은 내용을 세 번 반복하지 말고 플랫폼별 문법에 맞게 재구성하세요.
+- 결과는 아래 JSON 객체 하나로만 출력하세요. 코드펜스나 설명은 붙이지 마세요.
+{{
+  "blog": {{"title":"검색형 제목","meta_description":"검색 결과 설명","focus_keyword":"핵심 키워드","body":"Markdown 본문"}},
+  "shorts": {{"title":"쇼츠 제목","duration_seconds":60,"hook":"첫 3초 후킹","scenes":[{{"time":"00-05초","visual":"화면 구성","caption":"화면 자막","narration":"내레이션"}}],"closing_cta":"마지막 행동 유도"}},
+  "threads": [{{"title":"후킹 제목","body":"Threads 본문"}},{{"title":"후킹 제목","body":"Threads 본문"}}]
+}}"""
+
+
+def _parse_content_package(answer: str) -> dict:
+    text = answer.strip()
+    if text.startswith("```"):
+        text = text.split("\\n", 1)[-1]
+        if text.rstrip().endswith("```"):
+            text = text.rstrip()[:-3].strip()
+    start = text.find("{")
+    if start < 0:
+        raise ValueError("콘텐츠 응답에서 JSON 객체를 찾지 못했습니다.")
+    try:
+        package, _ = json.JSONDecoder().raw_decode(text[start:])
+    except json.JSONDecodeError as error:
+        raise ValueError("콘텐츠 응답의 JSON 형식이 올바르지 않습니다.") from error
+    if not isinstance(package, dict):
+        raise ValueError("콘텐츠 패키지는 JSON 객체여야 합니다.")
+    blog = package.get("blog")
+    shorts = package.get("shorts")
+    threads = package.get("threads")
+    if not isinstance(blog, dict) or len(str(blog.get("body", "")).strip()) < 500:
+        raise ValueError("블로그 본문이 없거나 500자 미만입니다. 다시 생성하세요.")
+    if not isinstance(shorts, dict) or not isinstance(shorts.get("scenes"), list) or len(shorts["scenes"]) < 5:
+        raise ValueError("쇼츠 장면 구성이 부족합니다. 최소 5개 장면이 필요합니다.")
+    if not isinstance(threads, list) or len(threads) != 2:
+        raise ValueError("Threads 초안은 정확히 2개가 필요합니다.")
+    for post in threads:
+        if not isinstance(post, dict) or not str(post.get("body", "")).strip() or len(str(post["body"])) > 500:
+            raise ValueError("Threads 본문은 비어 있지 않고 500자 이하여야 합니다.")
+    return package
+
+
+def _make_preview(item: dict, trend_report: dict, provider=None) -> dict:
     urls = item.get("source_urls") or trend_report.get("citations") or []
     if not urls:
         raise ValueError("이 트렌드는 연결된 출처 URL이 없어 콘텐츠 초안을 만들 수 없습니다.")
@@ -84,6 +150,25 @@ def _make_preview(item: dict, trend_report: dict) -> dict:
         current_validity="Perplexity 조사 시점 기준. 발행 전 원문과 최신성 재검증 필요.",
         verification_required=True,
     )
+    if provider is not None:
+        result = provider.search(
+            _build_content_prompt(item, trend_report),
+            search_recency_filter="week",
+        )
+        package = _parse_content_package(result.answer)
+        return {
+            "keyword": keyword,
+            "created_at": utc_now(),
+            "status": "preview_only_not_approved",
+            "warning": "Perplexity가 작성한 검토용 초안입니다. 원문 사실 확인과 사람의 승인을 거쳐야 게시할 수 있습니다.",
+            "blog": package["blog"],
+            "shorts": package["shorts"],
+            "threads": package["threads"],
+            "source_urls": list(dict.fromkeys(urls + list(result.citations))),
+            "content_model": result.model,
+        }
+
+    # Offline fallback is retained for deterministic tests and local template preview only.
     bundle = generate_content_bundle(knowledge)
     return {
         "keyword": keyword,
@@ -159,7 +244,7 @@ a{{color:#3157c8}}.draft{{border-top:1px solid var(--line);padding:10px 0}}
 <div>마지막 조사: {generated} · 모델: {escape(str(report.get('model', '미연결')))}</div></header>
 {error_html}
 <section class="toolbar"><h2>최신 트렌드 조사</h2>
-<p>Perplexity가 최근 7일 공개 웹 자료를 바탕으로 여러 분야의 키워드 최대 20개를 발굴합니다.</p>
+<p>Perplexity가 최근 7일 공개 웹 자료를 바탕으로 여러 분야의 키워드 최대 20개를 발굴합니다. 선택 키워드 콘텐츠 생성에도 Perplexity API를 한 번 더 사용합니다.</p>
 <form method="post" action="/discover"><button type="submit">Perplexity 최신 트렌드 TOP 20 조사</button></form>
 <p class="meta">검색량 순위가 아니라 최신 근거·한국 독자 관련성·콘텐츠 설명 가치에 따른 편집 후보입니다.</p></section>
 <h2>발굴된 트렌드 {len(trends)}개</h2><div class="grid">{''.join(cards) or '<p>아직 조사 결과가 없습니다. 위 버튼으로 첫 조사를 실행하세요.</p>'}</div>
@@ -205,7 +290,8 @@ def create_handler():
                     index = int(form.get("index", ["-1"])[0])
                     if index < 0 or index >= len(report["trends"]):
                         raise ValueError("선택한 트렌드가 없습니다.")
-                    preview = _make_preview(report["trends"][index], report)
+                    provider = PerplexityResearchProvider.from_environment()
+                    preview = _make_preview(report["trends"][index], report, provider=provider)
                     previews = [row for row in previews if row.get("keyword") != preview["keyword"]]
                     previews.insert(0, preview)
                     _write_json(PREVIEW_PATH, previews[:10])
