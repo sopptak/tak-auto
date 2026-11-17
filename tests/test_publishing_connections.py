@@ -158,6 +158,22 @@ class PublishingConnectionTests(unittest.TestCase):
         self.assertIn("계정 연결 설정 필요", html)
         self.assertNotIn("client_secret=", html)
 
+    def test_each_social_icon_opens_its_official_login_page_in_a_safe_new_tab(self):
+        expected_urls = (
+            "https://accounts.google.com/ServiceLogin?service=youtube",
+            "https://www.tiktok.com/login",
+            "https://www.instagram.com/accounts/login/",
+            "https://www.facebook.com/login/",
+            "https://www.threads.net/login",
+            "https://nid.naver.com/nidlogin.login",
+        )
+        html = connection_dashboard({})
+        for url in expected_urls:
+            self.assertIn(url.replace("&", "&amp;"), html)
+        self.assertEqual(html.count('class="connection-icon connection-login-icon"'), 6)
+        self.assertIn('target="_blank" rel="noopener noreferrer"', html)
+        self.assertIn("로그인하는 것만으로 TAK AUTO 연결 상태가 바뀌지는 않습니다", html)
+
 
 if __name__ == "__main__":
     unittest.main()

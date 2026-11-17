@@ -17,6 +17,7 @@ VERIFY_PLATFORMS = frozenset({"threads", "youtube_shorts"})
 PLATFORMS = (
     {
         "key": "youtube_shorts", "name": "YouTube Shorts", "icon": "▶",
+        "login_url": "https://accounts.google.com/ServiceLogin?service=youtube",
         "required": ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"),
         "account_env": "YOUTUBE_CHANNEL_NAME", "expiry_env": "",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
@@ -24,6 +25,7 @@ PLATFORMS = (
     },
     {
         "key": "tiktok", "name": "TikTok", "icon": "♪",
+        "login_url": "https://www.tiktok.com/login",
         "required": ("TIKTOK_ACCESS_TOKEN", "TIKTOK_OPEN_ID"),
         "account_env": "TIKTOK_USERNAME", "expiry_env": "TIKTOK_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
@@ -31,6 +33,7 @@ PLATFORMS = (
     },
     {
         "key": "instagram_reels", "name": "Instagram Reels", "icon": "◎",
+        "login_url": "https://www.instagram.com/accounts/login/",
         "required": ("INSTAGRAM_ACCESS_TOKEN", "INSTAGRAM_USER_ID"),
         "account_env": "INSTAGRAM_USERNAME", "expiry_env": "INSTAGRAM_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
@@ -38,6 +41,7 @@ PLATFORMS = (
     },
     {
         "key": "facebook", "name": "Facebook 페이지", "icon": "f",
+        "login_url": "https://www.facebook.com/login/",
         "required": ("FACEBOOK_ACCESS_TOKEN", "FACEBOOK_PAGE_ID"),
         "account_env": "FACEBOOK_PAGE_NAME", "expiry_env": "FACEBOOK_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
@@ -45,6 +49,7 @@ PLATFORMS = (
     },
     {
         "key": "threads", "name": "Threads", "icon": "@",
+        "login_url": "https://www.threads.net/login",
         "required": ("THREADS_ACCESS_TOKEN",),
         "account_env": "THREADS_USERNAME", "expiry_env": "THREADS_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
@@ -52,6 +57,7 @@ PLATFORMS = (
     },
     {
         "key": "blog", "name": "네이버 블로그", "icon": "N",
+        "login_url": "https://nid.naver.com/nidlogin.login",
         "required": (), "account_env": "NAVER_BLOG_NAME", "expiry_env": "",
         "renewal": "자동 계정 토큰 없음 · 게시 후 사람이 완료 처리해야 합니다.",
         "publish_note": "네이버 블로그 글쓰기 API 종료로 자동 게시를 지원하지 않습니다.",
@@ -182,6 +188,7 @@ def publishing_connection_statuses(
                 state, label = "attention", "확인 시각 오류"
         statuses.append({
             "key": platform["key"], "name": platform["name"], "icon": platform["icon"],
+            "login_url": platform["login_url"],
             "state": state, "label": label, "account_name": account_name or "계정명 확인 필요",
             "missing": missing, "expires_in": expires_in, "renewal": platform["renewal"],
             "publish_note": publish_note,
@@ -241,7 +248,7 @@ def connection_dashboard(
         else:
             verify_control = ""
         cards.append(f"""<article class="connection-card state-{escape(state)}">
-<div class="connection-heading"><span class="connection-icon">{escape(str(row['icon']))}</span><b>{escape(str(row['name']))}</b><span class="connection-state">{escape(str(row['label']))}</span></div>
+<div class="connection-heading"><a class="connection-icon connection-login-icon" href="{escape(str(row['login_url']), quote=True)}" target="_blank" rel="noopener noreferrer" aria-label="{escape(str(row['name']), quote=True)} 로그인 페이지를 새 탭으로 열기" title="{escape(str(row['name']), quote=True)} 로그인"><span aria-hidden="true">{escape(str(row['icon']))}</span><span class="connection-external-mark" aria-hidden="true">↗</span></a><b>{escape(str(row['name']))}</b><span class="connection-state">{escape(str(row['label']))}</span></div>
 <p class="connection-account">{account}</p>{expiry}{checked_at}{verification_message}{verify_control}
 <p class="meta">{escape(str(row['renewal']))}</p>
 <p class="connection-note">{escape(str(row['publish_note']))}</p>
@@ -251,6 +258,7 @@ def connection_dashboard(
     return f"""<section class="toolbar" id="account-connections">
 <h2>게시 계정 연결 현황</h2>
 <p>예약 게시 스위치: <b>{enabled_label}</b> · 게시 어댑터: <b>{'설정됨' if adapter_configured else '미설정'}</b> · Threads 게시 권한은 승인된 대기열에서만 사용합니다. 게시 기능은 기본 비활성화입니다. 인증 토큰 원문은 이 화면에 표시하지 않습니다.</p>
+<p class="connection-login-note">서비스 아이콘을 누르면 해당 SNS 로그인 페이지가 새 탭으로 열립니다. 그곳에서 로그인하는 것만으로 TAK AUTO 연결 상태가 바뀌지는 않습니다.</p>
 {f'<p class="connection-verification-error">{escape(oauth_storage_error)}</p>' if oauth_storage_error else ''}
 <div class="connection-grid">{''.join(cards)}</div>
 </section>"""
