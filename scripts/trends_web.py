@@ -42,6 +42,12 @@ def render_trends_page(report: dict[str, Any], research_records: list[Any] | Non
             if record:
                 evidence_links.append('<a class="btn" href="/research/' +
                                       escape(str(candidate_id)) + '">조사 결과 보기</a>')
+            else:
+                safe_id = escape(str(candidate_id), quote=True)
+                evidence_links.append(
+                    '<form method="post" action="/candidate/' + safe_id +
+                    '/research"><button class="btn primary" type="submit">근거 기사 심층 조사</button></form>'
+                )
         keyword = str(row.get("keyword", ""))
         lines.append(
             '<section class="card"><div class="card-top"><strong class="title">' +
@@ -52,7 +58,7 @@ def render_trends_page(report: dict[str, Any], research_records: list[Any] | Non
             escape(str(row.get("candidate_count", 0))) + '건 · 출처 ' +
             escape(str(row.get("source_count", 0))) + '곳</div>' +
             (''.join(evidence_links) if evidence_links else
-             '<p class="meta">근거 기사별 조사는 홈의 SCOUT 소재 목록에서 실행하세요.</p>') +
+             '<p class="meta">근거 기사별 Perplexity 조사를 실행할 수 있습니다.</p>') +
             '</section>'
         )
     if not opportunities:
