@@ -19,6 +19,8 @@ on:
       - "tests/test_trend_discovery.py"
       - "content_engine/generator.py"
       - "tak_brain/models.py"
+      - "render.yaml"
+      - "docs/trend_content_factory_mvp.md"
 
 jobs:
   trend-content-mvp:
