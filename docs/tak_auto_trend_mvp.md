@@ -13,12 +13,14 @@ TAK AUTO 1은 특정 업종 전용이 아닌 범용 트렌드 키워드 발굴·
 5. 직전 관측일 대비 반복 건수가 증가한 키워드를 급상승 후보로 표시.
 6. 출처 다양성과 언급 건수를 이용한 편집 기회 참고 점수 산출.
 7. 매일 오전 8시(KST) GitHub Actions 실행 및 결과 저장.
+8. 키워드·급상승·콘텐츠 기회·원문 링크를 한 화면에 보여주는 읽기 전용 HTML 대시보드 생성.
 
 ## 결과 파일
 
 - `data/tak_scout_daily.json`, `data/tak_scout_daily.md`: 오늘 수집한 후보
 - `data/tak_auto_trend_daily.json`, `data/tak_auto_trend_daily.md`: TOP 키워드, 상승 후보, 콘텐츠 기회 후보
 - `data/tak_auto_trend_history.json`: 날짜별 키워드 관측 이력
+- `data/tak_auto_dashboard.html`: 모바일 대응 단일 HTML 대시보드(원문 출처 링크 포함)
 
 로컬 실행:
 
@@ -40,7 +42,13 @@ $env:NAVER_DATALAB_CLIENT_SECRET="발급받은 Client Secret"
 python scripts/run_naver_datalab.py --group "AI=인공지능,생성형 AI" --group "스마트안경=스마트 안경,AI 안경" --start 2026-10-01 --end 2026-11-16
 ```
 
-응답은 네이버 데이터랩이 제공하는 상대 검색 관심도 비율이다. 절대 검색량이 아니며, API 자격 증명이 설정되지 않으면 요청을 보내지 않는다. 현재 RSS 분석과는 별도 실행이며 아직 일일 자동 파이프라인에 결합하지 않았다.
+응답은 네이버 데이터랩이 제공하는 상대 검색 관심도 비율이다. 절대 검색량이 아니며, API 자격 증명이 설정되지 않으면 요청을 보내지 않는다. 인증정보가 GitHub Actions Secrets에 등록되면 일일 트렌드 파이프라인에서 상위 반복 키워드 최대 5개를 조회한다. 미등록·API 오류 상태도 리포트에 명시하며 RSS 기반 리포트는 계속 생성한다.
+
+## MVP 실행 방법
+
+코드를 로컬에 저장하지 않고 실행하려면 GitHub 저장소의 Actions에서 `TAK AUTO Daily Trend Discovery`를 선택한 뒤 `Run workflow`를 누른다. 기본 후보 수는 5개이며 필요하면 변경할 수 있다. 실행이 완료되면 해당 workflow가 생성한 `data/tak_auto_dashboard.html`을 저장소에서 확인한다. 이 기능 브랜치는 아직 Draft PR 상태이므로 기본 브랜치의 정기 실행과는 별개다. 기본 브랜치에서 운영하려면 PR 검토·승인 후 병합이 필요하다.
+
+대시보드는 읽기 전용이며 외부 게시나 콘텐츠 자동 승인을 하지 않는다. 현재는 트렌드 발견과 원문 탐색까지가 MVP 1차 범위이고, 키워드 선택 후 블로그·Threads·쇼츠 초안 생성은 다음 통합 단계다.
 
 ## 지표의 정확한 의미와 한계
 
