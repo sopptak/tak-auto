@@ -54,7 +54,7 @@ Phase에서 한 줄도 수정하지 않았다.
     - KNOWLEDGE 자동 승인 (pending까지만 - 승인은 review_knowledge.py로 사람이)
     - TAK MEDIA 실행
     - Threads/Naver 게시 (Threads 검수 화면도 승인까지만 - 실제 API 호출은 하지 않음)
-    - 외부 네트워크에 노출(기본적으로 127.0.0.1에만 바인딩)
+    - 기본 실행은 127.0.0.1에만 바인딩하며, 외부 바인딩 시 설정된 Basic Auth가 없으면 요청을 거부
     - LLM 실패를 사용자에게 노출(항상 조용히 템플릿으로 fallback)
     - Threads 사용자 수정 문장을 LLM으로 다시 보내 재작성하는 것(5-11 Phase 2)
 """
