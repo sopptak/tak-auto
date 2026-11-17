@@ -35,6 +35,13 @@ class HostedDashboardSecurityTests(unittest.TestCase):
         self.assertLess(health, auth)
         self.assertIn('self.wfile.write(b"ok")', source[health:auth])
 
+    def test_hosted_root_redirects_to_trends(self):
+        config = (ROOT / "render.yaml").read_text(encoding="utf-8")
+        source = (ROOT / "scripts" / "run_scout_dashboard.py").read_text(encoding="utf-8")
+        self.assertIn("TAK_WEB_LANDING_PATH", config)
+        self.assertIn('os.environ.get("TAK_WEB_LANDING_PATH"', source)
+        self.assertIn('self._redirect("/trends")', source)
+
     def test_hosted_service_disables_local_browser_agent(self):
         config = (ROOT / "render.yaml").read_text(encoding="utf-8")
         source = (ROOT / "scripts" / "run_scout_dashboard.py").read_text(encoding="utf-8")
