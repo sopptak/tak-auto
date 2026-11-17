@@ -47,24 +47,24 @@ PROVIDERS: dict[str, Provider] = {
     "youtube_shorts": Provider(
         "youtube_shorts", "YouTube Shorts", "YOUTUBE_OAUTH_CLIENT_ID", "YOUTUBE_OAUTH_CLIENT_SECRET", "client_id",
         "https://accounts.google.com/o/oauth2/v2/auth",
-        ("https://www.googleapis.com/auth/youtube.readonly", "https://www.googleapis.com/auth/youtube.upload"),
+        ("https://www.googleapis.com/auth/youtube.readonly",),
     ),
     "tiktok": Provider(
         "tiktok", "TikTok", "TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "client_key",
-        "https://www.tiktok.com/v2/auth/authorize/", ("user.info.basic", "video.publish"),
+        "https://www.tiktok.com/v2/auth/authorize/", ("user.info.basic",),
     ),
     "instagram_reels": Provider(
         "instagram_reels", "Instagram Reels", "INSTAGRAM_APP_ID", "INSTAGRAM_APP_SECRET", "client_id",
         "https://www.instagram.com/oauth/authorize",
-        ("instagram_business_basic", "instagram_business_content_publishing"),
+        ("instagram_business_basic",),
     ),
     "facebook": Provider(
         "facebook", "Facebook 페이지", "FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET", "client_id",
-        "https://www.facebook.com", ("public_profile", "pages_show_list", "pages_read_engagement", "pages_manage_posts"),
+        "https://www.facebook.com", ("pages_show_list",),
     ),
     "threads": Provider(
         "threads", "Threads", "THREADS_APP_ID", "THREADS_APP_SECRET", "client_id",
-        "https://threads.net/oauth/authorize", ("threads_basic", "threads_content_publish"),
+        "https://threads.net/oauth/authorize", ("threads_basic",),
     ),
     "blog": Provider(
         "blog", "네이버 블로그", "NAVER_LOGIN_CLIENT_ID", "NAVER_LOGIN_CLIENT_SECRET", "client_id",
@@ -96,11 +96,18 @@ def callback_uri(platform: str, environ: Mapping[str, str] | None = None) -> str
     if platform not in PROVIDERS:
         raise SocialOAuthError("지원하지 않는 SNS입니다.")
     base = values.get("TAK_AUTO_PUBLIC_URL", "").strip().rstrip("/")
-    parsed = urlsplit(base)
+    if any(character.isspace() for character in base):
+        raise SocialOAuthError("TAK_AUTO_PUBLIC_URL 주소 형식을 확인하세요.")
+    try:
+        parsed = urlsplit(base)
+        port = parsed.port
+    except ValueError:
+        raise SocialOAuthError("TAK_AUTO_PUBLIC_URL 주소 형식을 확인하세요.") from None
     local_http = parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1"}
-    if parsed.scheme != "https" and not local_http:
+    if (parsed.scheme != "https" and not local_http) or (port is not None and port < 1):
         raise SocialOAuthError("TAK_AUTO_PUBLIC_URL에 HTTPS 주소를 설정해야 합니다.")
-    if not parsed.netloc or parsed.path or parsed.query or parsed.fragment or parsed.username or parsed.password:
+    if (not parsed.netloc or not parsed.hostname or parsed.netloc.endswith(":") or parsed.path or parsed.query
+            or parsed.fragment or parsed.username or parsed.password):
         raise SocialOAuthError("TAK_AUTO_PUBLIC_URL은 도메인 주소만 입력하세요.")
     return base + CALLBACK_PATH + platform
 

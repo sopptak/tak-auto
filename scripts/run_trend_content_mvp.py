@@ -149,6 +149,14 @@ def _oauth_cookie(name: str, value: str, *, secure: bool, clear: bool = False) -
     return f"{name}={value}; Path=/; Max-Age={age}; HttpOnly; SameSite=Lax" + ("; Secure" if secure else "")
 
 
+def _oauth_cookie_is_secure(platform: str) -> bool:
+    """Derive Secure from the registered HTTPS callback, not a client header."""
+    try:
+        return urlparse(callback_uri(platform)).scheme == "https"
+    except SocialOAuthError:
+        return False
+
+
 def _run_connection_verification(platform: str, checks: dict, *, environ=None, now=None) -> tuple[dict, str]:
     """Check one supported account and return a safe status-cache update."""
     if platform not in VERIFY_PLATFORMS:
@@ -507,7 +515,7 @@ def create_handler():
                 verifier = secrets.token_urlsafe(64)[:96] if platform == "youtube_shorts" else ""
                 state, _ = OAUTH_FLOW_REGISTRY.create(platform, redirect, verifier=verifier)
                 url = SocialOAuthClient().authorization_url(platform, redirect, state, verifier)
-                secure = self.headers.get("X-Forwarded-Proto", "https").split(",")[0].strip().lower() == "https"
+                secure = _oauth_cookie_is_secure(platform)
                 self._redirect(url, cookie=_oauth_cookie(f"tak_oauth_{platform}", state, secure=secure))
             except SocialOAuthError as error:
                 self._respond(_page(_read_json(TREND_PATH, {}), _read_json(PREVIEW_PATH, []), str(error)), 400)
@@ -515,7 +523,7 @@ def create_handler():
         def _finish_oauth(self, platform: str):
             cookie_platform = platform if platform in PROVIDERS else "invalid"
             cookie_name = f"tak_oauth_{cookie_platform}"
-            secure = self.headers.get("X-Forwarded-Proto", "https").split(",")[0].strip().lower() == "https"
+            secure = _oauth_cookie_is_secure(platform)
             clear_cookie = _oauth_cookie(cookie_name, "", secure=secure, clear=True)
             try:
                 if platform not in PROVIDERS:
@@ -624,7 +632,7 @@ def create_handler():
                     tokens = {"access_token": selected["access_token"], "expires_in": selected.get("expires_in", 0)}
                     profile = {"account_id": selected["account_id"], "account_name": selected["account_name"]}
                     _oauth_vault().save("facebook", tokens, profile, scopes=str(pending.get("scopes", "")))
-                    secure = self.headers.get("X-Forwarded-Proto", "http").split(",")[0].strip().lower() == "https"
+                    secure = _oauth_cookie_is_secure("facebook")
                     self._redirect("/?connected=facebook", cookie=_oauth_cookie("tak_facebook_selection", "", secure=secure, clear=True))
                 except (KeyError, TypeError, ValueError, SocialOAuthError) as error:
                     safe_message = str(error) if isinstance(error, SocialOAuthError) else "Facebook 페이지 선택을 완료하지 못했습니다. 다시 연결하세요."

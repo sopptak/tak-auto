@@ -14,6 +14,12 @@ from scripts import run_trend_content_mvp as app
 
 
 class SocialOAuthRouteTests(unittest.TestCase):
+    def test_oauth_cookie_transport_security_comes_from_registered_callback(self):
+        with patch.dict(os.environ, {"TAK_AUTO_PUBLIC_URL": "https://tak-auto.example"}, clear=False):
+            self.assertTrue(app._oauth_cookie_is_secure("tiktok"))
+        with patch.dict(os.environ, {"TAK_AUTO_PUBLIC_URL": "http://localhost:8765"}, clear=False):
+            self.assertFalse(app._oauth_cookie_is_secure("tiktok"))
+
     def test_web_start_callback_state_cookie_and_encrypted_account_save(self):
         with tempfile.TemporaryDirectory() as directory:
             token_path = Path(directory) / "oauth.enc"
@@ -36,11 +42,11 @@ class SocialOAuthRouteTests(unittest.TestCase):
                      patch.object(app.SocialOAuthClient, "complete", return_value={
                          "tokens": {"access_token": "test-access-token", "refresh_token": "test-refresh-token", "expires_in": 3600},
                          "profile": {"account_id": "tiktok-id", "account_name": "takcreator"},
-                         "scopes": "user.info.basic,video.publish",
+                         "scopes": "user.info.basic",
                      }) as complete:
                     connection = HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
                     connection.request("GET", "/connections/oauth/tiktok", headers={
-                        "Authorization": auth, "X-Forwarded-Proto": "https",
+                        "Authorization": auth, "X-Forwarded-Proto": "http",
                     })
                     start = connection.getresponse()
                     self.assertEqual(start.status, 303)
@@ -61,11 +67,14 @@ class SocialOAuthRouteTests(unittest.TestCase):
                     complete.assert_not_called()
 
                     # A same-browser provider callback is allowed even if the IdP does not forward Basic Auth.
-                    connection.request("GET", f"/connections/oauth/callback/tiktok?code=demo&state={state}", headers={"Cookie": cookie})
+                    connection.request("GET", f"/connections/oauth/callback/tiktok?code=demo&state={state}", headers={
+                        "Cookie": cookie, "X-Forwarded-Proto": "http",
+                    })
                     callback = connection.getresponse()
                     self.assertEqual(callback.status, 303)
                     self.assertEqual(callback.getheader("Location"), "/?connected=tiktok")
                     self.assertIn("Max-Age=0", callback.getheader("Set-Cookie"))
+                    self.assertIn("Secure", callback.getheader("Set-Cookie"))
                     callback.read()
                     complete.assert_called_once()
                     connection.close()

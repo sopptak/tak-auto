@@ -51,14 +51,30 @@ class SocialOAuthTests(unittest.TestCase):
         bad = dict(self.environ, TAK_AUTO_PUBLIC_URL="https://example.test/path")
         self.assertFalse(setup_status("blog", bad)["ready"])
 
+    def test_callback_url_validation_rejects_malformed_authorities(self):
+        for value in (
+            "https://example.test:bad", "https://example.test:", "https://example.test:0",
+            "https://user:password@example.test", "https://example.test?query=1",
+            "https://example.test#fragment", "https://bad host.test", "https://[::1",
+        ):
+            with self.subTest(value=value), self.assertRaises(SocialOAuthError):
+                callback_uri("tiktok", dict(self.environ, TAK_AUTO_PUBLIC_URL=value))
+
     def test_authorization_url_has_state_and_provider_scopes(self):
         cases = {
-            "youtube_shorts": ("accounts.google.com", "youtube.upload"),
-            "tiktok": ("www.tiktok.com", "video.publish"),
-            "instagram_reels": ("www.instagram.com", "instagram_business_content_publishing"),
-            "facebook": ("www.facebook.com", "pages_manage_posts"),
-            "threads": ("threads.net", "threads_content_publish"),
+            "youtube_shorts": ("accounts.google.com", "youtube.readonly"),
+            "tiktok": ("www.tiktok.com", "user.info.basic"),
+            "instagram_reels": ("www.instagram.com", "instagram_business_basic"),
+            "facebook": ("www.facebook.com", "pages_show_list"),
+            "threads": ("threads.net", "threads_basic"),
             "blog": ("nid.naver.com", "response_type"),
+        }
+        publishing_scopes = {
+            "youtube_shorts": "youtube.upload",
+            "tiktok": "video.publish",
+            "instagram_reels": "instagram_business_content_publishing",
+            "facebook": "pages_manage_posts",
+            "threads": "threads_content_publish",
         }
         client = SocialOAuthClient(self.environ)
         for platform, (host, expected) in cases.items():
@@ -71,6 +87,8 @@ class SocialOAuthTests(unittest.TestCase):
                 self.assertEqual(params["state"], ["state-test"])
                 self.assertEqual(params["redirect_uri"], [redirect])
                 self.assertIn(expected, params.get("scope", ["response_type"])[0])
+                if platform in publishing_scopes:
+                    self.assertNotIn(publishing_scopes[platform], params["scope"][0])
 
     def test_oauth_state_is_cookie_bound_single_use_and_provider_bound(self):
         registry = OAuthFlowRegistry(now=lambda: datetime(2026, 11, 17, tzinfo=timezone.utc))
