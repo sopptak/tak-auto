@@ -6,7 +6,7 @@ import unittest
 from tak_scout.models import ScoutCandidate
 from tak_scout.trend_history import (
     build_daily_report, load_history, observations_for_day,
-    rising_keywords, save_history,
+    rising_keywords, save_history, render_daily_report,
 )
 
 
@@ -53,6 +53,25 @@ class TrendHistoryTests(unittest.TestCase):
             candidate("b", "생성형 인공지능 활용", "source-b"),
         ], "2026-11-16")
         self.assertEqual(rising_keywords(today, "2026-11-16"), [])
+
+    def test_markdown_report_discloses_datalab_relative_ratio(self):
+        report = {
+            "generated_on": "2026-11-17",
+            "measurement_scope": "등록된 공개 RSS 수집 피드 내부",
+            "top_keywords": [], "rising_keywords": [],
+            "content_opportunities": [],
+            "limitations": [],
+            "naver_datalab": {
+                "status": "success",
+                "result": {"results": [
+                    {"title": "인공지능", "data": [{"ratio": 71.2}]}
+                ]},
+            },
+        }
+        markdown = render_daily_report(report)
+        self.assertIn("네이버 데이터랩 상대 검색 관심도", markdown)
+        self.assertIn("절대 검색량이 아닙니다", markdown)
+        self.assertIn("71.2", markdown)
 
     def test_daily_report_discloses_missing_search_and_competition_metrics(self):
         candidates = [
