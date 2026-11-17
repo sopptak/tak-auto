@@ -64,7 +64,7 @@ PROVIDERS: dict[str, Provider] = {
     ),
     "threads": Provider(
         "threads", "Threads", "THREADS_APP_ID", "THREADS_APP_SECRET", "client_id",
-        "https://threads.net/oauth/authorize", ("threads_basic",),
+        "https://threads.net/oauth/authorize", ("threads_basic", "threads_content_publish"),
     ),
     "blog": Provider(
         "blog", "네이버 블로그", "NAVER_LOGIN_CLIENT_ID", "NAVER_LOGIN_CLIENT_SECRET", "client_id",
@@ -382,7 +382,8 @@ class SocialOAuthClient:
         if platform == "facebook":
             # The selected Page token is saved only after the user chooses a Page.
             return {"tokens": {}, "profile": {}, "scopes": str(token.get("scope", "")), "choices": profile}
-        return {"tokens": token, "profile": profile, "scopes": str(token.get("scope", token.get("scopes", "")))}
+        granted_scopes = str(token.get("scope") or token.get("scopes") or " ".join(provider.scopes))
+        return {"tokens": token, "profile": profile, "scopes": granted_scopes}
 
     def _exchange_and_profile(self, platform: str, code: str, redirect: str, verifier: str, state: str,
                               client_id: str, secret: str, version: str) -> tuple[dict[str, object], dict[str, object] | list[dict[str, object]]]:

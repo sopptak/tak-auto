@@ -48,7 +48,7 @@ PLATFORMS = (
         "required": ("THREADS_ACCESS_TOKEN",),
         "account_env": "THREADS_USERNAME", "expiry_env": "THREADS_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
-        "publish_note": "웹 로그인 토큰은 게시 어댑터에서 사용하지 않습니다. 게시하려면 별도의 THREADS_ACCESS_TOKEN 설정이 필요합니다.",
+        "publish_note": "Threads 웹 연결 토큰은 게시 권한 동의 시 텍스트 게시 어댑터에서 사용합니다. 게시 스위치와 운영자 승인은 별도로 필요합니다.",
     },
     {
         "key": "blog", "name": "네이버 블로그", "icon": "N",
@@ -129,6 +129,7 @@ def publishing_connection_statuses(
         verification_message = ""
         checked_at_label = ""
         oauth_connected = isinstance(oauth_connection, Mapping) and bool(oauth_connection.get("account_id"))
+        publish_note = str(platform["publish_note"])
         if oauth_connected:
             account_name = str(oauth_connection.get("account_name") or account_name)
             checked_at = str(oauth_connection.get("connected_at", ""))
@@ -141,6 +142,14 @@ def publishing_connection_statuses(
                 except (TypeError, ValueError):
                     checked_at_label = ""
             linked_expiry = str(oauth_connection.get("expires_at", ""))
+            if platform["key"] == "threads":
+                granted_scopes = {
+                    scope for scope in str(oauth_connection.get("granted_scopes", "")).replace(",", " ").split() if scope
+                }
+                if "threads_content_publish" in granted_scopes:
+                    publish_note = "Threads 게시 권한이 연결되었습니다. 실제 게시에는 게시 스위치와 운영자 승인이 필요합니다."
+                else:
+                    publish_note = "계정은 연결됐지만 Threads 게시 권한이 없습니다. 다시 연결해 게시 권한에 동의해야 합니다."
             if linked_expiry:
                 expires_in, expiry_state = _expiry_label(linked_expiry, current)
                 if expiry_state == "expired":
@@ -175,7 +184,7 @@ def publishing_connection_statuses(
             "key": platform["key"], "name": platform["name"], "icon": platform["icon"],
             "state": state, "label": label, "account_name": account_name or "계정명 확인 필요",
             "missing": missing, "expires_in": expires_in, "renewal": platform["renewal"],
-            "publish_note": platform["publish_note"],
+            "publish_note": publish_note,
             "verification_supported": platform["key"] in VERIFY_PLATFORMS,
             "verification_message": verification_message, "checked_at_label": checked_at_label,
         })
@@ -241,7 +250,7 @@ def connection_dashboard(
     enabled_label = "활성화" if publishing_enabled else "비활성화 (기본값)"
     return f"""<section class="toolbar" id="account-connections">
 <h2>게시 계정 연결 현황</h2>
-<p>예약 게시 스위치: <b>{enabled_label}</b> · 게시 어댑터: <b>{'설정됨' if adapter_configured else '미설정'}</b> · SNS 웹 로그인은 계정 확인용이며 게시 기능을 켜지 않습니다. 게시 토큰과 게시 어댑터 설정은 별도입니다. 인증 토큰 원문은 이 화면에 표시하지 않습니다.</p>
+<p>예약 게시 스위치: <b>{enabled_label}</b> · 게시 어댑터: <b>{'설정됨' if adapter_configured else '미설정'}</b> · Threads 게시 권한은 승인된 대기열에서만 사용합니다. 게시 기능은 기본 비활성화입니다. 인증 토큰 원문은 이 화면에 표시하지 않습니다.</p>
 {f'<p class="connection-verification-error">{escape(oauth_storage_error)}</p>' if oauth_storage_error else ''}
 <div class="connection-grid">{''.join(cards)}</div>
 </section>"""

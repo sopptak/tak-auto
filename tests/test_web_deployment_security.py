@@ -60,6 +60,12 @@ class HostedDashboardSecurityTests(unittest.TestCase):
             self.assertIn(required, config)
         self.assertIn("ln -sfn /var/data data", config)
 
+    def test_trend_factory_configures_adapter_but_keeps_posting_disabled(self):
+        config = (ROOT / "render.yaml").read_text(encoding="utf-8")
+        trend_service = config.split("name: tak-auto-trend-factory", 1)[1]
+        self.assertIn("TAK_AUTO_PUBLISHING_ENABLED\n        value: false", trend_service)
+        self.assertIn("TAK_AUTO_PUBLISHER\n        value: content_engine.trend_publishers:publish", trend_service)
+
 
 if __name__ == "__main__":
     unittest.main()

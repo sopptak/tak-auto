@@ -58,6 +58,8 @@ services:
         value: /var/data/trend-factory
       - key: TAK_AUTO_PUBLISHING_ENABLED
         value: false
+      - key: TAK_AUTO_PUBLISHER
+        value: content_engine.trend_publishers:publish
       - key: TAK_AUTO_PUBLIC_URL
         value: https://tak-auto-trend-factory.onrender.com
       - key: TAK_AUTO_OAUTH_ENCRYPTION_KEY

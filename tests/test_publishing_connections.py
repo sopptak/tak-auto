@@ -125,8 +125,8 @@ class PublishingConnectionTests(unittest.TestCase):
         self.assertIn("미설정", html)
         self.assertIn("자동 게시를 지원하지 않습니다", html)
         self.assertIn("웹 로그인은 계정 확인용", html)
-        self.assertIn("게시 토큰과 게시 어댑터 설정은 별도입니다", html)
-        self.assertIn("별도의 THREADS_ACCESS_TOKEN 설정이 필요합니다", html)
+        self.assertIn("Threads 게시 권한은 승인된 대기열에서만 사용합니다", html)
+        self.assertIn("게시 기능은 기본 비활성화입니다", html)
         self.assertNotIn('TIKTOK_ACCESS_TOKEN</p>', html)
 
     def test_dashboard_offers_web_login_for_each_social_account_and_never_renders_tokens(self):
@@ -141,9 +141,10 @@ class PublishingConnectionTests(unittest.TestCase):
             self.assertIn(f'href="/connections/oauth/{platform}"', html)
         self.assertIn("계정 연결됨", html)
         self.assertIn("tak_auto", html)
+        self.assertIn("계정은 연결됐지만 Threads 게시 권한이 없습니다", html)
         self.assertIn('action="/connections/disconnect"', html)
         self.assertNotIn("never-render-this-token", html)
-        self.assertIn("게시 기능을 켜지 않습니다", html)
+        self.assertIn("게시 기능은 기본 비활성화입니다", html)
 
     def test_dashboard_shows_provider_callback_and_setup_without_secrets(self):
         html = connection_dashboard({}, oauth_setup={"youtube_shorts": {

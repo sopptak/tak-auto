@@ -74,7 +74,7 @@ py -m unittest discover -s tests -p "test_trend_discovery.py" -v
 - 외부 API가 요청을 받았는지 불분명한 경우는 자동 재시도하지 않고 `needs_review`로 멈춥니다. 작업 직전 상태를 디스크에 기록해 서버가 중단되어도 자동 중복 게시를 피합니다.
 - `needs_review` 작업은 계정에서 게시 여부를 확인한 뒤, 외부 게시 ID로 완료 이력을 기록하거나 미게시 확인을 남기고 남은 시도 횟수 안에서 재예약할 수 있습니다.
 - 실제 게시 기능은 Render 설정에서도 `TAK_AUTO_PUBLISHING_ENABLED=false`로 고정되어 있습니다. `true`와 `TAK_AUTO_PUBLISHER=모듈:함수`를 함께 명시한 경우에만 worker가 게시 어댑터를 호출합니다.
-- `content_engine.trend_publishers:publish`는 Threads 텍스트 게시와 기존 Threads 이력 중복 확인을 지원합니다. 현재 실제 연결 설정과 플랫폼 승인이 준비되어야 하며, YouTube·Instagram·TikTok·Facebook·네이버 블로그 어댑터는 지원하지 않아 실패 처리로 닫힙니다. 네이버 블로그는 수동 게시입니다.
+- `content_engine.trend_publishers:publish`는 암호화된 OAuth 저장소의 `threads_content_publish` 권한을 우선 사용해 Threads 텍스트를 게시하고 기존 이력 중복을 확인합니다. 필요하면 기존 `THREADS_ACCESS_TOKEN` 환경변수도 사용할 수 있습니다. YouTube·Instagram·TikTok·Facebook·네이버 블로그 어댑터는 아직 지원하지 않아 실패 처리로 닫힙니다. 네이버 블로그는 수동 게시입니다.
 - 게시 대시보드에는 예약 상태, 시도 횟수, 오류, 플랫폼별 게시 이력이 표시됩니다. `TAK_AUTO_PUBLISHING_ENABLED`를 설정하지 않으면 대시보드에 비활성 상태로 표시되고 예약 작업은 외부 API를 호출하지 않습니다.
 - 독립 worker 실행이 필요하면 `py scripts/run_publishing_queue.py --once`를 사용합니다. 지속 확인은 `py scripts/run_publishing_queue.py --watch`를 사용합니다. 웹 서버는 같은 persistent data 디렉터리를 쓰는 예약 작업자를 기본으로 시작합니다.
 

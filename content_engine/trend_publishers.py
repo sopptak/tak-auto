@@ -8,10 +8,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import os
 from pathlib import Path
+import re
 from typing import Mapping
 
 from .publish_history import PublishHistory, PublishRecord
 from .publishing_queue import PermanentPublishError, PublishUncertainError
+from .social_oauth import OAuthTokenVault, SocialOAuthError
 from .threads_publisher import ThreadsAPIError, ThreadsClient, ThreadsConfigurationError
 
 
@@ -20,6 +22,46 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _history_path() -> Path:
     return Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))) / "threads_publish_log.json"
+
+
+def _threads_client() -> ThreadsClient:
+    """Use the encrypted web connection when it grants publishing; keep legacy env fallback."""
+    encryption_key = os.getenv("TAK_AUTO_OAUTH_ENCRYPTION_KEY", "").strip()
+    if encryption_key:
+        try:
+            vault = OAuthTokenVault(
+                Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))) / "social_oauth_tokens.enc",
+                encryption_key,
+            )
+            connection = vault.get("threads")
+        except SocialOAuthError as error:
+            raise PermanentPublishError(str(error)) from error
+        if connection is not None:
+            scopes = {
+                scope for scope in re.split(r"[,\s]+", str(connection.get("granted_scopes", ""))) if scope
+            }
+            if "threads_content_publish" not in scopes:
+                raise PermanentPublishError(
+                    "Threads 계정에 게시 권한이 없습니다. 계정을 다시 연결하고 게시 권한에 동의하세요."
+                )
+            token = str(connection.get("access_token", "")).strip()
+            if not token:
+                raise PermanentPublishError("암호화된 Threads 연결에 액세스 토큰이 없습니다. 다시 연결하세요.")
+            expiry = str(connection.get("expires_at", "")).strip()
+            if expiry:
+                try:
+                    expires_at = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+                    if expires_at.tzinfo is None:
+                        expires_at = expires_at.replace(tzinfo=timezone.utc)
+                except ValueError:
+                    raise PermanentPublishError("Threads 토큰 만료일 형식을 확인할 수 없습니다. 다시 연결하세요.") from None
+                if expires_at <= datetime.now(timezone.utc):
+                    raise PermanentPublishError("Threads 토큰이 만료되었습니다. 계정을 다시 연결하세요.")
+            return ThreadsClient(access_token=token)
+    try:
+        return ThreadsClient.from_environment()
+    except ThreadsConfigurationError as error:
+        raise PermanentPublishError(str(error)) from error
 
 
 def publish(platform: str, payload: Mapping[str, object], idempotency_key: str) -> str:
@@ -52,10 +94,7 @@ def publish(platform: str, payload: Mapping[str, object], idempotency_key: str) 
             )
         return str(remote_id)
 
-    try:
-        client = ThreadsClient.from_environment()
-    except ThreadsConfigurationError as error:
-        raise PermanentPublishError(str(error)) from error
+    client = _threads_client()
 
     try:
         result = client.publish_text(text)

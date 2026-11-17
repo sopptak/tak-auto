@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from content_engine.publishing_queue import (
     MAX_ATTEMPTS, PermanentPublishError, PublishUncertainError, PublishingQueue,
@@ -179,7 +180,10 @@ class PublishingQueueTests(unittest.TestCase):
 
     def test_cli_worker_is_disabled_by_default_and_fails_closed_without_adapter(self):
         self.enqueue()
-        self.assertEqual(run_once(self.path, enabled=False), [])
+        with patch("scripts.run_publishing_queue.load_publisher") as load_publisher:
+            self.assertEqual(run_once(self.path, enabled=False,
+                                      publisher_spec="scripts.run_publishing_queue:load_publisher"), [])
+        load_publisher.assert_not_called()
         with self.assertRaisesRegex(RuntimeError, "어댑터"):
             run_once(self.path, enabled=True)
         self.assertEqual(self.queue.snapshot()["items"][0]["attempts"], 0)
