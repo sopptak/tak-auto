@@ -269,11 +269,13 @@ def _page(report: dict | None, previews: list[dict], error: str = "") -> str:
 <section class="preview">
   <h2>{escape(str(preview.get('keyword', '')))} 콘텐츠 미리보기</h2>
   <p class="warning">{escape(str(preview.get('warning', '')))}</p>
-  <h3>블로그 · {escape(str(blog.get('title', '')))}</h3><pre>{escape(str(blog.get('body', '')))}</pre>
+  <h3>네이버 블로그 · {escape(str(blog.get('title', '')))}</h3>
+  <button type="button" class="secondary copy" data-copy="blog-{len(preview_cards)}">블로그 원고 복사</button>
+  <pre id="blog-{len(preview_cards)}">{escape(str(blog.get('body', '')))}</pre>
   <h3>유튜브 쇼츠 · {len(shorts)}편</h3>
-  {"".join(f'<div class="draft"><b>{escape(str(row.get("title", "")))}</b><pre>{escape(str(row.get("body", "")))}</pre></div>' for row in shorts)}
+  {"".join(f'<div class="draft"><b>{escape(str(row.get("title", "")))}</b><button type="button" class="secondary copy" data-copy="short-{len(preview_cards)}-{i}">쇼츠 대본 복사</button><pre id="short-{len(preview_cards)}-{i}">{escape(str(row.get("body", "")))}</pre></div>' for i, row in enumerate(shorts))}
   <h3>Threads · {len(threads)}편</h3>
-  {"".join(f'<div class="draft"><b>{escape(str(row.get("title", "")))}</b><pre>{escape(str(row.get("body", "")))}</pre></div>' for row in threads)}
+  {"".join(f'<div class="draft"><b>{escape(str(row.get("title", "")))}</b><button type="button" class="secondary copy" data-copy="thread-{len(preview_cards)}-{i}">Threads 글 복사</button><pre id="thread-{len(preview_cards)}-{i}">{escape(str(row.get("body", "")))}</pre></div>' for i, row in enumerate(threads))}
   <p class="meta">{" ".join(f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener">원문 출처</a>' for url in preview.get("source_urls", []))}</p>
 </section>""")
     generated = escape(str(report.get("researched_at", "아직 조사 전")))
@@ -291,6 +293,7 @@ button{{border:0;border-radius:9px;padding:11px 15px;background:var(--accent);co
 button.secondary{{background:#475569}}.error{{background:#fee;border:1px solid #d88;padding:12px;border-radius:10px}}
 .warning{{background:#fff4d9;padding:12px;border-radius:9px}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.7 inherit;background:#f7f8fb;padding:14px;border-radius:9px}}
 a{{color:#3157c8}}.draft{{border-top:1px solid var(--line);padding:10px 0}}
+.copy{{margin:6px 0}}.copy.done{{background:#16794b}}
 @media(max-width:560px){{h1{{font-size:22px}}.grid{{display:block}}}}
 </style></head><body><main>
 <header><h1>TAK AUTO · TREND CONTENT FACTORY</h1>
@@ -304,7 +307,28 @@ a{{color:#3157c8}}.draft{{border-top:1px solid var(--line);padding:10px 0}}
 <p class="meta">검색량 순위가 아니라 최신 근거·한국 독자 관련성·콘텐츠 설명 가치에 따른 편집 후보입니다.</p></section>
 <h2>발굴된 트렌드 {len(trends)}개</h2><div class="grid">{''.join(cards) or '<p>아직 조사 결과가 없습니다. 위 버튼으로 첫 조사를 실행하세요.</p>'}</div>
 <h2>생성한 콘텐츠 패키지 {len(previews)}개</h2>{''.join(preview_cards) or '<p>트렌드를 선택해 콘텐츠 패키지를 생성하세요.</p>'}
-</main></body></html>"""
+</main><script>
+document.addEventListener("click", async (event) => {{
+  const button = event.target.closest("button.copy");
+  if (!button) return;
+  const target = document.getElementById(button.dataset.copy);
+  if (!target) return;
+  const text = target.innerText;
+  try {{
+    await navigator.clipboard.writeText(text);
+    button.textContent = "복사 완료";
+    button.classList.add("done");
+  }} catch (_) {{
+    const area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    const copied = document.execCommand("copy");
+    area.remove();
+    button.textContent = copied ? "복사 완료" : "텍스트를 직접 선택하세요";
+  }}
+}});
+</script></body></html>"""
 
 
 def create_handler():
