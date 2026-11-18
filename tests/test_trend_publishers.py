@@ -411,7 +411,7 @@ class TrendPublisherTests(unittest.TestCase):
     def test_tiktok_direct_post_chunks_large_files_sequentially(self):
         video = self.data_dir / "large-tiktok.mp4"
         with video.open("wb") as handle:
-            handle.seek(10 * 1024 * 1024 - 1)
+            handle.seek(10 * 1024 * 1024)
             handle.write(b"x")
         uploads = []
         responses = iter([
@@ -428,8 +428,8 @@ class TrendPublisherTests(unittest.TestCase):
             result = client.publish_video(video_path=video, title="문안", privacy_level="SELF_ONLY")
         self.assertEqual(result.publish_id, "publish-3")
         self.assertEqual(uploads, [
-            (5 * 1024 * 1024, 0, 10 * 1024 * 1024),
-            (5 * 1024 * 1024, 5 * 1024 * 1024, 10 * 1024 * 1024),
+            (5 * 1024 * 1024, 0, 10 * 1024 * 1024 + 1),
+            (5 * 1024 * 1024 + 1, 5 * 1024 * 1024, 10 * 1024 * 1024 + 1),
         ])
 
     def test_tiktok_adapter_requires_video_publish_scope_and_explicit_privacy(self):
