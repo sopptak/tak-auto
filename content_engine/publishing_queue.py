@@ -265,6 +265,9 @@ class PublishingQueue:
                     "content_id": item["content_id"], "platform": item["platform"],
                     "remote_id": str(remote_id), "published_at": _iso(current),
                     "idempotency_key": key,
+                    "knowledge_id": str(item["payload"].get("_knowledge_id") or ""),
+                    "source_url": str(item["payload"].get("_source_url") or ""),
+                    "title": str(item["payload"].get("title") or item["payload"].get("keyword") or ""),
                 }
                 data["history"].append(record)
                 published_keys.add(key)
