@@ -8,6 +8,7 @@ from content_engine.publishing_queue import PermanentPublishError, PublishUncert
 from content_engine.threads_publisher import ThreadsAPIError
 from content_engine.youtube_publisher import YouTubeAPIError
 from content_engine.instagram_publisher import InstagramAPIError, InstagramClient
+from content_engine.tiktok_publisher import TikTokAPIError, TikTokClient, TikTokPublishRejectedError
 from content_engine.trend_publishers import publish
 
 
@@ -340,6 +341,124 @@ class TrendPublisherTests(unittest.TestCase):
         self.assertEqual(parse_qs(urlsplit(request.full_url).query)["fields"], ["status_code,status"])
         self.assertNotIn("never-put-token-in-url", request.full_url)
         self.assertEqual(request.get_header("Authorization"), "Bearer never-put-token-in-url")
+
+
+    def test_tiktok_direct_post_queries_creator_uploads_and_waits_for_publish(self):
+        video = self.data_dir / "approved-tiktok.mp4"
+        video.write_bytes(b"mp4-test-data")
+        calls = []
+        responses = iter([
+            {"data": {"privacy_level_options": ["SELF_ONLY", "PUBLIC_TO_EVERYONE"]}, "error": {"code": "ok"}},
+            {"data": {"publish_id": "publish-1", "upload_url": "https://open-upload.tiktokapis.com/video/?upload_id=1&upload_token=secret"}, "error": {"code": "ok"}},
+            {"data": {"status": "PROCESSING_UPLOAD"}, "error": {"code": "ok"}},
+            {"data": {"status": "PUBLISH_COMPLETE", "publicaly_available_post_id": ["post-1"]}, "error": {"code": "ok"}},
+        ])
+        uploads = []
+        def json_transport(method, url, *, access_token, body=None, timeout_seconds=30.0):
+            calls.append((method, url, body))
+            return next(responses)
+        def upload_transport(url, chunk, *, start, total, timeout_seconds=60.0):
+            uploads.append((url, chunk, start, total))
+            return 201
+        client = TikTokClient(access_token="test-token", open_id="open-id-1",
+                              json_transport=json_transport, upload_transport=upload_transport,
+                              sleep=lambda seconds: None)
+        result = client.publish_video(video_path=video, title="승인된 TikTok 문안",
+                                      privacy_level="SELF_ONLY", is_aigc=True)
+        self.assertEqual(result.publish_id, "publish-1")
+        self.assertEqual(result.post_id, "post-1")
+        self.assertEqual([call[1].split("/v2/")[1] for call in calls], [
+            "post/publish/creator_info/query/", "post/publish/video/init/",
+            "post/publish/status/fetch/", "post/publish/status/fetch/",
+        ])
+        self.assertEqual(calls[1][2]["post_info"]["privacy_level"], "SELF_ONLY")
+        self.assertTrue(calls[1][2]["post_info"]["is_aigc"])
+        self.assertEqual(len(uploads), 1)
+        self.assertEqual(uploads[0][1], b"mp4-test-data")
+        self.assertEqual(uploads[0][2:], (0, len(b"mp4-test-data")))
+
+    def test_tiktok_direct_post_rejects_privacy_not_allowed_by_creator(self):
+        video = self.data_dir / "approved-tiktok.mp4"
+        video.write_bytes(b"mp4-test-data")
+        calls = []
+        def json_transport(method, url, *, access_token, body=None, timeout_seconds=30.0):
+            calls.append(url)
+            return {"data": {"privacy_level_options": ["SELF_ONLY"]}, "error": {"code": "ok"}}
+        client = TikTokClient(access_token="test-token", open_id="open-id-1", json_transport=json_transport)
+        with self.assertRaisesRegex(ValueError, "현재 계정에서 허용"):
+            client.publish_video(video_path=video, title="문안", privacy_level="PUBLIC_TO_EVERYONE")
+        self.assertEqual(len(calls), 1)
+
+    def test_tiktok_direct_post_failure_is_not_reported_as_success(self):
+        video = self.data_dir / "approved-tiktok.mp4"
+        video.write_bytes(b"mp4-test-data")
+        responses = iter([
+            {"data": {"privacy_level_options": ["SELF_ONLY"]}, "error": {"code": "ok"}},
+            {"data": {"publish_id": "publish-2", "upload_url": "https://open-upload.tiktokapis.com/video/?upload_id=2"}, "error": {"code": "ok"}},
+            {"data": {"status": "FAILED", "fail_reason": "file_format_check_failed"}, "error": {"code": "ok"}},
+        ])
+        client = TikTokClient(access_token="test-token", open_id="open-id-1",
+                              json_transport=lambda *args, **kwargs: next(responses),
+                              upload_transport=lambda *args, **kwargs: 201, sleep=lambda seconds: None)
+        with self.assertRaises(TikTokPublishRejectedError):
+            client.publish_video(video_path=video, title="문안", privacy_level="SELF_ONLY")
+
+    def test_tiktok_direct_post_chunks_large_files_sequentially(self):
+        video = self.data_dir / "large-tiktok.mp4"
+        with video.open("wb") as handle:
+            handle.seek(10 * 1024 * 1024 - 1)
+            handle.write(b"x")
+        uploads = []
+        responses = iter([
+            {"data": {"privacy_level_options": ["SELF_ONLY"]}, "error": {"code": "ok"}},
+            {"data": {"publish_id": "publish-3", "upload_url": "https://open-upload.tiktokapis.com/video/?upload_id=3"}, "error": {"code": "ok"}},
+            {"data": {"status": "PUBLISH_COMPLETE", "publicaly_available_post_id": []}, "error": {"code": "ok"}},
+        ])
+        client = TikTokClient(access_token="test-token", open_id="open-id-1",
+                              json_transport=lambda *args, **kwargs: next(responses),
+                              upload_transport=lambda url, chunk, *, start, total, timeout_seconds=60.0:
+                                  (uploads.append((len(chunk), start, total)) or 201),
+                              sleep=lambda seconds: None)
+        with patch("content_engine.tiktok_publisher.MAX_CHUNK_BYTES", 6 * 1024 * 1024):
+            result = client.publish_video(video_path=video, title="문안", privacy_level="SELF_ONLY")
+        self.assertEqual(result.publish_id, "publish-3")
+        self.assertEqual(uploads, [
+            (5 * 1024 * 1024, 0, 10 * 1024 * 1024),
+            (5 * 1024 * 1024, 5 * 1024 * 1024, 10 * 1024 * 1024),
+        ])
+
+    def test_tiktok_adapter_requires_video_publish_scope_and_explicit_privacy(self):
+        with patch.dict("os.environ", {"TAK_AUTO_DATA_DIR": str(self.data_dir),
+                                      "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key"}, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type:
+            vault_type.return_value.get.return_value = {
+                "access_token": "tiktok-token", "account_id": "open-id-1",
+                "granted_scopes": "user.info.basic",
+            }
+            with self.assertRaisesRegex(PermanentPublishError, "공개 범위"):
+                publish("tiktok", {"video_path": "not-needed.mp4", "title": "문안"}, "tt-key")
+            with self.assertRaisesRegex(PermanentPublishError, "Direct Post 게시 권한"):
+                publish("tiktok", {"video_path": "not-needed.mp4", "title": "문안",
+                                   "privacy_level": "SELF_ONLY"}, "tt-key")
+
+    def test_tiktok_adapter_uses_encrypted_token_and_marks_ambiguous_api_failure(self):
+        video = self.data_dir / "approved-tiktok.mp4"
+        video.write_bytes(b"mp4-test-data")
+        with patch.dict("os.environ", {"TAK_AUTO_DATA_DIR": str(self.data_dir),
+                                      "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key"}, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, patch("content_engine.trend_publishers.TikTokClient") as client_type:
+            vault_type.return_value.get.return_value = {
+                "access_token": "private-tiktok-token", "account_id": "open-id-1",
+                "granted_scopes": "user.info.basic,video.publish",
+                "expires_at": "2099-01-01T00:00:00+00:00",
+            }
+            client_type.return_value.publish_video.side_effect = TikTokAPIError("connection lost")
+            with self.assertRaises(PublishUncertainError):
+                publish("tiktok", {"video_path": str(video), "title": "승인된 문안",
+                                   "privacy_level": "SELF_ONLY", "is_aigc": True}, "tt-key")
+        client_type.assert_called_once_with(access_token="private-tiktok-token", open_id="open-id-1")
+        client_type.return_value.publish_video.assert_called_once_with(
+            video_path=video, title="승인된 문안", privacy_level="SELF_ONLY",
+            disable_comment=False, disable_duet=False, disable_stitch=False, is_aigc=True,
+        )
 
 
 if __name__ == "__main__":
