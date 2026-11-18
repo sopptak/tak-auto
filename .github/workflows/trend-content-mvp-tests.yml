@@ -22,6 +22,7 @@ on:
       - "content_engine/instagram_publisher.py"
       - "content_engine/media_assets.py"
       - "tests/test_media_assets.py"
+      - "tests/test_media_asset_routes.py"
       - "content_engine/trend_publishers.py"
       - "tests/test_trend_publishers.py"
       - "content_engine/youtube_publisher.py"
@@ -54,6 +55,7 @@ on:
       - "content_engine/instagram_publisher.py"
       - "content_engine/media_assets.py"
       - "tests/test_media_assets.py"
+      - "tests/test_media_asset_routes.py"
       - "content_engine/trend_publishers.py"
       - "tests/test_trend_publishers.py"
       - "content_engine/youtube_publisher.py"
@@ -84,6 +86,7 @@ jobs:
           python -m unittest discover -s tests -p "test_trend_publishers.py" -v
           python -m unittest discover -s tests -p "test_trend_content_queue_routes.py" -v
           python -m unittest discover -s tests -p "test_media_assets.py" -v
+          python -m unittest discover -s tests -p "test_media_asset_routes.py" -v
           python -m unittest discover -s tests -p "test_youtube_performance_client.py" -v
           python -m unittest discover -s tests -p "test_perplexity_research.py" -v
           python -m unittest discover -s tests -p "test_trend_discovery.py" -v
