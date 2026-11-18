@@ -2,9 +2,9 @@
 
 TAK AUTO의 **게시 계정 연결 현황**에서 YouTube, TikTok, Instagram, Facebook 페이지, Threads, 네이버 계정을 OAuth로 연결할 수 있습니다. 이 흐름은 계정 프로필을 확인하고 인증 정보를 암호화해 보관합니다. 계정을 연결해도 게시나 예약 게시가 시작되지는 않습니다.
 
-웹 로그인은 계정 연결 상태를 확인합니다. Threads는 `threads_content_publish`, Instagram은 `instagram_business_content_publish` 권한을 함께 요청합니다. 연결 자체로 게시되지는 않습니다. 게시물은 운영자 승인 대기열을 통과해야 하며 전역 게시 스위치는 기본적으로 꺼져 있습니다.
+웹 로그인은 계정 연결 상태를 확인합니다. Threads는 `threads_content_publish`, Instagram은 `instagram_business_content_publishing`, Facebook은 `pages_show_list`, `pages_read_engagement`, `pages_manage_posts` 권한을 요청합니다. 연결 자체로 게시되지는 않습니다. 게시물은 운영자 승인 대기열을 통과해야 하며 전역 게시 스위치는 기본적으로 꺼져 있습니다.
 
-암호화 저장소에 Threads 웹 연결 기록이 있으면 게시 어댑터는 그 토큰을 사용하며 `threads_content_publish` 권한이 확인되지 않으면 게시를 거부합니다. Threads 연결 기록이 없을 때만 기존 `THREADS_ACCESS_TOKEN` 설정을 사용할 수 있습니다. YouTube Shorts와 Instagram Reels는 승인 대기열 게시 어댑터가 구현되어 있지만, 실제 계정 인증·영상 준비·운영 검증은 별도입니다. Facebook과 네이버 블로그 자동 게시 어댑터는 아직 준비 중입니다. TikTok Direct Post는 `video.publish` 승인 및 계정 연결이 완료된 경우에만 사용할 수 있습니다.
+암호화 저장소에 Threads 웹 연결 기록이 있으면 게시 어댑터는 그 토큰을 사용하며 `threads_content_publish` 권한이 확인되지 않으면 게시를 거부합니다. Threads 연결 기록이 없을 때만 기존 `THREADS_ACCESS_TOKEN` 설정을 사용할 수 있습니다. YouTube Shorts와 Instagram Reels는 승인 대기열 게시 어댑터가 구현되어 있지만, 실제 계정 인증·영상 준비·운영 검증은 별도입니다. Facebook 페이지 텍스트 게시 어댑터도 구현되어 있습니다. 선택한 페이지의 Page access token을 사용하며 게시 요청은 `/PAGE_ID/feed`에 전달됩니다. 네이버 블로그 자동 게시 어댑터는 지원하지 않습니다. TikTok Direct Post는 `video.publish` 승인 및 계정 연결이 완료된 경우에만 사용할 수 있습니다.
 
 ## 1. Render 보안 설정
 
@@ -84,3 +84,19 @@ TikTok Direct Post는 승인된 MP4를 TikTok 서버로 직접 전송합니다. 
 - API 응답이 유실되거나 최종 상태를 확인할 수 없으면 중복 게시 방지를 위해 운영자 확인 상태로 전환
 
 TikTok Direct Post 앱 심사를 통과하지 않은 클라이언트는 게시물이 비공개로 제한될 수 있습니다. 따라서 앱 심사 전에는 공개 게시를 보장하지 않습니다. Content Posting API 앱 제품 설정, `video.publish` 승인, 계정 동의가 완료된 후 실제 계정으로 검증해야 합니다.
+
+## 6. Facebook 페이지 텍스트 게시
+
+Facebook OAuth를 다시 연결해 아래 권한을 승인해야 페이지 게시 메뉴가 활성화됩니다.
+
+- `pages_show_list`: 관리 가능한 페이지 목록 확인
+- `pages_read_engagement`: 페이지 및 게시 권한 확인에 필요한 권한
+- `pages_manage_posts`: 페이지 이름으로 게시물 작성
+- 연결 마지막 단계에서 실제 게시할 Facebook 페이지를 선택합니다. 선택된 페이지의 Page access token과 페이지 ID가 암호화 저장소에 보관됩니다.
+- 게시 권한이 있는 페이지에서 `CREATE_CONTENT` 작업 권한을 가진 계정이어야 합니다.
+- 현재 자동 게시 어댑터는 텍스트 게시만 지원합니다. 사진·영상·릴스는 Facebook 게시 어댑터 범위에 포함되지 않습니다.
+- 게시 예약은 콘텐츠 승인 대기열을 사용합니다. 전역 게시 스위치가 켜져 있고 운영자 승인 조건이 충족되기 전에는 외부 페이지에 게시되지 않습니다.
+- 게시 응답이 유실되면 중복 게시 방지를 위해 자동 재시도하지 않고 운영자 확인 상태로 전환합니다.
+
+Meta 공식 요구사항은 Page access token, `pages_manage_posts`, `pages_read_engagement`, `pages_show_list` 및 해당 페이지의 `CREATE_CONTENT` 작업 권한입니다.
+
