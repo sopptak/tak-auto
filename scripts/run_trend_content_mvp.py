@@ -742,7 +742,7 @@ def _editorial_target(recommendation: dict) -> tuple[str, str] | None:
         return "blog.meta_description", "blog"
     if area == "쇼츠 후킹":
         return "shorts.0.hook", "shorts"
-    if area in {"Threads", "Threads 1"}:
+    if area == "Threads 1":
         return "threads.0.body", "threads"
     if area == "Threads 2":
         return "threads.1.body", "threads"
