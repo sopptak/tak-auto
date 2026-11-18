@@ -123,22 +123,15 @@ def verify_publishing_connection(platform: str, environ: Mapping[str, str] | Non
         profile = client.get_profile()
         return {"account_id": profile.id, "account_name": profile.username}
     if platform == "youtube_shorts":
-        connection = _oauth_connection(platform, values)
-        if connection:
-            scopes = {
-                scope for scope in str(connection.get("granted_scopes", "")).replace(",", " ").split() if scope
-            }
-            required_scope = "https://www.googleapis.com/auth/youtube.readonly"
-            if required_scope not in scopes:
-                raise ValueError("YouTube 채널 확인 권한(youtube.readonly)이 없습니다. 계정을 다시 연결하세요.")
-            refresh_token = str(connection.get("refresh_token", "")).strip()
-            client_id = str(values.get("YOUTUBE_OAUTH_CLIENT_ID") or values.get("YOUTUBE_CLIENT_ID") or "").strip()
-            client_secret = str(values.get("YOUTUBE_OAUTH_CLIENT_SECRET") or values.get("YOUTUBE_CLIENT_SECRET") or "").strip()
-            if not refresh_token or not client_id or not client_secret:
-                raise ValueError("YouTube OAuth 연결 또는 클라이언트 설정이 부족합니다. 계정을 다시 연결하세요.")
-            client = YouTubeClient(client_id=client_id, client_secret=client_secret, refresh_token=refresh_token)
-        else:
-            client = YouTubeClient.from_environment(values)
+        try:
+            client = YouTubeClient.from_environment_or_oauth(
+                values,
+                required_scope="https://www.googleapis.com/auth/youtube.readonly",
+            )
+        except Exception as error:
+            if isinstance(error, (ValueError, RuntimeError)):
+                raise
+            raise ValueError("YouTube 계정 연결을 확인하지 못했습니다.") from None
         profile = client.get_channel_profile()
         return {"account_id": profile.channel_id, "account_name": profile.title}
     raise ValueError("이 플랫폼의 API 계정 확인은 아직 지원하지 않습니다.")
