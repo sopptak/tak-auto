@@ -88,7 +88,7 @@ class SocialOAuthTests(unittest.TestCase):
                 self.assertEqual(params["redirect_uri"], [redirect])
                 self.assertIn(expected, params.get("scope", ["response_type"])[0])
                 if platform in publishing_scopes:
-                    if platform == "threads":
+                    if platform in {"threads", "instagram_reels"}:
                         self.assertIn(publishing_scopes[platform], params["scope"][0])
                     else:
                         self.assertNotIn(publishing_scopes[platform], params["scope"][0])
