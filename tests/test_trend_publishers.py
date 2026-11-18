@@ -323,13 +323,11 @@ class TrendPublisherTests(unittest.TestCase):
     def test_instagram_get_status_fields_are_query_parameters_and_token_stays_header(self):
         import json
         from urllib.parse import parse_qs, urlsplit
-        from unittest.mock import Mock, patch
+        from unittest.mock import MagicMock, patch
         from content_engine.instagram_publisher import _request_json
 
-        response = Mock()
+        response = MagicMock()
         response.read.return_value = json.dumps({"status_code": "FINISHED"}).encode("utf-8")
-        response.__enter__ = Mock(return_value=response)
-        response.__exit__ = Mock(return_value=False)
         with patch("content_engine.instagram_publisher.urlopen", return_value=response) as opener:
             result = _request_json(
                 "GET", "https://graph.instagram.com/v27.0/container-1",
