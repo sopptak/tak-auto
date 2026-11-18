@@ -293,7 +293,10 @@ class EditorHttpTests(StudioCase):
         self.addCleanup(lambda: (self.server.shutdown(), self.server.server_close(), thread.join(5)))
 
     def req(self, path: str, data: bytes | None = None, headers: dict | None = None) -> tuple[int, str, bytes, dict]:
-        request = urllib.request.Request(f"http://127.0.0.1:{self.server.server_address[1]}{path}", data=data, headers=headers or {})
+        request_headers = dict(headers or {})
+        if data is not None:
+            request_headers["Origin"] = f"http://127.0.0.1:{self.server.server_address[1]}"
+        request = urllib.request.Request(f"http://127.0.0.1:{self.server.server_address[1]}{path}", data=data, headers=request_headers)
         try:
             with urllib.request.urlopen(request, timeout=180) as resp:
                 return resp.status, resp.geturl(), resp.read(), dict(resp.headers)
