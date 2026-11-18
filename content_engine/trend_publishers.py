@@ -70,38 +70,11 @@ def _threads_client() -> ThreadsClient:
 
 
 def _youtube_client_for_publishing() -> YouTubeClient:
-    """Prefer the encrypted web OAuth connection; retain legacy env compatibility."""
-    encryption_key = os.getenv("TAK_AUTO_OAUTH_ENCRYPTION_KEY", "").strip()
-    if encryption_key:
-        try:
-            vault = OAuthTokenVault(
-                Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))) / "social_oauth_tokens.enc",
-                encryption_key,
-            )
-            connection = vault.get("youtube_shorts")
-        except SocialOAuthError as error:
-            raise PermanentPublishError(str(error)) from error
-        if connection is not None:
-            scopes = {
-                scope for scope in re.split(r"[,s]+", str(connection.get("granted_scopes", ""))) if scope
-            }
-            required_scope = "https://www.googleapis.com/auth/youtube.upload"
-            if required_scope not in scopes:
-                raise PermanentPublishError(
-                    "YouTube Shorts 업로드 권한(youtube.upload)이 없습니다. 계정을 다시 연결하고 업로드 권한에 동의하세요."
-                )
-            refresh_token = str(connection.get("refresh_token", "")).strip()
-            client_id = (os.getenv("YOUTUBE_OAUTH_CLIENT_ID") or os.getenv("YOUTUBE_CLIENT_ID", "")).strip()
-            client_secret = (os.getenv("YOUTUBE_OAUTH_CLIENT_SECRET") or os.getenv("YOUTUBE_CLIENT_SECRET", "")).strip()
-            if not refresh_token or not client_id or not client_secret:
-                raise PermanentPublishError(
-                    "YouTube OAuth refresh token 또는 웹 앱 클라이언트 설정이 부족합니다. 계정을 다시 연결하세요."
-                )
-            return YouTubeClient(
-                client_id=client_id, client_secret=client_secret, refresh_token=refresh_token,
-            )
+    """Resolve a YouTube client with the approved Shorts upload scope."""
     try:
-        return YouTubeClient.from_environment()
+        return YouTubeClient.from_environment_or_oauth(
+            required_scope="https://www.googleapis.com/auth/youtube.upload",
+        )
     except YouTubeConfigurationError as error:
         raise PermanentPublishError(str(error)) from error
 
