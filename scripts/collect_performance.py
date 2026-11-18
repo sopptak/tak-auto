@@ -60,6 +60,7 @@ from content_engine.performance.store import append_snapshot, load_snapshots
 from content_engine.performance.threads import collect_threads_performance
 from content_engine.performance.youtube import collect_youtube_performance
 from content_engine.publish_history import PublishHistory
+from content_engine.publishing_queue import PublishingQueue
 from content_engine.threads_publisher import ThreadsAPIError, ThreadsConfigurationError, ThreadsClient
 from content_engine.threads_review import load_pending
 from content_engine.youtube_publisher import YouTubeConfigurationError, YouTubeClient
@@ -89,6 +90,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="publish history에서 lineage가 확인된 Threads 게시물의 due 24h/72h snapshot을 수집합니다.",
     )
     parser.add_argument("--platform", choices=("threads", "youtube", "blog"))
+    parser.add_argument(
+        "--queue-content-id",
+        help="TAK AUTO 게시 대기열의 content_id로 발행 이력을 찾아 성과 수집 대상을 자동 지정합니다.",
+    )
+    parser.add_argument(
+        "--queue-history",
+        type=Path,
+        default=Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))) / "tak_auto_publishing_queue.json",
+        help="게시 대기열 경로 (--queue-content-id 사용 시)",
+    )
     parser.add_argument("--content-id", help="archive/발행 이력의 content_id")
     parser.add_argument("--knowledge-id", help="원본 KNOWLEDGE ID")
     parser.add_argument("--published-at", help="원본 발행 시각(ISO 8601)")
@@ -268,9 +279,59 @@ def _run_scheduled(args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def _resolve_queue_history_target(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    """Populate platform/content lineage from one confirmed published queue record."""
+    if not args.queue_content_id:
+        return
+    if args.scheduled:
+        parser.error("--queue-content-id는 --scheduled와 함께 사용할 수 없습니다.")
+    if any((args.platform, args.content_id, args.knowledge_id, args.published_at, args.external_id, args.title, args.metrics)):
+        parser.error("--queue-content-id 사용 시 개별 콘텐츠 입력 옵션은 지정하지 마세요.")
+    try:
+        history = PublishingQueue(args.queue_history).snapshot().get("history", [])
+    except (OSError, ValueError) as error:
+        parser.error(f"게시 대기열 이력을 읽을 수 없습니다: {error}")
+    matches = [
+        row for row in history
+        if isinstance(row, dict) and row.get("content_id") == args.queue_content_id
+    ]
+    if len(matches) != 1:
+        parser.error(
+            f"게시 대기열에서 content_id={args.queue_content_id!r} 이력이 "
+            f"정확히 1건이어야 합니다(현재 {len(matches)}건)."
+        )
+    row = matches[0]
+    platform_map = {"threads": "threads", "youtube_shorts": "youtube"}
+    platform = platform_map.get(str(row.get("platform") or ""))
+    if platform is None:
+        parser.error(
+            f"플랫폼 {row.get('platform')!r}은 아직 성과 API 수집 대상이 아닙니다. "
+            "현재 자동 연결은 Threads와 YouTube Shorts만 지원합니다."
+        )
+    required = {
+        "content_id": str(row.get("content_id") or ""),
+        "knowledge_id": str(row.get("knowledge_id") or ""),
+        "published_at": str(row.get("published_at") or ""),
+        "external_id": str(row.get("remote_id") or ""),
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        parser.error(
+            "게시 이력에 성과 추적 필수 정보가 없습니다: " + ", ".join(missing)
+            + ". 게시 당시의 KNOWLEDGE 연결과 원격 게시 ID를 확인하세요."
+        )
+    args.platform = platform
+    args.content_id = required["content_id"]
+    args.knowledge_id = required["knowledge_id"]
+    args.published_at = required["published_at"]
+    args.external_id = required["external_id"]
+    args.title = str(row.get("title") or "")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
+    _resolve_queue_history_target(args, parser)
 
     if args.scheduled:
         if any(
