@@ -52,12 +52,12 @@ class PublishingConnectionTests(unittest.TestCase):
             row["key"]: row for row in publishing_connection_statuses(
                 {}, now=self.now,
                 oauth_connections={"facebook": {
-                    "account_id": "123", "account_name": "TAK AUTO 페이지",
+                    "account_id": "123", "account_name": "TAK AUTO 페이지", "tasks": "CREATE_CONTENT",
                     "granted_scopes": "pages_show_list,pages_read_engagement,pages_manage_posts",
                 }},
             )
         }
-        self.assertIn("게시 권한이 연결", rows["facebook"]["publish_note"])
+        self.assertIn("게시 권한과 CREATE_CONTENT 또는 MANAGE 작업 권한이 확인", rows["facebook"]["publish_note"])
 
     def test_configured_credentials_show_account_and_expiry_without_secret(self):
         token = "private-token-value"
@@ -162,7 +162,7 @@ class PublishingConnectionTests(unittest.TestCase):
         self.assertIn("게시 어댑터:", html)
         self.assertIn("미설정", html)
         self.assertIn("자동 게시를 지원하지 않습니다", html)
-        self.assertIn("웹 로그인은 계정 확인용", html)
+        self.assertIn("서비스 아이콘을 누르면 해당 SNS 로그인 페이지가 새 탭으로 열립니다", html)
         self.assertIn("Threads 게시 권한은 승인된 대기열에서만 사용합니다", html)
         self.assertIn("게시 기능은 기본 비활성화입니다", html)
         self.assertNotIn('TIKTOK_ACCESS_TOKEN</p>', html)
