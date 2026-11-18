@@ -279,7 +279,7 @@ def _health_payload(environ=None) -> dict[str, object]:
         "publisher_adapter_configured": publisher_configured,
         "storage_persistent": not USING_EPHEMERAL_STORAGE,
         "storage_mode": "persistent_disk" if not USING_EPHEMERAL_STORAGE else "ephemeral_fallback",
-        "ready": perplexity_ready and auth_ready, "revision": revision,
+        "ready": perplexity_ready and auth_ready and not USING_EPHEMERAL_STORAGE and (not publishing_enabled or publisher_configured), "revision": revision,
     }
 
 
