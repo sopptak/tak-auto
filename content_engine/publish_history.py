@@ -113,37 +113,37 @@ class PublishHistory:
             self._append_locked(record)
 
     def _append_locked(self, record: PublishRecord) -> None:
-            """Append history with a durable atomic replacement."""
-            records = self.load()
-            records.append(record.to_dict())
-            self.path.parent.mkdir(parents=True, exist_ok=True)
+        """Append history with a durable atomic replacement."""
+        records = self.load()
+        records.append(record.to_dict())
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w", encoding="utf-8", dir=self.path.parent, delete=False
+            ) as handle:
+                temporary_path = Path(handle.name)
+                json.dump(records, handle, ensure_ascii=False, indent=2)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            try:
+                os.chmod(temporary_path, 0o600)
+            except OSError:
+                pass
+            os.replace(temporary_path, self.path)
             temporary_path = None
             try:
-                with tempfile.NamedTemporaryFile(
-                    "w", encoding="utf-8", dir=self.path.parent, delete=False
-                ) as handle:
-                    temporary_path = Path(handle.name)
-                    json.dump(records, handle, ensure_ascii=False, indent=2)
-                    handle.write("\n")
-                    handle.flush()
-                    os.fsync(handle.fileno())
+                directory_fd = os.open(self.path.parent, os.O_RDONLY)
                 try:
-                    os.chmod(temporary_path, 0o600)
-                except OSError:
-                    pass
-                os.replace(temporary_path, self.path)
-                temporary_path = None
-                try:
-                    directory_fd = os.open(self.path.parent, os.O_RDONLY)
-                    try:
-                        os.fsync(directory_fd)
-                    finally:
-                        os.close(directory_fd)
-                except OSError:
-                    pass
-            finally:
-                if temporary_path is not None:
-                    temporary_path.unlink(missing_ok=True)
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+            except OSError:
+                pass
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
     
 
 def _used_knowledge_ids(history: PublishHistory) -> set[str]:
