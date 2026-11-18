@@ -169,6 +169,38 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertIn("사실 근거가 아니라 형식·후킹·구성의 참고자료", prompt)
         self.assertIn("accepted-1", prompt)
 
+    def test_source_integrity_accepts_valid_linked_source_and_generated_citation(self):
+        report = run_trend_content_mvp._evaluate_source_integrity(
+            {"source_urls": ["https://example.test/article"]},
+            {}, ["https://example.test/article"],
+        )
+        self.assertEqual(report["status"], "URL 형식·연결 확인")
+        self.assertEqual(report["source_count"], 1)
+        self.assertEqual(report["warnings"], [])
+        self.assertIn("원문 접속", report["scope_note"])
+
+    def test_source_integrity_flags_missing_sources(self):
+        report = run_trend_content_mvp._evaluate_source_integrity({}, {}, [])
+        self.assertEqual(report["status"], "검토 필요")
+        self.assertIn("연결된 유효 출처 URL이 없습니다.", report["warnings"])
+
+    def test_source_integrity_flags_malformed_and_duplicate_source_urls(self):
+        report = run_trend_content_mvp._evaluate_source_integrity(
+            {"source_urls": ["ftp://example.test/file", "https://example.test/a#one", "https://example.test/a#two"]},
+            {},
+        )
+        self.assertTrue(report["malformed_urls"])
+        self.assertTrue(report["duplicate_urls"])
+        self.assertEqual(report["status"], "검토 필요")
+
+    def test_source_integrity_flags_generated_citation_not_in_research_sources(self):
+        report = run_trend_content_mvp._evaluate_source_integrity(
+            {"source_urls": ["https://example.test/research"]},
+            {}, ["https://other.test/unlinked"],
+        )
+        self.assertEqual(report["unlinked_citations"], ["https://other.test/unlinked"])
+        self.assertTrue(any("출처 목록에 없는" in warning for warning in report["warnings"]))
+
     def test_editorial_quality_check_scores_structure_without_claiming_fact_verification(self):
         package = self._valid_package()
         package["blog"]["title"] = "테스트 키워드 검색과 활용 방법"
