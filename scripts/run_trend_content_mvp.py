@@ -720,8 +720,8 @@ def _build_editorial_recommendations(quality_report: dict, claim_coverage: dict)
     return proposals[:40]
 
 
-def _editorial_recommendation_key(recommendation: dict) -> str:
-    canonical = json.dumps(recommendation, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+def _editorial_recommendation_key(recommendation: dict, knowledge_id: str = "") -> str:
+    canonical = json.dumps({"knowledge_id": knowledge_id, "recommendation": recommendation}, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 def _editorial_target(recommendation: dict) -> tuple[str, str] | None:
     """Map a revision proposal to one editable preview field; never guess a platform."""
@@ -1210,9 +1210,8 @@ def _page(
             if target_info:
                 action = (
                     f'<form method="post" action="/editorial/revise"><input type="hidden" name="preview_index" value="{preview_index}">'
-                    f'<input type="hidden" name="recommendation_index" value="{recommendation_index}"><button type="submit" class="secondary">이 항목 수정 문구 만들기</button></form>'
-                    f'<input type="hidden" name="knowledge_id" value="{escape(str(preview.get(\"knowledge_id\", \"\")), quote=True)}">>'
-                    f'<input type="hidden" name="recommendation_key" value="{_editorial_recommendation_key(row)}"><button type="submit" class="secondary">이 항목 수정 문구 만들기</button></form>'
+                    f'<input type="hidden" name="recommendation_index" value="{recommendation_index}">'>
+                    f'<input type="hidden" name="recommendation_key" value="{_editorial_recommendation_key(row, str(preview.get("knowledge_id") or ""))}"><button type="submit" class="secondary">이 항목 수정 문구 만들기</button></form>'
                 )
             else:
                 action = '<p class="meta">이 항목은 현재 자동 수정 대상이 아닙니다. 안내에 따라 직접 점검하세요.</p>'
@@ -1745,18 +1744,13 @@ def create_handler():
                     if preview_index < 0 or preview_index >= len(previews):
                         raise ValueError("수정할 콘텐츠 미리보기를 찾을 수 없습니다.")
                     preview = previews[preview_index]
-                    supplied_knowledge_id = form.get("knowledge_id", [""])[0]
-                    if not supplied_knowledge_id or not hmac.compare_digest(
-                        supplied_knowledge_id, str(preview.get("knowledge_id") or ""),
-                    ):
-                        raise ValueError("미리보기가 갱신되었습니다. 최신 화면에서 다시 선택하세요.")
                     recommendations = preview.get("editorial_recommendations") or []
                     if recommendation_index < 0 or recommendation_index >= len(recommendations):
                         raise ValueError("수정 제안을 찾을 수 없습니다.")
                     recommendation = recommendations[recommendation_index]
                     supplied_key = form.get("recommendation_key", [""])[0]
                     if not supplied_key or not hmac.compare_digest(
-                        supplied_key, _editorial_recommendation_key(recommendation),
+                        supplied_key, _editorial_recommendation_key(recommendation, str(preview.get("knowledge_id") or "")),
                     ):
                         raise ValueError("수정 제안 목록이 갱신되었습니다. 최신 화면에서 다시 선택하세요.")
                     target_info = _editorial_target(recommendation)
