@@ -9,8 +9,8 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - PR: https://github.com/sopptak/tak-auto/pull/3
 - PR 상태: Open / Draft / 미병합
 - PR base: `feature/perplexity-research-provider`
-- PR head 확인 시점 SHA: `e5c1ffb7d0ca346e596c77c1aca6b3df65e79a41`
-- PR 변경 규모: 58 files, +9,297 / -193, 399 commits
+- PR head 확인 시점 SHA: `806d3c67f50df45c0047d8bb46a494456a431810`
+- PR 변경 규모: 64 files, +9,567 / -206 (최신 GitHub PR API 기준)
 - GitHub 연결 권한: 저장소 push 권한 확인됨
 - 주의: 작업 전 반드시 PR head SHA를 다시 조회하고, 이후 커밋이 생겼는지 확인한다. PR을 임의 병합하거나 base를 변경하지 않는다.
 
@@ -73,3 +73,15 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 
 ## 최신 재개 지시 추가
 최신 브랜치 head는 인수인계 파일 자체가 갱신될 수 있으므로, 재개 시 PR #3의 head SHA를 다시 확인한다. 최신 head에서 GitHub Actions가 자동 시작되지 않으면 저장소 Actions 화면에서 최신 브랜치의 워크플로를 수동 실행하거나, 적절한 권한으로 재실행할 수 있는 절차를 확인한다. 이전 SHA에서 성공한 테스트를 최신 SHA의 통과 결과로 대체하지 않는다.
+
+
+## 2026-11-19 추가 OAuth 점검 및 수정
+- Meta 공식 Business Login 문서를 확인한 결과 Instagram Login의 현재 게시 권한은 `instagram_business_content_publish`이며, 기존 코드/설정 문서의 `instagram_business_content_publishing`은 구식 scope 값이었다. 공식 문서: https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/business-login
+- Meta 공식 토큰 교환 예시는 응답을 `data` 배열 안에 반환한다. 기존 코드는 최상위 `access_token`만 읽어 Instagram OAuth 연결이 실패할 수 있었다.
+- `content_engine/social_oauth.py`에서 최신 scope로 수정하고 `data` 배열의 단일 토큰 envelope를 처리하도록 보완했다. 여러 계정/토큰이 섞인 모호한 응답은 안전하게 거부한다. 토큰의 `permissions` 필드를 승인 scope로 보존한다.
+- `tests/test_social_oauth.py`는 Meta 문서의 `data` 배열 응답, 권한 보존, 복수 envelope 거부를 검증하도록 갱신했다.
+- `docs/social_account_oauth_setup.md`도 최신 권한명과 응답 형식에 맞춰 수정했다.
+- 코드/테스트/문서 수정 커밋: `5b1183131af3ff08d46cc4c4f9df4794aa3d0abf`, `b5cbaf09b6614bb010b161a58df4d12ef5bbbade`, `4fddc5d7d175d47b87ab43d847c4a49f6a77a4f1`, `806d3c67f50df45c0047d8bb46a494456a431810`.
+- `e848e54a21584cea128ba1ed356eb0567d548f7c`에서는 TAK SCOUT tests, TAK AUTO trend content MVP tests, Python 전체 tests가 모두 성공으로 완료된 것을 확인했다. 단, 이 성공은 Instagram OAuth 수정 이전 SHA에 대한 결과다.
+- 최신 head `806d3c67f50df45c0047d8bb46a494456a431810`에 대한 새 Actions run은 조회되지 않았다. GitHub App 기반 커밋 이후 워크플로가 자동 트리거되지 않은 상태이므로, 새 OAuth 테스트의 실행/통과는 아직 미검증이다. 이전 SHA 테스트 성공을 최신 SHA 테스트 성공으로 보고하지 않는다.
+- PR #3은 계속 Draft / Open / 미병합이며 base 변경, 병합, 배포, 실제 SNS 계정 연결은 하지 않았다.
