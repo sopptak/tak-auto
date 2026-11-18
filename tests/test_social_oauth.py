@@ -122,6 +122,26 @@ class SocialOAuthTests(unittest.TestCase):
             self.assertTrue(vault.disconnect("threads"))
             self.assertEqual(vault.public_connections(), {})
 
+    def test_vault_preserves_youtube_refresh_token_when_reauthorization_omits_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "tokens.enc"
+            vault = OAuthTokenVault(path, self.key)
+            vault.save("youtube_shorts", {
+                "access_token": "first-access", "refresh_token": "long-lived-refresh",
+            }, {"account_id": "channel-123", "account_name": "TAK AUTO"},
+                scopes="https://www.googleapis.com/auth/youtube.readonly")
+            vault.save("youtube_shorts", {"access_token": "new-access"},
+                {"account_id": "channel-123", "account_name": "TAK AUTO"},
+                scopes="https://www.googleapis.com/auth/youtube.readonly")
+            self.assertEqual(vault.get("youtube_shorts")["refresh_token"], "long-lived-refresh")
+
+    def test_vault_rejects_first_youtube_connection_without_refresh_token(self):
+        with tempfile.TemporaryDirectory() as directory:
+            vault = OAuthTokenVault(Path(directory) / "tokens.enc", self.key)
+            with self.assertRaisesRegex(SocialOAuthError, "refresh token"):
+                vault.save("youtube_shorts", {"access_token": "access-only"},
+                    {"account_id": "channel-123", "account_name": "TAK AUTO"},
+                    scopes="https://www.googleapis.com/auth/youtube.readonly")
     def test_vault_persists_facebook_page_tasks_without_exposing_page_token(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "tokens.enc"
