@@ -72,30 +72,23 @@ class TrendPublisherTests(unittest.TestCase):
         video.write_bytes(b"test-video")
         youtube = Mock()
         youtube.upload_short.return_value = SimpleNamespace(video_id="oauth-youtube-video")
-        connection = {
-            "refresh_token": "encrypted-vault-refresh",
-            "granted_scopes": "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload",
-        }
         with patch.dict("os.environ", {
             "TAK_AUTO_DATA_DIR": str(self.data_dir),
             "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "vault-key",
             "YOUTUBE_OAUTH_CLIENT_ID": "web-client-id",
             "YOUTUBE_OAUTH_CLIENT_SECRET": "web-client-secret",
         }, clear=True):
-            with patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type:
-                with patch(
-                    "content_engine.trend_publishers.YouTubeClient.from_environment_or_oauth",
-                    return_value=youtube,
-                ) as client_factory:
-                    vault_type.return_value.get.return_value = connection
-                    remote_id = publish("youtube_shorts", {
-                        "video_path": str(video), "title": "OAuth 승인 쇼츠",
-                    }, "youtube-oauth-key")
-                    client_factory.assert_called_once_with(
-                        required_scope="https://www.googleapis.com/auth/youtube.upload",
-                    )
+            with patch(
+                "content_engine.trend_publishers.YouTubeClient.from_environment_or_oauth",
+                return_value=youtube,
+            ) as client_factory:
+                remote_id = publish("youtube_shorts", {
+                    "video_path": str(video), "title": "OAuth 승인 쇼츠",
+                }, "youtube-oauth-key")
+                client_factory.assert_called_once_with(
+                    required_scope="https://www.googleapis.com/auth/youtube.upload",
+                )
         self.assertEqual(remote_id, "oauth-youtube-video")
-        vault_type.return_value.get.assert_called_once_with("youtube_shorts")
         youtube.upload_short.assert_called_once()
 
     def test_youtube_shorts_oauth_connection_without_upload_scope_fails_closed(self):
@@ -105,7 +98,7 @@ class TrendPublisherTests(unittest.TestCase):
             "TAK_AUTO_DATA_DIR": str(self.data_dir),
             "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "vault-key",
         }, clear=True):
-            with patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type:
+            with patch("content_engine.social_oauth.OAuthTokenVault") as vault_type:
                 with patch("content_engine.trend_publishers.YouTubeClient.from_environment") as legacy_factory:
                     vault_type.return_value.get.return_value = {
                         "refresh_token": "refresh", "granted_scopes": "youtube.readonly",
