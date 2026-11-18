@@ -77,6 +77,14 @@ class TrendContentQueueRouteTests(unittest.TestCase):
                     resolved, is_fallback = run_trend_content_mvp._resolve_writable_data_dir(configured)
         self.assertTrue(is_fallback)
         self.assertEqual(resolved, fallback_root / "tak-auto-data")
+        same_as_fallback = fallback_root / "tak-auto-data"
+        with patch.dict(os.environ, {"RENDER_SERVICE_ID": "srv-test"}, clear=False):
+            with patch.object(run_trend_content_mvp.tempfile, "gettempdir", return_value=str(fallback_root)):
+                with patch("scripts.run_trend_content_mvp.os.path.ismount", return_value=False):
+                    resolved_same, same_is_fallback = run_trend_content_mvp._resolve_writable_data_dir(same_as_fallback)
+        self.assertTrue(same_is_fallback)
+        self.assertEqual(resolved_same, same_as_fallback)
+
 
         with patch.dict(os.environ, {"RENDER_SERVICE_ID": "srv-test"}, clear=False):
             with patch("scripts.run_trend_content_mvp.os.path.ismount", return_value=True):
