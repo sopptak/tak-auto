@@ -19,6 +19,7 @@ from pathlib import Path
 import secrets
 import sys
 import tempfile
+import threading
 from urllib.parse import parse_qs, urlparse, unquote
 from zoneinfo import ZoneInfo
 
@@ -45,6 +46,7 @@ from tak_scout.perplexity_research import PerplexityResearchProvider
 from tak_scout.trend_discovery import TrendDiscovery, TrendItem, discover_trends
 
 KST = ZoneInfo("Asia/Seoul")
+STATE_MUTATION_LOCK = threading.RLock()
 def _resolve_writable_data_dir(configured: Path) -> tuple[Path, bool]:
     """Use the configured data directory when writable; otherwise use ephemeral /tmp."""
     candidates = [(configured, False)]
@@ -1571,6 +1573,16 @@ def create_handler():
             self._respond(_page(report, previews, queue_snapshot=queue_snapshot))
 
         def do_POST(self):
+            # Serialize state-changing form requests so read-modify-write flows
+            # cannot overwrite each other's JSON snapshots. Large media uploads
+            # use their own asset-store path and do not hold this lock.
+            if urlparse(self.path).path == "/media/assets/upload":
+                self._do_post_impl()
+                return
+            with STATE_MUTATION_LOCK:
+                self._do_post_impl()
+
+        def _do_post_impl(self):
             if not self._require_auth():
                 return
             host = self.headers.get("Host", "")
