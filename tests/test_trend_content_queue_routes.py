@@ -68,6 +68,22 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             ],
         }
 
+    def test_render_storage_requires_an_actual_mount_not_just_a_writable_directory(self):
+        configured = self.data_dir / "render-disk"
+        fallback_root = self.data_dir / "tmp"
+        with patch.dict(os.environ, {"RENDER_SERVICE_ID": "srv-test"}, clear=False):
+            with patch.object(run_trend_content_mvp.tempfile, "gettempdir", return_value=str(fallback_root)):
+                with patch("scripts.run_trend_content_mvp.os.path.ismount", return_value=False):
+                    resolved, is_fallback = run_trend_content_mvp._resolve_writable_data_dir(configured)
+        self.assertTrue(is_fallback)
+        self.assertEqual(resolved, fallback_root / "tak-auto-data")
+
+        with patch.dict(os.environ, {"RENDER_SERVICE_ID": "srv-test"}, clear=False):
+            with patch("scripts.run_trend_content_mvp.os.path.ismount", return_value=True):
+                resolved, is_fallback = run_trend_content_mvp._resolve_writable_data_dir(configured)
+        self.assertFalse(is_fallback)
+        self.assertEqual(resolved, configured)
+
     def test_health_payload_reports_persistent_storage_mode(self):
         environment = {
             "TAK_SCOUT_PERPLEXITY_API_KEY": "configured",
