@@ -328,6 +328,7 @@ class TrendPublisherTests(unittest.TestCase):
 
         response = MagicMock()
         response.read.return_value = json.dumps({"status_code": "FINISHED"}).encode("utf-8")
+        response.__enter__.return_value = response
         with patch("content_engine.instagram_publisher.urlopen", return_value=response) as opener:
             result = _request_json(
                 "GET", "https://graph.instagram.com/v27.0/container-1",
