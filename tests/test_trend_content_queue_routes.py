@@ -605,11 +605,11 @@ class TrendContentQueueRouteTests(unittest.TestCase):
 
     def test_publishing_platform_choices_require_granted_scopes_and_assets(self):
         connections = {
-            "threads": {"account_id": "th-1", "granted_scopes": "threads_basic"},
-            "facebook": {"account_id": "fb-1", "granted_scopes": "pages_show_list pages_read_engagement pages_manage_posts", "tasks": ["CREATE_CONTENT"]},
-            "youtube_shorts": {"account_id": "yt-1", "granted_scopes": "https://www.googleapis.com/auth/youtube.upload", "refresh_token_configured": "true"},
-            "instagram_reels": {"account_id": "ig-1", "granted_scopes": "instagram_business_basic"},
-            "tiktok": {"account_id": "tt-1", "granted_scopes": "user.info.basic"},
+            "threads": {"account_id": "th-1", "access_token_configured": "true", "granted_scopes": "threads_basic"},
+            "facebook": {"account_id": "fb-1", "access_token_configured": "true", "granted_scopes": "pages_show_list pages_read_engagement pages_manage_posts", "tasks": ["CREATE_CONTENT"]},
+            "youtube_shorts": {"account_id": "yt-1", "access_token_configured": "true", "granted_scopes": "https://www.googleapis.com/auth/youtube.upload", "refresh_token_configured": "true"},
+            "instagram_reels": {"account_id": "ig-1", "access_token_configured": "true", "granted_scopes": "instagram_business_basic"},
+            "tiktok": {"account_id": "tt-1", "access_token_configured": "true", "granted_scopes": "user.info.basic"},
         }
         readiness = run_trend_content_mvp._publishing_platform_readiness(connections, media_available=True, public_media_ready=True)
         self.assertFalse(readiness["threads"])
