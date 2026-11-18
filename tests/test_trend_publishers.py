@@ -219,6 +219,71 @@ class TrendPublisherTests(unittest.TestCase):
             video_path=video_path, title="등록 MP4", description="", tags=[], privacy_status="private",
         )
 
+    def test_facebook_client_publishes_page_feed_text_with_page_token(self):
+        from content_engine.facebook_publisher import FacebookClient
+
+        calls = []
+        def transport(method, url, **kwargs):
+            calls.append((method, url, kwargs))
+            return {"id": "123_456"}
+        client = FacebookClient(
+            access_token="page-access-token", page_id="123", transport=transport,
+        )
+        result = client.publish_text("승인된 Facebook 페이지 문안")
+        self.assertEqual(result.post_id, "123_456")
+        self.assertEqual(calls[0][0], "POST")
+        self.assertEqual(calls[0][1], "https://graph.facebook.com/v27.0/123/feed")
+        self.assertEqual(calls[0][2]["access_token"], "page-access-token")
+        self.assertEqual(calls[0][2]["fields"]["message"], "승인된 Facebook 페이지 문안")
+
+    def test_facebook_adapter_requires_page_publish_scopes(self):
+        with patch.dict("os.environ", {
+            "TAK_AUTO_DATA_DIR": str(self.data_dir),
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key",
+        }, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \\
+                patch("content_engine.trend_publishers.FacebookClient") as client_type:
+            vault_type.return_value.get.return_value = {
+                "access_token": "page-token", "account_id": "123",
+                "granted_scopes": "pages_show_list,pages_read_engagement",
+            }
+            with self.assertRaisesRegex(PermanentPublishError, "게시 권한이 부족"):
+                publish("facebook", {"body": "승인 문안"}, "facebook-key")
+        client_type.assert_not_called()
+
+    def test_facebook_adapter_posts_to_selected_page_and_returns_post_id(self):
+        with patch.dict("os.environ", {
+            "TAK_AUTO_DATA_DIR": str(self.data_dir),
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key",
+        }, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \\
+                patch("content_engine.trend_publishers.FacebookClient") as client_type:
+            vault_type.return_value.get.return_value = {
+                "access_token": "page-token", "account_id": "123",
+                "account_name": "탁자동 페이지",
+                "granted_scopes": "pages_show_list,pages_read_engagement,pages_manage_posts",
+            }
+            client_type.return_value.publish_text.return_value = SimpleNamespace(post_id="123_456")
+            remote_id = publish("facebook", {"body": "승인 문안"}, "facebook-key")
+        self.assertEqual(remote_id, "123_456")
+        client_type.assert_called_once_with(
+            access_token="page-token", page_id="123", api_version="v27.0",
+        )
+        client_type.return_value.publish_text.assert_called_once_with("승인 문안")
+
+    def test_facebook_ambiguous_api_failure_requires_manual_review(self):
+        from content_engine.facebook_publisher import FacebookAPIError
+        with patch.dict("os.environ", {
+            "TAK_AUTO_DATA_DIR": str(self.data_dir),
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key",
+        }, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \\
+                patch("content_engine.trend_publishers.FacebookClient") as client_type:
+            vault_type.return_value.get.return_value = {
+                "access_token": "page-token", "account_id": "123",
+                "granted_scopes": "pages_show_list pages_read_engagement pages_manage_posts",
+            }
+            client_type.return_value.publish_text.side_effect = FacebookAPIError("network")
+            with self.assertRaises(PublishUncertainError):
+                publish("facebook", {"body": "승인 문안"}, "facebook-key")
+
     def test_unsupported_platform_fails_closed_without_calling_threads(self):
         with patch("content_engine.trend_publishers.ThreadsClient.from_environment") as factory:
             with self.assertRaisesRegex(PermanentPublishError, "아직 준비되지 않았습니다"):
