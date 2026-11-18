@@ -133,3 +133,14 @@ python scripts/collect_performance.py \
 - YouTube 실측에는 `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN`이 필요하다.
 - `--confirm-live`는 실제 외부 API 조회를 수행한다. 먼저 `--dry-run`으로 대상과 원격 ID를 확인하고, 운영자가 승인한 경우에만 실제 조회를 실행한다.
 - 게시 성공만으로 성과 수집이 자동 실행되지는 않는다. 게시 이력을 근거로 명시적으로 수집 명령을 실행해야 하며, 수집된 스냅샷은 기존 `data/tak_performance.json`에 append-only로 저장된다.
+
+
+### 주제별 성과 확인
+
+콘텐츠 미리보기 카드의 KNOWLEDGE ID 링크는 공통 Performance Dashboard를 해당 원본 주제로 필터링해 연다.
+
+```text
+/performance?knowledge_id=<trend-preview-id>
+```
+
+같은 KNOWLEDGE에서 파생된 Threads와 YouTube 게시물은 한 화면에서 각각 별도 카드로 확인한다. 플랫폼별 조회수·반응을 임의로 합산하거나 서로 다른 측정 기준을 직접 비교하지 않는다. 성과 스냅샷이 아직 없으면 해당 주제의 미수집 상태를 표시한다. Dashboard는 읽기 전용이며 수집이나 게시를 실행하지 않는다.
