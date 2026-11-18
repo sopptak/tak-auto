@@ -71,3 +71,16 @@ Instagram Reels 어댑터는 Meta가 서버에서 직접 가져갈 수 있는 **
 - OAuth state는 브라우저의 HttpOnly 쿠키와 대조하고 한 번만 사용합니다. Google 웹 OAuth에는 PKCE를 적용합니다.
 - access token과 refresh token은 `TAK_AUTO_OAUTH_ENCRYPTION_KEY`로 암호화해 Render 영구 디스크에 저장합니다. 토큰 원문은 대시보드에 표시하지 않습니다.
 - 게시 스위치는 `TAK_AUTO_PUBLISHING_ENABLED=false`로 유지합니다. 로그인/연결은 승인이나 외부 게시를 실행하지 않습니다.
+
+
+## 5. TikTok Direct Post 영상 준비
+
+TikTok Direct Post는 승인된 MP4를 TikTok 서버로 직접 전송합니다. 예약 전에 TikTok 계정 연결에 `video.publish` 권한이 있어야 하며, 콘텐츠 payload에는 사용자가 선택한 `privacy_level`이 필요합니다. 현재 계정에서 허용하지 않는 공개 범위는 TikTok 크리에이터 정보 조회 결과와 비교해 게시를 거부합니다.
+
+- 공개 범위: `PUBLIC_TO_EVERYONE`, `MUTUAL_FOLLOW_FRIENDS`, `FOLLOWER_OF_CREATOR`, `SELF_ONLY` 중 계정에서 허용된 값만 사용
+- AI 생성 영상은 예약 화면에서 AI 생성 표시를 선택해 `is_aigc=true`로 전달
+- 영상 파일은 MP4, 서비스 업로드 한도는 100MB
+- TikTok이 발급한 업로드 URL로 순차 청크 전송 후 게시 상태가 `PUBLISH_COMPLETE`인지 확인
+- API 응답이 유실되거나 최종 상태를 확인할 수 없으면 중복 게시 방지를 위해 운영자 확인 상태로 전환
+
+TikTok Direct Post 앱 심사를 통과하지 않은 클라이언트는 게시물이 비공개로 제한될 수 있습니다. 따라서 앱 심사 전에는 공개 게시를 보장하지 않습니다. Content Posting API 앱 제품 설정, `video.publish` 승인, 계정 동의가 완료된 후 실제 계정으로 검증해야 합니다.
