@@ -18,7 +18,7 @@ from pathlib import Path
 import secrets
 import sys
 import tempfile
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, unquote
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,6 +27,7 @@ if str(ROOT) not in sys.path:
 
 from blog_importer.models import utc_now
 from content_engine.generator import generate_content_bundle
+from content_engine.media_assets import MediaAssetError, MediaAssetStore
 from content_engine.publishing_connections import (
     VERIFY_PLATFORMS, connection_dashboard, publishing_connection_statuses,
     verify_publishing_connection,
@@ -67,6 +68,8 @@ PREVIEW_PATH = DATA_DIR / "tak_auto_content_previews.json"
 QUEUE_PATH = DATA_DIR / "tak_auto_publishing_queue.json"
 CONNECTION_CHECKS_PATH = DATA_DIR / "publishing_connection_checks.json"
 OAUTH_TOKENS_PATH = DATA_DIR / "social_oauth_tokens.enc"
+MEDIA_ASSETS_DIR = DATA_DIR / "media_assets"
+MEDIA_ASSETS_PATH = DATA_DIR / "tak_auto_media_assets.json"
 OAUTH_FLOW_REGISTRY = OAuthFlowRegistry()
 _PENDING_FACEBOOK_CHOICES: dict[str, dict[str, object]] = {}
 
@@ -158,6 +161,21 @@ def _read_connection_checks() -> dict:
 
 def _oauth_vault() -> OAuthTokenVault:
     return OAuthTokenVault(OAUTH_TOKENS_PATH, os.getenv("TAK_AUTO_OAUTH_ENCRYPTION_KEY", ""))
+
+
+def _media_asset_store() -> MediaAssetStore:
+    return MediaAssetStore(
+        DATA_DIR,
+        os.getenv("TAK_AUTO_MEDIA_SIGNING_KEY", ""),
+        os.getenv("TAK_AUTO_PUBLIC_URL", ""),
+    )
+
+
+def _list_media_assets() -> list:
+    try:
+        return _media_asset_store().list_assets()
+    except MediaAssetError:
+        return []
 
 
 def _read_oauth_connections() -> tuple[dict[str, dict[str, str]], str]:
@@ -431,17 +449,36 @@ def _make_preview(item: dict, trend_report: dict, provider=None) -> dict:
     }
 
 
-def _queue_payload_for_platform(preview: dict, platform: str) -> list[dict]:
-    """Return queue payloads only for platforms whose required media already exists."""
+def _queue_payload_for_platform(
+    preview: dict, platform: str, media_asset_id: str = "",
+) -> list[dict]:
+    """Build platform payloads only when the required text or media asset exists."""
     if platform == "threads":
         payloads = preview.get("threads") or []
         if not payloads:
             raise ValueError("이 콘텐츠에는 Threads 초안이 없습니다.")
         return payloads
-    if platform == "youtube_shorts":
-        raise ValueError("YouTube Shorts 예약은 완성 MP4 영상 파일을 서버에 업로드하는 기능이 연결된 뒤 사용할 수 있습니다.")
-    if platform == "instagram_reels":
-        raise ValueError("Instagram Reels 예약은 공개 HTTPS 영상 URL을 발급하는 미디어 저장소 연결 후 사용할 수 있습니다.")
+    if platform in {"youtube_shorts", "instagram_reels"}:
+        asset = _media_asset_store().get_asset(media_asset_id)
+        shorts = preview.get("shorts") or []
+        if not shorts:
+            raise ValueError("이 콘텐츠에는 쇼츠 대본이 없습니다.")
+        script = shorts[0]
+        title = str(script.get("title") or preview.get("keyword") or "").strip()
+        if platform == "youtube_shorts":
+            return [{
+                "title": title,
+                "description": str(script.get("youtube_description") or ""),
+                "tags": list(script.get("hashtags") or []),
+                "video_path": str(asset.path),
+                "media_asset_id": asset.asset_id,
+            }]
+        return [{
+            "title": title,
+            "caption": str(script.get("instagram_caption") or title),
+            "media_asset_id": asset.asset_id,
+            "share_to_feed": True,
+        }]
     if platform == "tiktok":
         raise ValueError("TikTok 자동 게시 어댑터는 아직 준비 중입니다.")
     if platform == "blog":
