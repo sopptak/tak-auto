@@ -45,7 +45,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 | Threads | `https://tak-auto-trend-factory.onrender.com/connections/oauth/callback/threads` |
 | 네이버 로그인 | `https://tak-auto-trend-factory.onrender.com/connections/oauth/callback/blog` |
 
-YouTube는 Google Cloud에서 YouTube Data API v3를 활성화하고 OAuth 클라이언트 유형을 **웹 애플리케이션**으로 생성합니다. 계정 확인에는 `youtube.readonly`만 요청합니다. 기존 로컬 인증 스크립트의 Desktop 앱 JSON은 웹 콜백에 사용할 수 없습니다.
+YouTube는 Google Cloud에서 YouTube Data API v3를 활성화하고 OAuth 클라이언트 유형을 **웹 애플리케이션**으로 생성합니다. 채널 확인에는 `youtube.readonly`, 승인된 Shorts 비공개 업로드에는 `youtube.upload` 권한을 요청합니다. OAuth 연결 시 refresh token을 암호화해 보관하고 액세스 토큰 만료 시 자동 갱신합니다. 첫 연결에서 refresh token을 받지 못하면 불완전한 연결로 저장하지 않습니다. 기존 로컬 인증 스크립트의 Desktop 앱 JSON은 웹 콜백에 사용할 수 없습니다.
 
 TikTok 앱에는 Login Kit와 Content Posting API 제품을 추가하고 `user.info.basic`, `video.publish` 권한을 설정합니다. Direct Post 사용 전 TikTok 개발자 앱의 Direct Post 구성을 활성화하고 앱 심사를 완료해야 합니다. `video.publish` 권한을 요청하며, TikTok 앱의 Direct Post 제품 설정과 권한 승인이 필요합니다. Meta 앱에서는 Facebook Login, Instagram Login, Threads API 제품을 각각 설정하고 위 콜백을 등록합니다. Facebook 페이지 게시에는 `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`를 요청하고, Instagram에는 `instagram_business_basic`과 `instagram_business_content_publishing`, Threads에는 `threads_basic`과 `threads_content_publish`를 요청합니다. Instagram 계정은 프로페셔널(비즈니스 또는 크리에이터) 계정이어야 하며, 릴스 게시에는 암호화된 연결 토큰에 두 Instagram 권한이 모두 있어야 합니다. Threads 연결 카드에 게시 권한이 표시되어야 승인 대기열의 텍스트 어댑터가 암호화된 웹 로그인 토큰을 사용할 수 있습니다. Meta 개발 앱이 개발 모드이면 앱 역할로 등록된 테스트 계정만 연결될 수 있습니다. 플랫폼이 앱 검토를 요구하면 해당 검토를 완료해야 다른 계정이 연결될 수 있습니다.
 
