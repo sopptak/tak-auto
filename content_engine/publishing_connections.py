@@ -161,9 +161,12 @@ def publishing_connection_statuses(
                     scope for scope in str(oauth_connection.get("granted_scopes", "")).replace(",", " ").split() if scope
                 }
                 required_scopes = {"pages_show_list", "pages_read_engagement", "pages_manage_posts"}
-                page_tasks = {
-                    task for task in str(oauth_connection.get("tasks", "")).replace(",", " ").split() if task
-                }
+                raw_page_tasks = oauth_connection.get("tasks", [])
+                page_tasks = (
+                    {str(task) for task in raw_page_tasks}
+                    if isinstance(raw_page_tasks, (list, tuple, set))
+                    else {task for task in str(raw_page_tasks).replace(",", " ").split() if task}
+                )
                 if not required_scopes.issubset(granted_scopes):
                     publish_note = "페이지는 연결됐지만 게시 권한이 부족합니다. pages_manage_posts 및 pages_read_engagement 권한으로 다시 연결하세요."
                 elif not {"CREATE_CONTENT", "MANAGE"}.intersection(page_tasks):
