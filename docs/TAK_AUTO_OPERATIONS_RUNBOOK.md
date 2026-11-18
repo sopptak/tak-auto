@@ -8,7 +8,7 @@
 ## 1. 배포 전 승인 게이트
 
 - [ ] PR #3의 최신 head SHA와 변경 파일을 확인한다.
-- [ ] GitHub Actions의 TAK SCOUT, TAK AUTO trend content MVP, Python 전체 테스트가 동일한 최신 SHA에서 모두 성공했는지 확인한다.
+- [x] 2026-11-19 확인: PR head `651275680874e5e8256ccfa6e8552fc3ad4155b5`에서 TAK SCOUT, TAK AUTO trend content MVP, Python 전체 테스트가 모두 성공했다. 이후 커밋이 생기면 반드시 새 head에서 재검증한다.
 - [ ] PR의 base 브랜치와 병합 대상이 의도한 구조인지 검토한다. 현재 PR은 `feature/perplexity-research-provider`를 base로 하는 Draft이므로, main 배포용 PR로 오인하지 않는다.
 - [ ] Render 계정 소유자가 새 서비스 생성 및 Starter 플랜·Persistent Disk 비용을 승인한다.
 - [ ] 게시 기능은 계속 `TAK_AUTO_PUBLISHING_ENABLED=false`로 둔다.
@@ -141,9 +141,9 @@ SNS 연결을 준비할 경우에만 추가:
 ## 9. 현재 확인 상태
 
 2026-11-19 저장소 점검 시점:
-- TAK SCOUT research tests: 성공
-- TAK AUTO trend content MVP tests: 성공
-- Python 전체 테스트: 실행 중이므로 최종 결과 미확정
+- 검증 SHA `651275680874e5e8256ccfa6e8552fc3ad4155b5`: TAK SCOUT research tests 성공
+- 같은 SHA: TAK AUTO trend content MVP tests 성공
+- 같은 SHA: Python 전체 테스트 성공
 - PR #3: Draft / Open / 미병합
 - Render 실제 서비스 생성·배포: 미확인
 - SNS OAuth 실계정 연결: 미확인
@@ -151,3 +151,13 @@ SNS 연결을 준비할 경우에만 추가:
 - 운영 데이터 백업·복구 리허설: 미확인
 
 이 상태 표는 운영자가 실제로 확인한 결과에 따라 갱신한다.
+
+
+## 2026-11-19 최신 저장소 점검
+
+- 최신 검증 SHA `651275680874e5e8256ccfa6e8552fc3ad4155b5`에서 3개 workflow 모두 성공 완료했다.
+- 영상 업로드는 Basic Auth + same-origin 확인 + `video/mp4` + 1~100MB 제한 + MP4 `ftyp` 컨테이너 시그니처 + 서명 URL + Range 응답으로 보호된다. `ftyp` 검사는 컨테이너 식별용 1차 검사이지 영상 전체 디코딩/재생 품질 검증은 아니다. 실제 업로드 후 플랫폼 사전 검증이 필요하다.
+- 게시 승인 요청은 인증 및 same-origin 확인을 통과해야 하며, TikTok은 공개 범위를 필수로 지정한다. 네이버 블로그는 수동 게시만 지원한다.
+- 게시 대기열은 작업 시작 전 `processing` 상태를 영속 저장하고, 불확실한 응답이나 장시간 중단은 `needs_review`로 전환해 자동 중복 게시를 막는다.
+- 현재 JSON 대기열 및 자산 인덱스의 동시성 제어는 단일 프로세스/인스턴스 기준이다. 다중 인스턴스 운영은 공유 DB 및 원자적 claim 구조로 이전하기 전까지 금지한다.
+- 위 점검은 저장소 코드와 CI에 대한 검토다. Render 실제 배포, Persistent Disk 연결, 백업/복구, SNS 실계정 인증 및 게시 성공은 확인하지 않았다.
