@@ -1,4 +1,5 @@
 import io
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -41,6 +42,41 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             self.data_dir, os.environ["TAK_AUTO_MEDIA_SIGNING_KEY"],
             os.environ["TAK_AUTO_PUBLIC_URL"],
         ).save_stream(io.BytesIO(payload), len(payload), "approved.mp4")
+
+    def _valid_package(self):
+        return {
+            "blog": {
+                "title": "블로그 제목", "meta_description": "검색 설명",
+                "focus_keyword": "핵심 키워드", "body": "본문 " * 130,
+            },
+            "shorts": {
+                "title": "쇼츠 제목", "hook": "첫 3초 후킹", "closing_cta": "댓글 남겨주세요",
+                "duration_seconds": 60, "youtube_description": "설명",
+                "instagram_caption": "릴스 문안", "tiktok_caption": "틱톡 문안",
+                "hashtags": ["탁자동"],
+                "scenes": [
+                    {"time": f"00-0{i}초", "visual": "화면 구성", "caption": "자막", "narration": "내레이션"}
+                    for i in range(5)
+                ],
+            },
+            "threads": [
+                {"title": "Threads 제목", "body": "Threads 본문"},
+                {"title": "Threads 제목 2", "body": "Threads 본문 2"},
+            ],
+        }
+
+    def test_content_package_preserves_facebook_specific_copy(self):
+        package = self._valid_package()
+        package["facebook"] = {"title": "Facebook 전용 제목", "body": "Facebook 전용 본문"}
+        parsed = run_trend_content_mvp._parse_content_package(json.dumps(package, ensure_ascii=False))
+        self.assertEqual(parsed["facebook"]["title"], "Facebook 전용 제목")
+        self.assertEqual(parsed["facebook"]["body"], "Facebook 전용 본문")
+
+    def test_content_package_falls_back_for_legacy_missing_facebook_copy(self):
+        package = self._valid_package()
+        parsed = run_trend_content_mvp._parse_content_package(json.dumps(package, ensure_ascii=False))
+        self.assertEqual(parsed["facebook"]["title"], "Threads 제목")
+        self.assertEqual(parsed["facebook"]["body"], "Threads 본문")
 
     def test_threads_is_ready_without_a_video_asset(self):
         self.assertEqual(
