@@ -193,6 +193,28 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertIn("사실 정확성", report["scope_note"])
         self.assertEqual(report["warnings"], [])
 
+    def test_editorial_quality_check_uses_audience_question_when_available(self):
+        package = self._valid_package()
+        package["blog"]["title"] = "초보자 대출 한도 확인 방법"
+        package["blog"]["body"] = (
+            "# 초보자 대출 한도 확인 방법\n"
+            + ("대출 한도는 소득과 기존 부채, 담보가치 등을 확인해야 합니다. " * 35)
+            + "\n## 확인 순서\n소득과 부채를 확인합니다.\n"
+            + "## 준비 서류\n필요한 서류를 점검합니다.\n"
+            + "## 주의사항\n조건별 차이를 확인합니다."
+        )
+        report = run_trend_content_mvp._evaluate_content_quality(
+            package, "대출 한도",
+            {"audience_question": "초보자는 대출 한도를 어떻게 확인하나요?"},
+        )
+        self.assertIn("독자 질문의 핵심어가 제목·본문에 반영", report["passed"])
+
+    def test_editorial_quality_check_flags_weak_hook_pattern(self):
+        package = self._valid_package()
+        package["shorts"]["hook"] = "오늘은 관련 내용을 설명합니다."
+        report = run_trend_content_mvp._evaluate_content_quality(package, "테스트 키워드")
+        self.assertIn("질문·문제·대비 등 후킹 장치 포함", report["warnings"])
+
     def test_editorial_quality_check_flags_missing_structure(self):
         report = run_trend_content_mvp._evaluate_content_quality(
             {"blog": {"title": "짧은 글", "body": "본문"}, "shorts": {}, "threads": [], "facebook": {}},
