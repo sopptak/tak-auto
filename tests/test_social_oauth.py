@@ -88,10 +88,7 @@ class SocialOAuthTests(unittest.TestCase):
                 self.assertEqual(params["redirect_uri"], [redirect])
                 self.assertIn(expected, params.get("scope", ["response_type"])[0])
                 if platform in publishing_scopes:
-                    if platform in {"threads", "instagram_reels", "tiktok", "facebook"}:
-                        self.assertIn(publishing_scopes[platform], params["scope"][0])
-                    else:
-                        self.assertNotIn(publishing_scopes[platform], params["scope"][0])
+                    self.assertIn(publishing_scopes[platform], params["scope"][0])
 
     def test_oauth_state_is_cookie_bound_single_use_and_provider_bound(self):
         registry = OAuthFlowRegistry(now=lambda: datetime(2026, 11, 17, tzinfo=timezone.utc))
