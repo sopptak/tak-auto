@@ -45,7 +45,7 @@ PLATFORMS = (
         "required": ("FACEBOOK_ACCESS_TOKEN", "FACEBOOK_PAGE_ID"),
         "account_env": "FACEBOOK_PAGE_NAME", "expiry_env": "FACEBOOK_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
-        "publish_note": "Facebook 페이지 게시에는 pages_manage_posts, pages_read_engagement 권한과 선택한 페이지의 CREATE_CONTENT 작업 권한이 필요합니다.",
+        "publish_note": "Facebook 페이지 게시에는 pages_manage_posts, pages_read_engagement 권한과 선택한 페이지의 CREATE_CONTENT 또는 MANAGE 작업 권한이 필요합니다.",
     },
     {
         "key": "threads", "name": "Threads", "icon": "@",
