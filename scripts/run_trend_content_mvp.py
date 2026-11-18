@@ -720,6 +720,9 @@ def _build_editorial_recommendations(quality_report: dict, claim_coverage: dict)
     return proposals[:40]
 
 
+def _editorial_recommendation_key(recommendation: dict) -> str:
+    canonical = json.dumps(recommendation, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 def _editorial_target(recommendation: dict) -> tuple[str, str] | None:
     """Map a revision proposal to one editable preview field; never guess a platform."""
     area = str(recommendation.get("area") or "")
@@ -1740,10 +1743,20 @@ def create_handler():
                     if preview_index < 0 or preview_index >= len(previews):
                         raise ValueError("수정할 콘텐츠 미리보기를 찾을 수 없습니다.")
                     preview = previews[preview_index]
+                    supplied_knowledge_id = form.get("knowledge_id", [""])[0]
+                    if not supplied_knowledge_id or not hmac.compare_digest(
+                        supplied_knowledge_id, str(preview.get("knowledge_id") or ""),
+                    ):
+                        raise ValueError("미리보기가 갱신되었습니다. 최신 화면에서 다시 선택하세요.")
                     recommendations = preview.get("editorial_recommendations") or []
                     if recommendation_index < 0 or recommendation_index >= len(recommendations):
                         raise ValueError("수정 제안을 찾을 수 없습니다.")
                     recommendation = recommendations[recommendation_index]
+                    supplied_key = form.get("recommendation_key", [""])[0]
+                    if not supplied_key or not hmac.compare_digest(
+                        supplied_key, _editorial_recommendation_key(recommendation),
+                    ):
+                        raise ValueError("수정 제안 목록이 갱신되었습니다. 최신 화면에서 다시 선택하세요.")
                     target_info = _editorial_target(recommendation)
                     if target_info is None:
                         raise ValueError("이 항목은 자동 수정 문구 생성 대상이 아닙니다. 전용 편집기에서 직접 수정하세요.")
