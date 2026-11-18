@@ -57,12 +57,14 @@ class PublishRecord:
     knowledge_id: str = ""
     platform: str = "threads"
     source_url: str = ""
+    remote_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "content_id": self.content_id,
             "published_at": self.published_at,
             "threads_post_id": self.threads_post_id,
+            "remote_id": self.remote_id or self.threads_post_id,
             "knowledge_id": self.knowledge_id,
             "platform": self.platform,
             "source_url": self.source_url,
