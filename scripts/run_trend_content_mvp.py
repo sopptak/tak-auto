@@ -432,7 +432,7 @@ def _evaluate_source_integrity(
     malformed = []
     duplicates = []
     seen = set()
-    for raw in [*raw_urls, *generated]:
+    for raw in raw_urls:
         value = str(raw or "").strip()
         if not value:
             continue
@@ -460,6 +460,21 @@ def _evaluate_source_integrity(
             continue
         seen.add(normalized)
         entries.append(value)
+    for raw in generated:
+        value = str(raw or "").strip()
+        try:
+            parsed = urlparse(value)
+            valid = parsed.scheme.lower() in {"http", "https"} and bool(parsed.hostname) and not parsed.username and not parsed.password and not any(char.isspace() for char in value)
+            _ = parsed.port
+        except ValueError:
+            valid = False
+        if valid:
+            normalized = parsed._replace(scheme=parsed.scheme.lower(), netloc=parsed.netloc.lower(), fragment="").geturl()
+            if normalized not in seen:
+                seen.add(normalized)
+                entries.append(value)
+        elif value:
+            malformed.append(value[:300])
     base_urls = item.get("source_urls") or trend_report.get("citations") or []
     if not isinstance(base_urls, list):
         base_urls = []
