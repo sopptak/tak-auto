@@ -831,7 +831,9 @@ def _refresh_preview_editorial_checks(preview: dict) -> None:
     preview["editorial_recommendations"] = _build_editorial_recommendations(quality, claims)
 
 
-def _apply_editorial_revision(preview: dict, revision_id: str, applied_by: str) -> None:
+def _apply_editorial_revision(
+    preview: dict, revision_id: str, applied_by: str, *, confirm_unresolved: bool = False,
+) -> None:
     revisions = preview.get("editorial_revisions") or []
     revision = next(
         (row for row in revisions if hmac.compare_digest(str(row.get("revision_id", "")), revision_id)),
@@ -839,6 +841,8 @@ def _apply_editorial_revision(preview: dict, revision_id: str, applied_by: str) 
     )
     if not revision or revision.get("status") != "pending_review":
         raise ValueError("수정본이 없거나 이미 처리되었습니다.")
+    if revision.get("unresolved_claims") and not confirm_unresolved:
+        raise ValueError("추가 확인이 필요한 주장이 있습니다. 원문 대조 후 확인란을 선택하세요.")
     target = str(revision.get("target") or "")
     current_text = _read_editorial_target(preview, target)
     if current_text != revision.get("base_text"):
@@ -1804,7 +1808,8 @@ def create_handler():
                         raise ValueError("적용할 수정본을 찾을 수 없습니다.")
                     preview = previews[preview_index]
                     applied_by = os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user"
-                    _apply_editorial_revision(preview, revision_id, applied_by)
+                    confirm_unresolved = form.get("confirm_unresolved", [""])[0] == "1"
+                    _apply_editorial_revision(preview, revision_id, applied_by, confirm_unresolved=confirm_unresolved)
                     _write_json(PREVIEW_PATH, previews)
                     self._respond(_page(report, previews, "선택한 수정본을 적용했습니다. 원문은 수정 이력에 보존했습니다.", queue.snapshot()))
                     return
