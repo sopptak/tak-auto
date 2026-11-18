@@ -169,6 +169,39 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertIn("사실 근거가 아니라 형식·후킹·구성의 참고자료", prompt)
         self.assertIn("accepted-1", prompt)
 
+    def test_editorial_quality_check_scores_structure_without_claiming_fact_verification(self):
+        package = self._valid_package()
+        package["blog"]["title"] = "테스트 키워드 검색과 활용 방법"
+        package["blog"]["meta_description"] = "테스트 키워드의 핵심 내용과 확인 방법을 정리한 실전 안내입니다. 지금 필요한 사항을 확인하세요."
+        package["blog"]["body"] = (
+            "# 테스트 키워드 안내\n\n" + ("테스트 키워드의 핵심 내용을 설명합니다. " * 50)
+            + "\n## 첫 번째 확인사항\n\n" + ("구체적인 실행 방법을 설명합니다. " * 30)
+            + "\n## 두 번째 확인사항\n\n" + ("주의사항과 적용 방법을 설명합니다. " * 30)
+            + "\n## 정리\n\n" + ("마지막 확인 내용을 정리합니다. " * 20)
+        )
+        package["shorts"]["hook"] = "이 부분을 놓치면 중요한 차이가 생깁니다."
+        package["shorts"]["closing_cta"] = "필요한 내용을 저장하고 다시 확인하세요."
+        package["shorts"]["scenes"] = [
+            {"time": f"00-{i:02d}초", "visual": "중앙 안전영역에 핵심 화면 배치", "caption": "짧은 핵심 자막", "narration": "장면별 설명 내레이션"}
+            for i in range(6)
+        ]
+        package["shorts"]["hashtags"] = ["#테스트", "#정보", "#실전"]
+        package["facebook"] = {"title": "Facebook 전용", "body": "Threads와 구분되는 Facebook 전용 문안입니다."}
+        report = run_trend_content_mvp._evaluate_content_quality(package, "테스트 키워드")
+        self.assertEqual(report["score"], 100)
+        self.assertEqual(report["grade"], "양호")
+        self.assertIn("사실 정확성", report["scope_note"])
+        self.assertEqual(report["warnings"], [])
+
+    def test_editorial_quality_check_flags_missing_structure(self):
+        report = run_trend_content_mvp._evaluate_content_quality(
+            {"blog": {"title": "짧은 글", "body": "본문"}, "shorts": {}, "threads": [], "facebook": {}},
+            "검색 키워드",
+        )
+        self.assertLess(report["score"], 65)
+        self.assertEqual(report["grade"], "수정 필요")
+        self.assertTrue(report["warnings"])
+
     def test_content_package_preserves_facebook_specific_copy(self):
         package = self._valid_package()
         package["facebook"] = {"title": "Facebook 전용 제목", "body": "Facebook 전용 본문"}
