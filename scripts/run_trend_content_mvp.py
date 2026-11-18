@@ -422,6 +422,7 @@ def _make_preview(item: dict, trend_report: dict, provider=None) -> dict:
         package = _parse_content_package(result.answer)
         return {
             "keyword": keyword,
+            "knowledge_id": knowledge.id,
             "created_at": utc_now(),
             "status": "preview_only_not_approved",
             "warning": "Perplexity가 작성한 검토용 초안입니다. 원문 사실 확인과 사람의 승인을 거쳐야 게시할 수 있습니다.",
@@ -451,6 +452,7 @@ def _make_preview(item: dict, trend_report: dict, provider=None) -> dict:
     bundle = generate_content_bundle(knowledge)
     return {
         "keyword": keyword,
+        "knowledge_id": knowledge.id,
         "created_at": utc_now(),
         "status": "preview_only_not_approved",
         "warning": "검토용 미승인 미리보기입니다. 사실·인용 원문 확인과 사람의 승인을 거쳐야 게시할 수 있습니다.",
@@ -1056,6 +1058,11 @@ def create_handler():
                     payloads = _queue_payload_for_platform(
                         preview, platform, media_asset_id, privacy_level, is_aigc,
                     )
+                    knowledge_id = str(preview.get("knowledge_id") or "")
+                    source_url = str((preview.get("source_urls") or [""])[0] or "")
+                    for payload in payloads:
+                        payload["_knowledge_id"] = knowledge_id
+                        payload["_source_url"] = source_url
                     approver = os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user"
                     enqueued = [queue.enqueue_approved(
                         content_id=f"{content_id}-{platform}-{payload_index + 1}",
