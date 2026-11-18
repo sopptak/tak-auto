@@ -23,6 +23,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from content_engine.performance.store import load_snapshots
 from scripts.collect_performance import main as collect_performance_main
@@ -65,6 +66,18 @@ class CollectPerformanceCLITests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("content_id=trend-content-threads-1", output)
         self.assertIn("media_id=threads-post-123", output)
+        self.assertFalse(self.store_path.exists())
+
+    def test_queue_content_id_still_requires_explicit_live_confirmation(self):
+        queue_path = self._write_queue_history()
+        with patch("content_engine.threads_publisher.ThreadsClient.from_environment") as client_factory:
+            exit_code, _output = self._run([
+                "--queue-content-id", "trend-content-threads-1",
+                "--queue-history", str(queue_path),
+                "--store", str(self.store_path),
+            ])
+        self.assertEqual(exit_code, 1)
+        client_factory.assert_not_called()
         self.assertFalse(self.store_path.exists())
 
     def test_queue_content_id_maps_youtube_shorts_to_youtube_performance(self):
