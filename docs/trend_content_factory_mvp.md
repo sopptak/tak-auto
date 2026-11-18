@@ -230,3 +230,5 @@ JSON 저장은 같은 디렉터리에 고유 임시 파일을 만들고 파일 �
 ## Render 영속 저장 설정 확인
 
 현재 render.yaml의 tak-auto-trend-factory 서비스는 starter 플랜과 1GB Persistent Disk를 선언하고, TAK_AUTO_DATA_DIR=/var/data/trend-factory로 데이터 경로를 고정한다. 따라서 이 Blueprint 설정을 그대로 생성·배포하면 영속 디스크 구성을 사용하도록 되어 있다. Render 계정의 실제 서비스 설정에서 플랜·디스크 연결 상태를 확인해야 하며, 무료 플랜으로 변경하거나 디스크 마운트가 실패하면 애플리케이션은 임시 경로로 fallback할 수 있다. 운영 전 /health뿐 아니라 실제 데이터 파일이 지정 디스크에 생성되는지 확인해야 한다.
+
+- 적용 이력에서 원문 복구를 선택할 수 있다. 적용 이후 현재 원문이 다시 바뀌었다면 오래된 원문으로 덮어쓰지 않고 복구를 차단한다.
