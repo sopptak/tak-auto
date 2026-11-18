@@ -236,7 +236,7 @@ JSON 저장은 같은 디렉터리에 고유 임시 파일을 만들고 파일 �
 
 쇼츠 후킹·대본 수정은 게시 전 원고/메타데이터 수정이다. 이미 등록한 MP4 영상 파일의 화면·음성·자막을 자동 재렌더링하지 않는다. 수정한 쇼츠 대본을 실제 영상에 반영하려면 영상 편집·렌더링 후 새 MP4를 등록해야 한다.
 
-`/health` 응답에는 `storage_persistent`와 `storage_mode`가 포함된다. `persistent_disk`가 아니면 운영 데이터가 재시작·재배포 후 보존된다고 가정해서는 안 된다.
+`/health` 응답에는 `storage_persistent`와 `storage_mode`가 포함된다. `persistent_disk`가 아니면 운영 데이터가 재시작·재배포 후 보존된다고 가정해서는 안 된다. `ready`는 Perplexity 키·웹 인증·영구 저장소가 준비되어야 true이며, 게시 기능을 명시적으로 켠 경우에는 게시 어댑터 설정도 필요하다. 게시 기능 기본값은 계속 false다.
 
 Render 환경에서는 단순히 데이터 경로에 쓰기가 가능한지만 보지 않고, 설정된 데이터 디렉터리 자체가 실제 마운트 지점인지 확인한다. 현재 Blueprint는 mountPath와 TAK_AUTO_DATA_DIR를 동일한 /var/data/trend-factory 경로로 맞춰 둔다.
 
