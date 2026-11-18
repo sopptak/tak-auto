@@ -60,7 +60,7 @@ PROVIDERS: dict[str, Provider] = {
     ),
     "facebook": Provider(
         "facebook", "Facebook 페이지", "FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET", "client_id",
-        "https://www.facebook.com", ("pages_show_list",),
+        "https://www.facebook.com", ("pages_show_list", "pages_read_engagement", "pages_manage_posts"),
     ),
     "threads": Provider(
         "threads", "Threads", "THREADS_APP_ID", "THREADS_APP_SECRET", "client_id",
