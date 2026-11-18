@@ -321,7 +321,7 @@ def _scope_string(value: object) -> str:
     if isinstance(value, str):
         return value.strip()
     if isinstance(value, (list, tuple, set)):
-        return " ".join(str(item).strip() for item in value if isinstance(item, str) and item.strip())
+        return ",".join(str(item).strip() for item in value if isinstance(item, str) and item.strip())
     return ""
 
 
