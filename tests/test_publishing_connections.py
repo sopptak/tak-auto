@@ -60,6 +60,28 @@ class PublishingConnectionTests(unittest.TestCase):
         }
         self.assertIn("게시 권한과 CREATE_CONTENT 또는 MANAGE 작업 권한이 확인", rows["facebook"]["publish_note"])
 
+    def test_instagram_connection_reports_current_reels_publish_permission(self):
+        with_permission = {
+            row["key"]: row for row in publishing_connection_statuses(
+                {}, now=self.now,
+                oauth_connections={"instagram_reels": {
+                    "account_id": "ig-123", "account_name": "TAK AUTO",
+                    "granted_scopes": "instagram_business_basic,instagram_business_content_publish",
+                }},
+            )
+        }
+        self.assertIn("릴스 게시 권한이 확인", with_permission["instagram_reels"]["publish_note"])
+        without_permission = {
+            row["key"]: row for row in publishing_connection_statuses(
+                {}, now=self.now,
+                oauth_connections={"instagram_reels": {
+                    "account_id": "ig-123", "account_name": "TAK AUTO",
+                    "granted_scopes": "instagram_business_basic,instagram_business_content_publishing",
+                }},
+            )
+        }
+        self.assertIn("릴스 게시 권한이 없습니다", without_permission["instagram_reels"]["publish_note"])
+
     def test_youtube_oauth_refresh_token_remains_ready_after_access_token_expiry(self):
         rows = {
             row["key"]: row for row in publishing_connection_statuses(
