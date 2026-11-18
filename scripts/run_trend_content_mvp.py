@@ -1772,6 +1772,7 @@ def create_handler():
                         "created_at": utc_now(),
                         "status": "pending_review",
                         "model": result.model,
+                        "citations": list(result.citations)[:20],
                     }
                     revisions = preview.setdefault("editorial_revisions", [])
                     revisions.insert(0, revision)
