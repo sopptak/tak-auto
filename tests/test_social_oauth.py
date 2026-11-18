@@ -204,7 +204,7 @@ class SocialOAuthTests(unittest.TestCase):
         responses = iter([
             {"data": [{
                 "access_token": "ig-short", "user_id": "ig-user-123",
-                "permissions": "instagram_business_basic,instagram_business_content_publish",
+                "permissions": ["instagram_business_basic", "instagram_business_content_publish"],
                 "expires_in": 3600,
             }]},
             {"access_token": "ig-long", "expires_in": 5184000},
@@ -235,9 +235,9 @@ class SocialOAuthTests(unittest.TestCase):
 
     def test_threads_callback_exchanges_long_lived_token_and_reads_profile(self):
         responses = iter([
-            {"access_token": "threads-short", "expires_in": 3600,
-             "scope": "threads_basic threads_content_publish"},
+            {"access_token": "threads-short", "expires_in": 3600},
             {"access_token": "threads-long", "expires_in": 5184000},
+            {"data": {"is_valid": True, "scopes": ["threads_basic", "threads_content_publish"]}},
             {"id": "threads-id", "username": "tak_auto"},
         ])
         calls = []
@@ -250,6 +250,29 @@ class SocialOAuthTests(unittest.TestCase):
         self.assertEqual(result["tokens"]["access_token"], "threads-long")
         self.assertEqual(result["scopes"], "threads_basic threads_content_publish")
         self.assertEqual(calls[1][2]["grant_type"], "th_exchange_token")
+        self.assertIn("/debug_token", calls[2][1])
+        self.assertEqual(calls[2][2]["input_token"], "threads-long")
+        self.assertEqual(calls[2][2]["access_token"], "threads-id|threads-secret")
+
+    def test_threads_callback_does_not_infer_requested_permissions_when_debug_fails(self):
+        responses = iter([
+            {"access_token": "threads-short", "expires_in": 3600},
+            {"access_token": "threads-long", "expires_in": 5184000},
+            {"data": {"is_valid": False, "scopes": ["threads_basic", "threads_content_publish"]}},
+            {"id": "threads-id", "username": "tak_auto"},
+        ])
+        client = SocialOAuthClient(self.environ, request_json=lambda *args, **kwargs: next(responses))
+        result = client.complete("threads", "code", callback_uri("threads", self.environ), state="state")
+        self.assertEqual(result["scopes"], "")
+
+    def test_youtube_callback_does_not_assume_requested_scopes_were_granted(self):
+        responses = iter([
+            {"access_token": "access", "refresh_token": "refresh", "expires_in": 3600},
+            {"items": [{"id": "channel-123", "snippet": {"title": "TAK AUTO"}}]},
+        ])
+        client = SocialOAuthClient(self.environ, request_json=lambda *args, **kwargs: next(responses))
+        result = client.complete("youtube_shorts", "code", callback_uri("youtube_shorts", self.environ), "verifier", state="state")
+        self.assertEqual(result["scopes"], "")
 
     def test_naver_callback_sends_the_original_state_and_reads_profile(self):
         calls = []
