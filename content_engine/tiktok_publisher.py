@@ -160,7 +160,8 @@ class TikTokClient:
         offset = 0
         with video_path.open("rb") as handle:
             for index in range(chunk_count):
-                chunk = handle.read(chunk_size)
+                requested_size = size - offset if index == chunk_count - 1 else chunk_size
+                chunk = handle.read(requested_size)
                 if not chunk:
                     raise ValueError("TikTok 영상 파일을 끝까지 읽지 못했습니다.")
                 status = self.upload_transport(
