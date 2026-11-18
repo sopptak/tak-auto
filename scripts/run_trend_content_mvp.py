@@ -483,7 +483,7 @@ def _queue_payload_for_platform(
         caption = str(script.get(caption_field) or title).strip()
         missing_hashtags = [f"#{tag}" for tag in hashtags if f"#{tag}" not in caption]
         if missing_hashtags:
-            caption = caption + "\\n\\n" + " ".join(missing_hashtags)
+            caption = caption + "\n\n" + " ".join(missing_hashtags)
         if platform == "tiktok":
             allowed_privacy = {"PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "SELF_ONLY"}
             if privacy_level not in allowed_privacy:
