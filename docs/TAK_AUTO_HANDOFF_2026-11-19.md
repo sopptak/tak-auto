@@ -98,3 +98,17 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - `3788817805306bc6e8239caa2e2c2a5dde6185bd`의 TAK AUTO 집중 테스트는 Threads mock 응답 라우팅 오류로 실패했으며, `c8e50fadd4f5b603b32d93c794e5c1330d38ed94`에서 테스트를 바로잡았다. 이 최신 커밋의 CI 결과는 아직 확인 전이다.
 - `3788817805306bc6e8239caa2e2c2a5dde6185bd`의 TAK SCOUT 테스트는 성공했으며, 전체 Python 테스트는 해당 커밋에서 실행 대기/미확정 상태였다.
 - PR #3은 Draft / Open / 미병합 유지. 자동 게시 비활성화, 실배포·실계정 연결·실제 게시 미실행.
+
+
+## 2026-11-19 최신 재개 상태 — 이후 기록이 이전 상태를 대체함
+
+- 최신 코드 변경 커밋: `d62ad49a48cea2a532e33beb2d6ca38dff676f20`.
+- PR #3은 Open / Draft / 미병합이며 base는 `feature/perplexity-research-provider`다.
+- Instagram Login 현재 게시 scope `instagram_business_content_publish` 및 Meta `data` 토큰 envelope 처리, Threads debug_token 기반 실제 승인 scope 확인, 장기 토큰 교환 후 최초 승인 scope 보존, 게시 어댑터의 최신 scope 검사까지 반영했다.
+- OAuth 대시보드용 `public_connections()`는 액세스 토큰 원문을 내보내지 않는다. 최신 변경에서는 토큰 존재 여부만 `access_token_configured` boolean 문자열로 노출해, 화면이 비밀값을 읽지 않고 연결 준비 상태를 판단하도록 했다.
+- 게시 플랫폼 선택 UI는 실제 계정 ID, 안전한 토큰 존재 표시, 실제 부여된 게시 scope, 만료 여부, 영상 파일, Instagram 공개 HTTPS URL 조건을 확인한다. 준비 조건이 부족하면 해당 플랫폼 선택을 비활성화한다.
+- MP4 업로드는 인증·same-origin·Content-Type·크기·MP4 컨테이너 헤더 검사를 수행한다. 컨테이너 헤더 검사는 실제 디코딩/재생 품질 검증을 대체하지 않는다.
+- 최신 코드 SHA `d62ad49...`에서 TAK AUTO trend content MVP tests 성공, TAK SCOUT research tests 성공. Python 전체 테스트는 GitHub Actions에서 실행 중이며, 마지막 확인 시 폰트 설치 단계에 머물러 완료/통과 여부가 미확정이었다. Python 전체 통과로 보고하지 않는다.
+- 이전 문서의 SHA 및 CI 상태는 이 섹션의 최신 기록으로 대체한다. 문서 변경 커밋 후 CI가 새로 실행되면 그 결과를 별도로 확인한다.
+- Render 실제 서비스 생성·배포, Persistent Disk 연결, 백업/복구 리허설, SNS 실계정 연결, 외부 게시 성공은 여전히 미확인이다. `TAK_AUTO_PUBLISHING_ENABLED=false` 유지.
+- 다음 작업: 최신 head의 Python 전체 테스트 완료 확인 → 문서 변경 커밋의 CI 재확인 → 실제 운영 배포 전 체크리스트 최종 검토. PR 병합/배포/실계정 연결/게시/유료 리소스 생성은 별도 사용자 승인 없이는 하지 않는다.
