@@ -444,6 +444,20 @@ class SocialOAuthClient:
                 "fb_exchange_token": short["access_token"],
             })
             user_token = self._token_fields(long)
+            permission_data = self.request_json(
+                "GET", f"https://graph.facebook.com/{version}/me/permissions",
+                headers={"Authorization": f"Bearer {user_token['access_token']}"},
+            )
+            granted = []
+            permission_rows = permission_data.get("data")
+            if isinstance(permission_rows, list):
+                granted = [
+                    str(row.get("permission")) for row in permission_rows
+                    if isinstance(row, dict) and row.get("status") == "granted" and row.get("permission")
+                ]
+            # Store only permissions Meta explicitly reports as granted. Never infer grants
+            # merely because they were requested in the OAuth dialog.
+            user_token["scope"] = ",".join(granted)
             pages = self.request_json("GET", f"https://graph.facebook.com/{version}/me/accounts?fields=id,name,access_token",
                                       headers={"Authorization": f"Bearer {user_token['access_token']}"})
             rows = pages.get("data")
