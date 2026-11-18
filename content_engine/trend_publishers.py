@@ -362,6 +362,8 @@ def publish(platform: str, payload: Mapping[str, object], idempotency_key: str) 
         return _publish_instagram_reel(payload)
     if platform == "tiktok":
         return _publish_tiktok_video(payload)
+    if platform == "facebook":
+        return _publish_facebook_page_post(payload)
     if platform != "threads":
         raise PermanentPublishError(
             f"{platform} 게시 어댑터는 아직 준비되지 않았습니다. 작업은 게시되지 않았습니다."
