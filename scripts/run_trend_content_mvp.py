@@ -687,6 +687,16 @@ if (uploadButton) uploadButton.addEventListener("click", async () => {{
     uploadButton.disabled = false;
   }}
 }});
+const publishForm = document.querySelector('form[action="/queue/approve"]');
+if (publishForm) {{
+  const platformField = publishForm.querySelector('select[name="platform"]');
+  const privacyField = publishForm.querySelector('select[name="privacy_level"]');
+  const syncPrivacyRequirement = () => {{
+    if (privacyField && platformField) privacyField.required = platformField.value === "tiktok";
+  }};
+  if (platformField) platformField.addEventListener("change", syncPrivacyRequirement);
+  syncPrivacyRequirement();
+}}
 </script></body></html>"""
 
 
