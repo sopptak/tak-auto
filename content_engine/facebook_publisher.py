@@ -103,6 +103,12 @@ class FacebookClient:
             fields={"message": text},
             timeout_seconds=self.timeout_seconds,
         )
+        if response.get("error"):
+            error = response["error"]
+            code = error.get("code") if isinstance(error, dict) else ""
+            raise FacebookAPIError(
+                f"Facebook이 게시 요청을 거부했습니다. (오류 코드: {code or 'unknown'})"
+            )
         post_id = str(response.get("id") or "").strip()
         if not post_id:
             raise FacebookAPIError("Facebook 게시 응답에 게시물 ID가 없습니다.")
