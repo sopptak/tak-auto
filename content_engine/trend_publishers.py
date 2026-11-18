@@ -1,7 +1,7 @@
 """Publisher adapters used by the approved trend-content queue.
 
-Only approved Threads text jobs are automated. Other platforms fail closed until
-their account, media, review, and API requirements have been implemented.
+Approved Threads text and YouTube Shorts MP4 jobs are supported. Other platforms
+fail closed until their account, media, review, and API requirements are implemented.
 """
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from .publish_history import PublishHistory, PublishRecord
 from .publishing_queue import PermanentPublishError, PublishUncertainError
 from .social_oauth import OAuthTokenVault, SocialOAuthError
 from .threads_publisher import ThreadsAPIError, ThreadsClient, ThreadsConfigurationError
+from .youtube_publisher import YouTubeAPIError, YouTubeClient, YouTubeConfigurationError
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -64,8 +65,52 @@ def _threads_client() -> ThreadsClient:
         raise PermanentPublishError(str(error)) from error
 
 
+def _publish_youtube_short(payload: Mapping[str, object]) -> str:
+    """Upload an approved MP4 as private first; public visibility is never implicit."""
+    raw_path = str(payload.get("video_path") or payload.get("media_path") or "").strip()
+    if not raw_path:
+        raise PermanentPublishError("YouTube Shorts 영상 파일 경로(video_path)가 필요합니다.")
+    video_path = Path(raw_path).expanduser()
+    if not video_path.is_file() or video_path.suffix.lower() != ".mp4":
+        raise PermanentPublishError("YouTube Shorts 게시 파일은 존재하는 MP4 파일이어야 합니다.")
+    title = str(payload.get("title") or "").strip()
+    if not title:
+        raise PermanentPublishError("YouTube Shorts 제목이 비어 있습니다.")
+    description = str(payload.get("description") or payload.get("body") or "")
+    raw_tags = payload.get("tags") or []
+    if isinstance(raw_tags, str):
+        tags = [tag.strip() for tag in raw_tags.split() if tag.strip()]
+    elif isinstance(raw_tags, (list, tuple)):
+        tags = [str(tag).strip() for tag in raw_tags if str(tag).strip()]
+    else:
+        raise PermanentPublishError("YouTube Shorts 태그는 문자열 또는 목록이어야 합니다.")
+    try:
+        client = YouTubeClient.from_environment()
+    except YouTubeConfigurationError as error:
+        raise PermanentPublishError(str(error)) from error
+    try:
+        result = client.upload_short(
+            video_path=video_path,
+            title=title,
+            description=description,
+            tags=tags,
+            privacy_status="private",
+        )
+    except YouTubeAPIError:
+        # The upload may have reached YouTube even if its response was lost.
+        # Never retry blindly; require an operator to reconcile the channel.
+        raise PublishUncertainError(
+            "YouTube 업로드 결과를 확정할 수 없습니다. 채널의 동영상 목록을 확인하세요."
+        ) from None
+    except ValueError as error:
+        raise PermanentPublishError(str(error)) from error
+    return result.video_id
+
+
 def publish(platform: str, payload: Mapping[str, object], idempotency_key: str) -> str:
     """Publish one approved queue item and return the platform's remote ID."""
+    if platform == "youtube_shorts":
+        return _publish_youtube_short(payload)
     if platform != "threads":
         raise PermanentPublishError(
             f"{platform} 게시 어댑터는 아직 준비되지 않았습니다. 작업은 게시되지 않았습니다."
