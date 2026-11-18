@@ -85,8 +85,9 @@ class CollectPerformanceLiveGateCLITests(unittest.TestCase):
         return exit_code, stdout.getvalue(), stderr.getvalue()
 
     def _assert_client_never_created(self, client_cls, argv: list[str]) -> tuple[int, str, str]:
+        factory_name = "from_environment_or_oauth" if client_cls is YouTubeClient else "from_environment"
         with mock.patch.object(
-            client_cls, "from_environment", side_effect=AssertionError("실제 API가 호출되면 안 됩니다")
+            client_cls, factory_name, side_effect=AssertionError("실제 API가 호출되면 안 됩니다")
         ) as mocked:
             exit_code, stdout, stderr = self._run(argv)
         mocked.assert_not_called()
@@ -162,8 +163,8 @@ class CollectPerformanceLiveGateCLITests(unittest.TestCase):
             stats_transport=lambda *a: {"items": [{"statistics": {"viewCount": "10"}}]},
         )
         with mock.patch.dict("os.environ", {}, clear=True), mock.patch.object(
-            YouTubeClient, "from_environment", return_value=fake_client
-        ):
+            YouTubeClient, "from_environment_or_oauth", return_value=fake_client
+        ) as client_factory:
             exit_code, output, _stderr = self._run(
                 [
                     "--platform", "youtube",
@@ -176,6 +177,7 @@ class CollectPerformanceLiveGateCLITests(unittest.TestCase):
                 ]
             )
         self.assertEqual(exit_code, 0)
+        client_factory.assert_called_once_with(required_scope="https://www.googleapis.com/auth/youtube.readonly")
         self.assertIn("성공", output)
         snapshots = load_snapshots(self.store_path)
         self.assertEqual(snapshots[0].metrics, {"views": 10})
