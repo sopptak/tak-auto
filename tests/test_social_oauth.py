@@ -72,7 +72,7 @@ class SocialOAuthTests(unittest.TestCase):
         publishing_scopes = {
             "youtube_shorts": "youtube.upload",
             "tiktok": "video.publish",
-            "instagram_reels": "instagram_business_content_publishing",
+            "instagram_reels": "instagram_business_content_publish",
             "facebook": "pages_manage_posts",
             "threads": "threads_content_publish",
         }
@@ -202,7 +202,11 @@ class SocialOAuthTests(unittest.TestCase):
 
     def test_instagram_callback_exchanges_long_lived_token_and_reads_professional_profile(self):
         responses = iter([
-            {"access_token": "ig-short", "expires_in": 3600},
+            {"data": [{
+                "access_token": "ig-short", "user_id": "ig-user-123",
+                "permissions": "instagram_business_basic,instagram_business_content_publish",
+                "expires_in": 3600,
+            }]},
             {"access_token": "ig-long", "expires_in": 5184000},
             {"user_id": "ig-user-123", "username": "takcreator"},
         ])
@@ -214,6 +218,7 @@ class SocialOAuthTests(unittest.TestCase):
         result = client.complete("instagram_reels", "code", callback_uri("instagram_reels", self.environ), state="state")
         self.assertEqual(result["profile"], {"account_id": "ig-user-123", "account_name": "takcreator"})
         self.assertEqual(result["tokens"]["access_token"], "ig-long")
+        self.assertEqual(result["scopes"], "instagram_business_basic,instagram_business_content_publish")
         self.assertEqual(calls[1][2]["grant_type"], "ig_exchange_token")
 
     def test_threads_callback_exchanges_long_lived_token_and_reads_profile(self):
