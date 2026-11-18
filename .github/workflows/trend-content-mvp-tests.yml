@@ -78,6 +78,10 @@ on:
       - "docs/social_account_oauth_setup.md"
       - "requirements.txt"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   trend-content-mvp:
     runs-on: ubuntu-latest
