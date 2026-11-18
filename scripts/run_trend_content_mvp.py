@@ -962,6 +962,16 @@ def _page(
             + "".join('<li><a href="' + escape(str(url), quote=True) + '" target="_blank" rel="noopener">' + escape(str(url)) + '</a></li>' for url in source_integrity.get("sources", []))
             + '</ul><p class="meta">' + escape(str(source_integrity.get("scope_note", ""))) + '</p></div>'
         )
+        search_intent = quality_report.get("search_intent") or {}
+        search_intent_html = (
+            '<div class="toolbar"><b>검색 의도 점검: '
+            + escape(str(search_intent.get("type", "미분류"))) + ' · '
+            + escape(str(search_intent.get("status", "미평가"))) + '</b><p class="meta">'
+            + '독자 질문 핵심어 ' + escape(str(search_intent.get("keyword_coverage_count", 0)))
+            + '개 반영 · 답변 단서: '
+            + escape(", ".join(search_intent.get("answer_cues", [])) or "발견되지 않음")
+            + '</p><p class="meta">' + escape(str(search_intent.get("scope_note", ""))) + '</p></div>'
+        )
         quality_report = preview.get("quality_report") or {}
         quality_feedback_html = (
             '<div class="toolbar"><b>콘텐츠 구조 품질 체크: '
@@ -978,6 +988,7 @@ def _page(
   <p class="meta">KNOWLEDGE ID: {escape(str(preview.get('knowledge_id') or ''))} · <a href="/performance?knowledge_id={escape(str(preview.get('knowledge_id') or ''), quote=True)}">이 주제의 플랫폼별 성과 보기</a></p>
   <p class="warning">{escape(str(preview.get('warning', '')))}</p>
   {quality_feedback_html}
+  {search_intent_html}
   {source_feedback_html}\n  {claim_feedback_html}
   {strategy_feedback_html}
   <h3>네이버 블로그 · {escape(str(blog.get('title', '')))}</h3>
