@@ -52,6 +52,7 @@ class PublishingConnectionRouteTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "암호화 저장소"):
                     app._run_connection_verification("threads", {}, environ={"TAK_AUTO_OAUTH_ENCRYPTION_KEY": "key"})
         verify.assert_not_called()
+
     def test_missing_or_unsupported_account_never_calls_external_verifier(self):
         with patch.object(app, "verify_publishing_connection") as verify:
             with self.assertRaisesRegex(ValueError, "인증 환경변수"):
