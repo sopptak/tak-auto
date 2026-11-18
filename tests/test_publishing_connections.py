@@ -59,6 +59,20 @@ class PublishingConnectionTests(unittest.TestCase):
         }
         self.assertIn("게시 권한과 CREATE_CONTENT 또는 MANAGE 작업 권한이 확인", rows["facebook"]["publish_note"])
 
+    def test_youtube_oauth_refresh_token_remains_ready_after_access_token_expiry(self):
+        rows = {
+            row["key"]: row for row in publishing_connection_statuses(
+                {}, now=self.now, oauth_connections={"youtube_shorts": {
+                    "account_id": "channel-123", "account_name": "TAK AUTO",
+                    "expires_at": "2026-11-16T00:00:00Z",
+                    "granted_scopes": "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload",
+                    "refresh_token_configured": "true",
+                }},
+            )
+        }
+        self.assertEqual(rows["youtube_shorts"]["state"], "verified")
+        self.assertEqual(rows["youtube_shorts"]["expires_in"], "액세스 토큰 자동 갱신")
+        self.assertIn("youtube.upload", rows["youtube_shorts"]["publish_note"])
     def test_configured_credentials_show_account_and_expiry_without_secret(self):
         token = "private-token-value"
         statuses = publishing_connection_statuses({
