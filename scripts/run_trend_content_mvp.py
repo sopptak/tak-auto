@@ -473,15 +473,15 @@ def _queue_payload_for_platform(
             raise ValueError("이 콘텐츠에는 Threads 초안이 없습니다.")
         return payloads
     if platform == "facebook":
-        posts = preview.get("threads") or []
-        if not posts:
-            raise ValueError("이 콘텐츠에는 Facebook 페이지용 텍스트 초안이 없습니다.")
-        first = posts[0]
-        title = str(first.get("title") or "").strip()
-        body = str(first.get("body") or "").strip()
+        facebook = preview.get("facebook") or {}
+        if not isinstance(facebook, dict) or not facebook.get("body"):
+            posts = preview.get("threads") or []
+            facebook = posts[0] if posts else {}
+        title = str(facebook.get("title") or "").strip()
+        body = str(facebook.get("body") or "").strip()
         message = "\n\n".join(part for part in (title, body) if part).strip()
         if not message:
-            raise ValueError("Facebook 페이지 게시 본문이 비어 있습니다.")
+            raise ValueError("이 콘텐츠에는 Facebook 페이지용 텍스트 초안이 없습니다.")
         return [{"title": title, "body": message}]
     if platform in {"youtube_shorts", "instagram_reels", "tiktok"}:
         asset = _media_asset_store().get_asset(media_asset_id)
@@ -610,6 +610,13 @@ def _page(
         blog = preview.get("blog") or {}
         shorts = preview.get("shorts") or []
         threads = preview.get("threads") or []
+        facebook_post = preview.get("facebook") or {}
+        facebook_message = "\n\n".join(
+            part for part in (
+                str(facebook_post.get("title") or "").strip(),
+                str(facebook_post.get("body") or "").strip(),
+            ) if part
+        )
         preview_cards.append(f"""
 <section class="preview">
   <h2>{escape(str(preview.get('keyword', '')))} 콘텐츠 미리보기</h2>
@@ -623,6 +630,9 @@ def _page(
   {"".join(f'<p class="meta">해시태그: {escape(" ".join("#" + str(tag).lstrip("#") for tag in shorts[i].get("hashtags", [])))}</p>' for i in range(len(shorts)))}
   <h3>Threads · {len(threads)}편</h3>
   {"".join(f'<div class="draft"><b>{escape(str(row.get("title", "")))}</b><button type="button" class="secondary copy" data-copy="thread-{len(preview_cards)}-{i}">Threads 글 복사</button><pre id="thread-{len(preview_cards)}-{i}">{escape(str(row.get("body", "")))}</pre></div>' for i, row in enumerate(threads))}
+  <h3>Facebook 페이지 게시문 · {escape(str(facebook_post.get("title") or ""))}</h3>
+  <button type="button" class="secondary copy" data-copy="facebook-{len(preview_cards)}">Facebook 글 복사</button>
+  <pre id="facebook-{len(preview_cards)}">{escape(facebook_message)}</pre>
   <p class="meta">{" ".join(f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener">원문 출처</a>' for url in preview.get("source_urls", []))}</p>
   <details><summary>플랫폼 게시 예약 및 승인</summary>
     <p class="warning">승인 후에도 실제 게시 기능은 기본 비활성 상태입니다.</p>
