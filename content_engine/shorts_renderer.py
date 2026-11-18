@@ -43,13 +43,15 @@ DEFAULT_FPS = 30
 # 않는다(라이선스 확인 없이 폰트 자산을 커밋하지 않기 위함).
 _WINDOWS_FONTS = Path(os.getenv("TAK_AUTO_FONT_DIR", "C:/Windows/Fonts"))
 _NOTO_SANS_CJK = Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc")
+_NOTO_SANS_CJK_BOLD = Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc")
 _NOTO_SERIF_CJK = Path("/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc")
+_NOTO_SERIF_CJK_BOLD = Path("/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc")
 SERIF_FONT_CANDIDATES = (
     _WINDOWS_FONTS / "HANBatangB.ttf", _WINDOWS_FONTS / "batang.ttc",
-    _NOTO_SERIF_CJK, _NOTO_SANS_CJK,
+    _NOTO_SERIF_CJK_BOLD, _NOTO_SERIF_CJK, _NOTO_SANS_CJK,
 )
 SANS_FONT_CANDIDATES = (
-    _WINDOWS_FONTS / "malgunbd.ttf", _WINDOWS_FONTS / "malgun.ttf", _NOTO_SANS_CJK,
+    _WINDOWS_FONTS / "malgunbd.ttf", _WINDOWS_FONTS / "malgun.ttf", _NOTO_SANS_CJK_BOLD, _NOTO_SANS_CJK,
 )
 SANS_REGULAR_FONT_CANDIDATES = (_WINDOWS_FONTS / "malgun.ttf", _NOTO_SANS_CJK)
 
