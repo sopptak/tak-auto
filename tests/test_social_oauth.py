@@ -72,7 +72,7 @@ class SocialOAuthTests(unittest.TestCase):
         publishing_scopes = {
             "youtube_shorts": "youtube.upload",
             "tiktok": "video.publish",
-            "instagram_reels": "instagram_business_content_publish",
+            "instagram_reels": "instagram_business_content_publishing",
             "facebook": "pages_manage_posts",
             "threads": "threads_content_publish",
         }
