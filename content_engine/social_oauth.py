@@ -467,14 +467,14 @@ class SocialOAuthClient:
                     if isinstance(row, dict) and row.get("id") and row.get("access_token"):
                         tasks = row.get("tasks") if isinstance(row.get("tasks"), list) else []
                         normalized_tasks = [str(task) for task in tasks]
-                        if "CREATE_CONTENT" not in normalized_tasks:
+                        if not {"CREATE_CONTENT", "MANAGE"}.intersection(normalized_tasks):
                             continue
                         choices.append({"account_id": str(row["id"]), "account_name": str(row.get("name") or "Facebook 페이지"),
                                         "access_token": str(row["access_token"]),
                                         "tasks": normalized_tasks,
                                         "expires_in": _safe_int(row.get("expires_in"))})
             if not choices:
-                raise SocialOAuthError("게시 권한(CREATE_CONTENT)이 있는 Facebook 페이지를 찾지 못했습니다. 페이지 역할과 권한을 확인하세요.")
+                raise SocialOAuthError("게시 권한(CREATE_CONTENT 또는 MANAGE)이 있는 Facebook 페이지를 찾지 못했습니다. 페이지 역할과 권한을 확인하세요.")
             return user_token, choices
 
         if platform == "threads":
