@@ -1031,6 +1031,29 @@ def _make_preview(
     }
 
 
+def _publishing_platform_readiness(oauth_connections: dict, *, media_available: bool, public_media_ready: bool) -> dict[str, bool]:
+    """Enable platform choices only when granted publish scopes and media prerequisites exist."""
+    def scopes_for(platform: str) -> set[str]:
+        raw = str(oauth_connections.get(platform, {}).get("granted_scopes", ""))
+        return {scope for scope in re.split(r"[,\s]+", raw) if scope}
+
+    def connected(platform: str) -> bool:
+        connection = oauth_connections.get(platform, {})
+        return bool(connection.get("account_id") and connection.get("access_token"))
+
+    youtube = oauth_connections.get("youtube_shorts", {})
+    facebook = oauth_connections.get("facebook", {})
+    raw_tasks = facebook.get("tasks", [])
+    tasks = ({str(task) for task in raw_tasks} if isinstance(raw_tasks, (list, tuple, set))
+             else {task for task in re.split(r"[,\s]+", str(raw_tasks)) if task})
+    return {
+        "threads": connected("threads") and "threads_content_publish" in scopes_for("threads"),
+        "facebook": (connected("facebook") and {"pages_show_list", "pages_read_engagement", "pages_manage_posts"}.issubset(scopes_for("facebook")) and bool({"CREATE_CONTENT", "MANAGE"}.intersection(tasks))),
+        "youtube_shorts": (connected("youtube_shorts") and "https://www.googleapis.com/auth/youtube.upload" in scopes_for("youtube_shorts") and str(youtube.get("refresh_token_configured", "")).lower() == "true" and media_available),
+        "instagram_reels": (connected("instagram_reels") and {"instagram_business_basic", "instagram_business_content_publish"}.issubset(scopes_for("instagram_reels")) and media_available and public_media_ready),
+        "tiktok": (connected("tiktok") and "video.publish" in scopes_for("tiktok") and media_available),
+    }
+
 def _queue_payload_for_platform(
     preview: dict, platform: str, media_asset_id: str = "",
     privacy_level: str = "", is_aigc: bool = False,
@@ -1119,33 +1142,14 @@ def _page(
         f'<option value="{escape(asset.asset_id, quote=True)}">{escape(asset.filename)} · {asset.size_bytes // (1024 * 1024)}MB</option>'
         for asset in media_assets
     )
-    tiktok_connection = oauth_connections.get("tiktok", {})
-    tiktok_scopes = {
-        scope for scope in re.split(r"[,\s]+", str(tiktok_connection.get("granted_scopes", ""))) if scope
-    }
-    tiktok_ready = bool(media_assets and tiktok_connection.get("account_id")
-                        and "video.publish" in tiktok_scopes)
-    facebook_connection = oauth_connections.get("facebook", {})
-    facebook_scopes = {
-        scope for scope in re.split(r"[,\s]+", str(facebook_connection.get("granted_scopes", ""))) if scope
-    }
-    facebook_required_scopes = {"pages_show_list", "pages_read_engagement", "pages_manage_posts"}
-    facebook_tasks = {
-        task for task in re.split(r"[,\s]+", str(facebook_connection.get("tasks", ""))) if task
-    }
-    facebook_ready = bool(
-        facebook_connection.get("account_id")
-        and facebook_connection.get("access_token")
-        and facebook_required_scopes.issubset(facebook_scopes)
-        and {"CREATE_CONTENT", "MANAGE"}.intersection(facebook_tasks)
-    )
+    readiness = _publishing_platform_readiness(oauth_connections, media_available=bool(media_assets), public_media_ready=public_media_ready)
     platform_options = (
-        '<option value="threads">Threads · 자동 게시</option>'
-        + ('<option value="facebook">Facebook 페이지 · 게시 권한 연결됨</option>' if facebook_ready else '<option value="facebook" disabled>Facebook 페이지 · 게시 권한 연결 필요</option>')
-        + ('<option value="youtube_shorts">YouTube Shorts · MP4 등록됨</option>' if media_assets else '<option value="youtube_shorts" disabled>YouTube Shorts · MP4 등록 필요</option>')
-        + ('<option value="instagram_reels">Instagram Reels · MP4 등록됨</option>' if media_assets and public_media_ready else '<option value="instagram_reels" disabled>Instagram Reels · HTTPS 주소 설정 및 MP4 필요</option>')
+        ('<option value="threads">Threads · 게시 권한 확인됨</option>' if readiness["threads"] else '<option value="threads" disabled>Threads · 계정 및 threads_content_publish 권한 연결 필요</option>')
+        + ('<option value="facebook">Facebook 페이지 · 게시 권한 확인됨</option>' if readiness["facebook"] else '<option value="facebook" disabled>Facebook 페이지 · 페이지 게시 권한 연결 필요</option>')
+        + ('<option value="youtube_shorts">YouTube Shorts · 업로드 권한 및 MP4 준비됨</option>' if readiness["youtube_shorts"] else '<option value="youtube_shorts" disabled>YouTube Shorts · youtube.upload, refresh token 및 MP4 필요</option>')
+        + ('<option value="instagram_reels">Instagram Reels · 게시 권한 및 MP4 준비됨</option>' if readiness["instagram_reels"] else '<option value="instagram_reels" disabled>Instagram Reels · 게시 권한, HTTPS 주소 및 MP4 필요</option>')
         + '<option value="blog" disabled>네이버 블로그 · 수동 게시</option>'
-        + ('<option value="tiktok">TikTok Direct Post · 계정 및 MP4 준비됨</option>' if tiktok_ready else '<option value="tiktok" disabled>TikTok · video.publish 계정 연결 및 MP4 필요</option>')
+        + ('<option value="tiktok">TikTok Direct Post · 게시 권한 및 MP4 준비됨</option>' if readiness["tiktok"] else '<option value="tiktok" disabled>TikTok · video.publish 권한 및 MP4 필요</option>')
     )
     media_upload_html = (
         '<section class="toolbar"><h2>쇼츠 영상 파일 등록</h2>'
