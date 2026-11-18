@@ -1041,17 +1041,29 @@ def _publishing_platform_readiness(oauth_connections: dict, *, media_available: 
         connection = oauth_connections.get(platform, {})
         return bool(connection.get("account_id"))
 
+    def token_active(platform: str) -> bool:
+        raw_expiry = str(oauth_connections.get(platform, {}).get("expires_at", "")).strip()
+        if not raw_expiry:
+            return True
+        try:
+            expiry = datetime.fromisoformat(raw_expiry.replace("Z", "+00:00"))
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            return expiry.astimezone(timezone.utc) > datetime.now(timezone.utc)
+        except (TypeError, ValueError):
+            return False
+
     youtube = oauth_connections.get("youtube_shorts", {})
     facebook = oauth_connections.get("facebook", {})
     raw_tasks = facebook.get("tasks", [])
     tasks = ({str(task) for task in raw_tasks} if isinstance(raw_tasks, (list, tuple, set))
              else {task for task in re.split(r"[,\s]+", str(raw_tasks)) if task})
     return {
-        "threads": connected("threads") and "threads_content_publish" in scopes_for("threads"),
-        "facebook": (connected("facebook") and {"pages_show_list", "pages_read_engagement", "pages_manage_posts"}.issubset(scopes_for("facebook")) and bool({"CREATE_CONTENT", "MANAGE"}.intersection(tasks))),
+        "threads": connected("threads") and token_active("threads") and "threads_content_publish" in scopes_for("threads"),
+        "facebook": (connected("facebook") and token_active("facebook") and {"pages_show_list", "pages_read_engagement", "pages_manage_posts"}.issubset(scopes_for("facebook")) and bool({"CREATE_CONTENT", "MANAGE"}.intersection(tasks))),
         "youtube_shorts": (connected("youtube_shorts") and "https://www.googleapis.com/auth/youtube.upload" in scopes_for("youtube_shorts") and str(youtube.get("refresh_token_configured", "")).lower() == "true" and media_available),
-        "instagram_reels": (connected("instagram_reels") and {"instagram_business_basic", "instagram_business_content_publish"}.issubset(scopes_for("instagram_reels")) and media_available and public_media_ready),
-        "tiktok": (connected("tiktok") and "video.publish" in scopes_for("tiktok") and media_available),
+        "instagram_reels": (connected("instagram_reels") and token_active("instagram_reels") and {"instagram_business_basic", "instagram_business_content_publish"}.issubset(scopes_for("instagram_reels")) and media_available and public_media_ready),
+        "tiktok": (connected("tiktok") and token_active("tiktok") and "video.publish" in scopes_for("tiktok") and media_available),
     }
 
 def _queue_payload_for_platform(
