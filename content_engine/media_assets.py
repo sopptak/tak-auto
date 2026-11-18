@@ -19,7 +19,7 @@ from urllib.parse import urlencode, urlsplit
 
 
 ASSET_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
-DEFAULT_MAX_BYTES = 512 * 1024 * 1024
+DEFAULT_MAX_BYTES = 100 * 1024 * 1024
 MAX_SIGNED_URL_TTL_SECONDS = 30 * 24 * 60 * 60
 
 
