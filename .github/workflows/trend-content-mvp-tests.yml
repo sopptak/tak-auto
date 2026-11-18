@@ -55,6 +55,8 @@ on:
       - "docs/trend_content_factory_mvp.md"
       - "content_engine/publishing_queue.py"
       - "scripts/run_publishing_queue.py"
+      - "scripts/run_scout_dashboard.py"
+      - "tests/test_performance_dashboard.py"
       - "tests/test_publishing_queue.py"
       - "content_engine/publishing_connections.py"
       - "tests/test_publishing_connections.py"
