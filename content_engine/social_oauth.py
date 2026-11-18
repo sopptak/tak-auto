@@ -48,7 +48,7 @@ PROVIDERS: dict[str, Provider] = {
     "youtube_shorts": Provider(
         "youtube_shorts", "YouTube Shorts", "YOUTUBE_OAUTH_CLIENT_ID", "YOUTUBE_OAUTH_CLIENT_SECRET", "client_id",
         "https://accounts.google.com/o/oauth2/v2/auth",
-        ("https://www.googleapis.com/auth/youtube.readonly",),
+        ("https://www.googleapis.com/auth/youtube.readonly", "https://www.googleapis.com/auth/youtube.upload"),
     ),
     "tiktok": Provider(
         "tiktok", "TikTok", "TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "client_key",
