@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from contextlib import redirect_stdout
 import io
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -38,6 +39,49 @@ class CollectPerformanceCLITests(unittest.TestCase):
         with redirect_stdout(buffer):
             exit_code = collect_performance_main(argv)
         return exit_code, buffer.getvalue()
+
+    def _write_queue_history(self, platform="threads", **overrides):
+        queue_path = Path(self.tmp_dir.name) / "queue.json"
+        row = {
+            "content_id": "trend-content-threads-1",
+            "platform": platform,
+            "remote_id": "threads-post-123",
+            "published_at": "2026-11-17T12:00:00+00:00",
+            "knowledge_id": "trend-preview-k123",
+            "title": "트렌드 제목",
+        }
+        row.update(overrides)
+        queue_path.write_text(json.dumps({"version": 1, "items": [], "history": [row]}), encoding="utf-8")
+        return queue_path
+
+    def test_queue_content_id_resolves_threads_lineage_without_manual_ids(self):
+        queue_path = self._write_queue_history()
+        exit_code, output = self._run([
+            "--queue-content-id", "trend-content-threads-1",
+            "--queue-history", str(queue_path),
+            "--store", str(self.store_path),
+            "--dry-run",
+        ])
+        self.assertEqual(exit_code, 0)
+        self.assertIn("content_id=trend-content-threads-1", output)
+        self.assertIn("media_id=threads-post-123", output)
+        self.assertFalse(self.store_path.exists())
+
+    def test_queue_content_id_maps_youtube_shorts_to_youtube_performance(self):
+        queue_path = self._write_queue_history(
+            platform="youtube_shorts", remote_id="youtube-video-456",
+            content_id="trend-content-youtube-1",
+        )
+        exit_code, output = self._run([
+            "--queue-content-id", "trend-content-youtube-1",
+            "--queue-history", str(queue_path),
+            "--store", str(self.store_path),
+            "--dry-run",
+        ])
+        self.assertEqual(exit_code, 0)
+        self.assertIn("content_id=trend-content-youtube-1", output)
+        self.assertIn("video_id=youtube-video-456", output)
+        self.assertFalse(self.store_path.exists())
 
     # --- G. Blog manual metric import 저장 -------------------------------------
 
