@@ -416,6 +416,46 @@ def _parse_content_package(answer: str) -> dict:
     return package
 
 
+def _evaluate_content_quality(package: dict, keyword: str) -> dict:
+    """Deterministic editorial checklist; this is not factual verification."""
+    blog = package.get("blog") if isinstance(package.get("blog"), dict) else {}
+    shorts = package.get("shorts") if isinstance(package.get("shorts"), dict) else {}
+    threads = package.get("threads") if isinstance(package.get("threads"), list) else []
+    facebook = package.get("facebook") if isinstance(package.get("facebook"), dict) else {}
+    body = str(blog.get("body") or "")
+    blog_title = str(blog.get("title") or "")
+    scenes = shorts.get("scenes") if isinstance(shorts.get("scenes"), list) else []
+    headings = sum(1 for line in body.splitlines() if line.strip().startswith("#"))
+    thread_bodies = [
+        str(row.get("body") or "").strip() for row in threads if isinstance(row, dict)
+    ]
+    checks = [
+        ("blog_length", "블로그 본문 1,200자 이상", len(body.strip()) >= 1200, 15),
+        ("blog_headings", "블로그 소제목 3개 이상", headings >= 3, 10),
+        ("keyword_alignment", "핵심 키워드가 제목과 본문에 포함", bool(keyword and keyword.casefold() in blog_title.casefold() and keyword.casefold() in body.casefold()), 10),
+        ("blog_meta", "검색 설명 60~160자", 60 <= len(str(blog.get("meta_description") or "").strip()) <= 160, 5),
+        ("shorts_scene_count", "쇼츠 장면 6~8개", 6 <= len(scenes) <= 8, 10),
+        ("shorts_hook", "쇼츠 첫 3초 후킹 문장", bool(str(shorts.get("hook") or "").strip()) and len(str(shorts.get("hook") or "").strip()) >= 8, 10),
+        ("shorts_cta", "쇼츠 마무리 행동 유도", bool(str(shorts.get("closing_cta") or "").strip()), 5),
+        ("shorts_scene_detail", "각 장면에 화면·자막·내레이션 존재", bool(scenes) and all(isinstance(s, dict) and all(str(s.get(k) or "").strip() for k in ("visual", "caption", "narration")) for s in scenes), 10),
+        ("threads_pair", "Threads 독립 초안 2개 및 500자 제한", len(thread_bodies) == 2 and all(0 < len(text) <= 500 for text in thread_bodies), 10),
+        ("threads_distinct", "Threads 두 초안의 본문이 서로 다름", len(thread_bodies) == 2 and thread_bodies[0] != thread_bodies[1], 5),
+        ("facebook_native", "Facebook 전용 문안이 Threads와 구분됨", bool(str(facebook.get("body") or "").strip()) and str(facebook.get("body") or "").strip() not in thread_bodies, 5),
+        ("hashtags", "쇼츠 해시태그 3개 이상", isinstance(shorts.get("hashtags"), list) and len(shorts["hashtags"]) >= 3, 5),
+    ]
+    score = sum(weight for _, _, passed, weight in checks if passed)
+    failed = [label for _, label, passed, _ in checks if not passed]
+    return {
+        "score": score,
+        "grade": "양호" if score >= 85 else "보완 권장" if score >= 65 else "수정 필요",
+        "checks_passed": sum(1 for _, _, passed, _ in checks if passed),
+        "checks_total": len(checks),
+        "passed": [label for _, label, passed, _ in checks if passed],
+        "warnings": failed,
+        "scope_note": "구조·분량·플랫폼별 편집 체크리스트 점수입니다. 사실 정확성, 출처 신뢰도, 저작권, 실제 성과를 판정하지 않습니다.",
+    }
+
+
 def _make_preview(
     item: dict, trend_report: dict, provider=None,
     strategy_insights: list[dict] | None = None,
@@ -475,8 +515,10 @@ def _make_preview(
             search_recency_filter="week",
         )
         package = _parse_content_package(result.answer)
+        quality_report = _evaluate_content_quality(package, keyword)
         return {
             "keyword": keyword,
+            "quality_report": quality_report,
             "knowledge_id": knowledge.id,
             "strategy_insights": strategy_insights or [],
             "created_at": utc_now(),
@@ -506,8 +548,15 @@ def _make_preview(
 
     # Offline fallback is retained for deterministic tests and local template preview only.
     bundle = generate_content_bundle(knowledge)
+    offline_package = {
+        "blog": asdict(bundle.blog) if bundle.blog else {},
+        "shorts": ({"scenes": [asdict(row) for row in bundle.shorts], "hook": "", "closing_cta": "", "hashtags": []}),
+        "threads": [asdict(row) for row in bundle.threads],
+        "facebook": ({"body": bundle.threads[0].body} if bundle.threads else {}),
+    }
     return {
         "keyword": keyword,
+        "quality_report": _evaluate_content_quality(offline_package, keyword),
         "knowledge_id": knowledge.id,
         "strategy_insights": strategy_insights or [],
         "created_at": utc_now(),
@@ -706,6 +755,7 @@ def _page(
   <h2>{escape(str(preview.get('keyword', '')))} 콘텐츠 미리보기</h2>
   <p class="meta">KNOWLEDGE ID: {escape(str(preview.get('knowledge_id') or ''))} · <a href="/performance?knowledge_id={escape(str(preview.get('knowledge_id') or ''), quote=True)}">이 주제의 플랫폼별 성과 보기</a></p>
   <p class="warning">{escape(str(preview.get('warning', '')))}</p>
+  {f'<div class="toolbar"><b>콘텐츠 구조 품질 체크: {int((preview.get("quality_report") or {}).get("score", 0))}/100 · {escape(str((preview.get("quality_report") or {}).get("grade", "미평가")))}</b><p class="meta">{escape(str((preview.get("quality_report") or {}).get("checks_passed", 0)))} / {escape(str((preview.get("quality_report") or {}).get("checks_total", 0)))}개 항목 통과</p><ul>{"".join(f"<li>{escape(str(value))}</li>" for value in (preview.get("quality_report") or {}).get("warnings", []))}</ul><p class="meta">{escape(str((preview.get("quality_report") or {}).get("scope_note", "")))}</p></div>'}
   {strategy_feedback_html}
   <h3>네이버 블로그 · {escape(str(blog.get('title', '')))}</h3>
   <button type="button" class="secondary copy" data-copy="blog-{len(preview_cards)}">블로그 원고 복사</button>
