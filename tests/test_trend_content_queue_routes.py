@@ -340,6 +340,9 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertIsNone(
             run_trend_content_mvp._editorial_target({"area": "쇼츠 해시태그"}),
         )
+        self.assertIsNone(
+            run_trend_content_mvp._editorial_target({"area": "쇼츠 장면"}),
+        )
 
     def test_editorial_revision_prompt_preserves_fact_checking_constraints_and_sources(self):
         prompt = run_trend_content_mvp._build_editorial_revision_prompt(
