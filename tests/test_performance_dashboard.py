@@ -135,6 +135,34 @@ class PerformanceDashboardHttpTests(unittest.TestCase):
         self.assertIn("content-perf-1", body)
         self.assertIn("AI 재작성 제목", body)  # archive의 final_title이 채워졌는지
 
+    def test_performance_list_filters_by_knowledge_id_without_merging_platforms(self):
+        append_snapshot(self.performance_path, _perf_record(
+            content_id="content-perf-threads", platform="threads",
+            knowledge_id="trend-preview-abc", metrics={"views": 120, "likes": 8},
+        ))
+        append_snapshot(self.performance_path, _perf_record(
+            content_id="content-perf-youtube", platform="youtube",
+            knowledge_id="trend-preview-abc", metrics={"views": 950, "likes": 30},
+        ))
+        append_snapshot(self.performance_path, _perf_record(
+            content_id="content-other", platform="threads",
+            knowledge_id="trend-preview-other", metrics={"views": 9999},
+        ))
+
+        status, body = self._get("/performance?knowledge_id=trend-preview-abc")
+        self.assertEqual(status, 200)
+        self.assertIn("KNOWLEDGE ID: trend-preview-abc", body)
+        self.assertIn("content-perf-threads", body)
+        self.assertIn("content-perf-youtube", body)
+        self.assertNotIn("content-other", body)
+        self.assertIn("총 2건", body)
+
+    def test_performance_list_shows_empty_state_for_uncollected_knowledge(self):
+        status, body = self._get("/performance?knowledge_id=trend-preview-not-collected")
+        self.assertEqual(status, 200)
+        self.assertIn("trend-preview-not-collected", body)
+        self.assertIn("아직 수집된 성과가 없습니다", body)
+
     def test_performance_list_single_snapshot_shows_no_delta_or_previous(self):
         upsert_archive(self.archive_path, [_archive_record()])
         append_snapshot(self.performance_path, _perf_record(metric_collected_at="2026-09-15T00:00:00+00:00", metrics={"views": 100}))
