@@ -562,7 +562,7 @@ def _page(
     }
     facebook_required_scopes = {"pages_show_list", "pages_read_engagement", "pages_manage_posts"}
     facebook_tasks = {
-        task for task in re.split(r"[,\\s]+", str(facebook_connection.get("tasks", ""))) if task
+        task for task in re.split(r"[,\s]+", str(facebook_connection.get("tasks", ""))) if task
     }
     facebook_ready = bool(
         facebook_connection.get("account_id")
