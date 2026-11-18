@@ -238,3 +238,5 @@ JSON 저장은 같은 디렉터리에 고유 임시 파일을 만들고 파일 �
 `/health` 응답에는 `storage_persistent`와 `storage_mode`가 포함된다. `persistent_disk`가 아니면 운영 데이터가 재시작·재배포 후 보존된다고 가정해서는 안 된다.
 
 Render 환경에서는 단순히 데이터 경로에 쓰기가 가능한지만 보지 않고, 설정된 데이터 디렉터리 자체가 실제 마운트 지점인지 확인한다. 현재 Blueprint는 mountPath와 TAK_AUTO_DATA_DIR를 동일한 /var/data/trend-factory 경로로 맞춰 둔다.
+
+게시 대기열 JSON, 미디어 자산 인덱스, MP4 파일도 파일 flush/fsync 후 원자 교체 또는 저장 완료 처리하며, 가능한 환경에서는 파일 권한을 소유자 전용(0600)으로 제한한다. 이 설정은 파일시스템 장애·디스크 손상에 대한 별도 백업을 대신하지 않는다.
