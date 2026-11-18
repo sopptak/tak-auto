@@ -100,6 +100,10 @@ HOOK_HEADSTART = {"rise": 0.35, "pop": 0.45, "blur": 0.9}
 
 @lru_cache(maxsize=64)
 def _font(path: Path, size: int, weight: int | None = None) -> ImageFont.FreeTypeFont:
+    if weight is not None and weight >= 600 and "Regular" in path.name:
+        bold_path = path.with_name(path.name.replace("Regular", "Bold"))
+        if bold_path.is_file():
+            path = bold_path
     if not path.exists():
         raise ShortsRenderError(f"폰트가 없습니다: {path} (Windows Noto Sans/Serif KR 필요)")
     font = ImageFont.truetype(str(path), size=size)
