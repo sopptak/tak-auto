@@ -151,6 +151,14 @@ class MediaAssetStore:
             if len(header) < 12 or header[4:8] != b"ftyp":
                 raise MediaAssetError("업로드 파일이 올바른 MP4 컨테이너가 아닙니다.")
             temporary_path.replace(final_path)
+            try:
+                directory_fd = os.open(self.asset_dir, os.O_RDONLY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+            except OSError:
+                pass
             created_at = datetime.now(timezone.utc).isoformat()
             row = {
                 "asset_id": asset_id, "filename": safe_name,
