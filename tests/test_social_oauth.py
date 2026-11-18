@@ -112,6 +112,7 @@ class SocialOAuthTests(unittest.TestCase):
                 "expires_in": 3600,
             }, {"account_id": "thread-123", "account_name": "tak_auto"}, scopes="threads_basic")
             ciphertext = path.read_text(encoding="ascii")
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             self.assertNotIn("a-private-access-token", ciphertext)
             self.assertNotIn("a-private-refresh-token", ciphertext)
             public = vault.public_connections()["threads"]
