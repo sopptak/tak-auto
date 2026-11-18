@@ -116,6 +116,20 @@ class PublishHistoryStorageTests(unittest.TestCase):
         self.assertEqual(records[0]["threads_post_id"], "th_post_1")
         self.assertIn("published_at", records[0])
 
+    def test_facebook_history_uses_generic_remote_id(self):
+        history = PublishHistory(self.history_path)
+        history.append(PublishRecord(
+            content_id="facebook-content-1",
+            published_at="2026-11-18T08:00:00+00:00",
+            threads_post_id="",
+            platform="facebook",
+            remote_id="123_456",
+        ))
+        record = history.load()[0]
+        self.assertEqual(record["platform"], "facebook")
+        self.assertEqual(record["remote_id"], "123_456")
+        self.assertEqual(record["threads_post_id"], "")
+
     def test_append_preserves_existing_records(self):
         history = PublishHistory(self.history_path)
         history.append(
