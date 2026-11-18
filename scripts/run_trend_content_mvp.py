@@ -596,7 +596,9 @@ def _page(
       <input type="hidden" name="preview_index" value="{preview_index}">
       <label>플랫폼 <select name="platform">{platform_options}</select></label>
       <label>영상 파일 <select name="media_asset_id"><option value="">영상 선택 (영상 플랫폼만)</option>{asset_options}</select></label>
-      <p class="meta">영상 플랫폼은 등록한 MP4를 사용합니다. Instagram은 공개 HTTPS 서명 URL로 Meta가 영상을 가져갑니다.</p>
+      <label>TikTok 공개 범위 (TikTok 선택 시 필수) <select name="privacy_level"><option value="">공개 범위 선택</option><option value="SELF_ONLY">나만 보기</option><option value="MUTUAL_FOLLOW_FRIENDS">맞팔로워</option><option value="FOLLOWER_OF_CREATOR">팔로워</option><option value="PUBLIC_TO_EVERYONE">전체 공개</option></select></label>
+      <label><input type="checkbox" name="is_aigc" value="1"> TikTok 영상이 AI 생성 콘텐츠임을 표시</label>
+      <p class="meta">영상 플랫폼은 등록한 MP4를 사용합니다. Instagram은 공개 HTTPS 서명 URL로 Meta가 가져가며, TikTok은 MP4를 TikTok으로 직접 전송합니다. TikTok 공개 범위는 실제 계정에서 허용하는 옵션과 일치해야 합니다.</p>
       <label>예약 시각 (한국시간) <input type="datetime-local" name="scheduled_at" required></label>
       <button type="submit">승인하고 예약</button>
     </form>
@@ -986,7 +988,11 @@ def create_handler():
                     preview_key = json.dumps(preview, ensure_ascii=False, sort_keys=True)
                     content_id = "trend-" + hashlib.sha256(preview_key.encode("utf-8")).hexdigest()[:20]
                     media_asset_id = form.get("media_asset_id", [""])[0]
-                    payloads = _queue_payload_for_platform(preview, platform, media_asset_id)
+                    privacy_level = form.get("privacy_level", [""])[0]
+                    is_aigc = form.get("is_aigc", [""])[0] == "1"
+                    payloads = _queue_payload_for_platform(
+                        preview, platform, media_asset_id, privacy_level, is_aigc,
+                    )
                     approver = os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user"
                     enqueued = [queue.enqueue_approved(
                         content_id=f"{content_id}-{platform}-{payload_index + 1}",
