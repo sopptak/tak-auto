@@ -709,10 +709,12 @@ def _make_preview(
         package = _parse_content_package(result.answer)
         quality_report = _evaluate_content_quality(package, keyword, item)
         source_integrity = _evaluate_source_integrity(item, trend_report, list(result.citations))
+        claim_coverage = _evaluate_claim_citation_coverage(package, list(dict.fromkeys(urls + list(result.citations))))
         return {
             "keyword": keyword,
             "quality_report": quality_report,
             "source_integrity": source_integrity,
+            "claim_coverage": claim_coverage,
             "knowledge_id": knowledge.id,
             "strategy_insights": strategy_insights or [],
             "created_at": utc_now(),
@@ -748,10 +750,12 @@ def _make_preview(
         "threads": [asdict(row) for row in bundle.threads],
         "facebook": ({"body": bundle.threads[0].body} if bundle.threads else {}),
     }
+    claim_coverage = _evaluate_claim_citation_coverage(offline_package, urls)
     return {
         "keyword": keyword,
         "quality_report": _evaluate_content_quality(offline_package, keyword, item),
         "source_integrity": _evaluate_source_integrity(item, trend_report),
+        "claim_coverage": claim_coverage,
         "knowledge_id": knowledge.id,
         "strategy_insights": strategy_insights or [],
         "created_at": utc_now(),
