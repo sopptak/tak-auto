@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from content_engine.media_assets import MediaAssetStore
-from content_engine.performance_insight import InsightRecord, STATUS_ACCEPTED, STATUS_CANDIDATE, append_insights
+from content_engine.performance_insight import InsightRecord, STATUS_ACCEPTED, STATUS_CANDIDATE, append_insights, load_insights
 from scripts import run_trend_content_mvp
 
 
