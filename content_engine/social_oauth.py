@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from html import escape
 import json
 import os
+import tempfile
 from pathlib import Path
 import secrets
 import threading
@@ -214,13 +215,31 @@ class OAuthTokenVault:
     def _save(self, rows: dict[str, dict[str, object]]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         encrypted = self.fernet.encrypt((json.dumps(rows, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8"))
-        temporary = self.path.with_suffix(self.path.suffix + ".tmp")
-        temporary.write_bytes(encrypted)
-        if os.name != "nt":
-            temporary.chmod(0o600)
-        temporary.replace(self.path)
-        if os.name != "nt":
-            self.path.chmod(0o600)
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile("wb", dir=self.path.parent, delete=False) as handle:
+                temporary_path = Path(handle.name)
+                handle.write(encrypted)
+                handle.flush()
+                os.fsync(handle.fileno())
+            if os.name != "nt":
+                temporary_path.chmod(0o600)
+            os.replace(temporary_path, self.path)
+            temporary_path = None
+            if os.name != "nt":
+                self.path.chmod(0o600)
+            try:
+                directory_fd = os.open(self.path.parent, os.O_RDONLY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+            except OSError:
+                pass
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+
 
     def save(self, platform: str, tokens: Mapping[str, object], profile: Mapping[str, object], *, scopes: str = "") -> None:
         if platform not in PROVIDERS:
