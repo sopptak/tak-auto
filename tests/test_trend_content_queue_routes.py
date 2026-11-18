@@ -172,7 +172,7 @@ class TrendContentQueueRouteTests(unittest.TestCase):
     def test_editorial_quality_check_scores_structure_without_claiming_fact_verification(self):
         package = self._valid_package()
         package["blog"]["title"] = "테스트 키워드 검색과 활용 방법"
-        package["blog"]["meta_description"] = "테스트 키워드의 핵심 내용과 확인 방법을 정리한 실전 안내입니다. 지금 필요한 사항을 확인하세요."
+        package["blog"]["meta_description"] = "테스트 키워드의 핵심 내용과 확인 방법을 정리한 실전 안내입니다. 지금 필요한 사항을 확인하고 구체적인 적용 순서와 주의사항까지 한 번에 살펴보세요."
         package["blog"]["body"] = (
             "# 테스트 키워드 안내\n\n" + ("테스트 키워드의 핵심 내용을 설명합니다. " * 50)
             + "\n## 첫 번째 확인사항\n\n" + ("구체적인 실행 방법을 설명합니다. " * 30)
