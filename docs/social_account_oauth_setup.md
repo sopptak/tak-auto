@@ -47,7 +47,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 YouTube는 Google Cloud에서 YouTube Data API v3를 활성화하고 OAuth 클라이언트 유형을 **웹 애플리케이션**으로 생성합니다. 계정 확인에는 `youtube.readonly`만 요청합니다. 기존 로컬 인증 스크립트의 Desktop 앱 JSON은 웹 콜백에 사용할 수 없습니다.
 
-TikTok 앱에는 Login Kit와 Content Posting API 제품을 추가하고 `user.info.basic`, `video.publish` 권한을 설정합니다. Direct Post 사용 전 TikTok 개발자 앱의 Direct Post 구성을 활성화하고 앱 심사를 완료해야 합니다. `video.publish` 권한을 요청하며, TikTok 앱의 Direct Post 제품 설정과 권한 승인이 필요합니다. Meta 앱에서는 Facebook Login, Instagram Login, Threads API 제품을 각각 설정하고 위 콜백을 등록합니다. Facebook 계정 확인에는 `pages_show_list`, Instagram에는 `instagram_business_basic`과 `instagram_business_content_publish`, Threads에는 `threads_basic`과 `threads_content_publish`를 요청합니다. Instagram 계정은 프로페셔널(비즈니스 또는 크리에이터) 계정이어야 하며, 릴스 게시에는 암호화된 연결 토큰에 두 Instagram 권한이 모두 있어야 합니다. Threads 연결 카드에 게시 권한이 표시되어야 승인 대기열의 텍스트 어댑터가 암호화된 웹 로그인 토큰을 사용할 수 있습니다. Meta 개발 앱이 개발 모드이면 앱 역할로 등록된 테스트 계정만 연결될 수 있습니다. 플랫폼이 앱 검토를 요구하면 해당 검토를 완료해야 다른 계정이 연결될 수 있습니다.
+TikTok 앱에는 Login Kit와 Content Posting API 제품을 추가하고 `user.info.basic`, `video.publish` 권한을 설정합니다. Direct Post 사용 전 TikTok 개발자 앱의 Direct Post 구성을 활성화하고 앱 심사를 완료해야 합니다. `video.publish` 권한을 요청하며, TikTok 앱의 Direct Post 제품 설정과 권한 승인이 필요합니다. Meta 앱에서는 Facebook Login, Instagram Login, Threads API 제품을 각각 설정하고 위 콜백을 등록합니다. Facebook 페이지 게시에는 `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`를 요청하고, Instagram에는 `instagram_business_basic`과 `instagram_business_content_publishing`, Threads에는 `threads_basic`과 `threads_content_publish`를 요청합니다. Instagram 계정은 프로페셔널(비즈니스 또는 크리에이터) 계정이어야 하며, 릴스 게시에는 암호화된 연결 토큰에 두 Instagram 권한이 모두 있어야 합니다. Threads 연결 카드에 게시 권한이 표시되어야 승인 대기열의 텍스트 어댑터가 암호화된 웹 로그인 토큰을 사용할 수 있습니다. Meta 개발 앱이 개발 모드이면 앱 역할로 등록된 테스트 계정만 연결될 수 있습니다. 플랫폼이 앱 검토를 요구하면 해당 검토를 완료해야 다른 계정이 연결될 수 있습니다.
 
 네이버 앱에는 네이버 로그인을 추가하고 콜백 URL을 등록합니다. 이 연결은 네이버 사용자 프로필을 확인합니다. 네이버 블로그 글쓰기 Open API는 종료되어 계정 연결이 블로그 자동 게시를 열어주지는 않습니다.
 
@@ -94,7 +94,7 @@ Facebook OAuth를 다시 연결해 아래 권한을 승인해야 페이지 게�
 - `pages_manage_posts`: 페이지 이름으로 게시물 작성
 - 연결 마지막 단계에서 실제 게시할 Facebook 페이지를 선택합니다. 선택된 페이지의 Page access token과 페이지 ID가 암호화 저장소에 보관됩니다.
 - 게시 권한이 있는 페이지에서 `CREATE_CONTENT` 작업 권한을 가진 계정이어야 합니다.
-- 현재 자동 게시 어댑터는 텍스트 게시만 지원합니다. 사진·영상·릴스는 Facebook 게시 어댑터 범위에 포함되지 않습니다.
+- 페이지 선택 화면에는 `CREATE_CONTENT` 작업 권한이 있는 페이지만 표시됩니다. 현재 자동 게시 어댑터는 Facebook 전용 문안의 텍스트 게시만 지원합니다. 사진·영상·릴스는 Facebook 게시 어댑터 범위에 포함되지 않습니다.
 - 게시 예약은 콘텐츠 승인 대기열을 사용합니다. 전역 게시 스위치가 켜져 있고 운영자 승인 조건이 충족되기 전에는 외부 페이지에 게시되지 않습니다.
 - 게시 응답이 유실되면 중복 게시 방지를 위해 자동 재시도하지 않고 운영자 확인 상태로 전환합니다.
 
