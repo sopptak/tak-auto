@@ -115,6 +115,8 @@ class SocialOAuthTests(unittest.TestCase):
             public = vault.public_connections()["threads"]
             self.assertEqual(public["account_name"], "tak_auto")
             self.assertNotIn("access_token", public)
+            self.assertEqual(public["access_token_configured"], "true")
+            self.assertNotIn("a-private-access-token", str(public))
             self.assertEqual(vault.get("threads")["refresh_token"], "a-private-refresh-token")
             self.assertTrue(vault.disconnect("threads"))
             self.assertEqual(vault.public_connections(), {})
