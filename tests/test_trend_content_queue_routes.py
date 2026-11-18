@@ -1,4 +1,5 @@
 import io
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -87,6 +88,19 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             run_trend_content_mvp._editorial_target({"area": "Facebook"}),
             ("facebook.body", "facebook"),
         )
+
+    def test_concurrent_json_writes_never_leave_partial_json_or_shared_temp_conflicts(self):
+        path = self.data_dir / "concurrent-state.json"
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            list(executor.map(
+                lambda index: run_trend_content_mvp._write_json(
+                    path, {"writer": index, "payload": "한글 데이터 " * 100},
+                ),
+                range(24),
+            ))
+        stored = json.loads(path.read_text(encoding="utf-8"))
+        self.assertIn(stored["writer"], range(24))
+        self.assertEqual(list(self.data_dir.glob(".concurrent-state.json.*.tmp")), [])
 
     def test_generated_preview_carries_stable_knowledge_identity(self):
         package = self._valid_package()
