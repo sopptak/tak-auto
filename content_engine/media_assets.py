@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import re
 import tempfile
+import threading
 from typing import BinaryIO
 from urllib.parse import urlencode, urlsplit
 
@@ -21,6 +22,7 @@ from urllib.parse import urlencode, urlsplit
 ASSET_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
 DEFAULT_MAX_BYTES = 100 * 1024 * 1024
 MAX_SIGNED_URL_TTL_SECONDS = 30 * 24 * 60 * 60
+_INDEX_LOCK = threading.Lock()
 
 
 class MediaAssetError(ValueError):
@@ -132,9 +134,10 @@ class MediaAssetStore:
                 "asset_id": asset_id, "filename": safe_name,
                 "size_bytes": written, "created_at": created_at,
             }
-            rows = self._load_index()
-            rows.append(row)
-            self._save_index(rows)
+            with _INDEX_LOCK:
+                rows = self._load_index()
+                rows.append(row)
+                self._save_index(rows)
             return MediaAsset(asset_id, safe_name, written, created_at, final_path)
         except Exception:
             if temporary_path is not None:
