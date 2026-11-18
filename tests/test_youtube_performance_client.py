@@ -60,6 +60,8 @@ class YouTubeOAuthClientResolutionTests(unittest.TestCase):
                     YouTubeClient.from_environment_or_oauth(
                         required_scope="https://www.googleapis.com/auth/youtube.upload",
                     )
+
+
 class YouTubeVideoStatisticsTests(unittest.TestCase):
     def _client(self, token_transport=None, stats_transport=None, channel_transport=None):
         kwargs = {}
