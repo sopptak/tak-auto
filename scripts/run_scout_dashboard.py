@@ -1889,19 +1889,36 @@ def _performance_row_html(
 def render_performance_list_html(
     summaries: list[ContentPerformanceSummary],
     archive_by_content_id: dict[str, MediaArchiveRecord],
+    *,
+    knowledge_id: str | None = None,
 ) -> str:
-    """GET /performance - content_id별 성과 시계열 요약을 읽기 전용으로 보여준다."""
-    if not summaries:
+    """GET /performance - content_id별 성과 시계열 요약을 읽기 전용으로 보여준다.
+
+    knowledge_id가 주어지면 같은 원본 KNOWLEDGE에서 파생된 플랫폼별 게시물만
+    필터링한다. 집계/합산은 하지 않고 각 content_id의 원래 성과 시계열을 유지한다.
+    """
+    filtered = summaries
+    if knowledge_id:
+        filtered = [summary for summary in summaries if summary.latest.knowledge_id == knowledge_id]
+    if not filtered:
+        if knowledge_id:
+            return f"""
+<h1>Performance</h1>
+<div class="sub">KNOWLEDGE ID: {escape(knowledge_id)}</div>
+<div class="sub">이 원본 콘텐츠에서 아직 수집된 성과가 없습니다. 게시 이력에서 대상을 확인한 뒤 성과 수집을 실행하세요.</div>
+"""
         return """
 <h1>Performance</h1>
 <div class="sub">아직 수집된 성과 데이터가 없습니다. scripts/collect_performance.py로 수집해야 여기에 표시됩니다.</div>
 """
 
-    ordered = sorted(summaries, key=lambda s: s.latest.metric_collected_at, reverse=True)
+    ordered = sorted(filtered, key=lambda s: s.latest.metric_collected_at, reverse=True)
     rows = "".join(_performance_row_html(summary, archive_by_content_id) for summary in ordered)
+    filter_note = f'<div class="sub">KNOWLEDGE ID: {escape(knowledge_id)}</div>' if knowledge_id else ""
     return f"""
 <h1>Performance</h1>
-<div class="sub">총 {len(ordered)}건 (content_id별 시계열 요약 - 최근 수집 순)</div>
+{filter_note}
+<div class="sub">총 {len(ordered)}건 (content_id별 시계열 요약 - 최근 수집 순, 플랫폼별 독립 표시)</div>
 {rows}
 """
 
@@ -2968,7 +2985,10 @@ def make_handler_class(
                 archive_by_content_id = {
                     record.content_id: record for record in load_archive(config.media_archive_path)
                 }
-                body = render_performance_list_html(summaries, archive_by_content_id)
+                body = render_performance_list_html(
+                    summaries, archive_by_content_id,
+                    knowledge_id=query.get("knowledge_id", [None])[0],
+                )
                 self._send_html(_page("Performance", body))
                 return
 
