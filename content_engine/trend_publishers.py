@@ -167,7 +167,7 @@ def _publish_instagram_reel(payload: Mapping[str, object]) -> str:
     scopes = {
         scope for scope in re.split(r"[,\s]+", str(connection.get("granted_scopes", ""))) if scope
     }
-    required_scopes = {"instagram_business_basic", "instagram_business_content_publishing"}
+    required_scopes = {"instagram_business_basic", "instagram_business_content_publish"}
     if not required_scopes.issubset(scopes):
         raise PermanentPublishError(
             "Instagram 계정에 릴스 게시 권한이 없습니다. 계정을 다시 연결하고 게시 권한에 동의하세요."
