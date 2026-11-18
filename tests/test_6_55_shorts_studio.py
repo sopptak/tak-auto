@@ -420,7 +420,7 @@ class DashboardRouteTests(StudioCase):
 
     def request(self, path: str, form: dict | None = None) -> tuple[int, str, str]:
         data = urllib.parse.urlencode(form or {}).encode() if form is not None else None
-        req = urllib.request.Request(f"http://127.0.0.1:{self.server.server_address[1]}{path}", data=data)
+        req = urllib.request.Request(f"http://127.0.0.1:{self.server.server_address[1]}{path}", data=data, headers={"Origin": f"http://127.0.0.1:{self.server.server_address[1]}"})
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 return resp.status, resp.geturl(), resp.read().decode("utf-8", "replace")
