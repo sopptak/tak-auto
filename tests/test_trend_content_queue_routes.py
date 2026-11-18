@@ -53,7 +53,7 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         )
         self.assertEqual(payload, [{
             "title": "제목",
-            "body": "제목\\n\\n승인된 Threads 원고",
+            "body": "제목\n\n승인된 Threads 원고",
         }])
 
     def test_youtube_queue_uses_uploaded_mp4_path_and_metadata(self):
