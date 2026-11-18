@@ -4,11 +4,13 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from html import escape
 import os
+from pathlib import Path
 from typing import Mapping
 from urllib.parse import urlsplit
 
 from .threads_publisher import ThreadsClient
 from .youtube_publisher import YouTubeClient
+from .social_oauth import OAuthTokenVault, SocialOAuthError, TOKEN_FILE_NAME
 
 
 VERIFY_PLATFORMS = frozenset({"threads", "youtube_shorts"})
@@ -86,17 +88,58 @@ def _expiry_label(value: str, now: datetime) -> tuple[str, str]:
     return f"{hours}시간 후 만료", "valid"
 
 
+def _oauth_connection(platform: str, values: Mapping[str, str]) -> dict[str, object] | None:
+    """Load one OAuth connection from the encrypted vault without exposing token data."""
+    encryption_key = str(values.get("TAK_AUTO_OAUTH_ENCRYPTION_KEY", "")).strip()
+    if not encryption_key:
+        return None
+    data_dir = Path(values.get("TAK_AUTO_DATA_DIR", str(Path(__file__).resolve().parents[1] / "data")))
+    try:
+        return OAuthTokenVault(data_dir / TOKEN_FILE_NAME, encryption_key).get(platform)
+    except SocialOAuthError as error:
+        raise ValueError(str(error)) from None
+
+
 def verify_publishing_connection(platform: str, environ: Mapping[str, str] | None = None) -> dict[str, str]:
-    """Make an explicit read-only API check for platforms with a profile endpoint."""
+    """Make an explicit read-only API check using the encrypted OAuth connection when available."""
+    values = os.environ if environ is None else environ
     if platform == "threads":
-        client = ThreadsClient.from_environment(environ)
+        connection = _oauth_connection(platform, values)
+        if connection:
+            scopes = {
+                scope for scope in str(connection.get("granted_scopes", "")).replace(",", " ").split() if scope
+            }
+            if "threads_basic" not in scopes:
+                raise ValueError("Threads 프로필 확인 권한(threads_basic)이 없습니다. 계정을 다시 연결하세요.")
+            token = str(connection.get("access_token", "")).strip()
+            if not token:
+                raise ValueError("암호화된 Threads 연결에 액세스 토큰이 없습니다.")
+            client = ThreadsClient(access_token=token)
+        else:
+            client = ThreadsClient.from_environment(values)
         api_url = urlsplit(client.api_base)
         if api_url.scheme != "https" or api_url.hostname != "graph.threads.net":
             raise ValueError("Threads 계정 확인은 공식 HTTPS API 주소에서만 실행할 수 있습니다.")
         profile = client.get_profile()
         return {"account_id": profile.id, "account_name": profile.username}
     if platform == "youtube_shorts":
-        profile = YouTubeClient.from_environment(environ).get_channel_profile()
+        connection = _oauth_connection(platform, values)
+        if connection:
+            scopes = {
+                scope for scope in str(connection.get("granted_scopes", "")).replace(",", " ").split() if scope
+            }
+            required_scope = "https://www.googleapis.com/auth/youtube.readonly"
+            if required_scope not in scopes:
+                raise ValueError("YouTube 채널 확인 권한(youtube.readonly)이 없습니다. 계정을 다시 연결하세요.")
+            refresh_token = str(connection.get("refresh_token", "")).strip()
+            client_id = str(values.get("YOUTUBE_OAUTH_CLIENT_ID") or values.get("YOUTUBE_CLIENT_ID") or "").strip()
+            client_secret = str(values.get("YOUTUBE_OAUTH_CLIENT_SECRET") or values.get("YOUTUBE_CLIENT_SECRET") or "").strip()
+            if not refresh_token or not client_id or not client_secret:
+                raise ValueError("YouTube OAuth 연결 또는 클라이언트 설정이 부족합니다. 계정을 다시 연결하세요.")
+            client = YouTubeClient(client_id=client_id, client_secret=client_secret, refresh_token=refresh_token)
+        else:
+            client = YouTubeClient.from_environment(values)
+        profile = client.get_channel_profile()
         return {"account_id": profile.channel_id, "account_name": profile.title}
     raise ValueError("이 플랫폼의 API 계정 확인은 아직 지원하지 않습니다.")
 
