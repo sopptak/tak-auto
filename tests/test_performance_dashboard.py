@@ -197,7 +197,8 @@ class PerformanceDashboardHttpTests(unittest.TestCase):
         request = urllib.request.Request(self._url("/performance"), data=b"", method="POST")
         with self.assertRaises(HTTPError) as ctx:
             urllib.request.urlopen(request, timeout=5)
-        self.assertEqual(ctx.exception.code, 404)
+        # Global request protection rejects POST without a valid CSRF token before routing.
+        self.assertEqual(ctx.exception.code, 403)
 
     def test_performance_view_does_not_modify_archive_or_store(self):
         upsert_archive(self.archive_path, [_archive_record()])
