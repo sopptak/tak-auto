@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import json
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 class FacebookConfigurationError(ValueError):
@@ -15,6 +15,13 @@ class FacebookConfigurationError(ValueError):
 
 class FacebookAPIError(RuntimeError):
     """Facebook Graph API or transport failure."""
+
+
+class _NoRedirectHandler(HTTPRedirectHandler):
+    """Do not forward Page access tokens through unexpected redirects."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 @dataclass(frozen=True)
@@ -39,7 +46,7 @@ def _request_json(method: str, url: str, *, access_token: str,
         headers["Content-Type"] = "application/x-www-form-urlencoded"
     request = Request(url, data=body, headers=headers, method=method.upper())
     try:
-        with urlopen(request, timeout=timeout_seconds) as response:
+        with build_opener(_NoRedirectHandler()).open(request, timeout=timeout_seconds) as response:
             raw = response.read(1_000_001)
     except HTTPError as error:
         raise FacebookAPIError(f"Facebook API 요청 실패 (HTTP {error.code}).") from None
