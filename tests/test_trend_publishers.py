@@ -289,5 +289,59 @@ class TrendPublisherTests(unittest.TestCase):
         client_type.assert_not_called()
 
 
+    def test_instagram_client_rejects_non_https_media_without_remote_calls(self):
+        calls = []
+        client = InstagramClient(
+            access_token="test-token", instagram_user_id="123456789",
+            transport=lambda *args, **kwargs: calls.append(args),
+        )
+        for url in ("http://cdn.example.test/reel.mp4", "/tmp/reel.mp4", "https:///missing-host.mp4"):
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                client.publish_reel(video_url=url, caption="문안")
+        self.assertEqual(calls, [])
+
+    def test_instagram_client_does_not_publish_when_processing_never_finishes(self):
+        calls = []
+        def transport(method, url, *, access_token, fields=None, timeout_seconds=30.0):
+            calls.append((method, url))
+            if method == "POST":
+                return {"id": "container-1"}
+            return {"status_code": "IN_PROGRESS"}
+
+        client = InstagramClient(
+            access_token="test-token", instagram_user_id="123456789",
+            transport=transport, sleep=lambda seconds: None,
+        )
+        with self.assertRaisesRegex(InstagramAPIError, "아직 끝나지 않았습니다"):
+            client.publish_reel(
+                video_url="https://cdn.example.test/reel.mp4",
+                caption="문안", poll_attempts=2,
+            )
+        self.assertEqual([method for method, _ in calls], ["POST", "GET", "GET"])
+        self.assertFalse(any(url.endswith("/media_publish") for _, url in calls))
+
+    def test_instagram_get_status_fields_are_query_parameters_and_token_stays_header(self):
+        import json
+        from urllib.parse import parse_qs, urlsplit
+        from unittest.mock import Mock, patch
+        from content_engine.instagram_publisher import _request_json
+
+        response = Mock()
+        response.read.return_value = json.dumps({"status_code": "FINISHED"}).encode("utf-8")
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        with patch("content_engine.instagram_publisher.urlopen", return_value=response) as opener:
+            result = _request_json(
+                "GET", "https://graph.instagram.com/v27.0/container-1",
+                access_token="never-put-token-in-url",
+                fields={"fields": "status_code,status"},
+            )
+        request = opener.call_args.args[0]
+        self.assertEqual(result["status_code"], "FINISHED")
+        self.assertEqual(parse_qs(urlsplit(request.full_url).query)["fields"], ["status_code,status"])
+        self.assertNotIn("never-put-token-in-url", request.full_url)
+        self.assertEqual(request.get_header("Authorization"), "Bearer never-put-token-in-url")
+
+
 if __name__ == "__main__":
     unittest.main()
