@@ -83,15 +83,16 @@ class TrendPublisherTests(unittest.TestCase):
             "YOUTUBE_OAUTH_CLIENT_SECRET": "web-client-secret",
         }, clear=True):
             with patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type:
-                with patch("content_engine.trend_publishers.YouTubeClient") as client_type:
+                with patch(
+                    "content_engine.trend_publishers.YouTubeClient.from_environment_or_oauth",
+                    return_value=youtube,
+                ) as client_factory:
                     vault_type.return_value.get.return_value = connection
-                    client_type.return_value = youtube
                     remote_id = publish("youtube_shorts", {
                         "video_path": str(video), "title": "OAuth 승인 쇼츠",
                     }, "youtube-oauth-key")
-                    client_type.assert_called_once_with(
-                        client_id="web-client-id", client_secret="web-client-secret",
-                        refresh_token="encrypted-vault-refresh",
+                    client_factory.assert_called_once_with(
+                        required_scope="https://www.googleapis.com/auth/youtube.upload",
                     )
         self.assertEqual(remote_id, "oauth-youtube-video")
         vault_type.return_value.get.assert_called_once_with("youtube_shorts")
@@ -105,7 +106,7 @@ class TrendPublisherTests(unittest.TestCase):
             "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "vault-key",
         }, clear=True):
             with patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type:
-                with patch("content_engine.trend_publishers.YouTubeClient") as client_type:
+                with patch("content_engine.trend_publishers.YouTubeClient.from_environment") as legacy_factory:
                     vault_type.return_value.get.return_value = {
                         "refresh_token": "refresh", "granted_scopes": "youtube.readonly",
                     }
@@ -113,7 +114,7 @@ class TrendPublisherTests(unittest.TestCase):
                         publish("youtube_shorts", {
                             "video_path": str(video), "title": "권한 없는 쇼츠",
                         }, "youtube-no-scope")
-        client_type.assert_not_called()
+        legacy_factory.assert_not_called()
     def test_youtube_shorts_requires_existing_mp4_before_oauth(self):
         with patch("content_engine.trend_publishers.YouTubeClient.from_environment") as factory:
             with self.assertRaisesRegex(PermanentPublishError, "존재하는 MP4"):
