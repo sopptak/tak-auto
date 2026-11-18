@@ -85,3 +85,16 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - `e848e54a21584cea128ba1ed356eb0567d548f7c`에서는 TAK SCOUT tests, TAK AUTO trend content MVP tests, Python 전체 tests가 모두 성공으로 완료된 것을 확인했다. 단, 이 성공은 Instagram OAuth 수정 이전 SHA에 대한 결과다.
 - 최신 head `806d3c67f50df45c0047d8bb46a494456a431810`에 대한 새 Actions run은 조회되지 않았다. GitHub App 기반 커밋 이후 워크플로가 자동 트리거되지 않은 상태이므로, 새 OAuth 테스트의 실행/통과는 아직 미검증이다. 이전 SHA 테스트 성공을 최신 SHA 테스트 성공으로 보고하지 않는다.
 - PR #3은 계속 Draft / Open / 미병합이며 base 변경, 병합, 배포, 실제 SNS 계정 연결은 하지 않았다.
+
+
+## 2026-11-19 추가 권한 검증 개선
+- 추가 코드 점검에서 OAuth 승인 화면에 요청한 scope를 실제 승인된 권한으로 간주하는 fallback을 발견했다. 이는 권한 동의가 일부 거부되었거나 토큰 응답이 scope를 생략한 경우 게시 준비 상태를 잘못 표시할 수 있다.
+- `content_engine/social_oauth.py`에서 요청 scope를 승인 scope로 추정하지 않도록 변경했다. Instagram `permissions` 배열/문자열은 일관된 쉼표 구분 문자열로 정규화한다.
+- Threads는 장기 토큰 교환 응답에 scope가 없으면 Meta Graph API `/debug_token`을 서버 측 App Access Token으로 조회해 `is_valid`와 실제 `scopes`를 확인한다. 검증 실패 시 계정 연결 자체는 보존하되 게시 권한은 빈 값/미확인으로 둔다.
+- Meta 공식 문서는 `/debug_token`이 토큰 유효성 및 부여된 `scopes`를 반환한다고 명시한다: https://developers.facebook.com/docs/graph-api/reference/debug_token/
+- 관련 코드 커밋: `ff4b0a0780cb50484c507d4bab160281b519b815`, `7f64fc33c25d6965bb6b38ae28b4385d53b79201`.
+- 관련 회귀 테스트는 Instagram 권한 배열 정규화, Threads debug_token 정상/무효/요청 실패, YouTube 응답 scope 누락 시 승인 권한을 추정하지 않는 경우를 포함한다.
+- 테스트 중 발견된 데이터 구분자 불일치와 테스트 mock 라우팅 오류를 수정했다. 최신 테스트 수정 커밋: `3788817805306bc6e8239caa2e2c2a5dde6185bd`, `c8e50fadd4f5b603b32d93c794e5c1330d38ed94`.
+- `3788817805306bc6e8239caa2e2c2a5dde6185bd`의 TAK AUTO 집중 테스트는 Threads mock 응답 라우팅 오류로 실패했으며, `c8e50fadd4f5b603b32d93c794e5c1330d38ed94`에서 테스트를 바로잡았다. 이 최신 커밋의 CI 결과는 아직 확인 전이다.
+- `3788817805306bc6e8239caa2e2c2a5dde6185bd`의 TAK SCOUT 테스트는 성공했으며, 전체 Python 테스트는 해당 커밋에서 실행 대기/미확정 상태였다.
+- PR #3은 Draft / Open / 미병합 유지. 자동 게시 비활성화, 실배포·실계정 연결·실제 게시 미실행.
