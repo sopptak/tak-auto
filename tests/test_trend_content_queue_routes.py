@@ -223,6 +223,30 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         report = run_trend_content_mvp._evaluate_claim_citation_coverage(package, [url])
         self.assertEqual(report["unlinked_count"], 1)
 
+    def test_search_intent_diagnostic_classifies_comparison_and_checks_answer_cues(self):
+        package = self._valid_package()
+        package["blog"]["title"] = "스마트안경 비교와 선택 기준"
+        package["blog"]["body"] = (
+            "스마트안경의 차이를 비교합니다. 장점과 단점을 확인하고 선택 기준을 정리합니다. "
+            + ("제품별 장점과 단점을 비교해 선택 기준을 설명합니다. " * 40)
+        )
+        report = run_trend_content_mvp._evaluate_content_quality(
+            package, "스마트안경 비교", {"audience_question": "스마트안경의 차이는 무엇인가요?"}
+        )
+        self.assertEqual(report["search_intent"]["type"], "비교형")
+        self.assertTrue(report["search_intent"]["answer_cue_present"])
+        self.assertIn("차이", report["search_intent"]["answer_cues"])
+
+    def test_search_intent_diagnostic_flags_missing_procedural_answer_cues(self):
+        package = self._valid_package()
+        package["blog"]["body"] = "이 주제의 배경과 의미를 설명합니다. " * 60
+        report = run_trend_content_mvp._evaluate_content_quality(
+            package, "신청 방법", {"audience_question": "어떻게 신청하나요?"}
+        )
+        self.assertEqual(report["search_intent"]["type"], "절차형")
+        self.assertFalse(report["search_intent"]["answer_cue_present"])
+        self.assertEqual(report["search_intent"]["status"], "검색 의도 답변 보완 필요")
+
     def test_editorial_quality_check_scores_structure_without_claiming_fact_verification(self):
         package = self._valid_package()
         package["blog"]["title"] = "테스트 키워드 검색과 활용 방법"
