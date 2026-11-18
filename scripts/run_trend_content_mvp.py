@@ -688,11 +688,25 @@ def _page(
                 str(facebook_post.get("body") or "").strip(),
             ) if part
         )
+        strategy_insights = preview.get("strategy_insights") or []
+        strategy_feedback_html = (
+            '<div class="warning"><b>사람이 승인한 성과 참고자료 적용</b><ul>'
+            + "".join(
+                f'<li>{escape(str(row.get("platform", "")))} · {escape(str(row.get("metric", "")))} · '
+                f'{escape(str(row.get("result", "")))} · 표본 {int(row.get("sample_size", 0))}건 '
+                f'({escape(str(row.get("insight_id", "")))})</li>'
+                for row in strategy_insights if isinstance(row, dict)
+            )
+            + '</ul><p class="meta">과거 성과 관찰을 형식 참고로만 사용했습니다. 이번 콘텐츠의 성과를 보장하지 않습니다.</p></div>'
+            if strategy_insights else
+            '<p class="meta">성과 인사이트를 생성 참고자료로 선택하지 않았습니다.</p>'
+        )
         preview_cards.append(f"""
 <section class="preview">
   <h2>{escape(str(preview.get('keyword', '')))} 콘텐츠 미리보기</h2>
   <p class="meta">KNOWLEDGE ID: {escape(str(preview.get('knowledge_id') or ''))} · <a href="/performance?knowledge_id={escape(str(preview.get('knowledge_id') or ''), quote=True)}">이 주제의 플랫폼별 성과 보기</a></p>
   <p class="warning">{escape(str(preview.get('warning', '')))}</p>
+  {strategy_feedback_html}
   <h3>네이버 블로그 · {escape(str(blog.get('title', '')))}</h3>
   <button type="button" class="secondary copy" data-copy="blog-{len(preview_cards)}">블로그 원고 복사</button>
   <pre id="blog-{len(preview_cards)}">{escape(str(blog.get('body', '')))}</pre>
