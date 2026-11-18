@@ -294,6 +294,28 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             run_trend_content_mvp._editorial_target({"area": "쇼츠 해시태그"}),
         )
 
+    def test_editorial_revision_prompt_preserves_fact_checking_constraints_and_sources(self):
+        prompt = run_trend_content_mvp._build_editorial_revision_prompt(
+            {"source_urls": ["https://example.test/official"]},
+            {
+                "area": "블로그",
+                "original": "2026년 지원금은 300만원으로 확정됐습니다.",
+                "proposal": "원문을 확인하고 근거가 없으면 표현을 낮추세요.",
+            },
+            "blog.body",
+            "기존 블로그 본문",
+        )
+        self.assertIn("통계·날짜·법률·정책·금액", prompt)
+        self.assertIn("https://example.test/official", prompt)
+        self.assertIn("기존 블로그 본문", prompt)
+        self.assertIn("unresolved_claims", prompt)
+
+    def test_editorial_revision_parser_rejects_oversized_output(self):
+        with self.assertRaisesRegex(ValueError, "40,000자"):
+            run_trend_content_mvp._parse_editorial_revision(
+                '{"revised_text":"' + ("가" * 40001) + '"}'
+            )
+
     def test_editorial_revision_parser_requires_nonempty_text_and_valid_metadata(self):
         parsed = run_trend_content_mvp._parse_editorial_revision(
             '{"revised_text":"수정된 문장","changes":["문장 간결화"],"unresolved_claims":["금액 원문 확인"]}'
