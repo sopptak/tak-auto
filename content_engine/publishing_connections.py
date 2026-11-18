@@ -161,10 +161,12 @@ def publishing_connection_statuses(
                     scope for scope in str(oauth_connection.get("granted_scopes", "")).replace(",", " ").split() if scope
                 }
                 required_scopes = {"pages_show_list", "pages_read_engagement", "pages_manage_posts"}
-                page_tasks = oauth_connection.get("tasks", [])
+                page_tasks = {
+                    task for task in str(oauth_connection.get("tasks", "")).replace(",", " ").split() if task
+                }
                 if not required_scopes.issubset(granted_scopes):
                     publish_note = "페이지는 연결됐지만 게시 권한이 부족합니다. pages_manage_posts 및 pages_read_engagement 권한으로 다시 연결하세요."
-                elif not isinstance(page_tasks, list) or not {"CREATE_CONTENT", "MANAGE"}.intersection(page_tasks):
+                elif not {"CREATE_CONTENT", "MANAGE"}.intersection(page_tasks):
                     publish_note = "페이지는 연결됐지만 CREATE_CONTENT 또는 MANAGE 작업 권한이 없습니다. 게시 권한이 있는 페이지를 다시 선택하세요."
                 else:
                     publish_note = "Facebook 페이지 게시 권한과 CREATE_CONTENT 작업 권한이 확인되었습니다."
