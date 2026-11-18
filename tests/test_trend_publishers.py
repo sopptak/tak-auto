@@ -348,7 +348,9 @@ class TrendPublisherTests(unittest.TestCase):
         video.write_bytes(b"mp4-test-data")
         calls = []
         responses = iter([
-            {"data": {"privacy_level_options": ["SELF_ONLY", "PUBLIC_TO_EVERYONE"]}, "error": {"code": "ok"}},
+            {"data": {"privacy_level_options": ["SELF_ONLY", "PUBLIC_TO_EVERYONE"],
+                      "comment_disabled": True, "duet_disabled": False, "stitch_disabled": True},
+             "error": {"code": "ok"}},
             {"data": {"publish_id": "publish-1", "upload_url": "https://open-upload.tiktokapis.com/video/?upload_id=1&upload_token=secret"}, "error": {"code": "ok"}},
             {"data": {"status": "PROCESSING_UPLOAD"}, "error": {"code": "ok"}},
             {"data": {"status": "PUBLISH_COMPLETE", "publicaly_available_post_id": ["post-1"]}, "error": {"code": "ok"}},
@@ -373,6 +375,9 @@ class TrendPublisherTests(unittest.TestCase):
         ])
         self.assertEqual(calls[1][2]["post_info"]["privacy_level"], "SELF_ONLY")
         self.assertTrue(calls[1][2]["post_info"]["is_aigc"])
+        self.assertTrue(calls[1][2]["post_info"]["disable_comment"])
+        self.assertFalse(calls[1][2]["post_info"]["disable_duet"])
+        self.assertTrue(calls[1][2]["post_info"]["disable_stitch"])
         self.assertEqual(len(uploads), 1)
         self.assertEqual(uploads[0][1], b"mp4-test-data")
         self.assertEqual(uploads[0][2:], (0, len(b"mp4-test-data")))
