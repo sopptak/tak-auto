@@ -372,8 +372,9 @@ def _publish_facebook_page_post(payload: Mapping[str, object], idempotency_key: 
         history.append(PublishRecord(
             content_id=content_id,
             published_at=datetime.now(timezone.utc).isoformat(),
-            threads_post_id=result.post_id,
+            threads_post_id="",
             platform="facebook",
+            remote_id=result.post_id,
         ))
     except (OSError, ValueError) as error:
         raise PublishUncertainError(
