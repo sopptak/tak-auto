@@ -69,6 +69,43 @@ def _threads_client() -> ThreadsClient:
         raise PermanentPublishError(str(error)) from error
 
 
+def _youtube_client_for_publishing() -> YouTubeClient:
+    """Prefer the encrypted web OAuth connection; retain legacy env compatibility."""
+    encryption_key = os.getenv("TAK_AUTO_OAUTH_ENCRYPTION_KEY", "").strip()
+    if encryption_key:
+        try:
+            vault = OAuthTokenVault(
+                Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))) / "social_oauth_tokens.enc",
+                encryption_key,
+            )
+            connection = vault.get("youtube_shorts")
+        except SocialOAuthError as error:
+            raise PermanentPublishError(str(error)) from error
+        if connection is not None:
+            scopes = {
+                scope for scope in re.split(r"[,s]+", str(connection.get("granted_scopes", ""))) if scope
+            }
+            required_scope = "https://www.googleapis.com/auth/youtube.upload"
+            if required_scope not in scopes:
+                raise PermanentPublishError(
+                    "YouTube Shorts 업로드 권한(youtube.upload)이 없습니다. 계정을 다시 연결하고 업로드 권한에 동의하세요."
+                )
+            refresh_token = str(connection.get("refresh_token", "")).strip()
+            client_id = os.getenv("YOUTUBE_OAUTH_CLIENT_ID", os.getenv("YOUTUBE_CLIENT_ID", "")).strip()
+            client_secret = os.getenv("YOUTUBE_OAUTH_CLIENT_SECRET", os.getenv("YOUTUBE_CLIENT_SECRET", "")).strip()
+            if not refresh_token or not client_id or not client_secret:
+                raise PermanentPublishError(
+                    "YouTube OAuth refresh token 또는 웹 앱 클라이언트 설정이 부족합니다. 계정을 다시 연결하세요."
+                )
+            return YouTubeClient(
+                client_id=client_id, client_secret=client_secret, refresh_token=refresh_token,
+            )
+    try:
+        return YouTubeClient.from_environment()
+    except YouTubeConfigurationError as error:
+        raise PermanentPublishError(str(error)) from error
+
+
 def _publish_youtube_short(payload: Mapping[str, object]) -> str:
     """Upload an approved MP4 as private first; public visibility is never implicit."""
     raw_path = str(payload.get("video_path") or payload.get("media_path") or "").strip()
@@ -98,10 +135,7 @@ def _publish_youtube_short(payload: Mapping[str, object]) -> str:
         tags = [str(tag).strip() for tag in raw_tags if str(tag).strip()]
     else:
         raise PermanentPublishError("YouTube Shorts 태그는 문자열 또는 목록이어야 합니다.")
-    try:
-        client = YouTubeClient.from_environment()
-    except YouTubeConfigurationError as error:
-        raise PermanentPublishError(str(error)) from error
+    client = _youtube_client_for_publishing()
     try:
         result = client.upload_short(
             video_path=video_path,
