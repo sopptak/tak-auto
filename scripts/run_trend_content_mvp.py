@@ -494,6 +494,29 @@ def _page(
         connection_checks = _read_connection_checks()
     oauth_connections, oauth_storage_error = _read_oauth_connections()
     oauth_setup = _oauth_setup_statuses(oauth_storage_error)
+    media_assets = _list_media_assets()
+    media_key_ready = len(os.getenv("TAK_AUTO_MEDIA_SIGNING_KEY", "").strip()) >= 32
+    public_media_ready = os.getenv("TAK_AUTO_PUBLIC_URL", "").strip().startswith("https://")
+    asset_options = "".join(
+        f'<option value="{escape(asset.asset_id, quote=True)}">{escape(asset.filename)} · {asset.size_bytes // (1024 * 1024)}MB</option>'
+        for asset in media_assets
+    )
+    platform_options = (
+        '<option value="threads">Threads · 자동 게시</option>'
+        + ('<option value="youtube_shorts">YouTube Shorts · MP4 등록됨</option>' if media_assets else '<option value="youtube_shorts" disabled>YouTube Shorts · MP4 등록 필요</option>')
+        + ('<option value="instagram_reels">Instagram Reels · MP4 등록됨</option>' if media_assets and public_media_ready else '<option value="instagram_reels" disabled>Instagram Reels · HTTPS 주소 설정 및 MP4 필요</option>')
+        + '<option value="blog" disabled>네이버 블로그 · 수동 게시</option>'
+        + '<option value="tiktok" disabled>TikTok · 준비 중</option>'
+    )
+    media_upload_html = (
+        '<section class="toolbar"><h2>쇼츠 영상 파일 등록</h2>'
+        '<p>완성된 MP4를 등록하면 YouTube Shorts와 Instagram Reels 예약에 연결할 수 있습니다. 최대 512MB.</p>'
+        '<input id="media-file" type="file" accept="video/mp4">'
+        '<button type="button" id="upload-media">MP4 등록</button>'
+        '<p id="media-upload-result" class="meta"></p></section>'
+        if media_key_ready else
+        '<section class="toolbar"><h2>쇼츠 영상 파일 등록</h2><p class="warning">TAK_AUTO_MEDIA_SIGNING_KEY 설정 후 사용할 수 있습니다.</p></section>'
+    )
     error_html = f'<div class="error">{escape(error)}</div>' if error else ""
     if not report:
         report = {}
@@ -540,8 +563,9 @@ def _page(
     <p class="warning">승인 후에도 실제 게시 기능은 기본 비활성 상태입니다.</p>
     <form method="post" action="/queue/approve" class="queue-form">
       <input type="hidden" name="preview_index" value="{preview_index}">
-      <label>플랫폼 <select name="platform">{"".join(f'<option value="{platform}"{" disabled" if platform != "threads" else ""}>{label}</option>' for platform, label in [("threads", "Threads · 자동 게시 가능"), ("blog", "네이버 블로그 · 수동 게시"), ("youtube_shorts", "YouTube Shorts · 영상 연결 필요"), ("instagram_reels", "Instagram Reels · 공개 영상 URL 필요"), ("tiktok", "TikTok · 준비 중")])}</select></label>
-      <p class="meta">현재 자동 예약 가능한 플랫폼은 Threads입니다. 영상 플랫폼은 영상 파일 생성·호스팅 연결 전까지 선택할 수 없습니다.</p>
+      <label>플랫폼 <select name="platform">{platform_options}</select></label>
+      <label>영상 파일 <select name="media_asset_id"><option value="">영상 선택 (영상 플랫폼만)</option>{asset_options}</select></label>
+      <p class="meta">영상 플랫폼은 등록한 MP4를 사용합니다. Instagram은 공개 HTTPS 서명 URL로 Meta가 영상을 가져갑니다.</p>
       <label>예약 시각 (한국시간) <input type="datetime-local" name="scheduled_at" required></label>
       <button type="submit">승인하고 예약</button>
     </form>
@@ -578,6 +602,7 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 <form method="post" action="/discover"><button type="submit">Perplexity 최신 트렌드 TOP 20 조사</button></form>
 <p class="meta">검색량 순위가 아니라 최신 근거·한국 독자 관련성·콘텐츠 설명 가치에 따른 편집 후보입니다.</p></section>
 <h2>발굴된 트렌드 {len(trends)}개</h2><div class="grid">{''.join(cards) or '<p>아직 조사 결과가 없습니다. 위 버튼으로 첫 조사를 실행하세요.</p>'}</div>
+{media_upload_html}
 <h2>생성한 콘텐츠 패키지 {len(previews)}개</h2>{''.join(preview_cards) or '<p>트렌드를 선택해 콘텐츠 패키지를 생성하세요.</p>'}
 {queue_dashboard(queue_snapshot or {"items": [], "history": []}, publishing_enabled=os.getenv("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true", pending_approvals=len(previews))}
 </main><script>
@@ -599,6 +624,33 @@ document.addEventListener("click", async (event) => {{
     const copied = document.execCommand("copy");
     area.remove();
     button.textContent = copied ? "복사 완료" : "텍스트를 직접 선택하세요";
+  }}
+}});
+const uploadButton = document.getElementById("upload-media");
+if (uploadButton) uploadButton.addEventListener("click", async () => {{
+  const fileInput = document.getElementById("media-file");
+  const result = document.getElementById("media-upload-result");
+  const file = fileInput && fileInput.files && fileInput.files[0];
+  if (!file) {{ result.textContent = "먼저 MP4 파일을 선택하세요."; return; }}
+  if (!file.name.toLowerCase().endsWith(".mp4") || file.size > 512 * 1024 * 1024) {{
+    result.textContent = "MP4 파일만 등록할 수 있으며 최대 크기는 512MB입니다."; return;
+  }}
+  uploadButton.disabled = true;
+  result.textContent = "영상 파일을 안전하게 등록하고 있습니다...";
+  try {{
+    const response = await fetch("/media/assets/upload", {{
+      method: "POST", credentials: "same-origin",
+      headers: {{ "Content-Type": "video/mp4", "X-Asset-Filename": encodeURIComponent(file.name) }},
+      body: file
+    }});
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "영상 등록에 실패했습니다.");
+    result.textContent = "등록 완료: " + payload.filename + " · " + Math.round(payload.size_bytes / 1048576) + "MB. 페이지를 새로고침해 예약 화면에서 선택하세요.";
+    fileInput.value = "";
+  }} catch (error) {{
+    result.textContent = error.message || "영상 등록에 실패했습니다.";
+  }} finally {{
+    uploadButton.disabled = false;
   }}
 }});
 </script></body></html>"""
