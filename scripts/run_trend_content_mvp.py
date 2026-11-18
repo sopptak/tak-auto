@@ -1210,7 +1210,7 @@ def _page(
             if target_info:
                 action = (
                     f'<form method="post" action="/editorial/revise"><input type="hidden" name="preview_index" value="{preview_index}">'
-                    f'<input type="hidden" name="recommendation_index" value="{recommendation_index}">'>
+                    f'<input type="hidden" name="recommendation_index" value="{recommendation_index}">'
                     f'<input type="hidden" name="recommendation_key" value="{_editorial_recommendation_key(row, str(preview.get("knowledge_id") or ""))}"><button type="submit" class="secondary">이 항목 수정 문구 만들기</button></form>'
                 )
             else:
