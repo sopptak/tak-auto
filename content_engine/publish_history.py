@@ -11,6 +11,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 import hashlib
 import json
+import os
 from pathlib import Path
 import tempfile
 from typing import Any
@@ -105,17 +106,37 @@ class PublishHistory:
         return content_id in self.published_content_ids()
 
     def append(self, record: PublishRecord) -> None:
-        """이력을 한 건 추가하고 파일에 원자적으로(atomic) 저장한다."""
+        """Append history with a durable atomic replacement."""
         records = self.load()
         records.append(record.to_dict())
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(
-            "w", encoding="utf-8", dir=self.path.parent, delete=False
-        ) as handle:
-            json.dump(records, handle, ensure_ascii=False, indent=2)
-            handle.write("\n")
-            temp_path = Path(handle.name)
-        temp_path.replace(self.path)
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w", encoding="utf-8", dir=self.path.parent, delete=False
+            ) as handle:
+                temporary_path = Path(handle.name)
+                json.dump(records, handle, ensure_ascii=False, indent=2)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            try:
+                os.chmod(temporary_path, 0o600)
+            except OSError:
+                pass
+            os.replace(temporary_path, self.path)
+            temporary_path = None
+            try:
+                directory_fd = os.open(self.path.parent, os.O_RDONLY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+            except OSError:
+                pass
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
 
 
 def _used_knowledge_ids(history: PublishHistory) -> set[str]:
