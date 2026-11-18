@@ -21,6 +21,8 @@ on:
       - "tests/test_publishing_connection_routes.py"
       - "content_engine/instagram_publisher.py"
       - "content_engine/facebook_publisher.py"
+      - "content_engine/publish_history.py"
+      - "tests/test_publish_history.py"
       - "content_engine/media_assets.py"
       - "tests/test_media_assets.py"
       - "tests/test_media_asset_routes.py"
@@ -84,6 +86,7 @@ jobs:
           python -m unittest discover -s tests -p "test_publishing_queue.py" -v
           python -m unittest discover -s tests -p "test_publishing_connections.py" -v
           python -m unittest discover -s tests -p "test_publishing_connection_routes.py" -v
+          python -m unittest discover -s tests -p "test_publish_history.py" -v
           python -m unittest discover -s tests -p "test_trend_publishers.py" -v
           python -m unittest discover -s tests -p "test_trend_content_queue_routes.py" -v
           python -m unittest discover -s tests -p "test_media_assets.py" -v
