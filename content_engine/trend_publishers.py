@@ -375,6 +375,9 @@ def _publish_facebook_page_post(payload: Mapping[str, object], idempotency_key: 
             threads_post_id="",
             platform="facebook",
             remote_id=result.post_id,
+            knowledge_id=str(payload.get("_knowledge_id") or ""),
+            source_url=str(payload.get("_source_url") or ""),
+            title=str(payload.get("title") or ""),
         ))
     except (OSError, ValueError) as error:
         raise PublishUncertainError(
@@ -439,6 +442,9 @@ def publish(platform: str, payload: Mapping[str, object], idempotency_key: str) 
             published_at=datetime.now(timezone.utc).isoformat(),
             threads_post_id=result.id,
             platform="threads",
+            knowledge_id=str(payload.get("_knowledge_id") or ""),
+            source_url=str(payload.get("_source_url") or ""),
+            title=str(payload.get("title") or ""),
         ))
     except (OSError, ValueError) as error:
         raise PublishUncertainError(
