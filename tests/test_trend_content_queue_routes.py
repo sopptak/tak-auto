@@ -53,14 +53,14 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertEqual(payload[0]["video_path"], str(self.asset.path))
         self.assertEqual(payload[0]["title"], "쇼츠 제목")
         self.assertEqual(payload[0]["description"], "YouTube 설명")
-        self.assertEqual(payload[0]["tags"], ["탁자동", "#shorts"])
+        self.assertEqual(payload[0]["tags"], ["탁자동", "shorts"])
 
     def test_instagram_queue_stores_asset_reference_for_runtime_signed_url(self):
         payload = run_trend_content_mvp._queue_payload_for_platform(
             self.preview, "instagram_reels", self.asset.asset_id,
         )
         self.assertEqual(payload[0]["media_asset_id"], self.asset.asset_id)
-        self.assertEqual(payload[0]["caption"], "Instagram 캡션")
+        self.assertEqual(payload[0]["caption"], "Instagram 캡션\\n\\n#탁자동 #shorts")
 
     def test_video_platforms_require_an_uploaded_media_asset(self):
         for platform in ("youtube_shorts", "instagram_reels"):
