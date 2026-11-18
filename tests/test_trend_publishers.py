@@ -270,7 +270,12 @@ class TrendPublisherTests(unittest.TestCase):
                 "granted_scopes": "pages_show_list,pages_read_engagement,pages_manage_posts",
             }
             client_type.return_value.publish_text.return_value = SimpleNamespace(post_id="123_456")
-            remote_id = publish("facebook", {"body": "승인 문안", "_content_id": "facebook-content-1"}, "facebook-key")
+            remote_id = publish("facebook", {
+                "title": "Facebook 제목", "body": "승인 문안",
+                "_content_id": "facebook-content-1",
+                "_knowledge_id": "trend-preview-k123",
+                "_source_url": "https://example.test/source",
+            }, "facebook-key")
             duplicate_id = publish("facebook", {"body": "변경된 재시도 문안", "_content_id": "facebook-content-1"}, "facebook-retry")
         self.assertEqual(remote_id, "123_456")
         self.assertEqual(duplicate_id, "123_456")
@@ -282,6 +287,9 @@ class TrendPublisherTests(unittest.TestCase):
         self.assertIn("facebook-content-1", history)
         self.assertIn('"platform": "facebook"', history)
         self.assertIn('"remote_id": "123_456"', history)
+        self.assertIn('"knowledge_id": "trend-preview-k123"', history)
+        self.assertIn('"source_url": "https://example.test/source"', history)
+        self.assertIn('"title": "Facebook 제목"', history)
 
     def test_facebook_ambiguous_api_failure_requires_manual_review(self):
         from content_engine.facebook_publisher import FacebookAPIError
