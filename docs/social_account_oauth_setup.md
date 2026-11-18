@@ -12,6 +12,7 @@ Render의 `tak-auto-trend-factory` 서비스에서 **Environment**에 아래 값
 
 - `TAK_AUTO_PUBLIC_URL`: `https://tak-auto-trend-factory.onrender.com`
 - `TAK_AUTO_OAUTH_ENCRYPTION_KEY`: Fernet 키. 서비스의 암호화 파일에 SNS 토큰을 저장하는 데 사용합니다.
+- `TAK_AUTO_MEDIA_SIGNING_KEY`: 32자 이상의 무작위 비밀값. MP4 미디어 공개 URL에 48시간 HMAC 서명을 생성하는 데 사용합니다.
 - `YOUTUBE_OAUTH_CLIENT_ID`, `YOUTUBE_OAUTH_CLIENT_SECRET`
 - `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`
 - `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`
@@ -57,7 +58,7 @@ Instagram Reels 어댑터는 Meta가 서버에서 직접 가져갈 수 있는 **
 
 게시 흐름은 Meta의 미디어 컨테이너 생성 → 컨테이너 처리 상태 확인 → `FINISHED` 확인 후 `media_publish` 순서입니다. 처리 중이거나 실패한 컨테이너는 게시하지 않습니다. API 응답이 유실되어 게시 여부를 확정할 수 없으면 자동 재시도하지 않고 운영자 확인 상태로 보냅니다.
 
-따라서 실제 릴스 자동화를 완성하려면 TAK AUTO가 생성한 MP4를 공개 HTTPS 주소에 안전하게 보관하고 만료·접근 정책을 관리하는 미디어 저장소 단계가 추가로 필요합니다. 이 저장소가 연결되기 전에는 로컬 MP4만으로 Instagram Reels 게시를 예약하지 마세요.
+대시보드의 **쇼츠 영상 파일 등록**에서 완성된 MP4를 업로드하면 Render 영구 디스크에 저장되고, Instagram 게시 시점에 48시간짜리 서명 HTTPS URL이 생성됩니다. 공개 URL은 서명과 만료 시각이 맞아야만 영상 파일을 제공하며 대시보드 로그인 인증과 분리됩니다. 최대 업로드 크기는 512MB입니다. 다만 현재 트렌드 생성기는 쇼츠 대본과 장면 구성까지만 만들며 MP4 렌더링은 별도입니다. 영상 편집/렌더링을 완료한 MP4를 등록한 뒤에만 YouTube Shorts 또는 Instagram Reels 예약을 진행하세요.
 
 ## 보안 및 게시 상태
 
