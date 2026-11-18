@@ -23,6 +23,43 @@ from content_engine.youtube_publisher import (
 )
 
 
+class YouTubeOAuthClientResolutionTests(unittest.TestCase):
+    def test_encrypted_oauth_connection_builds_client_with_required_scope(self):
+        environ = {
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "vault-key",
+            "TAK_AUTO_DATA_DIR": "/tmp/tak-auto-test",
+            "YOUTUBE_OAUTH_CLIENT_ID": "web-client-id",
+            "YOUTUBE_OAUTH_CLIENT_SECRET": "web-client-secret",
+        }
+        with mock.patch.dict("os.environ", environ, clear=True):
+            with mock.patch("content_engine.social_oauth.OAuthTokenVault") as vault_type:
+                vault_type.return_value.get.return_value = {
+                    "refresh_token": "vault-refresh-token",
+                    "granted_scopes": "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload",
+                }
+                client = YouTubeClient.from_environment_or_oauth(
+                    required_scope="https://www.googleapis.com/auth/youtube.upload",
+                )
+        self.assertEqual(client.client_id, "web-client-id")
+        self.assertEqual(client.client_secret, "web-client-secret")
+        self.assertEqual(client.refresh_token, "vault-refresh-token")
+        vault_type.return_value.get.assert_called_once_with("youtube_shorts")
+
+    def test_encrypted_oauth_connection_rejects_missing_required_scope(self):
+        with mock.patch.dict("os.environ", {
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "vault-key",
+            "YOUTUBE_OAUTH_CLIENT_ID": "web-client-id",
+            "YOUTUBE_OAUTH_CLIENT_SECRET": "web-client-secret",
+        }, clear=True):
+            with mock.patch("content_engine.social_oauth.OAuthTokenVault") as vault_type:
+                vault_type.return_value.get.return_value = {
+                    "refresh_token": "vault-refresh-token",
+                    "granted_scopes": "https://www.googleapis.com/auth/youtube.readonly",
+                }
+                with self.assertRaisesRegex(ValueError, "youtube.upload"):
+                    YouTubeClient.from_environment_or_oauth(
+                        required_scope="https://www.googleapis.com/auth/youtube.upload",
+                    )
 class YouTubeVideoStatisticsTests(unittest.TestCase):
     def _client(self, token_transport=None, stats_transport=None, channel_transport=None):
         kwargs = {}
