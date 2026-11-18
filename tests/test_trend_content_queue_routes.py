@@ -201,6 +201,28 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertEqual(report["unlinked_citations"], ["https://other.test/unlinked"])
         self.assertTrue(any("출처 목록에 없는" in warning for warning in report["warnings"]))
 
+    def test_claim_citation_coverage_flags_numeric_claim_without_sentence_url(self):
+        package = {"blog": {"body": "2026년 조사에서 응답자의 35%가 해당 서비스를 이용했다고 발표했습니다."}}
+        report = run_trend_content_mvp._evaluate_claim_citation_coverage(package, ["https://example.test/report"])
+        self.assertEqual(report["candidate_count"], 1)
+        self.assertEqual(report["unlinked_count"], 1)
+        self.assertEqual(report["status"], "문장별 검토 필요")
+        self.assertIn("의미적으로 검증", report["scope_note"])
+
+    def test_claim_citation_coverage_recognizes_url_only_when_attached_to_same_sentence(self):
+        url = "https://example.test/report"
+        package = {"blog": {"body": f"2026년 조사에서 응답자의 35%가 해당 서비스를 이용했다고 발표했습니다. {url}"}}
+        report = run_trend_content_mvp._evaluate_claim_citation_coverage(package, [url])
+        self.assertEqual(report["candidate_count"], 1)
+        self.assertEqual(report["unlinked_count"], 0)
+        self.assertEqual(report["claims"][0]["attached_sources"], [url])
+
+    def test_claim_citation_coverage_does_not_treat_url_elsewhere_as_claim_support(self):
+        url = "https://example.test/report"
+        package = {"blog": {"body": f"2026년 조사에서 응답자의 35%가 해당 서비스를 이용했다고 발표했습니다.\n\n참고 출처: {url}"}}
+        report = run_trend_content_mvp._evaluate_claim_citation_coverage(package, [url])
+        self.assertEqual(report["unlinked_count"], 1)
+
     def test_editorial_quality_check_scores_structure_without_claiming_fact_verification(self):
         package = self._valid_package()
         package["blog"]["title"] = "테스트 키워드 검색과 활용 방법"
