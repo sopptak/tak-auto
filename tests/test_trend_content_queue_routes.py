@@ -68,6 +68,21 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             ],
         }
 
+    def test_health_payload_reports_persistent_storage_mode(self):
+        environment = {
+            "TAK_SCOUT_PERPLEXITY_API_KEY": "configured",
+            "TAK_WEB_USERNAME": "operator",
+            "TAK_WEB_PASSWORD": "secret",
+        }
+        with patch.object(run_trend_content_mvp, "USING_EPHEMERAL_STORAGE", False):
+            persistent = run_trend_content_mvp._health_payload(environment)
+        self.assertTrue(persistent["storage_persistent"])
+        self.assertEqual(persistent["storage_mode"], "persistent_disk")
+        with patch.object(run_trend_content_mvp, "USING_EPHEMERAL_STORAGE", True):
+            fallback = run_trend_content_mvp._health_payload(environment)
+        self.assertFalse(fallback["storage_persistent"])
+        self.assertEqual(fallback["storage_mode"], "ephemeral_fallback")
+
     def test_write_json_uses_atomic_replacement_and_leaves_no_temp_files(self):
         path = self.data_dir / "atomic-state.json"
         run_trend_content_mvp._write_json(path, {"version": 1, "value": "처음"})
