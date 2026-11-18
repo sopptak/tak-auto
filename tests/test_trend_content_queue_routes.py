@@ -281,6 +281,14 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertIn("원문을 열어", claim_proposal["proposal"])
         self.assertTrue(all("proposal" in row and "reason" in row for row in proposals))
 
+    def test_editorial_recommendation_fingerprint_is_preview_scoped(self):
+        recommendation = {"area": "블로그", "original": "주장", "proposal": "원문 확인"}
+        first = run_trend_content_mvp._editorial_recommendation_key(recommendation, "knowledge-a")
+        repeated = run_trend_content_mvp._editorial_recommendation_key(recommendation, "knowledge-a")
+        other_preview = run_trend_content_mvp._editorial_recommendation_key(recommendation, "knowledge-b")
+        self.assertEqual(first, repeated)
+        self.assertNotEqual(first, other_preview)
+
     def test_editorial_target_mapping_is_explicit_and_rejects_unsupported_fields(self):
         self.assertEqual(
             run_trend_content_mvp._editorial_target({"area": "블로그 본문"}),
