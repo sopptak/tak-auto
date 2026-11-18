@@ -235,7 +235,8 @@ class SocialOAuthTests(unittest.TestCase):
 
     def test_threads_callback_exchanges_long_lived_token_and_reads_profile(self):
         responses = iter([
-            {"access_token": "threads-short", "expires_in": 3600},
+            {"access_token": "threads-short", "expires_in": 3600,
+             "scope": "threads_basic threads_content_publish"},
             {"access_token": "threads-long", "expires_in": 5184000},
             {"id": "threads-id", "username": "tak_auto"},
         ])
@@ -247,6 +248,7 @@ class SocialOAuthTests(unittest.TestCase):
         result = client.complete("threads", "code", callback_uri("threads", self.environ), state="state")
         self.assertEqual(result["profile"], {"account_id": "threads-id", "account_name": "tak_auto"})
         self.assertEqual(result["tokens"]["access_token"], "threads-long")
+        self.assertEqual(result["scopes"], "threads_basic threads_content_publish")
         self.assertEqual(calls[1][2]["grant_type"], "th_exchange_token")
 
     def test_naver_callback_sends_the_original_state_and_reads_profile(self):
