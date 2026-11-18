@@ -2,9 +2,10 @@ import io
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from content_engine.media_assets import MediaAssetStore
 from scripts import run_trend_content_mvp
@@ -64,6 +65,37 @@ class TrendContentQueueRouteTests(unittest.TestCase):
                 {"title": "Threads 제목 2", "body": "Threads 본문 2"},
             ],
         }
+
+    def test_generated_preview_carries_stable_knowledge_identity(self):
+        package = self._valid_package()
+        provider = Mock()
+        provider.search.return_value = SimpleNamespace(
+            answer=json.dumps(package, ensure_ascii=False),
+            citations=["https://example.test/citation"],
+            model="test-model",
+        )
+        item = {
+            "keyword": "테스트 키워드",
+            "category": "경제",
+            "summary": "최근 주목할 만한 변화에 대한 요약입니다.",
+            "why_now": "최근 발표된 제도 변화가 독자에게 영향을 주기 때문입니다.",
+            "audience_question": "실제 생활에서 어떤 점을 확인해야 할까요?",
+            "content_angle": "현장 적용 시 확인해야 할 핵심 사항을 정리합니다.",
+            "key_points": [
+                "첫 번째 독립 근거로 공식 발표 내용을 확인합니다.",
+                "두 번째 독립 근거로 실제 적용 사례를 검토합니다.",
+                "세 번째 독립 근거로 주의할 점을 비교합니다.",
+            ],
+            "source_urls": ["https://example.test/source"],
+        }
+        preview = run_trend_content_mvp._make_preview(
+            item, {"citations": []}, provider=provider,
+        )
+        self.assertTrue(preview["knowledge_id"].startswith("trend-preview-"))
+        self.assertEqual(preview["source_urls"][0], "https://example.test/source")
+        self.assertEqual(preview["knowledge_id"], "trend-preview-" + __import__("hashlib").sha256(
+            "테스트 키워드".encode("utf-8")
+        ).hexdigest()[:16])
 
     def test_content_package_preserves_facebook_specific_copy(self):
         package = self._valid_package()
