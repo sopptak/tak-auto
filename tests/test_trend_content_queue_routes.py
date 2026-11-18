@@ -61,7 +61,7 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             self.preview, "instagram_reels", self.asset.asset_id,
         )
         self.assertEqual(payload[0]["media_asset_id"], self.asset.asset_id)
-        self.assertEqual(payload[0]["caption"], "Instagram 캡션\\n\\n#탁자동 #shorts")
+        self.assertEqual(payload[0]["caption"], "Instagram 캡션\n\n#탁자동 #shorts")
 
     def test_video_platforms_require_an_uploaded_media_asset(self):
         for platform in ("youtube_shorts", "instagram_reels", "tiktok"):
@@ -81,7 +81,7 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             self.preview, "tiktok", self.asset.asset_id, "SELF_ONLY", True,
         )
         self.assertEqual(payload[0]["media_asset_id"], self.asset.asset_id)
-        self.assertEqual(payload[0]["title"], "TikTok 캡션\\n\\n#탁자동 #shorts")
+        self.assertEqual(payload[0]["title"], "TikTok 캡션\n\n#탁자동 #shorts")
         self.assertEqual(payload[0]["privacy_level"], "SELF_ONLY")
         self.assertTrue(payload[0]["is_aigc"])
 
