@@ -26,13 +26,26 @@ class PublishingConnectionTests(unittest.TestCase):
             row["key"]: row for row in publishing_connection_statuses(
                 {}, now=self.now,
                 oauth_connections={"facebook": {
-                    "account_id": "123", "account_name": "TAK AUTO 페이지",
+                    "account_id": "123", "account_name": "TAK AUTO 페이지", "tasks": ["CREATE_CONTENT"],
                     "granted_scopes": "pages_show_list",
                 }},
             )
         }
         self.assertEqual(rows["facebook"]["state"], "verified")
         self.assertIn("게시 권한이 부족", rows["facebook"]["publish_note"])
+
+    def test_facebook_connection_requires_create_content_page_task(self):
+        rows = {
+            row["key"]: row for row in publishing_connection_statuses(
+                {}, now=self.now,
+                oauth_connections={"facebook": {
+                    "account_id": "123", "account_name": "TAK AUTO 페이지",
+                    "tasks": ["MODERATE"],
+                    "granted_scopes": "pages_show_list,pages_read_engagement,pages_manage_posts",
+                }},
+            )
+        }
+        self.assertIn("CREATE_CONTENT 작업 권한이 없습니다", rows["facebook"]["publish_note"])
 
     def test_facebook_connection_reports_ready_when_all_page_scopes_are_granted(self):
         rows = {
