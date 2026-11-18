@@ -74,6 +74,20 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"version": 2, "value": "두 번째"})
         self.assertEqual(list(self.data_dir.glob(".atomic-state.json.*.tmp")), [])
 
+    def test_editorial_revision_target_maps_factual_claims_to_correct_platform_copy(self):
+        self.assertEqual(
+            run_trend_content_mvp._editorial_target({"area": "블로그"}),
+            ("blog.body", "blog"),
+        )
+        self.assertEqual(
+            run_trend_content_mvp._editorial_target({"area": "Threads 2"}),
+            ("threads.1.body", "threads"),
+        )
+        self.assertEqual(
+            run_trend_content_mvp._editorial_target({"area": "Facebook"}),
+            ("facebook.body", "facebook"),
+        )
+
     def test_generated_preview_carries_stable_knowledge_identity(self):
         package = self._valid_package()
         provider = Mock()
