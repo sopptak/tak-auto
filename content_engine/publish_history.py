@@ -58,6 +58,7 @@ class PublishRecord:
     platform: str = "threads"
     source_url: str = ""
     remote_id: str = ""
+    title: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -68,6 +69,7 @@ class PublishRecord:
             "knowledge_id": self.knowledge_id,
             "platform": self.platform,
             "source_url": self.source_url,
+            "title": self.title,
         }
 
 
