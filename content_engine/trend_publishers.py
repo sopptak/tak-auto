@@ -295,11 +295,23 @@ def _publish_tiktok_video(payload: Mapping[str, object]) -> str:
 
 
 
-def _publish_facebook_page_post(payload: Mapping[str, object]) -> str:
+def _publish_facebook_page_post(payload: Mapping[str, object], idempotency_key: str) -> str:
     """Publish approved text to the selected Facebook Page, never to a personal profile."""
     message = str(payload.get("body") or payload.get("message") or payload.get("text") or "").strip()
     if not message:
         raise PermanentPublishError("Facebook 페이지 게시 본문이 비어 있습니다.")
+    content_id = str(payload.get("_content_id") or idempotency_key)
+    history = PublishHistory(_history_path())
+    existing = next(
+        (row for row in history.load()
+         if row.get("content_id") == content_id and row.get("platform") == "facebook"),
+        None,
+    )
+    if existing:
+        remote_id = existing.get("threads_post_id") or existing.get("remote_id")
+        if not remote_id:
+            raise PublishUncertainError("기존 Facebook 게시 이력에 게시 ID가 없습니다. 페이지를 확인하세요.")
+        return str(remote_id)
     encryption_key = os.getenv("TAK_AUTO_OAUTH_ENCRYPTION_KEY", "").strip()
     if not encryption_key:
         raise PermanentPublishError("Facebook 게시용 암호화 인증 저장소 설정이 없습니다.")
@@ -356,6 +368,18 @@ def _publish_facebook_page_post(payload: Mapping[str, object]) -> str:
         raise PublishUncertainError(
             "Facebook 게시 결과를 확정할 수 없습니다. 페이지 게시물 목록을 확인한 뒤 재시도하세요."
         ) from None
+    try:
+        history.append(PublishRecord(
+            content_id=content_id,
+            published_at=datetime.now(timezone.utc).isoformat(),
+            threads_post_id=result.post_id,
+            platform="facebook",
+        ))
+    except (OSError, ValueError) as error:
+        raise PublishUncertainError(
+            "Facebook 게시 성공 후 게시 이력을 저장하지 못했습니다. 재게시 전 페이지를 확인하세요.",
+            remote_id=result.post_id,
+        ) from error
     return result.post_id
 
 
@@ -368,7 +392,7 @@ def publish(platform: str, payload: Mapping[str, object], idempotency_key: str) 
     if platform == "tiktok":
         return _publish_tiktok_video(payload)
     if platform == "facebook":
-        return _publish_facebook_page_post(payload)
+        return _publish_facebook_page_post(payload, idempotency_key)
     if platform != "threads":
         raise PermanentPublishError(
             f"{platform} 게시 어댑터는 아직 준비되지 않았습니다. 작업은 게시되지 않았습니다."
