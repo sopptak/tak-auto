@@ -517,6 +517,32 @@ def _evaluate_source_integrity(
     }
 
 
+def _evaluate_claim_citation_coverage(package: dict, source_urls: list | None = None) -> dict:
+    """Flag factual-risk sentences and check for an explicit URL in the same sentence."""
+    urls = [str(url).strip() for url in (source_urls or []) if str(url).strip()]
+    sections = []
+    blog = package.get("blog") or {}
+    if isinstance(blog, dict):
+        sections.append(("블로그", str(blog.get("body") or "")))
+    for index, post in enumerate(package.get("threads") or [], 1):
+        if isinstance(post, dict):
+            sections.append((f"Threads {index}", str(post.get("body") or "")))
+    facebook = package.get("facebook") or {}
+    if isinstance(facebook, dict) and facebook.get("body"):
+        sections.append(("Facebook", str(facebook.get("body"))))
+    pattern = re.compile(r"(?:\\d|%|퍼센트|원\\b|명\\b|건\\b|년\\b|월\\b|일\\b|분기|통계|조사|발표|집계|기준|정책|법률|시행|증가|감소|최초|최대|최저)")
+    candidates = []
+    for section, body in sections:
+        for sentence in re.split(r"(?<=[.!?。])\\s+|\\n+", body):
+            sentence = sentence.strip()
+            if len(sentence) < 18 or not pattern.search(sentence):
+                continue
+            attached = [url for url in urls if url in sentence]
+            candidates.append({"section": section, "claim": sentence[:500], "citation_attached": bool(attached), "attached_sources": attached, "status": "문장 내 URL 연결" if attached else "문장별 출처 대조 필요"})
+    unlinked = [row for row in candidates if not row["citation_attached"]]
+    return {"status": "문장별 검토 필요" if unlinked else ("후보 문장 없음" if not candidates else "문장 내 URL 연결"), "candidate_count": len(candidates), "unlinked_count": len(unlinked), "claims": candidates[:30], "warnings": (["수치·날짜·정책 등 사실 확인이 필요한 문장에 개별 출처 URL이 직접 연결되지 않았습니다."] if unlinked else []), "scope_note": "규칙으로 사실 확인 후보 문장을 추출하고 같은 문장 안의 URL만 표시했습니다. URL이 문장에 있어도 출처가 주장을 뒷받침하는지 의미적으로 검증하지 않습니다. 나머지 문장에도 사실 오류가 없다는 뜻은 아닙니다."}
+
+
 def _evaluate_content_quality(
     package: dict, keyword: str, trend_context: dict | None = None,
 ) -> dict:
@@ -877,6 +903,16 @@ def _page(
             if strategy_insights else
             '<p class="meta">성과 인사이트를 생성 참고자료로 선택하지 않았습니다.</p>'
         )
+        claim_coverage = preview.get("claim_coverage") or {}
+        claim_feedback_html = (
+            '<div class="toolbar"><b>문장별 사실 확인 후보: '
+            + escape(str(claim_coverage.get("status", "미평가"))) + '</b><p class="meta">'
+            + str(int(claim_coverage.get("candidate_count", 0))) + '개 후보 · 출처 직접 연결이 필요한 문장 '
+            + str(int(claim_coverage.get("unlinked_count", 0))) + '개</p><ul>'
+            + "".join('<li><b>' + escape(str(row.get("section", ""))) + ' · ' + escape(str(row.get("status", ""))) + '</b><br>' + escape(str(row.get("claim", ""))) + '</li>' for row in claim_coverage.get("claims", []))
+            + "".join('<li>' + escape(str(value)) + '</li>' for value in claim_coverage.get("warnings", []))
+            + '</ul><p class="meta">' + escape(str(claim_coverage.get("scope_note", ""))) + '</p></div>'
+        )
         source_integrity = preview.get("source_integrity") or {}
         source_feedback_html = (
             '<div class="toolbar"><b>출처 URL 확인: '
@@ -902,7 +938,7 @@ def _page(
   <p class="meta">KNOWLEDGE ID: {escape(str(preview.get('knowledge_id') or ''))} · <a href="/performance?knowledge_id={escape(str(preview.get('knowledge_id') or ''), quote=True)}">이 주제의 플랫폼별 성과 보기</a></p>
   <p class="warning">{escape(str(preview.get('warning', '')))}</p>
   {quality_feedback_html}
-  {source_feedback_html}
+  {source_feedback_html}\n  {claim_feedback_html}
   {strategy_feedback_html}
   <h3>네이버 블로그 · {escape(str(blog.get('title', '')))}</h3>
   <button type="button" class="secondary copy" data-copy="blog-{len(preview_cards)}">블로그 원고 복사</button>
