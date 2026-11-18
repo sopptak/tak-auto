@@ -238,6 +238,7 @@ class OAuthTokenVault:
             "granted_scopes": scopes or str(tokens.get("scope", tokens.get("scopes", ""))),
             "account_id": str(profile.get("account_id", ""))[:200],
             "account_name": str(profile.get("account_name", ""))[:200],
+            "tasks": [str(task) for task in profile.get("tasks", []) if str(task)] if isinstance(profile.get("tasks", []), (list, tuple, set)) else [],
             "connected_at": now.isoformat(),
         }
         with self._lock:
@@ -260,6 +261,8 @@ class OAuthTokenVault:
                 public[platform] = {name: str(row.get(name, "")) for name in (
                     "account_id", "account_name", "expires_at", "connected_at", "granted_scopes",
                 )}
+                raw_tasks = row.get("tasks", [])
+                public[platform]["tasks"] = ",".join(str(task) for task in raw_tasks) if isinstance(raw_tasks, list) else ""
         return public
 
     def disconnect(self, platform: str) -> bool:
