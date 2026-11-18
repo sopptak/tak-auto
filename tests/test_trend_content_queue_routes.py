@@ -67,6 +67,13 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             ],
         }
 
+    def test_write_json_uses_atomic_replacement_and_leaves_no_temp_files(self):
+        path = self.data_dir / "atomic-state.json"
+        run_trend_content_mvp._write_json(path, {"version": 1, "value": "처음"})
+        run_trend_content_mvp._write_json(path, {"version": 2, "value": "두 번째"})
+        self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"version": 2, "value": "두 번째"})
+        self.assertEqual(list(self.data_dir.glob(".atomic-state.json.*.tmp")), [])
+
     def test_generated_preview_carries_stable_knowledge_identity(self):
         package = self._valid_package()
         provider = Mock()
