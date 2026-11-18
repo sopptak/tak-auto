@@ -588,6 +588,21 @@ def _evaluate_content_quality(
         if term.casefold() in (blog_title + " " + body).casefold()
     )
     intent_is_measurable = len(set(intent_terms)) >= 2
+    intent_text = (audience_question + " " + keyword).casefold()
+    intent_rules = [
+        ("거래형", ("구매", "가격", "비용", "신청", "예약", "대출", "가입", "판매", "구입")),
+        ("비교형", ("비교", "차이", "장단점", "추천", "순위", "어느", "vs", "대비")),
+        ("절차형", ("방법", "절차", "신청", "준비", "서류", "하는 법", "어떻게", "순서", "단계")),
+    ]
+    intent_type = next((name for name, terms in intent_rules if any(term in intent_text for term in terms)), "정보형")
+    intent_answer_terms = {
+        "거래형": ("가격", "비용", "신청", "예약", "구매", "조건", "문의", "대상", "자격"),
+        "비교형": ("차이", "비교", "장점", "단점", "반면", "기준", "선택"),
+        "절차형": ("방법", "절차", "순서", "단계", "준비", "서류", "신청", "먼저", "다음"),
+        "정보형": ("이유", "원인", "의미", "개념", "특징", "영향", "배경", "정리"),
+    }
+    intent_answer_hits = [term for term in intent_answer_terms[intent_type] if term in body.casefold()]
+    intent_answer_present = bool(intent_answer_hits)
     hook = str(shorts.get("hook") or "").strip()
     hook_patterns = ("?", "왜", "놓치", "모르", "차이", "실수", "바로", "단 ", "3가지", "5가지", "반전", "하지만", "그런데")
     hook_has_pattern = any(pattern in hook for pattern in hook_patterns)
@@ -617,6 +632,16 @@ def _evaluate_content_quality(
         "checks_total": len(checks),
         "passed": [label for _, label, passed, _ in checks if passed],
         "warnings": failed,
+        "search_intent": {
+            "type": intent_type,
+            "audience_question": audience_question,
+            "keyword_coverage_hits": sorted(set(intent_terms), key=str.casefold),
+            "keyword_coverage_count": intent_hits,
+            "answer_cues": intent_answer_hits,
+            "answer_cue_present": intent_answer_present,
+            "status": "답변 단서 발견" if intent_answer_present else "검색 의도 답변 보완 필요",
+            "scope_note": "검색 의도 유형과 본문 표현을 규칙으로 추정한 편집 보조 정보입니다. 실제 검색자의 의도나 검색엔진 평가를 측정하지 않습니다.",
+        },
         "scope_note": "구조·분량·플랫폼별 편집 체크리스트 점수입니다. 사실 정확성, 출처 신뢰도, 저작권, 실제 성과를 판정하지 않습니다.",
     }
 
