@@ -34,6 +34,7 @@ from content_engine.publishing_connections import (
     verify_publishing_connection,
 )
 from content_engine.publishing_queue import PublishingQueue, queue_dashboard
+from content_engine.performance_insight import load_insights, STATUS_ACCEPTED
 from content_engine.social_oauth import (
     FLOW_TTL_SECONDS, OAuthFlowRegistry, OAuthTokenVault, PROVIDERS, SocialOAuthClient,
     SocialOAuthError, build_callback_error_page, callback_uri, facebook_page_selection_page, setup_status,
@@ -66,6 +67,7 @@ CONFIGURED_DATA_DIR = Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))).e
 DATA_DIR, USING_EPHEMERAL_STORAGE = _resolve_writable_data_dir(CONFIGURED_DATA_DIR)
 TREND_PATH = DATA_DIR / "tak_auto_live_trends.json"
 PREVIEW_PATH = DATA_DIR / "tak_auto_content_previews.json"
+INSIGHTS_PATH = DATA_DIR / "tak_performance_insights.json"
 QUEUE_PATH = DATA_DIR / "tak_auto_publishing_queue.json"
 CONNECTION_CHECKS_PATH = DATA_DIR / "publishing_connection_checks.json"
 OAUTH_TOKENS_PATH = DATA_DIR / "social_oauth_tokens.enc"
@@ -265,7 +267,45 @@ def _run_connection_verification(platform: str, checks: dict, *, environ=None, n
     return checks, message
 
 
-def _build_content_prompt(item: dict, trend_report: dict) -> str:
+def _select_accepted_strategy_insights(
+    insight_ids: list[str], *, path: Path | str = INSIGHTS_PATH, limit: int = 5,
+) -> list[dict]:
+    """Return only explicitly selected, human-accepted insight summaries.
+
+    Candidate/rejected/unknown IDs are never passed to content generation. The
+    caller must submit the IDs in the current /generate form; acceptance alone
+    never triggers automatic generation or changes to strategy.
+    """
+    selected = list(dict.fromkeys(str(value).strip() for value in insight_ids if str(value).strip()))
+    if len(selected) > limit:
+        raise ValueError(f"성과 인사이트는 한 번에 최대 {limit}개까지 선택할 수 있습니다.")
+    by_id = {row.insight_id: row for row in load_insights(path)}
+    missing = [value for value in selected if value not in by_id]
+    if missing:
+        raise ValueError("선택한 성과 인사이트를 찾을 수 없습니다. 화면을 새로고침하세요.")
+    unapproved = [value for value in selected if by_id[value].status != STATUS_ACCEPTED]
+    if unapproved:
+        raise ValueError("사람이 승인한 성과 인사이트만 콘텐츠 생성에 참고할 수 있습니다.")
+    result = []
+    for value in selected:
+        row = by_id[value]
+        if row.result == "INSUFFICIENT_SAMPLE":
+            raise ValueError("표본 부족 인사이트는 콘텐츠 전략 참고자료로 사용할 수 없습니다.")
+        result.append({
+            "insight_id": row.insight_id,
+            "platform": row.platform,
+            "metric": row.metric,
+            "insight_type": row.insight_type,
+            "result": row.result,
+            "observation": row.observation[:500],
+            "sample_size": row.sample_size,
+        })
+    return result
+
+
+def _build_content_prompt(
+    item: dict, trend_report: dict, strategy_insights: list[dict] | None = None,
+) -> str:
     sources = item.get("source_urls") or trend_report.get("citations") or []
     facts = {
         "keyword": item.get("keyword"),
@@ -277,6 +317,7 @@ def _build_content_prompt(item: dict, trend_report: dict) -> str:
         "key_points": item.get("key_points", []),
         "verified_source_urls": sources,
         "research_date": trend_report.get("researched_at"),
+        "human_accepted_performance_insights": strategy_insights or [],
     }
     return f"""당신은 한국어 검색 유입과 영상 시청 지속시간을 설계하는 전문 콘텐츠 에디터입니다.
 아래 Perplexity 트렌드 조사 자료만 사실의 출발점으로 삼아 게시 직전 검토가 가능한 콘텐츠 패키지를 작성하세요.
@@ -294,6 +335,8 @@ def _build_content_prompt(item: dict, trend_report: dict) -> str:
 - Threads는 각각 독립적으로 읽혀도 되는 후킹 중심 글 2개를 만들고 각 본문은 500자 이내로 하세요.
 - Facebook 페이지용 글은 Threads와 별도로 작성하세요. 2~4개 짧은 문단으로 맥락과 경험·실행 포인트를 설명하고, 마지막에 자연스러운 질문이나 댓글 유도 문장을 넣으세요. 확인되지 않은 개인 경험을 창작하지 마세요.
 - 같은 내용을 세 번 반복하지 말고 플랫폼별 문법에 맞게 재구성하세요.
+- human_accepted_performance_insights는 사람이 명시적으로 선택한 과거 성과 관찰입니다. 사실 근거가 아니라 형식·후킹·구성의 참고자료로만 활용하고, 이번 트렌드의 사실처럼 인용하거나 수치·성과를 보장하지 마세요.
+- 참고자료와 현재 트렌드가 맞지 않으면 참고자료를 무시하세요. 선택된 관찰을 기계적으로 복제하지 말고 현재 독자 검색 의도에 맞게 변형하세요.
 - 결과는 아래 JSON 객체 하나로만 출력하세요. 코드펜스나 설명은 붙이지 마세요.
 {{
   "blog": {{"title":"검색형 제목","meta_description":"검색 결과 설명","focus_keyword":"핵심 키워드","body":"Markdown 본문"}},
@@ -373,7 +416,10 @@ def _parse_content_package(answer: str) -> dict:
     return package
 
 
-def _make_preview(item: dict, trend_report: dict, provider=None) -> dict:
+def _make_preview(
+    item: dict, trend_report: dict, provider=None,
+    strategy_insights: list[dict] | None = None,
+) -> dict:
     urls = item.get("source_urls") or trend_report.get("citations") or []
     if not urls:
         raise ValueError("이 트렌드는 연결된 출처 URL이 없어 콘텐츠 초안을 만들 수 없습니다.")
@@ -425,13 +471,14 @@ def _make_preview(item: dict, trend_report: dict, provider=None) -> dict:
     )
     if provider is not None:
         result = provider.search(
-            _build_content_prompt(item, trend_report),
+            _build_content_prompt(item, trend_report, strategy_insights),
             search_recency_filter="week",
         )
         package = _parse_content_package(result.answer)
         return {
             "keyword": keyword,
             "knowledge_id": knowledge.id,
+            "strategy_insights": strategy_insights or [],
             "created_at": utc_now(),
             "status": "preview_only_not_approved",
             "warning": "Perplexity가 작성한 검토용 초안입니다. 원문 사실 확인과 사람의 승인을 거쳐야 게시할 수 있습니다.",
@@ -462,6 +509,7 @@ def _make_preview(item: dict, trend_report: dict, provider=None) -> dict:
     return {
         "keyword": keyword,
         "knowledge_id": knowledge.id,
+        "strategy_insights": strategy_insights or [],
         "created_at": utc_now(),
         "status": "preview_only_not_approved",
         "warning": "검토용 미승인 미리보기입니다. 사실·인용 원문 확인과 사람의 승인을 거쳐야 게시할 수 있습니다.",
@@ -602,6 +650,11 @@ def _page(
     if not report:
         report = {}
     trends = report.get("trends", [])
+    accepted_insights = [
+        row for row in load_insights(INSIGHTS_PATH)
+        if row.status == STATUS_ACCEPTED and row.result != "INSUFFICIENT_SAMPLE"
+    ]
+    accepted_insights = sorted(accepted_insights, key=lambda row: row.created_at, reverse=True)[:20]
     cards = []
     for index, item in enumerate(trends):
         sources = " ".join(
@@ -619,7 +672,9 @@ def _page(
   <p class="hook">쇼츠 후킹: {escape(str(item.get('shorts_hook', '')))}</p>
   <p class="meta">{sources}</p>
   <form method="post" action="/generate"><input type="hidden" name="index" value="{index}">
-    <button type="submit">이 키워드로 콘텐츠 패키지 생성</button></form>
+    {''.join(f'<label class="meta"><input type="checkbox" name="insight_id" value="{escape(row.insight_id, quote=True)}"> 성과 참고: {escape(row.platform)} · {escape(row.metric)} · {escape(row.result)} · 표본 {row.sample_size}건</label>' for row in accepted_insights)}
+    <p class="meta">사람이 승인한 과거 성과를 선택하면 후킹·구성 참고자료로만 반영합니다. 선택하지 않아도 생성할 수 있습니다. 최대 5개.</p>
+    <button type="submit">선택한 참고자료로 콘텐츠 패키지 생성</button></form>
 </article>""")
     preview_cards = []
     for preview_index, preview in enumerate(previews):
@@ -1046,8 +1101,14 @@ def create_handler():
                     index = int(form.get("index", ["-1"])[0])
                     if index < 0 or index >= len(report["trends"]):
                         raise ValueError("선택한 트렌드가 없습니다.")
+                    selected_insights = _select_accepted_strategy_insights(
+                        form.get("insight_id", []),
+                    )
                     provider = PerplexityResearchProvider.from_environment()
-                    preview = _make_preview(report["trends"][index], report, provider=provider)
+                    preview = _make_preview(
+                        report["trends"][index], report, provider=provider,
+                        strategy_insights=selected_insights,
+                    )
                     previews = [row for row in previews if row.get("keyword") != preview["keyword"]]
                     previews.insert(0, preview)
                     _write_json(PREVIEW_PATH, previews[:10])
