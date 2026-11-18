@@ -316,6 +316,15 @@ def _safe_int(value: object) -> int:
         return 0
 
 
+def _scope_string(value: object) -> str:
+    """Normalize provider permission values without inventing requested grants."""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, (list, tuple, set)):
+        return " ".join(str(item).strip() for item in value if isinstance(item, str) and item.strip())
+    return ""
+
+
 def _json_request(method: str, url: str, *, fields: Mapping[str, object] | None = None,
                   headers: Mapping[str, str] | None = None) -> dict[str, object]:
     parsed = urlsplit(url)
@@ -418,7 +427,7 @@ class SocialOAuthClient:
         if platform == "facebook":
             # The selected Page token is saved only after the user chooses a Page.
             return {"tokens": {}, "profile": {}, "scopes": str(token.get("scope", "")), "choices": profile}
-        granted_scopes = str(token.get("scope") or token.get("scopes") or " ".join(provider.scopes))
+        granted_scopes = _scope_string(token.get("scope") or token.get("scopes", ""))
         return {"tokens": token, "profile": profile, "scopes": granted_scopes}
 
     def _exchange_and_profile(self, platform: str, code: str, redirect: str, verifier: str, state: str,
@@ -536,9 +545,23 @@ class SocialOAuthClient:
                 "grant_type": "th_exchange_token", "client_secret": secret, "access_token": short_token["access_token"],
             })
             token = self._token_fields(long)
-            # The long-lived exchange response may omit granted permissions.
+            # Meta's Graph API token debugger is the authoritative source for
+            # granted permissions. Do not infer grants from requested OAuth scopes.
             if not token["scope"]:
-                token["scope"] = short_token["scope"]
+                try:
+                    debug = self.request_json(
+                        "GET", f"https://graph.facebook.com/{_api_version(self.environ)}/debug_token",
+                        fields={
+                            "input_token": token["access_token"],
+                            "access_token": f"{client_id}|{secret}",
+                        },
+                    )
+                    debug_data = debug.get("data") if isinstance(debug.get("data"), dict) else {}
+                    if debug_data.get("is_valid") is True:
+                        token["scope"] = _scope_string(debug_data.get("scopes", []))
+                except SocialOAuthError:
+                    # Keep the account connected, but leave permissions unverified.
+                    token["scope"] = ""
             profile = self.request_json("GET", "https://graph.threads.net/v1.0/me?fields=id,username",
                                         headers={"Authorization": f"Bearer {token['access_token']}"})
             if not profile.get("id"):
@@ -569,7 +592,7 @@ class SocialOAuthClient:
             "token_type": str(raw.get("token_type", "Bearer")),
             "expires_in": _safe_int(raw.get("expires_in")),
             "refresh_expires_in": _safe_int(raw.get("refresh_expires_in")),
-            "scope": str(raw.get("scope", raw.get("scopes", raw.get("permissions", "")))),
+            "scope": _scope_string(raw.get("scope", raw.get("scopes", raw.get("permissions", "")))),
         }
 
 
