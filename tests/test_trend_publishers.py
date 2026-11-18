@@ -281,6 +281,7 @@ class TrendPublisherTests(unittest.TestCase):
         history = (self.data_dir / "threads_publish_log.json").read_text(encoding="utf-8")
         self.assertIn("facebook-content-1", history)
         self.assertIn('"platform": "facebook"', history)
+        self.assertIn('"remote_id": "123_456"', history)
 
     def test_facebook_ambiguous_api_failure_requires_manual_review(self):
         from content_engine.facebook_publisher import FacebookAPIError
