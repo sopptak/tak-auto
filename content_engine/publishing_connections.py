@@ -172,7 +172,7 @@ def publishing_connection_statuses(
                 elif not {"CREATE_CONTENT", "MANAGE"}.intersection(page_tasks):
                     publish_note = "페이지는 연결됐지만 CREATE_CONTENT 또는 MANAGE 작업 권한이 없습니다. 게시 권한이 있는 페이지를 다시 선택하세요."
                 else:
-                    publish_note = "Facebook 페이지 게시 권한과 CREATE_CONTENT 작업 권한이 확인되었습니다."
+                    publish_note = "Facebook 페이지 게시 권한과 CREATE_CONTENT 또는 MANAGE 작업 권한이 확인되었습니다."
             if linked_expiry:
                 expires_in, expiry_state = _expiry_label(linked_expiry, current)
                 if expiry_state == "expired":
