@@ -290,6 +290,10 @@ class OAuthTokenVault:
                 public[platform] = {name: str(row.get(name, "")) for name in (
                     "account_id", "account_name", "expires_at", "connected_at", "granted_scopes",
                 )}
+                # Expose only a readiness boolean; never expose bearer credentials to dashboard code.
+                public[platform]["access_token_configured"] = (
+                    "true" if str(row.get("access_token", "")).strip() else "false"
+                )
                 raw_tasks = row.get("tasks", [])
                 public[platform]["tasks"] = ",".join(str(task) for task in raw_tasks) if isinstance(raw_tasks, list) else ""
                 if platform == "youtube_shorts":
