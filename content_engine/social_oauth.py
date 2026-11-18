@@ -262,6 +262,16 @@ class OAuthTokenVault:
         }
         with self._lock:
             rows = self._load()
+            existing = rows.get(platform, {})
+            if platform == "youtube_shorts" and not record["refresh_token"] and isinstance(existing, dict):
+                # Google may omit refresh_token on a later consent flow. Keep the
+                # previously encrypted refresh token so a reconnect does not
+                # silently disable future access-token renewal.
+                record["refresh_token"] = str(existing.get("refresh_token", ""))
+            if platform == "youtube_shorts" and not record["refresh_token"]:
+                raise SocialOAuthError(
+                    "YouTube OAuth refresh token을 받지 못했습니다. 기존 연결을 유지하거나 다시 연결 설정을 확인하세요."
+                )
             rows[platform] = record
             self._save(rows)
 
