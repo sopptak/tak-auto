@@ -14,10 +14,12 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import threading
 from typing import Any
 
 
 DEFAULT_HISTORY_FILENAME = "threads_publish_log.json"
+_PUBLISH_HISTORY_LOCK = threading.RLock()
 
 
 class PublishHistoryError(ValueError):
@@ -106,38 +108,43 @@ class PublishHistory:
         return content_id in self.published_content_ids()
 
     def append(self, record: PublishRecord) -> None:
-        """Append history with a durable atomic replacement."""
-        records = self.load()
-        records.append(record.to_dict())
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary_path = None
-        try:
-            with tempfile.NamedTemporaryFile(
-                "w", encoding="utf-8", dir=self.path.parent, delete=False
-            ) as handle:
-                temporary_path = Path(handle.name)
-                json.dump(records, handle, ensure_ascii=False, indent=2)
-                handle.write("\n")
-                handle.flush()
-                os.fsync(handle.fileno())
-            try:
-                os.chmod(temporary_path, 0o600)
-            except OSError:
-                pass
-            os.replace(temporary_path, self.path)
+        """Append under a process-wide lock and durably replace the history file."""
+        with _PUBLISH_HISTORY_LOCK:
+            self._append_locked(record)
+
+    def _append_locked(self, record: PublishRecord) -> None:
+            """Append history with a durable atomic replacement."""
+            records = self.load()
+            records.append(record.to_dict())
+            self.path.parent.mkdir(parents=True, exist_ok=True)
             temporary_path = None
             try:
-                directory_fd = os.open(self.path.parent, os.O_RDONLY)
+                with tempfile.NamedTemporaryFile(
+                    "w", encoding="utf-8", dir=self.path.parent, delete=False
+                ) as handle:
+                    temporary_path = Path(handle.name)
+                    json.dump(records, handle, ensure_ascii=False, indent=2)
+                    handle.write("\n")
+                    handle.flush()
+                    os.fsync(handle.fileno())
                 try:
-                    os.fsync(directory_fd)
-                finally:
-                    os.close(directory_fd)
-            except OSError:
-                pass
-        finally:
-            if temporary_path is not None:
-                temporary_path.unlink(missing_ok=True)
-
+                    os.chmod(temporary_path, 0o600)
+                except OSError:
+                    pass
+                os.replace(temporary_path, self.path)
+                temporary_path = None
+                try:
+                    directory_fd = os.open(self.path.parent, os.O_RDONLY)
+                    try:
+                        os.fsync(directory_fd)
+                    finally:
+                        os.close(directory_fd)
+                except OSError:
+                    pass
+            finally:
+                if temporary_path is not None:
+                    temporary_path.unlink(missing_ok=True)
+    
 
 def _used_knowledge_ids(history: PublishHistory) -> set[str]:
     """게시 이력에 한 번이라도 등장한 knowledge_id 집합을 반환한다.
