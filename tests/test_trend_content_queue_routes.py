@@ -346,8 +346,11 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             ("blog.body", "blog"),
         )
         self.assertEqual(
-            run_trend_content_mvp._editorial_target({"area": "Threads"}),
+            run_trend_content_mvp._editorial_target({"area": "Threads 1"}),
             ("threads.0.body", "threads"),
+        )
+        self.assertIsNone(
+            run_trend_content_mvp._editorial_target({"area": "Threads"}),
         )
         self.assertIsNone(
             run_trend_content_mvp._editorial_target({"area": "쇼츠 해시태그"}),
