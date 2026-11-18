@@ -45,6 +45,23 @@ class FacebookClientTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             client.publish_text("  ")
 
+    def test_rejects_message_over_graph_api_limit(self):
+        client = FacebookClient(access_token="token", page_id="123")
+        with self.assertRaisesRegex(ValueError, "허용 길이"):
+            client.publish_text("가" * 63_207)
+
+    def test_provider_error_is_not_reported_as_success(self):
+        client = FacebookClient(
+            access_token="secret-token",
+            page_id="123",
+            transport=lambda *args, **kwargs: {"error": {"message": "private details", "code": 190}},
+        )
+        with self.assertRaises(FacebookAPIError) as caught:
+            client.publish_text("게시 본문")
+        self.assertIn("190", str(caught.exception))
+        self.assertNotIn("secret-token", str(caught.exception))
+        self.assertNotIn("private details", str(caught.exception))
+
     def test_missing_remote_post_id_is_not_success(self):
         client = FacebookClient(
             access_token="token",
@@ -117,6 +134,35 @@ class FacebookTrendPublisherTests(unittest.TestCase):
             with self.assertRaisesRegex(PermanentPublishError, "게시 작업 권한"):
                 publish("facebook", {"body": "게시"}, "key")
         client_type.assert_not_called()
+
+    def test_expired_facebook_page_token_blocks_publish(self):
+        with patch.dict("os.environ", {
+            "TAK_AUTO_DATA_DIR": str(self.data_dir),
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key",
+        }, clear=True), \
+             patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \
+             patch("content_engine.trend_publishers.FacebookClient") as client_type:
+            connection = self._connection()
+            connection["expires_at"] = "2000-01-01T00:00:00+00:00"
+            vault_type.return_value.get.return_value = connection
+            with self.assertRaisesRegex(PermanentPublishError, "만료"):
+                publish("facebook", {"body": "게시", "_content_id": "expired-token"}, "key")
+        client_type.assert_not_called()
+
+    def test_uncertain_facebook_transport_failure_is_not_retried_as_success(self):
+        with patch.dict("os.environ", {
+            "TAK_AUTO_DATA_DIR": str(self.data_dir),
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key",
+        }, clear=True), \
+             patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \
+             patch("content_engine.trend_publishers.FacebookClient") as client_type:
+            vault_type.return_value.get.return_value = self._connection()
+            client_type.return_value.publish_text.side_effect = FacebookAPIError("secret-token transport failure")
+            with self.assertRaises(PublishUncertainError) as caught:
+                publish("facebook", {"body": "게시", "_content_id": "uncertain-facebook"}, "key")
+        self.assertNotIn("secret-token", str(caught.exception))
+        history_path = self.data_dir / "threads_publish_log.json"
+        self.assertFalse(history_path.exists())
 
     def test_duplicate_content_does_not_publish_twice(self):
         with patch.dict("os.environ", {
