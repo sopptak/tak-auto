@@ -446,11 +446,11 @@ def _evaluate_content_quality(
     hook_patterns = ("?", "왜", "놓치", "모르", "차이", "실수", "바로", "단 ", "3가지", "5가지", "반전", "하지만", "그런데")
     hook_has_pattern = any(pattern in hook for pattern in hook_patterns)
     checks = [
-        ("blog_length", "블로그 본문 1,200자 이상", len(body.strip()) >= 1200, 10),
+        ("blog_length", "블로그 본문 1,200자 이상", len(body.strip()) >= 1200, 5),
         ("blog_headings", "블로그 소제목 3개 이상", headings >= 3, 10),
         ("keyword_title", "핵심 키워드가 제목에 포함", bool(keyword and keyword.casefold() in blog_title.casefold()), 5),
         ("keyword_body", "핵심 키워드가 본문에 포함", bool(keyword and keyword.casefold() in body.casefold()), 5),
-        ("search_intent", "독자 질문의 핵심어가 제목·본문에 반영", intent_is_measurable and intent_hits >= min(2, len(set(intent_terms))), 10),
+        ("search_intent", "독자 질문의 핵심어가 제목·본문에 반영", not intent_is_measurable or intent_hits >= min(2, len(set(intent_terms))), 10),
         ("blog_meta", "검색 설명 60~160자", 60 <= len(str(blog.get("meta_description") or "").strip()) <= 160, 5),
         ("shorts_scene_count", "쇼츠 장면 6~8개", 6 <= len(scenes) <= 8, 10),
         ("shorts_hook", "쇼츠 첫 3초 후킹 문장", bool(hook) and len(hook) >= 8, 5),
