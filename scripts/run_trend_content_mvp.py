@@ -148,10 +148,38 @@ def _read_json(path: Path, default):
 
 
 def _write_json(path: Path, payload) -> None:
+    """Durably replace a JSON file using a unique same-directory temporary file."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(path)
+    temporary_name = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", prefix=f".{path.name}.",
+            suffix=".tmp", dir=path.parent, delete=False,
+        ) as temporary:
+            temporary_name = temporary.name
+            temporary.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        try:
+            os.chmod(temporary_name, 0o600)
+        except OSError:
+            pass
+        os.replace(temporary_name, path)
+        temporary_name = None
+        try:
+            directory_fd = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except OSError:
+            pass
+    finally:
+        if temporary_name:
+            try:
+                os.unlink(temporary_name)
+            except FileNotFoundError:
+                pass
 
 
 def _read_connection_checks() -> dict:
@@ -693,7 +721,7 @@ def _build_editorial_recommendations(quality_report: dict, claim_coverage: dict)
 def _editorial_target(recommendation: dict) -> tuple[str, str] | None:
     """Map a revision proposal to one editable preview field; never guess a platform."""
     area = str(recommendation.get("area") or "")
-    if area in {"블로그 본문", "블로그 구조", "검색 의도", "검색 의도 답변"}:
+    if area in {"블로그", "블로그 본문", "블로그 구조", "검색 의도", "검색 의도 답변"}:
         return "blog.body", "blog"
     if area == "블로그 제목":
         return "blog.title", "blog"
@@ -703,8 +731,10 @@ def _editorial_target(recommendation: dict) -> tuple[str, str] | None:
         return "shorts.0.hook", "shorts"
     if area in {"쇼츠 구성", "쇼츠 장면", "쇼츠 CTA"}:
         return "shorts.0.body", "shorts"
-    if area == "Threads":
+    if area in {"Threads", "Threads 1"}:
         return "threads.0.body", "threads"
+    if area == "Threads 2":
+        return "threads.1.body", "threads"
     if area == "Facebook":
         return "facebook.body", "facebook"
     return None
