@@ -528,7 +528,7 @@ def _page(
     )
     tiktok_connection = oauth_connections.get("tiktok", {})
     tiktok_scopes = {
-        scope for scope in re.split(r"[,\\s]+", str(tiktok_connection.get("granted_scopes", ""))) if scope
+        scope for scope in re.split(r"[,\s]+", str(tiktok_connection.get("granted_scopes", ""))) if scope
     }
     tiktok_ready = bool(media_assets and tiktok_connection.get("account_id")
                         and "video.publish" in tiktok_scopes)
