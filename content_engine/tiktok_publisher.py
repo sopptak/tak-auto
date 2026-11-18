@@ -8,7 +8,7 @@ from math import ceil
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 import time
 
 
@@ -21,6 +21,13 @@ UPLOAD_HOSTS = frozenset({
 MAX_VIDEO_BYTES = 100 * 1024 * 1024
 MAX_CHUNK_BYTES = 64 * 1024 * 1024
 MIN_CHUNK_BYTES = 5 * 1024 * 1024
+
+
+class _NoRedirectHandler(HTTPRedirectHandler):
+    """Never forward OAuth bearer tokens or one-time upload URLs through redirects."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 class TikTokConfigurationError(ValueError):
@@ -60,7 +67,7 @@ def _json_request(method: str, url: str, *, access_token: str,
     data = json.dumps(body or {}, ensure_ascii=False).encode("utf-8") if method.upper() != "GET" else None
     request = Request(url, data=data, headers=headers, method=method.upper())
     try:
-        with urlopen(request, timeout=timeout_seconds) as response:
+        with build_opener(_NoRedirectHandler()).open(request, timeout=timeout_seconds) as response:
             raw = response.read(1_000_001)
     except HTTPError as error:
         raise TikTokAPIError(f"TikTok API 요청 실패 (HTTP {error.code}).") from None
