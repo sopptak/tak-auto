@@ -284,7 +284,12 @@ def connection_dashboard(
         connected = isinstance(oauth_connections, Mapping) and bool(oauth_connections.get(str(row["key"]), {}).get("account_id"))
         connect_controls = ""
         if connected:
+            verify_form = (
+                f'<form method="post" action="/connections/verify"><input type="hidden" name="platform" value="{escape(str(row["key"]))}"><button type="submit" class="secondary">계정 연결 확인</button></form>'
+                if row["verification_supported"] else ""
+            )
             connect_controls = f'''<p><a class="button connection-button" href="/connections/oauth/{escape(str(row['key']))}">계정 다시 연결</a></p>
+{verify_form}
 <form method="post" action="/connections/disconnect"><input type="hidden" name="platform" value="{escape(str(row['key']))}"><button class="secondary" type="submit">이 앱에서 연결 해제</button></form>'''
         elif setup.get("ready"):
             connect_controls = f'<p><a class="button connection-button" href="/connections/oauth/{escape(str(row["key"]))}">계정 연결</a></p>'
