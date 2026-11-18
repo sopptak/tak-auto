@@ -1211,6 +1211,8 @@ def _page(
                 action = (
                     f'<form method="post" action="/editorial/revise"><input type="hidden" name="preview_index" value="{preview_index}">'
                     f'<input type="hidden" name="recommendation_index" value="{recommendation_index}"><button type="submit" class="secondary">이 항목 수정 문구 만들기</button></form>'
+                    f'<input type="hidden" name="knowledge_id" value="{escape(str(preview.get(\"knowledge_id\", \"\")), quote=True)}">>'
+                    f'<input type="hidden" name="recommendation_key" value="{_editorial_recommendation_key(row)}"><button type="submit" class="secondary">이 항목 수정 문구 만들기</button></form>'
                 )
             else:
                 action = '<p class="meta">이 항목은 현재 자동 수정 대상이 아닙니다. 안내에 따라 직접 점검하세요.</p>'
