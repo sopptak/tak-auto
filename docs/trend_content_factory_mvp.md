@@ -92,3 +92,35 @@ py -m unittest discover -s tests -p "test_trend_discovery.py" -v
 ## Perplexity Agent API 전환
 
 2026년 11월 기준 Sonar Chat Completions 방식 대신 Agent API를 사용합니다. 기존 `TAK_SCOUT_PERPLEXITY_API_KEY` 환경변수는 그대로 유지합니다. 기본 엔드포인트는 `/v1/agent`이며 `/v1/responses`와 동일한 API 표면입니다. 원시 HTTP 호출에서는 Perplexity 마이그레이션 가이드에 따라 `/v1/agent`를 사용합니다. 응답 텍스트는 `output[]`의 `message` / `output_text` 항목에서 읽고, 출처는 `search_results` 출력 항목의 `results[].url`에서 추출합니다.
+
+
+## 게시 이력과 성과 수집 연결
+
+새 트렌드 미리보기는 결정적인 `knowledge_id`(`trend-preview-<keyword hash>`)를 보존한다. 승인 시 각 플랫폼 작업 payload에 `_knowledge_id`와 첫 번째 원문 `_source_url`을 전달하며, 게시 대기열의 성공 이력은 다음 메타데이터를 남긴다.
+
+- `content_id`: 플랫폼별 게시 작업의 고유 ID
+- `knowledge_id`: 원본 트렌드 KNOWLEDGE ID
+- `platform`: 실제 게시 채널
+- `remote_id`: 플랫폼이 반환한 게시물/영상 ID
+- `published_at`: 게시 완료 시각
+- `source_url`, `title`: 원문 및 콘텐츠 제목
+
+Threads와 Facebook의 게시 어댑터 이력에도 KNOWLEDGE ID, 출처 URL, 제목을 함께 보존한다. YouTube Shorts 등 다른 어댑터는 공통 게시 대기열 이력을 성과 추적의 기준으로 사용한다.
+
+### 게시 이력에서 Threads/YouTube 성과 대상 선택
+
+게시 대기열에 성공 이력이 생긴 뒤, `content_id`를 사용해 수동으로 ID를 다시 입력하지 않고 수집 대상을 지정할 수 있다.
+
+```bash
+# 대상 확인만 수행: 네트워크 호출 및 파일 저장 없음
+python scripts/collect_performance.py \
+  --queue-content-id <published-content-id> \
+  --dry-run
+
+# 실제 API 조회 및 성과 스냅샷 저장: 운영자가 명시적으로 승인한 경우에만
+python scripts/collect_performance.py \
+  --queue-content-id <published-content-id> \
+  --confirm-live
+```
+
+현재 자동 API 수집은 Threads와 YouTube Shorts만 지원한다. Facebook, Instagram Reels, TikTok의 성과 API 수집은 별도 권한·지표 검증 후 추가한다. `--confirm-live` 없이 실제 API 호출은 거부되며, dry-run은 성과 저장소를 변경하지 않는다.
