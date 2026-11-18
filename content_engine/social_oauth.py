@@ -56,7 +56,7 @@ PROVIDERS: dict[str, Provider] = {
     "instagram_reels": Provider(
         "instagram_reels", "Instagram Reels", "INSTAGRAM_APP_ID", "INSTAGRAM_APP_SECRET", "client_id",
         "https://www.instagram.com/oauth/authorize",
-        ("instagram_business_basic", "instagram_business_content_publish"),
+        ("instagram_business_basic", "instagram_business_content_publishing"),
     ),
     "facebook": Provider(
         "facebook", "Facebook 페이지", "FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET", "client_id",
