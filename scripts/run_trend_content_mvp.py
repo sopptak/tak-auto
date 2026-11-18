@@ -276,13 +276,23 @@ def _health_payload(environ=None) -> dict[str, object]:
     }
 
 
-def _run_connection_verification(platform: str, checks: dict, *, environ=None, now=None) -> tuple[dict, str]:
+def _run_connection_verification(
+    platform: str, checks: dict, *, environ=None, now=None,
+    oauth_connections: dict[str, dict[str, str]] | None = None,
+) -> tuple[dict, str]:
     """Check one supported account and return a safe status-cache update."""
     if platform not in VERIFY_PLATFORMS:
         raise ValueError("현재 API 계정 확인을 지원하지 않는 플랫폼입니다.")
     values = os.environ if environ is None else environ
     current = now or datetime.now(timezone.utc)
-    rows = {row["key"]: row for row in publishing_connection_statuses(values)}
+    if oauth_connections is None:
+        oauth_connections, storage_error = _read_oauth_connections()
+        if storage_error:
+            raise ValueError("SNS 암호화 저장소를 확인할 수 없습니다. 연결 설정을 점검하세요.")
+    rows = {
+        row["key"]: row
+        for row in publishing_connection_statuses(values, oauth_connections=oauth_connections)
+    }
     status = rows[platform]
     if status["missing"]:
         raise ValueError("필요한 인증 환경변수를 먼저 설정하세요: " + ", ".join(status["missing"]))
