@@ -549,8 +549,10 @@ def _page(
         scope for scope in re.split(r"[,\s]+", str(facebook_connection.get("granted_scopes", ""))) if scope
     }
     facebook_required_scopes = {"pages_show_list", "pages_read_engagement", "pages_manage_posts"}
+    facebook_tasks = facebook_connection.get("tasks", [])
     facebook_ready = bool(facebook_connection.get("account_id")
-                          and facebook_required_scopes.issubset(facebook_scopes))
+                          and facebook_required_scopes.issubset(facebook_scopes)
+                          and isinstance(facebook_tasks, list) and "CREATE_CONTENT" in facebook_tasks)
     platform_options = (
         '<option value="threads">Threads · 자동 게시</option>'
         + ('<option value="facebook">Facebook 페이지 · 게시 권한 연결됨</option>' if facebook_ready else '<option value="facebook" disabled>Facebook 페이지 · 게시 권한 연결 필요</option>')
@@ -970,7 +972,11 @@ def create_handler():
                         raise ValueError("invalid page")
                     selected = choices[index]
                     tokens = {"access_token": selected["access_token"], "expires_in": selected.get("expires_in", 0)}
-                    profile = {"account_id": selected["account_id"], "account_name": selected["account_name"]}
+                    profile = {
+                        "account_id": selected["account_id"],
+                        "account_name": selected["account_name"],
+                        "tasks": selected.get("tasks", []),
+                    }
                     _oauth_vault().save("facebook", tokens, profile, scopes=str(pending.get("scopes", "")))
                     secure = _oauth_cookie_is_secure("facebook")
                     self._redirect("/?connected=facebook", cookie=_oauth_cookie("tak_facebook_selection", "", secure=secure, clear=True))
