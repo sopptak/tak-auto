@@ -48,14 +48,8 @@ from tak_scout.trend_discovery import TrendDiscovery, TrendItem, discover_trends
 KST = ZoneInfo("Asia/Seoul")
 STATE_MUTATION_LOCK = threading.RLock()
 def _has_persistent_mount(path: Path) -> bool:
-    """Return true when path or one of its parents is an actual mount point."""
-    candidate = path.expanduser().absolute()
-    while True:
-        if os.path.ismount(candidate):
-            return True
-        if candidate.parent == candidate:
-            return False
-        candidate = candidate.parent
+    """Check the configured data directory itself, which matches Render mountPath."""
+    return os.path.ismount(path.expanduser().absolute())
 
 def _resolve_writable_data_dir(configured: Path) -> tuple[Path, bool]:
     """Use the configured data directory when writable; otherwise use ephemeral /tmp."""
