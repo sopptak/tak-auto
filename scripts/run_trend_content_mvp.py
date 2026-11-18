@@ -397,9 +397,18 @@ def _make_preview(item: dict, trend_report: dict, provider=None) -> dict:
         f"콘텐츠 관점: {item.get('content_angle', '')}",
         *[f"확인할 핵심 사실: {point}" for point in points],
     ])
+    # A topic keyword can recur across days with different source articles.
+    # Fingerprint the source set as well, so separate news events never share one
+    # KNOWLEDGE/performance lineage merely because their keywords match.
+    identity_sources = sorted({str(url).strip() for url in urls if str(url).strip()})
+    identity_payload = json.dumps(
+        {"keyword": keyword, "source_urls": identity_sources},
+        ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+    )
+    preview_identity = hashlib.sha256(identity_payload.encode("utf-8")).hexdigest()[:16]
     knowledge = KnowledgeRecord(
-        id="trend-preview-" + hashlib.sha256(keyword.encode("utf-8")).hexdigest()[:16],
-        source_raw_id="trend-preview:" + keyword,
+        id="trend-preview-" + preview_identity,
+        source_raw_id="trend-preview:" + preview_identity,
         source_url=urls[0],
         title=str(item.get("blog_title") or keyword),
         domain=str(item.get("category") or "기타"),
