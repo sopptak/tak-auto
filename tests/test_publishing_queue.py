@@ -36,6 +36,10 @@ class PublishingQueueTests(unittest.TestCase):
         self.assertEqual(first["max_attempts"], MAX_ATTEMPTS)
         self.assertEqual(len(PublishingQueue(self.path).snapshot()["items"]), 1)
 
+    def test_facebook_is_an_allowed_approved_queue_platform(self):
+        item = self.enqueue(platform="facebook")
+        self.assertEqual(item.platform, "facebook")
+
     def test_approval_requires_timezone_future_schedule_and_supported_platform(self):
         with self.assertRaises(QueueError):
             self.enqueue(when=self.now - timedelta(seconds=1))
