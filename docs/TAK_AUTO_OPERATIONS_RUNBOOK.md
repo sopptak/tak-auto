@@ -1,0 +1,153 @@
+# TAK AUTO 운영 개시 및 장애 대응 체크리스트
+
+작성일: 2026-11-19
+대상: `tak-auto-trend-factory` (범용 트렌드 콘텐츠 MVP)
+
+이 문서는 코드 테스트 통과와 실제 서비스 운영 준비를 구분한다. 체크박스는 운영자가 Render·SNS 계정에서 직접 확인한 경우에만 완료로 표시한다. 저장소 코드나 CI 결과만으로 배포·계정 연결·영속 저장·외부 게시가 완료됐다고 간주하지 않는다.
+
+## 1. 배포 전 승인 게이트
+
+- [ ] PR #3의 최신 head SHA와 변경 파일을 확인한다.
+- [ ] GitHub Actions의 TAK SCOUT, TAK AUTO trend content MVP, Python 전체 테스트가 동일한 최신 SHA에서 모두 성공했는지 확인한다.
+- [ ] PR의 base 브랜치와 병합 대상이 의도한 구조인지 검토한다. 현재 PR은 `feature/perplexity-research-provider`를 base로 하는 Draft이므로, main 배포용 PR로 오인하지 않는다.
+- [ ] Render 계정 소유자가 새 서비스 생성 및 Starter 플랜·Persistent Disk 비용을 승인한다.
+- [ ] 게시 기능은 계속 `TAK_AUTO_PUBLISHING_ENABLED=false`로 둔다.
+- [ ] 실제 SNS 게시·성과 API 조회는 별도 운영 승인 전 실행하지 않는다.
+
+## 2. Render 서비스 설정 확인
+
+대상 서비스: `tak-auto-trend-factory`
+
+예상 공개 주소(실제 발급·접속 상태는 Render에서 확인):
+`https://tak-auto-trend-factory.onrender.com`
+
+필수 환경변수:
+- `TAK_WEB_USERNAME`
+- `TAK_WEB_PASSWORD`
+- `TAK_SCOUT_PERPLEXITY_API_KEY`
+- `TAK_AUTO_DATA_DIR=/var/data/trend-factory`
+- `TAK_AUTO_PUBLISHING_ENABLED=false`
+- `TAK_AUTO_PUBLISHER=content_engine.trend_publishers:publish`
+
+SNS 연결을 준비할 경우에만 추가:
+- `TAK_AUTO_OAUTH_ENCRYPTION_KEY`
+- `TAK_AUTO_MEDIA_SIGNING_KEY`
+- YouTube, TikTok, Instagram, Facebook, Threads, Naver Login 앱별 client ID/secret
+- `TAK_AUTO_PUBLIC_URL`은 실제 Render 서비스의 HTTPS URL과 일치시킨다.
+
+보안:
+- [ ] 비밀값은 Render Secret Environment Variable에만 입력한다.
+- [ ] GitHub 저장소, 커밋, 로그, 화면 캡처, 채팅에 비밀값이 없는지 확인한다.
+- [ ] Render 서비스가 Starter 플랜인지 확인한다.
+- [ ] Persistent Disk가 실제로 `/var/data/trend-factory`에 연결됐는지 확인한다.
+- [ ] 데이터 경로와 mountPath가 정확히 일치하는지 확인한다.
+- [ ] 서비스 인스턴스는 단일 인스턴스로 유지한다. 현재 JSON 대기열은 프로세스 내부 잠금이므로 다중 인스턴스 확장은 금지한다.
+
+## 3. 배포 후 최소 검증
+
+1. 브라우저에서 공개 HTTPS 주소에 접속한다.
+2. Basic Auth가 설정된 계정만 대시보드에 접근할 수 있는지 확인한다.
+3. `/health`를 확인한다. 정상 운영 준비 조건은 다음과 같다.
+   - `status=ok`
+   - `perplexity_configured=true`
+   - `web_auth_configured=true`
+   - `storage_persistent=true`
+   - `storage_mode=persistent_disk`
+   - 게시 비활성화 상태(`publishing_enabled=false))
+   - `ready=true`
+4. 화면에서 최신 트렌드 조사를 실행한다.
+5. 트렌드 1개를 선택해 블로그, 쇼츠 장면 구성, Threads 2개 등 콘텐츠 패키지를 생성한다.
+6. 출처 링크를 직접 열어 발행일·주장·숫자를 대조한다.
+7. 품질 점수와 출처 URL 검사 결과를 사실 검증 완료로 오인하지 않는다.
+8. 서버 재시작 또는 재배포 후 트렌드·초안 데이터가 유지되는지 확인한다.
+9. `/health`의 revision이 기대한 Render 커밋 SHA와 일치하는지 확인한다.
+
+검증 중 하나라도 실패하면 외부 게시를 진행하지 않는다.
+
+## 4. 콘텐츠 운영 승인 절차
+
+각 콘텐츠에 대해 운영자는 다음을 확인한다.
+
+- [ ] 독자 검색 의도에 직접 답하는가?
+- [ ] 제목이 콘텐츠 본문과 일치하는가?
+- [ ] 원문 출처가 실제 주장을 뒷받침하는가?
+- [ ] 숫자·날짜·정책·법률·가격·통계는 원문에서 재확인했는가?
+- [ ] 이미지·영상·음원·인용의 저작권 및 플랫폼 정책을 확인했는가?
+- [ ] 개인정보·금융기관 내부정보가 포함되지 않았는가?
+- [ ] 블로그, 쇼츠, Threads 각 채널의 문안이 채널 특성에 맞는가?
+- [ ] MP4를 쓰는 경우 실제 영상의 자막·음성·화면이 승인된 대본과 일치하는가?
+- [ ] 최종 승인자와 승인 시각을 기록했는가?
+
+구조 품질 점수는 편집 보조 지표다. 사실 정확성, 검색 순위, 클릭률, 조회수, 수익을 보증하지 않는다.
+
+## 5. 플랫폼별 게시 준비 조건
+
+| 플랫폼 | 운영 전 확인 |
+|---|---|
+| Threads | OAuth 연결, `threads_content_publish` scope, 실제 계정 확인 |
+| Facebook 페이지 | 선택한 페이지, Page access token, `pages_manage_posts` 및 페이지 작업 권한 |
+| YouTube Shorts | OAuth refresh token, `youtube.upload`, 완성 MP4, 기본 비공개 업로드 확인 |
+| Instagram Reels | 프로페셔널 계정, 게시 scope, 공개 HTTPS 미디어 URL, 컨테이너 FINISHED 확인 |
+| TikTok | Direct Post 앱 심사, `video.publish`, 계정 허용 공개 범위, 완성 MP4 |
+| 네이버 블로그 | 수동 게시. 자동 게시 기능이 제공된다고 안내하지 않는다. |
+
+계정 연결 성공은 게시 가능 또는 게시 승인을 뜻하지 않는다. 게시 기능 전역 스위치는 별도 승인 전까지 false로 유지한다.
+
+## 6. 게시 결과가 불확실할 때
+
+대기열 상태가 `needs_review`이면 자동 재시도하지 않는다.
+
+1. 해당 플랫폼 계정에서 실제 게시물 존재 여부를 확인한다.
+2. 게시됐다면 외부 게시 ID를 확보해 운영자 확인 절차로 완료 이력을 기록한다.
+3. 게시되지 않았음을 확인한 경우에만 운영자 이름과 확인 시각을 기록하고 재예약한다.
+4. 게시 여부를 확인할 수 없으면 재시도하지 않고 작업을 보류한다.
+5. 같은 콘텐츠가 중복 게시된 경우 게시 이력과 원인을 보존하고 수동 조치한다.
+
+## 7. 장애 대응
+
+### 서비스가 시작되지 않음
+- Render deploy logs에서 Python import 오류, 누락 환경변수, 의존성 설치 실패를 확인한다.
+- 비밀값 원문을 로그나 이슈에 복사하지 않는다.
+- 마지막 정상 배포 SHA와 현재 SHA를 비교한다.
+
+### `ready=false` 또는 `ephemeral_fallback`
+- Persistent Disk가 실제 mount됐는지 확인한다.
+- mountPath와 `TAK_AUTO_DATA_DIR`가 일치하는지 확인한다.
+- 데이터 보존을 확인하기 전 콘텐츠·게시 작업을 운영하지 않는다.
+
+### OAuth 연결 실패
+- 개발자 앱의 제품 활성화, 앱 모드, 테스트 사용자/역할, 권한 승인, Redirect URI를 점검한다.
+- 암호화 키가 기존 토큰 저장 당시의 키와 동일한지 확인한다.
+- 키 교체 시 기존 암호화 토큰을 읽지 못할 수 있으므로 임의 교체하지 않는다.
+
+### 미디어 등록 또는 재생 실패
+- MP4 컨테이너, 파일 크기(최대 100MB), Persistent Disk 저장 여부를 확인한다.
+- 서명 URL의 HTTPS 도메인, 서명 키, 만료 시각을 확인한다.
+- 공개 미디어 URL은 승인된 영상에만 발급한다.
+
+### 게시 실패 또는 중복 의심
+- `TAK_AUTO_PUBLISHING_ENABLED`를 false로 유지하거나 즉시 false로 되돌린다.
+- 대기열 상태, 플랫폼별 게시 이력, 원격 게시물 ID를 보존한다.
+- `needs_review`는 실제 플랫폼 확인 전 재시도하지 않는다.
+
+## 8. 백업·복구 및 확장 제한
+
+- 현재 JSON 저장소는 영속 디스크가 있어도 외부 백업을 대체하지 않는다.
+- 운영 개시 전에 Render 디스크 데이터의 정기 백업·복구 절차를 별도로 마련한다.
+- 복구 리허설은 운영 데이터가 아닌 복제본에서 수행한다.
+- 현재 게시 대기열 및 일부 상태 저장은 단일 프로세스 잠금에 의존한다. 다중 인스턴스 또는 독립 worker를 여러 개 운영하지 않는다.
+- 다중 인스턴스 전환 전 PostgreSQL 등 트랜잭션·원자적 작업 claim을 지원하는 공유 저장소로 이전하고 중복 게시 회귀 테스트를 추가한다.
+
+## 9. 현재 확인 상태
+
+2026-11-19 저장소 점검 시점:
+- TAK SCOUT research tests: 성공
+- TAK AUTO trend content MVP tests: 성공
+- Python 전체 테스트: 실행 중이므로 최종 결과 미확정
+- PR #3: Draft / Open / 미병합
+- Render 실제 서비스 생성·배포: 미확인
+- SNS OAuth 실계정 연결: 미확인
+- 외부 게시 기능: 비활성화 설정 유지
+- 운영 데이터 백업·복구 리허설: 미확인
+
+이 상태 표는 운영자가 실제로 확인한 결과에 따라 갱신한다.
