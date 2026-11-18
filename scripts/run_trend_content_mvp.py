@@ -851,6 +851,28 @@ def _apply_editorial_revision(preview: dict, revision_id: str, applied_by: str) 
     _refresh_preview_editorial_checks(preview)
 
 
+def _revert_editorial_revision(preview: dict, revision_id: str) -> None:
+    history = preview.get("editorial_history") or []
+    record = next(
+        (row for row in history if hmac.compare_digest(str(row.get("revision_id", "")), revision_id)),
+        None,
+    )
+    if not record or record.get("reverted_at"):
+        raise ValueError("되돌릴 수정 이력을 찾을 수 없거나 이미 복구했습니다.")
+    target = str(record.get("target") or "")
+    current_text = _read_editorial_target(preview, target)
+    if current_text != record.get("after"):
+        raise ValueError("수정 적용 이후 원문이 다시 변경되었습니다. 최신 내용을 확인하고 수동 복구하세요.")
+    _write_editorial_target(preview, target, str(record.get("before") or ""))
+    record["reverted_at"] = utc_now()
+    for revision in preview.get("editorial_revisions") or []:
+        if hmac.compare_digest(str(revision.get("revision_id", "")), revision_id):
+            revision["status"] = "reverted"
+            revision["reverted_at"] = record["reverted_at"]
+            break
+    _refresh_preview_editorial_checks(preview)
+
+
 def _make_preview(
     item: dict, trend_report: dict, provider=None,
     strategy_insights: list[dict] | None = None,
@@ -1741,6 +1763,16 @@ def create_handler():
                     _apply_editorial_revision(preview, revision_id, applied_by)
                     _write_json(PREVIEW_PATH, previews)
                     self._respond(_page(report, previews, "선택한 수정본을 적용했습니다. 원문은 수정 이력에 보존했습니다.", queue.snapshot()))
+                    return
+                if self.path == "/editorial/revert":
+                    preview_index = int(form.get("preview_index", ["-1"])[0])
+                    revision_id = form.get("revision_id", [""])[0]
+                    if preview_index < 0 or preview_index >= len(previews) or not revision_id:
+                        raise ValueError("복구할 수정 이력을 찾을 수 없습니다.")
+                    preview = previews[preview_index]
+                    _revert_editorial_revision(preview, revision_id)
+                    _write_json(PREVIEW_PATH, previews)
+                    self._respond(_page(report, previews, "선택한 수정 적용을 되돌렸습니다. 복구 이력은 보존했습니다.", queue.snapshot()))
                     return
                 if self.path == "/queue/approve":
                     index = int(form.get("preview_index", ["-1"])[0])
