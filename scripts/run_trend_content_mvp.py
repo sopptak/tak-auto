@@ -690,6 +690,88 @@ def _build_editorial_recommendations(quality_report: dict, claim_coverage: dict)
     return proposals[:40]
 
 
+def _editorial_target(recommendation: dict) -> tuple[str, str] | None:
+    """Map a revision proposal to one editable preview field; never guess a platform."""
+    area = str(recommendation.get("area") or "")
+    if area in {"블로그 본문", "블로그 구조", "검색 의도", "검색 의도 답변"}:
+        return "blog.body", "blog"
+    if area == "블로그 제목":
+        return "blog.title", "blog"
+    if area == "검색 설명":
+        return "blog.meta_description", "blog"
+    if area == "쇼츠 후킹":
+        return "shorts.0.hook", "shorts"
+    if area in {"쇼츠 구성", "쇼츠 장면", "쇼츠 CTA"}:
+        return "shorts.0.body", "shorts"
+    if area == "Threads":
+        return "threads.0.body", "threads"
+    if area == "Facebook":
+        return "facebook.body", "facebook"
+    return None
+
+def _read_editorial_target(preview: dict, target: str) -> str:
+    value = preview
+    for part in target.split("."):
+        if part.isdigit():
+            if not isinstance(value, list) or int(part) >= len(value):
+                return ""
+            value = value[int(part)]
+        else:
+            if not isinstance(value, dict):
+                return ""
+            value = value.get(part)
+    return value if isinstance(value, str) else ""
+
+def _write_editorial_target(preview: dict, target: str, value: str) -> None:
+    parts = target.split(".")
+    current = preview
+    for part in parts[:-1]:
+        current = current[int(part)] if part.isdigit() else current[part]
+    final = parts[-1]
+    if final.isdigit():
+        current[int(final)] = value
+    else:
+        current[final] = value
+
+def _parse_editorial_revision(answer: str) -> dict:
+    """Parse a constrained revision response without accepting empty or malformed copy."""
+    text = answer.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1]
+        if text.rstrip().endswith("```"):
+            text = text.rstrip()[:-3].strip()
+    start = text.find("{")
+    if start < 0:
+        raise ValueError("수정 응답에서 JSON 객체를 찾지 못했습니다.")
+    try:
+        payload, _ = json.JSONDecoder().raw_decode(text[start:])
+    except json.JSONDecodeError as error:
+        raise ValueError("수정 응답의 JSON 형식이 올바르지 않습니다.") from error
+    if not isinstance(payload, dict):
+        raise ValueError("수정 응답은 JSON 객체여야 합니다.")
+    revised = payload.get("revised_text")
+    if not isinstance(revised, str) or not revised.strip():
+        raise ValueError("수정 문구가 비어 있습니다.")
+    changes = payload.get("changes", [])
+    unresolved = payload.get("unresolved_claims", [])
+    if not isinstance(changes, list) or any(not isinstance(row, str) for row in changes):
+        raise ValueError("수정 내역 형식이 올바르지 않습니다.")
+    if not isinstance(unresolved, list) or any(not isinstance(row, str) for row in unresolved):
+        raise ValueError("미확인 주장 목록 형식이 올바르지 않습니다.")
+    return {"revised_text": revised.strip(), "changes": [row.strip()[:500] for row in changes if row.strip()][:12], "unresolved_claims": [row.strip()[:500] for row in unresolved if row.strip()][:20]}
+
+def _build_editorial_revision_prompt(preview: dict, recommendation: dict, target: str, original_text: str) -> str:
+    sources = [str(url) for url in (preview.get("source_urls") or []) if isinstance(url, str)][:20]
+    return (
+        "선택된 콘텐츠 한 부분만 편집하고 JSON 객체만 반환하세요. "
+        '형식: {"revised_text":"수정된 전체 텍스트","changes":["수정한 점"],"unresolved_claims":["추가 확인이 필요한 주장"]}. '
+        "원문에 없는 통계·날짜·법률·정책·금액·인용을 만들지 마세요. 출처 URL이 있어도 원문 확인 전 사실로 단정하지 마세요. "
+        "불확실한 주장은 삭제하거나 조건부 표현으로 낮추고 unresolved_claims에 기록하세요. 핵심 의미와 고유명사는 보존하세요. "
+        f"대상 필드: {target}\n편집 영역: {recommendation.get('area', '')}\n"
+        f"문제: {recommendation.get('original', '')}\n수정 방향: {recommendation.get('proposal', '')}\n"
+        f"기존 원문:\n{original_text}\n참고 출처 URL(근거 확인 보장 아님):\n" + "\n".join(sources)
+    )
+
 def _make_preview(
     item: dict, trend_report: dict, provider=None,
     strategy_insights: list[dict] | None = None,
