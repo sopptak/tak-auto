@@ -127,6 +127,24 @@ class PublishingQueueTests(unittest.TestCase):
         self.assertEqual(self.queue.run_due(uncertain, enabled=True, now=self.now + timedelta(days=1)), [])
         self.assertEqual(len(calls), 1)
 
+    def test_empty_remote_id_is_uncertain_and_requires_human_review(self):
+        for remote_id in ("", "   ", None):
+            with self.subTest(remote_id=remote_id):
+                self.enqueue(payload={"title": f"콘텐츠 {remote_id!r}"})
+                result = self.queue.run_due(
+                    lambda *_args: remote_id, enabled=True,
+                    now=self.now + timedelta(minutes=2),
+                )[0]
+                self.assertEqual(result["status"], "needs_review")
+                self.assertIn("외부 게시 ID가 없습니다", result["last_error"])
+                self.assertEqual(self.queue.snapshot()["history"], [])
+                self.assertEqual(
+                    self.queue.run_due(lambda *_args: "should-not-retry", enabled=True,
+                                       now=self.now + timedelta(days=1)),
+                    [],
+                )
+                self.path.unlink(missing_ok=True)
+
     def test_permanent_adapter_error_is_not_retried(self):
         self.enqueue()
         calls = []
