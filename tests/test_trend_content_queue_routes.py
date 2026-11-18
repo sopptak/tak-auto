@@ -22,6 +22,7 @@ class TrendContentQueueRouteTests(unittest.TestCase):
                 "title": "쇼츠 제목", "body": "영상 대본",
                 "youtube_description": "YouTube 설명",
                 "instagram_caption": "Instagram 캡션",
+                "tiktok_caption": "TikTok 캡션",
                 "hashtags": ["탁자동", "#shorts"],
             }],
         }
@@ -63,7 +64,7 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertEqual(payload[0]["caption"], "Instagram 캡션\\n\\n#탁자동 #shorts")
 
     def test_video_platforms_require_an_uploaded_media_asset(self):
-        for platform in ("youtube_shorts", "instagram_reels"):
+        for platform in ("youtube_shorts", "instagram_reels", "tiktok"):
             with self.subTest(platform=platform), self.assertRaisesRegex(ValueError, "미디어 자산"):
                 run_trend_content_mvp._queue_payload_for_platform(self.preview, platform, "")
 
@@ -71,9 +72,18 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "수동 게시"):
             run_trend_content_mvp._queue_payload_for_platform(self.preview, "blog")
 
-    def test_tiktok_is_blocked_until_its_publisher_is_implemented(self):
-        with self.assertRaisesRegex(ValueError, "준비 중"):
-            run_trend_content_mvp._queue_payload_for_platform(self.preview, "tiktok")
+    def test_tiktok_queue_requires_explicit_privacy_and_uses_registered_video(self):
+        with self.assertRaisesRegex(ValueError, "공개 범위"):
+            run_trend_content_mvp._queue_payload_for_platform(
+                self.preview, "tiktok", self.asset.asset_id,
+            )
+        payload = run_trend_content_mvp._queue_payload_for_platform(
+            self.preview, "tiktok", self.asset.asset_id, "SELF_ONLY", True,
+        )
+        self.assertEqual(payload[0]["media_asset_id"], self.asset.asset_id)
+        self.assertEqual(payload[0]["title"], "TikTok 캡션\\n\\n#탁자동 #shorts")
+        self.assertEqual(payload[0]["privacy_level"], "SELF_ONLY")
+        self.assertTrue(payload[0]["is_aigc"])
 
     def test_unknown_platform_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "지원하지 않는"):
