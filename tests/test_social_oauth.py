@@ -121,6 +121,22 @@ class SocialOAuthTests(unittest.TestCase):
             self.assertTrue(vault.disconnect("threads"))
             self.assertEqual(vault.public_connections(), {})
 
+    def test_vault_persists_facebook_page_tasks_without_exposing_page_token(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "tokens.enc"
+            vault = OAuthTokenVault(path, self.key)
+            vault.save(
+                "facebook",
+                {"access_token": "private-page-token"},
+                {"account_id": "123", "account_name": "TAK AUTO",
+                 "tasks": ["CREATE_CONTENT", "MODERATE"]},
+                scopes="pages_show_list,pages_read_engagement,pages_manage_posts",
+            )
+            public = vault.public_connections()["facebook"]
+            self.assertEqual(public["tasks"], "CREATE_CONTENT,MODERATE")
+            self.assertNotIn("private-page-token", str(public))
+            self.assertEqual(vault.get("facebook")["tasks"], ["CREATE_CONTENT", "MODERATE"])
+
     def test_vault_rejects_wrong_key_without_exposing_ciphertext(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "tokens.enc"
