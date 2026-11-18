@@ -152,7 +152,7 @@ class TrendPublisherTests(unittest.TestCase):
                 patch("content_engine.trend_publishers.InstagramClient") as client_type:
             vault_type.return_value.get.return_value = {
                 "access_token": "ig-private-token", "account_id": "123456789",
-                "granted_scopes": "instagram_business_basic,instagram_business_content_publish",
+                "granted_scopes": "instagram_business_basic,instagram_business_content_publishing",
                 "expires_at": "2099-01-01T00:00:00+00:00",
             }
             client_type.return_value.publish_reel.side_effect = InstagramAPIError("network lost")
@@ -181,7 +181,7 @@ class TrendPublisherTests(unittest.TestCase):
                 patch("content_engine.trend_publishers.InstagramClient") as client_type:
             vault_type.return_value.get.return_value = {
                 "access_token": "ig-private-token", "account_id": "123456789",
-                "granted_scopes": "instagram_business_basic,instagram_business_content_publish",
+                "granted_scopes": "instagram_business_basic,instagram_business_content_publishing",
                 "expires_at": "2099-01-01T00:00:00+00:00",
             }
             store_type.return_value.signed_url.return_value = "https://tak-auto.example.test/media/assets/" + "a" * 32 + "?signed"
