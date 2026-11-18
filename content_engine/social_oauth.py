@@ -292,6 +292,10 @@ class OAuthTokenVault:
                 )}
                 raw_tasks = row.get("tasks", [])
                 public[platform]["tasks"] = ",".join(str(task) for task in raw_tasks) if isinstance(raw_tasks, list) else ""
+                if platform == "youtube_shorts":
+                    public[platform]["refresh_token_configured"] = (
+                        "true" if str(row.get("refresh_token", "")).strip() else "false"
+                    )
         return public
 
     def disconnect(self, platform: str) -> bool:
