@@ -630,6 +630,19 @@ class TrendContentQueueRouteTests(unittest.TestCase):
 
         readiness = run_trend_content_mvp._publishing_platform_readiness(connections, media_available=True, public_media_ready=True)
         self.assertTrue(all(readiness.values()))
+    def test_expired_meta_tokens_disable_publishing_platform_choices(self):
+        connections = {
+            "threads": {"account_id": "th-1", "granted_scopes": "threads_content_publish", "expires_at": "2000-01-01T00:00:00+00:00"},
+            "facebook": {"account_id": "fb-1", "granted_scopes": "pages_show_list pages_read_engagement pages_manage_posts", "tasks": ["MANAGE"], "expires_at": "2000-01-01T00:00:00+00:00"},
+            "instagram_reels": {"account_id": "ig-1", "granted_scopes": "instagram_business_basic instagram_business_content_publish", "expires_at": "2000-01-01T00:00:00+00:00"},
+            "tiktok": {"account_id": "tt-1", "granted_scopes": "video.publish", "expires_at": "2000-01-01T00:00:00+00:00"},
+        }
+        readiness = run_trend_content_mvp._publishing_platform_readiness(connections, media_available=True, public_media_ready=True)
+        self.assertFalse(readiness["threads"])
+        self.assertFalse(readiness["facebook"])
+        self.assertFalse(readiness["instagram_reels"])
+        self.assertFalse(readiness["tiktok"])
+
     def test_threads_is_ready_without_a_video_asset(self):
         self.assertEqual(
             run_trend_content_mvp._queue_payload_for_platform(self.preview, "threads"),
