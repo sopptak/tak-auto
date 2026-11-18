@@ -431,6 +431,24 @@ def _make_preview(item: dict, trend_report: dict, provider=None) -> dict:
     }
 
 
+def _queue_payload_for_platform(preview: dict, platform: str) -> list[dict]:
+    """Return queue payloads only for platforms whose required media already exists."""
+    if platform == "threads":
+        payloads = preview.get("threads") or []
+        if not payloads:
+            raise ValueError("이 콘텐츠에는 Threads 초안이 없습니다.")
+        return payloads
+    if platform == "youtube_shorts":
+        raise ValueError("YouTube Shorts 예약은 완성 MP4 영상 파일을 서버에 업로드하는 기능이 연결된 뒤 사용할 수 있습니다.")
+    if platform == "instagram_reels":
+        raise ValueError("Instagram Reels 예약은 공개 HTTPS 영상 URL을 발급하는 미디어 저장소 연결 후 사용할 수 있습니다.")
+    if platform == "tiktok":
+        raise ValueError("TikTok 자동 게시 어댑터는 아직 준비 중입니다.")
+    if platform == "blog":
+        raise ValueError("네이버 블로그는 현재 수동 게시 방식입니다. 원고를 복사해 직접 발행하세요.")
+    raise ValueError("지원하지 않는 게시 플랫폼입니다.")
+
+
 def _page(
     report: dict | None, previews: list[dict], error: str = "",
     queue_snapshot: dict | None = None, connection_checks: dict | None = None,
@@ -485,7 +503,8 @@ def _page(
     <p class="warning">승인 후에도 실제 게시 기능은 기본 비활성 상태입니다.</p>
     <form method="post" action="/queue/approve" class="queue-form">
       <input type="hidden" name="preview_index" value="{preview_index}">
-      <label>플랫폼 <select name="platform">{"".join(f'<option value="{platform}">{label}</option>' for platform, label in [("blog", "네이버 블로그"), ("youtube_shorts", "YouTube Shorts"), ("threads", "Threads"), ("instagram_reels", "Instagram Reels"), ("tiktok", "TikTok")])}</select></label>
+      <label>플랫폼 <select name="platform">{"".join(f'<option value="{platform}"{" disabled" if platform != "threads" else ""}>{label}</option>' for platform, label in [("threads", "Threads · 자동 게시 가능"), ("blog", "네이버 블로그 · 수동 게시"), ("youtube_shorts", "YouTube Shorts · 영상 연결 필요"), ("instagram_reels", "Instagram Reels · 공개 영상 URL 필요"), ("tiktok", "TikTok · 준비 중")])}</select></label>
+      <p class="meta">현재 자동 예약 가능한 플랫폼은 Threads입니다. 영상 플랫폼은 영상 파일 생성·호스팅 연결 전까지 선택할 수 없습니다.</p>
       <label>예약 시각 (한국시간) <input type="datetime-local" name="scheduled_at" required></label>
       <button type="submit">승인하고 예약</button>
     </form>
@@ -759,15 +778,7 @@ def create_handler():
                     preview = previews[index]
                     preview_key = json.dumps(preview, ensure_ascii=False, sort_keys=True)
                     content_id = "trend-" + hashlib.sha256(preview_key.encode("utf-8")).hexdigest()[:20]
-                    if platform == "blog":
-                        payloads = [preview.get("blog") or {}]
-                    elif platform == "threads":
-                        payloads = preview.get("threads") or []
-                    else:
-                        shorts = preview.get("shorts") or []
-                        if not shorts:
-                            raise ValueError("이 콘텐츠에는 쇼츠 원고가 없습니다.")
-                        payloads = [shorts[0]]
+                    payloads = _queue_payload_for_platform(preview, platform)
                     approver = os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user"
                     enqueued = [queue.enqueue_approved(
                         content_id=f"{content_id}-{platform}-{payload_index + 1}",
