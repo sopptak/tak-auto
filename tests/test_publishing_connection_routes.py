@@ -33,6 +33,25 @@ class PublishingConnectionRouteTests(unittest.TestCase):
         self.assertIn("확인 실패", message)
         self.assertNotIn("test-token", json.dumps(cache))
 
+    def test_oauth_connected_account_can_be_verified_without_legacy_env_tokens(self):
+        environ = {"TAK_AUTO_OAUTH_ENCRYPTION_KEY": "vault-key"}
+        linked = {"threads": {"account_id": "thread-id", "account_name": "oauth_user"}}
+        with patch.object(app, "verify_publishing_connection", return_value={
+            "account_id": "thread-id", "account_name": "oauth_user",
+        }) as verify:
+            cache, message = app._run_connection_verification(
+                "threads", {}, environ=environ, now=self.now, oauth_connections=linked,
+            )
+        verify.assert_called_once_with("threads", environ)
+        self.assertEqual(cache["threads"]["status"], "verified")
+        self.assertIn("oauth_user", message)
+
+    def test_oauth_storage_error_stops_verification_before_api_call(self):
+        with patch.object(app, "_read_oauth_connections", return_value=({}, "storage error")) as read:
+            with patch.object(app, "verify_publishing_connection") as verify:
+                with self.assertRaisesRegex(ValueError, "암호화 저장소"):
+                    app._run_connection_verification("threads", {}, environ={"TAK_AUTO_OAUTH_ENCRYPTION_KEY": "key"})
+        verify.assert_not_called()
     def test_missing_or_unsupported_account_never_calls_external_verifier(self):
         with patch.object(app, "verify_publishing_connection") as verify:
             with self.assertRaisesRegex(ValueError, "인증 환경변수"):
