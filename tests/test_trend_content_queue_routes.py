@@ -312,7 +312,7 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             }],
         }
         run_trend_content_mvp._apply_editorial_revision(preview, "revision-1", "reviewer")
-        self.assertEqual(preview["blog"]["body"], "검토 후 수정한 원문입니다. " * 30)
+        self.assertEqual(preview["blog"]["body"], ("검토 후 수정한 원문입니다. " * 30).strip())
         self.assertEqual(preview["editorial_history"][0]["before"], "기존 원문입니다. " * 30)
         self.assertEqual(preview["editorial_history"][0]["after"], preview["blog"]["body"])
         self.assertEqual(preview["editorial_history"][0]["applied_by"], "reviewer")
