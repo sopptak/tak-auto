@@ -91,8 +91,8 @@ def _youtube_client_for_publishing() -> YouTubeClient:
                     "YouTube Shorts 업로드 권한(youtube.upload)이 없습니다. 계정을 다시 연결하고 업로드 권한에 동의하세요."
                 )
             refresh_token = str(connection.get("refresh_token", "")).strip()
-            client_id = os.getenv("YOUTUBE_OAUTH_CLIENT_ID", os.getenv("YOUTUBE_CLIENT_ID", "")).strip()
-            client_secret = os.getenv("YOUTUBE_OAUTH_CLIENT_SECRET", os.getenv("YOUTUBE_CLIENT_SECRET", "")).strip()
+            client_id = (os.getenv("YOUTUBE_OAUTH_CLIENT_ID") or os.getenv("YOUTUBE_CLIENT_ID", "")).strip()
+            client_secret = (os.getenv("YOUTUBE_OAUTH_CLIENT_SECRET") or os.getenv("YOUTUBE_CLIENT_SECRET", "")).strip()
             if not refresh_token or not client_id or not client_secret:
                 raise PermanentPublishError(
                     "YouTube OAuth refresh token 또는 웹 앱 클라이언트 설정이 부족합니다. 계정을 다시 연결하세요."
