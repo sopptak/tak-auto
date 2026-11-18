@@ -190,6 +190,7 @@ class PublishingConnectionTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "threads_basic"):
                     verify_publishing_connection("threads", environ)
                 client_type.assert_not_called()
+
     def test_threads_verification_rejects_non_official_api_host_before_sending_token(self):
         with patch("content_engine.publishing_connections.ThreadsClient.from_environment") as factory:
             factory.return_value.api_base = "https://example.invalid"
