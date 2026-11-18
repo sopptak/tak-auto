@@ -247,7 +247,7 @@ def _publish_tiktok_video(payload: Mapping[str, object]) -> str:
     if not connection:
         raise PermanentPublishError("TikTok 계정이 연결되지 않았습니다. 먼저 계정을 연결하세요.")
     scopes = {
-        scope for scope in re.split(r"[,\\s]+", str(connection.get("granted_scopes", ""))) if scope
+        scope for scope in re.split(r"[,\s]+", str(connection.get("granted_scopes", ""))) if scope
     }
     if "video.publish" not in scopes:
         raise PermanentPublishError(
