@@ -67,6 +67,53 @@ class TrendPublisherTests(unittest.TestCase):
             privacy_status="private",
         )
 
+    def test_youtube_shorts_uses_encrypted_oauth_refresh_token_and_upload_scope(self):
+        video = self.data_dir / "approved-oauth-short.mp4"
+        video.write_bytes(b"test-video")
+        youtube = Mock()
+        youtube.upload_short.return_value = SimpleNamespace(video_id="oauth-youtube-video")
+        connection = {
+            "refresh_token": "encrypted-vault-refresh",
+            "granted_scopes": "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload",
+        }
+        with patch.dict("os.environ", {
+            "TAK_AUTO_DATA_DIR": str(self.data_dir),
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "vault-key",
+            "YOUTUBE_OAUTH_CLIENT_ID": "web-client-id",
+            "YOUTUBE_OAUTH_CLIENT_SECRET": "web-client-secret",
+        }, clear=True):
+            with patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type:
+                with patch("content_engine.trend_publishers.YouTubeClient") as client_type:
+                    vault_type.return_value.get.return_value = connection
+                    client_type.return_value = youtube
+                    remote_id = publish("youtube_shorts", {
+                        "video_path": str(video), "title": "OAuth 승인 쇼츠",
+                    }, "youtube-oauth-key")
+                    client_type.assert_called_once_with(
+                        client_id="web-client-id", client_secret="web-client-secret",
+                        refresh_token="encrypted-vault-refresh",
+                    )
+        self.assertEqual(remote_id, "oauth-youtube-video")
+        vault_type.return_value.get.assert_called_once_with("youtube_shorts")
+        youtube.upload_short.assert_called_once()
+
+    def test_youtube_shorts_oauth_connection_without_upload_scope_fails_closed(self):
+        video = self.data_dir / "approved-no-scope.mp4"
+        video.write_bytes(b"test-video")
+        with patch.dict("os.environ", {
+            "TAK_AUTO_DATA_DIR": str(self.data_dir),
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "vault-key",
+        }, clear=True):
+            with patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type:
+                with patch("content_engine.trend_publishers.YouTubeClient") as client_type:
+                    vault_type.return_value.get.return_value = {
+                        "refresh_token": "refresh", "granted_scopes": "youtube.readonly",
+                    }
+                    with self.assertRaisesRegex(PermanentPublishError, "youtube.upload"):
+                        publish("youtube_shorts", {
+                            "video_path": str(video), "title": "권한 없는 쇼츠",
+                        }, "youtube-no-scope")
+        client_type.assert_not_called()
     def test_youtube_shorts_requires_existing_mp4_before_oauth(self):
         with patch("content_engine.trend_publishers.YouTubeClient.from_environment") as factory:
             with self.assertRaisesRegex(PermanentPublishError, "존재하는 MP4"):
