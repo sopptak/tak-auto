@@ -45,7 +45,7 @@ class PublishingConnectionTests(unittest.TestCase):
                 }},
             )
         }
-        self.assertIn("CREATE_CONTENT 작업 권한이 없습니다", rows["facebook"]["publish_note"])
+        self.assertIn("CREATE_CONTENT 또는 MANAGE 작업 권한이 없습니다", rows["facebook"]["publish_note"])
 
     def test_facebook_connection_reports_ready_when_all_page_scopes_are_granted(self):
         rows = {
