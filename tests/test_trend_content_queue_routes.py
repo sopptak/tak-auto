@@ -465,7 +465,7 @@ class TrendContentQueueRouteTests(unittest.TestCase):
                 "status": "pending_review",
             }],
         }
-        with self.assertRaisesRegex(ValueError, "원문과 대조"):
+        with self.assertRaisesRegex(ValueError, "원문 대조"):
             run_trend_content_mvp._apply_editorial_revision(preview, "revision-unresolved", "reviewer")
         self.assertEqual(preview["blog"]["body"], "원문 " * 30)
         run_trend_content_mvp._apply_editorial_revision(
