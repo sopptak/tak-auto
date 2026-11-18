@@ -1039,7 +1039,7 @@ def _publishing_platform_readiness(oauth_connections: dict, *, media_available: 
 
     def connected(platform: str) -> bool:
         connection = oauth_connections.get(platform, {})
-        return bool(connection.get("account_id") and connection.get("access_token"))
+        return bool(connection.get("account_id"))
 
     youtube = oauth_connections.get("youtube_shorts", {})
     facebook = oauth_connections.get("facebook", {})
