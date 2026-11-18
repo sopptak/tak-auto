@@ -57,7 +57,7 @@ def _resolve_writable_data_dir(configured: Path) -> tuple[Path, bool]:
     is_render = bool(os.getenv("RENDER_SERVICE_ID") or os.getenv("RENDER_GIT_COMMIT"))
     # On Render, a writable directory is not proof that the Persistent Disk mounted.
     candidates = [(configured, False)] if not is_render or _has_persistent_mount(configured) else []
-    if fallback != configured:
+    if fallback != configured or not candidates:
         candidates.append((fallback, True))
     for candidate, is_fallback in candidates:
         try:
