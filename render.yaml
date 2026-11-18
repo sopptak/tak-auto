@@ -3,7 +3,7 @@ services:
     name: tak-auto-mvp
     runtime: python
     plan: starter
-    buildCommand: python -m compileall -q scripts content_engine tak_scout tak_brain
+    buildCommand: apt-get update && apt-get install -y fonts-noto-cjk && python -m compileall -q scripts content_engine tak_scout tak_brain
     startCommand: >-
       mkdir -p /var/data &&
       if [ -d data ] && [ ! -L data ]; then cp -an data/. /var/data/; rm -rf data; fi &&
@@ -44,7 +44,7 @@ services:
     name: tak-auto-trend-factory
     runtime: python
     plan: starter
-    buildCommand: python -m pip install --disable-pip-version-check -r requirements.txt && python -m compileall -q scripts content_engine tak_scout tak_brain blog_importer
+    buildCommand: apt-get update && apt-get install -y fonts-noto-cjk && python -m pip install --disable-pip-version-check -r requirements.txt && python -m compileall -q scripts content_engine tak_scout tak_brain blog_importer
     startCommand: python scripts/run_trend_content_mvp.py --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     disk:
