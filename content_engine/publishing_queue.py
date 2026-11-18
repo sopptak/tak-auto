@@ -15,7 +15,7 @@ import threading
 from typing import Any
 
 MAX_ATTEMPTS = 3
-PLATFORMS = ("blog", "youtube_shorts", "threads", "instagram_reels", "tiktok")
+PLATFORMS = ("blog", "youtube_shorts", "threads", "facebook", "instagram_reels", "tiktok")
 _QUEUE_LOCK = threading.RLock()
 
 
