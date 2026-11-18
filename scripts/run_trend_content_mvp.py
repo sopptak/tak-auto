@@ -1354,7 +1354,7 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 <p>최신 트렌드 발견 → Perplexity 조사 → 블로그·쇼츠·Threads 제작 → 트래픽 유도</p>
 <p><a href="/performance" style="color:#d4def0">📈 전체 콘텐츠 성과 대시보드</a> · <a href="/performance/insights" style="color:#d4def0">성과 인사이트</a></p>
 <div>마지막 조사: {generated} · 모델: {escape(str(report.get('model', '미연결')))}</div>
-{"<p>임시 저장소 사용 중: Render 무료 인스턴스에서는 재시작·재배포 시 조사 결과가 초기화될 수 있습니다.</p>" if USING_EPHEMERAL_STORAGE else ""}</header>
+{"<p>임시 저장소 사용 중: 영속 저장 경로를 사용할 수 없어 임시 저장소를 사용 중입니다. 재시작·재배포 시 데이터가 사라질 수 있습니다.</p>" if USING_EPHEMERAL_STORAGE else ""}</header>
 {error_html}
 {connection_dashboard(verification_cache=connection_checks, oauth_connections=oauth_connections, oauth_setup=oauth_setup, oauth_storage_error=oauth_storage_error)}
 <section class="toolbar"><h2>최신 트렌드 조사</h2>
@@ -1886,7 +1886,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"바인딩: {args.host}:{args.port}")
     print(f"데이터 디렉터리: {DATA_DIR}")
     if USING_EPHEMERAL_STORAGE:
-        print("주의: 설정된 저장 경로를 쓸 수 없어 임시 저장소(/tmp)를 사용합니다. 무료 인스턴스 재시작 시 데이터가 사라질 수 있습니다.")
+        print("주의: 설정된 저장 경로를 쓸 수 없어 임시 저장소(/tmp)를 사용합니다. 재시작·재배포 시 데이터가 사라질 수 있습니다.")
     print("웹 인증: 설정됨" if os.getenv("TAK_WEB_USERNAME") and os.getenv("TAK_WEB_PASSWORD") else "웹 인증: 로컬 개발 모드")
     print("Perplexity API 키: 설정됨" if os.getenv("TAK_SCOUT_PERPLEXITY_API_KEY") else "Perplexity API 키: 미설정")
     print("종료: Ctrl+C")
