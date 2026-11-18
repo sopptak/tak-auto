@@ -535,11 +535,13 @@ def _evaluate_claim_citation_coverage(package: dict, source_urls: list | None = 
     )
     candidates = []
     for section, body in sections:
-        for sentence in re.split(r"(?<=[.!?。])\s+|\n+", body):
+        sentences = re.split(r"(?<=[.!?。])\s+|\n+", body)
+        for sentence_index, sentence in enumerate(sentences):
             sentence = sentence.strip()
             if len(sentence) < 18 or not pattern.search(sentence):
                 continue
-            attached = [url for url in urls if url in sentence]
+            following = sentences[sentence_index + 1].strip() if sentence_index + 1 < len(sentences) else ""
+            attached = [url for url in urls if url in sentence or following.startswith(url)]
             candidates.append({
                 "section": section,
                 "claim": sentence[:500],
@@ -590,9 +592,9 @@ def _evaluate_content_quality(
     intent_is_measurable = len(set(intent_terms)) >= 2
     intent_text = (audience_question + " " + keyword).casefold()
     intent_rules = [
-        ("거래형", ("구매", "가격", "비용", "신청", "예약", "대출", "가입", "판매", "구입")),
+        ("절차형", ("방법", "절차", "준비", "서류", "하는 법", "어떻게", "순서", "단계")),
         ("비교형", ("비교", "차이", "장단점", "추천", "순위", "어느", "vs", "대비")),
-        ("절차형", ("방법", "절차", "신청", "준비", "서류", "하는 법", "어떻게", "순서", "단계")),
+        ("거래형", ("구매", "가격", "비용", "신청", "예약", "대출", "가입", "판매", "구입")),
     ]
     intent_type = next((name for name, terms in intent_rules if any(term in intent_text for term in terms)), "정보형")
     intent_answer_terms = {
