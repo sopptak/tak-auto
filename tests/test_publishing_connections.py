@@ -26,7 +26,7 @@ class PublishingConnectionTests(unittest.TestCase):
             row["key"]: row for row in publishing_connection_statuses(
                 {}, now=self.now,
                 oauth_connections={"facebook": {
-                    "account_id": "123", "account_name": "TAK AUTO 페이지", "tasks": ["CREATE_CONTENT"],
+                    "account_id": "123", "account_name": "TAK AUTO 페이지", "tasks": "CREATE_CONTENT",
                     "granted_scopes": "pages_show_list",
                 }},
             )
@@ -40,7 +40,7 @@ class PublishingConnectionTests(unittest.TestCase):
                 {}, now=self.now,
                 oauth_connections={"facebook": {
                     "account_id": "123", "account_name": "TAK AUTO 페이지",
-                    "tasks": ["MODERATE"],
+                    "tasks": "MODERATE",
                     "granted_scopes": "pages_show_list,pages_read_engagement,pages_manage_posts",
                 }},
             )
