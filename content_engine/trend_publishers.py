@@ -325,6 +325,11 @@ def _publish_facebook_page_post(payload: Mapping[str, object]) -> str:
     page_id = str(connection.get("account_id", "")).strip()
     if not token or not page_id:
         raise PermanentPublishError("Facebook 연결에 페이지 액세스 토큰 또는 페이지 ID가 없습니다.")
+    page_tasks = connection.get("tasks", [])
+    if not isinstance(page_tasks, list) or "CREATE_CONTENT" not in page_tasks:
+        raise PermanentPublishError(
+            "선택한 Facebook 페이지에 CREATE_CONTENT 작업 권한이 없습니다. 게시 권한이 있는 페이지를 다시 연결하세요."
+        )
     expiry = str(connection.get("expires_at", "")).strip()
     if expiry:
         try:
