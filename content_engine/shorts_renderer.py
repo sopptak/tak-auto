@@ -23,6 +23,7 @@ docs/5-17/5-18이 기술한 렌더러 코드 자체는 git 이력 어디에도 �
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
