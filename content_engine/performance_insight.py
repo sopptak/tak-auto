@@ -28,8 +28,11 @@ import json
 import os
 from pathlib import Path
 import statistics
+import threading
 import tempfile
 from typing import Any
+
+_INSIGHT_LOCK = threading.RLock()
 
 from content_engine.performance.models import PerformanceRecord
 from content_engine.performance.window import classify_measurement_window
@@ -496,6 +499,11 @@ def _save(records: list[InsightRecord], path: Path | str) -> None:
 
 
 def append_insights(path: Path | str, records: list[InsightRecord]) -> int:
+    with _INSIGHT_LOCK:
+        return _append_insights_locked(path, records)
+
+
+def _append_insights_locked(path: Path | str, records: list[InsightRecord]) -> int:
     """여러 건을 한 번에 추가한다 - insight_id가 같으면(즉 같은 입력
     데이터로 재분석한 결과라면) 건너뛴다(23장 idempotency). status는
     새 레코드로 덮어쓰지 않는다 - 이미 사람이 accepted/rejected로
@@ -523,6 +531,11 @@ def insights_for_scope(path: Path | str, scope: str, scope_id: str) -> list[Insi
 
 
 def set_insight_status(path: Path | str, insight_id: str, new_status: str) -> InsightRecord:
+    with _INSIGHT_LOCK:
+        return _set_insight_status_locked(path, insight_id, new_status)
+
+
+def _set_insight_status_locked(path: Path | str, insight_id: str, new_status: str) -> InsightRecord:
     """사람의 검토 결과(19장: CANDIDATE -> ACCEPTED/REJECTED)를 반영한다.
     status 외의 어떤 필드도 바꾸지 않는다(분석 결과 자체는 불변) - accepted
     되어도 KNOWLEDGE/MEDIA를 자동으로 바꾸는 코드는 이 함수 어디에도
