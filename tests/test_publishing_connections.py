@@ -21,6 +21,31 @@ class PublishingConnectionTests(unittest.TestCase):
         self.assertEqual(statuses["facebook"]["state"], "missing")
         self.assertEqual(statuses["blog"]["state"], "manual")
 
+    def test_facebook_connection_reports_missing_publish_permissions(self):
+        rows = {
+            row["key"]: row for row in publishing_connection_statuses(
+                {}, now=self.now,
+                oauth_connections={"facebook": {
+                    "account_id": "123", "account_name": "TAK AUTO 페이지",
+                    "granted_scopes": "pages_show_list",
+                }},
+            )
+        }
+        self.assertEqual(rows["facebook"]["state"], "verified")
+        self.assertIn("게시 권한이 부족", rows["facebook"]["publish_note"])
+
+    def test_facebook_connection_reports_ready_when_all_page_scopes_are_granted(self):
+        rows = {
+            row["key"]: row for row in publishing_connection_statuses(
+                {}, now=self.now,
+                oauth_connections={"facebook": {
+                    "account_id": "123", "account_name": "TAK AUTO 페이지",
+                    "granted_scopes": "pages_show_list,pages_read_engagement,pages_manage_posts",
+                }},
+            )
+        }
+        self.assertIn("게시 권한이 연결", rows["facebook"]["publish_note"])
+
     def test_configured_credentials_show_account_and_expiry_without_secret(self):
         token = "private-token-value"
         statuses = publishing_connection_statuses({
