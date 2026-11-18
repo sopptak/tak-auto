@@ -213,6 +213,12 @@ class SocialOAuthTests(unittest.TestCase):
         responses = iter([
             {"access_token": "short-user-token", "expires_in": 3600},
             {"access_token": "long-user-token", "expires_in": 5184000},
+            {"data": [
+                {"permission": "pages_show_list", "status": "granted"},
+                {"permission": "pages_read_engagement", "status": "granted"},
+                {"permission": "pages_manage_posts", "status": "granted"},
+                {"permission": "business_management", "status": "declined"},
+            ]},
             {"data": [{"id": "page-1", "name": "TAK AUTO", "access_token": "page-token"}]},
         ])
         client = SocialOAuthClient(self.environ, request_json=lambda *args, **kwargs: next(responses))
@@ -220,6 +226,7 @@ class SocialOAuthTests(unittest.TestCase):
         self.assertEqual(result["choices"][0]["account_id"], "page-1")
         self.assertEqual(result["choices"][0]["access_token"], "page-token")
         self.assertEqual(result["tokens"], {})
+        self.assertEqual(result["scopes"], "pages_show_list,pages_read_engagement,pages_manage_posts")
 
 
 if __name__ == "__main__":
