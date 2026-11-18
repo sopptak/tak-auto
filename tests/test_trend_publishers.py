@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 
 from content_engine.publishing_queue import PermanentPublishError, PublishUncertainError
 from content_engine.threads_publisher import ThreadsAPIError
+from content_engine.youtube_publisher import YouTubeAPIError
 from content_engine.trend_publishers import publish
 
 
@@ -38,6 +39,49 @@ class TrendPublisherTests(unittest.TestCase):
 
         self.assertEqual(remote_id, "threads-post-1")
         self.client.publish_text.assert_called_once_with("첫 게시")
+
+    def test_youtube_shorts_uploads_mp4_as_private_and_returns_video_id(self):
+        video = self.data_dir / "approved-short.mp4"
+        video.write_bytes(b"test-video")
+        youtube = Mock()
+        youtube.upload_short.return_value = SimpleNamespace(video_id="youtube-video-1")
+        with patch("content_engine.trend_publishers.YouTubeClient.from_environment", return_value=youtube):
+            remote_id = publish("youtube_shorts", {
+                "video_path": str(video),
+                "title": "승인된 쇼츠 제목",
+                "description": "설명",
+                "tags": ["탁자동", "#shorts"],
+            }, "youtube-key")
+        self.assertEqual(remote_id, "youtube-video-1")
+        youtube.upload_short.assert_called_once_with(
+            video_path=video,
+            title="승인된 쇼츠 제목",
+            description="설명",
+            tags=["탁자동", "#shorts"],
+            privacy_status="private",
+        )
+
+    def test_youtube_shorts_requires_existing_mp4_before_oauth(self):
+        with patch("content_engine.trend_publishers.YouTubeClient.from_environment") as factory:
+            with self.assertRaisesRegex(PermanentPublishError, "존재하는 MP4"):
+                publish("youtube_shorts", {
+                    "video_path": str(self.data_dir / "missing.mp4"),
+                    "title": "제목",
+                }, "youtube-key")
+        factory.assert_not_called()
+
+    def test_youtube_shorts_ambiguous_upload_requires_manual_review(self):
+        video = self.data_dir / "approved-short.mp4"
+        video.write_bytes(b"test-video")
+        youtube = Mock()
+        youtube.upload_short.side_effect = YouTubeAPIError("connection reset")
+        with patch("content_engine.trend_publishers.YouTubeClient.from_environment", return_value=youtube):
+            with self.assertRaises(PublishUncertainError):
+                publish("youtube_shorts", {
+                    "video_path": str(video),
+                    "title": "승인된 쇼츠 제목",
+                }, "youtube-key")
+        youtube.upload_short.assert_called_once()
 
     def test_unsupported_platform_fails_closed_without_calling_threads(self):
         with patch("content_engine.trend_publishers.ThreadsClient.from_environment") as factory:
