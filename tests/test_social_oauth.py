@@ -221,6 +221,18 @@ class SocialOAuthTests(unittest.TestCase):
         self.assertEqual(result["scopes"], "instagram_business_basic,instagram_business_content_publish")
         self.assertEqual(calls[1][2]["grant_type"], "ig_exchange_token")
 
+    def test_instagram_callback_rejects_ambiguous_multiple_token_envelopes(self):
+        from content_engine.social_oauth import SocialOAuthError
+
+        client = SocialOAuthClient(self.environ, request_json=lambda *args, **kwargs: {
+            "data": [
+                {"access_token": "ig-short-one", "user_id": "ig-one"},
+                {"access_token": "ig-short-two", "user_id": "ig-two"},
+            ]
+        })
+        with self.assertRaises(SocialOAuthError):
+            client.complete("instagram_reels", "code", callback_uri("instagram_reels", self.environ), state="state")
+
     def test_threads_callback_exchanges_long_lived_token_and_reads_profile(self):
         responses = iter([
             {"access_token": "threads-short", "expires_in": 3600},
