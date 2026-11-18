@@ -1,6 +1,6 @@
 """Publisher adapters used by the approved trend-content queue.
 
-Approved Threads text, YouTube Shorts MP4, Instagram Reels, and TikTok Direct Post jobs are supported.
+Approved Threads text, Facebook Page text, YouTube Shorts MP4, Instagram Reels, and TikTok Direct Post jobs are supported.
 Other platforms fail closed until their account, media, review, and API requirements are implemented.
 """
 from __future__ import annotations
@@ -18,6 +18,7 @@ from .threads_publisher import ThreadsAPIError, ThreadsClient, ThreadsConfigurat
 from .youtube_publisher import YouTubeAPIError, YouTubeClient, YouTubeConfigurationError
 from .instagram_publisher import InstagramAPIError, InstagramClient, InstagramConfigurationError
 from .tiktok_publisher import TikTokAPIError, TikTokClient, TikTokConfigurationError, TikTokPublishRejectedError
+from .facebook_publisher import FacebookAPIError, FacebookClient, FacebookConfigurationError
 from .media_assets import MediaAssetError, MediaAssetStore
 
 
@@ -291,6 +292,66 @@ def _publish_tiktok_video(payload: Mapping[str, object]) -> str:
             "TikTok 게시 결과를 확정할 수 없습니다. TikTok 계정의 게시 목록을 확인하세요."
         ) from None
     return result.post_id or result.publish_id
+
+
+
+def _publish_facebook_page_post(payload: Mapping[str, object]) -> str:
+    """Publish approved text to the selected Facebook Page, never to a personal profile."""
+    message = str(payload.get("body") or payload.get("message") or payload.get("text") or "").strip()
+    if not message:
+        raise PermanentPublishError("Facebook 페이지 게시 본문이 비어 있습니다.")
+    encryption_key = os.getenv("TAK_AUTO_OAUTH_ENCRYPTION_KEY", "").strip()
+    if not encryption_key:
+        raise PermanentPublishError("Facebook 게시용 암호화 인증 저장소 설정이 없습니다.")
+    try:
+        vault = OAuthTokenVault(
+            Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))) / "social_oauth_tokens.enc",
+            encryption_key,
+        )
+        connection = vault.get("facebook")
+    except SocialOAuthError as error:
+        raise PermanentPublishError(str(error)) from error
+    if not connection:
+        raise PermanentPublishError("Facebook 페이지가 연결되지 않았습니다. 먼저 페이지를 연결하세요.")
+    scopes = {
+        scope for scope in re.split(r"[,\\s]+", str(connection.get("granted_scopes", ""))) if scope
+    }
+    required_scopes = {"pages_show_list", "pages_read_engagement", "pages_manage_posts"}
+    if not required_scopes.issubset(scopes):
+        raise PermanentPublishError(
+            "Facebook 페이지 게시 권한이 부족합니다. pages_manage_posts 및 pages_read_engagement 권한으로 다시 연결하세요."
+        )
+    token = str(connection.get("access_token", "")).strip()
+    page_id = str(connection.get("account_id", "")).strip()
+    if not token or not page_id:
+        raise PermanentPublishError("Facebook 연결에 페이지 액세스 토큰 또는 페이지 ID가 없습니다.")
+    expiry = str(connection.get("expires_at", "")).strip()
+    if expiry:
+        try:
+            expires_at = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+        except ValueError:
+            raise PermanentPublishError("Facebook 토큰 만료일 형식을 확인할 수 없습니다.") from None
+        if expires_at <= datetime.now(timezone.utc):
+            raise PermanentPublishError("Facebook 페이지 토큰이 만료되었습니다. 페이지를 다시 연결하세요.")
+    try:
+        client = FacebookClient(
+            access_token=token,
+            page_id=page_id,
+            api_version=os.getenv("META_GRAPH_API_VERSION", "v27.0").strip(),
+        )
+        result = client.publish_text(message)
+    except FacebookConfigurationError as error:
+        raise PermanentPublishError(str(error)) from error
+    except ValueError as error:
+        raise PermanentPublishError(str(error)) from error
+    except FacebookAPIError:
+        # The remote page may have accepted the post before a transport failure.
+        raise PublishUncertainError(
+            "Facebook 게시 결과를 확정할 수 없습니다. 페이지 게시물 목록을 확인한 뒤 재시도하세요."
+        ) from None
+    return result.post_id
 
 
 def publish(platform: str, payload: Mapping[str, object], idempotency_key: str) -> str:
