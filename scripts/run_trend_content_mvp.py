@@ -610,7 +610,7 @@ def _page(
         blog = preview.get("blog") or {}
         shorts = preview.get("shorts") or []
         threads = preview.get("threads") or []
-        facebook_post = preview.get("facebook") or {}
+        facebook_post = preview.get("facebook") or (threads[0] if threads else {})
         facebook_message = "\n\n".join(
             part for part in (
                 str(facebook_post.get("title") or "").strip(),
