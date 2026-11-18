@@ -562,7 +562,7 @@ def _page(
     }
     facebook_required_scopes = {"pages_show_list", "pages_read_engagement", "pages_manage_posts"}
     facebook_tasks = facebook_connection.get("tasks", [])
-    facebook_ready = bool(facebook_connection.get("account_id")
+    facebook_ready = bool(facebook_connection.get("account_id") and facebook_connection.get("access_token")
                           and facebook_required_scopes.issubset(facebook_scopes)
                           and isinstance(facebook_tasks, list) and "CREATE_CONTENT" in facebook_tasks)
     platform_options = (
