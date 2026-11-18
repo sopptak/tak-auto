@@ -9,7 +9,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 import json
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
 from urllib.request import Request, urlopen
 import time
 
@@ -37,8 +37,14 @@ def _request_json(method: str, url: str, *, access_token: str,
                "User-Agent": "TAK-AUTO/1.0"}
     body = None
     if fields is not None:
-        body = urlencode({key: str(value) for key, value in fields.items()}).encode("utf-8")
-        headers["Content-Type"] = "application/x-www-form-urlencoded"
+        encoded = urlencode({key: str(value) for key, value in fields.items()})
+        if method.upper() == "GET":
+            query = list(parse_qsl(parsed.query, keep_blank_values=True))
+            query.extend((key, str(value)) for key, value in fields.items())
+            url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query), ""))
+        else:
+            body = encoded.encode("utf-8")
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
     request = Request(url, data=body, headers=headers, method=method.upper())
     try:
         with urlopen(request, timeout=timeout_seconds) as response:
