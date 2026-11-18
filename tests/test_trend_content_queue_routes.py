@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from content_engine.media_assets import MediaAssetStore
+from content_engine.performance_insight import InsightRecord, STATUS_ACCEPTED, STATUS_CANDIDATE, append_insights
 from scripts import run_trend_content_mvp
 
 
@@ -112,6 +113,61 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             different_event, {"citations": []}, provider=provider,
         )
         self.assertNotEqual(other_preview["knowledge_id"], preview["knowledge_id"])
+
+    def _insight(self, insight_id, status=STATUS_ACCEPTED, result="INCREASING"):
+        return InsightRecord(
+            insight_id=insight_id, created_at="2026-11-18T00:00:00+00:00",
+            analysis_window="all", scope="content", scope_id="content-1",
+            platform="threads", metric="views", insight_type="trend",
+            result=result, observation="첫 문장에 구체적 질문을 둔 게시물의 조회 추세가 증가했습니다.",
+            evidence=({"content_id": "content-1", "metric_collected_at": "2026-11-17T00:00:00+00:00", "value": 100},),
+            sample_size=3, status=status,
+        )
+
+    def test_only_explicitly_selected_accepted_insights_are_returned(self):
+        path = self.data_dir / "insights.json"
+        append_insights(path, [
+            self._insight("accepted-1"),
+            self._insight("candidate-1", STATUS_CANDIDATE),
+            self._insight("insufficient-1", result="INSUFFICIENT_SAMPLE"),
+        ])
+        selected = run_trend_content_mvp._select_accepted_strategy_insights(
+            ["accepted-1"], path=path,
+        )
+        self.assertEqual([row["insight_id"] for row in selected], ["accepted-1"])
+        self.assertEqual(selected[0]["sample_size"], 3)
+
+    def test_candidate_insights_cannot_be_used_as_generation_guidance(self):
+        path = self.data_dir / "insights.json"
+        append_insights(path, [self._insight("candidate-1", STATUS_CANDIDATE)])
+        with self.assertRaisesRegex(ValueError, "사람이 승인한"):
+            run_trend_content_mvp._select_accepted_strategy_insights(
+                ["candidate-1"], path=path,
+            )
+
+    def test_insufficient_sample_insights_are_rejected_as_generation_guidance(self):
+        path = self.data_dir / "insights.json"
+        append_insights(path, [self._insight("low-sample", result="INSUFFICIENT_SAMPLE")])
+        with self.assertRaisesRegex(ValueError, "표본 부족"):
+            run_trend_content_mvp._select_accepted_strategy_insights(
+                ["low-sample"], path=path,
+            )
+
+    def test_selected_insight_context_is_labeled_as_non_factual_guidance(self):
+        context = [{
+            "insight_id": "accepted-1", "platform": "threads", "metric": "views",
+            "insight_type": "trend", "result": "INCREASING",
+            "observation": "구체적 질문으로 시작한 게시물의 조회 추세 증가",
+            "sample_size": 3,
+        }]
+        prompt = run_trend_content_mvp._build_content_prompt(
+            {"keyword": "테스트", "source_urls": ["https://example.test/source"]},
+            {"researched_at": "2026-11-18"},
+            strategy_insights=context,
+        )
+        self.assertIn("human_accepted_performance_insights", prompt)
+        self.assertIn("사실 근거가 아니라 형식·후킹·구성의 참고자료", prompt)
+        self.assertIn("accepted-1", prompt)
 
     def test_content_package_preserves_facebook_specific_copy(self):
         package = self._valid_package()
