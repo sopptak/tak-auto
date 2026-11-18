@@ -199,6 +199,18 @@ def publishing_connection_statuses(
                     publish_note = "Threads 게시 권한이 연결되었습니다. 실제 게시에는 게시 스위치와 운영자 승인이 필요합니다."
                 else:
                     publish_note = "계정은 연결됐지만 Threads 게시 권한이 없습니다. 다시 연결해 게시 권한에 동의해야 합니다."
+            if platform["key"] == "youtube_shorts":
+                granted_scopes = {
+                    scope for scope in str(oauth_connection.get("granted_scopes", "")).replace(",", " ").split() if scope
+                }
+                upload_scope = "https://www.googleapis.com/auth/youtube.upload"
+                refresh_ready = str(oauth_connection.get("refresh_token_configured", "")).lower() == "true"
+                if upload_scope not in granted_scopes:
+                    publish_note = "YouTube 채널은 연결됐지만 업로드 권한(youtube.upload)이 없습니다. 계정을 다시 연결해 업로드 권한에 동의하세요."
+                elif not refresh_ready:
+                    publish_note = "YouTube 업로드 권한은 있으나 refresh token이 없습니다. 계정을 다시 연결하세요."
+                else:
+                    publish_note = "YouTube Shorts 업로드 권한이 확인되었습니다. 액세스 토큰은 refresh token으로 자동 갱신됩니다."
             if platform["key"] == "facebook":
                 granted_scopes = {
                     scope for scope in str(oauth_connection.get("granted_scopes", "")).replace(",", " ").split() if scope
@@ -216,7 +228,14 @@ def publishing_connection_statuses(
                     publish_note = "페이지는 연결됐지만 CREATE_CONTENT 또는 MANAGE 작업 권한이 없습니다. 게시 권한이 있는 페이지를 다시 선택하세요."
                 else:
                     publish_note = "Facebook 페이지 게시 권한과 CREATE_CONTENT 또는 MANAGE 작업 권한이 확인되었습니다."
-            if linked_expiry:
+            refresh_ready = (
+                platform["key"] == "youtube_shorts"
+                and str(oauth_connection.get("refresh_token_configured", "")).lower() == "true"
+            )
+            if refresh_ready:
+                expires_in, expiry_state = "액세스 토큰 자동 갱신", "valid"
+                state, label = "verified", "계정 연결됨"
+            elif linked_expiry:
                 expires_in, expiry_state = _expiry_label(linked_expiry, current)
                 if expiry_state == "expired":
                     state, label = "expired", "토큰 만료 · 다시 연결 필요"
