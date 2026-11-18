@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import math
+import os
 import random
 import re
 import subprocess
@@ -38,10 +39,23 @@ from content_engine.shorts_v2_scene import (
 )
 
 DEFAULT_FPS = 30
-_FONTS = Path("C:/Windows/Fonts")
-SANS_VF = _FONTS / "NotoSansKR-VF.ttf"
-SERIF_VF = _FONTS / "NotoSerifKR-VF.ttf"
-MONO = _FONTS / "consola.ttf"
+_FONTS = Path(os.getenv("TAK_AUTO_FONT_DIR", "C:/Windows/Fonts"))
+def _font_file(windows_name: str, linux_candidates: tuple[str, ...]) -> Path:
+    candidates = (_FONTS / windows_name, *(Path(value) for value in linux_candidates))
+    return next((candidate for candidate in candidates if candidate.is_file()), candidates[0])
+
+SANS_VF = _font_file("NotoSansKR-VF.ttf", (
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+))
+SERIF_VF = _font_file("NotoSerifKR-VF.ttf", (
+    "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/noto/NotoSerifCJK-Regular.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+))
+MONO = _font_file("consola.ttf", (
+    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+))
 
 RGB = tuple[int, int, int]
 
@@ -90,7 +104,11 @@ def _font(path: Path, size: int, weight: int | None = None) -> ImageFont.FreeTyp
         raise ShortsRenderError(f"폰트가 없습니다: {path} (Windows Noto Sans/Serif KR 필요)")
     font = ImageFont.truetype(str(path), size=size)
     if weight is not None:
-        font.set_variation_by_axes([weight])
+        try:
+            font.set_variation_by_axes([weight])
+        except (AttributeError, OSError, ValueError):
+            # Linux CJK fallback fonts are static rather than variable fonts.
+            pass
     return font
 
 
