@@ -416,6 +416,92 @@ def _parse_content_package(answer: str) -> dict:
     return package
 
 
+def _evaluate_source_integrity(
+    item: dict, trend_report: dict, generated_citations: list | None = None,
+) -> dict:
+    """Check source URL syntax, duplicates, and whether generated citations are linked.
+
+    This verifies URL structure and list linkage only; it does not fetch pages or
+    establish that a source supports a claim or is trustworthy.
+    """
+    raw_urls = item.get("source_urls") or trend_report.get("citations") or []
+    if not isinstance(raw_urls, list):
+        raw_urls = []
+    generated = generated_citations if isinstance(generated_citations, list) else []
+    entries = []
+    malformed = []
+    duplicates = []
+    seen = set()
+    for raw in [*raw_urls, *generated]:
+        value = str(raw or "").strip()
+        if not value:
+            continue
+        try:
+            parsed = urlparse(value)
+            valid = (
+                parsed.scheme.lower() in {"http", "https"}
+                and bool(parsed.hostname)
+                and not parsed.username and not parsed.password
+                and not any(char.isspace() for char in value)
+            )
+            _ = parsed.port
+        except ValueError:
+            valid = False
+        if not valid:
+            malformed.append(value[:300])
+            continue
+        normalized = parsed._replace(
+            scheme=parsed.scheme.lower(),
+            netloc=parsed.netloc.lower(),
+            fragment="",
+        ).geturl()
+        if normalized in seen:
+            duplicates.append(value[:300])
+            continue
+        seen.add(normalized)
+        entries.append(value)
+    base_urls = item.get("source_urls") or trend_report.get("citations") or []
+    if not isinstance(base_urls, list):
+        base_urls = []
+    base_normalized = set()
+    for raw in base_urls:
+        try:
+            parsed = urlparse(str(raw or "").strip())
+            if parsed.scheme.lower() in {"http", "https"} and parsed.hostname and not parsed.username and not parsed.password:
+                base_normalized.add(parsed._replace(scheme=parsed.scheme.lower(), netloc=parsed.netloc.lower(), fragment="").geturl())
+        except ValueError:
+            continue
+    unlinked = []
+    for raw in generated:
+        value = str(raw or "").strip()
+        try:
+            parsed = urlparse(value)
+            normalized = parsed._replace(scheme=parsed.scheme.lower(), netloc=parsed.netloc.lower(), fragment="").geturl()
+        except ValueError:
+            normalized = value
+        if value and normalized not in base_normalized:
+            unlinked.append(value[:300])
+    warnings = []
+    if not entries:
+        warnings.append("연결된 유효 출처 URL이 없습니다.")
+    if malformed:
+        warnings.append("HTTP/HTTPS URL 형식이 아닌 출처가 있습니다.")
+    if duplicates:
+        warnings.append("중복 출처 URL이 있습니다.")
+    if unlinked:
+        warnings.append("생성 응답의 인용 URL 중 조사 자료 출처 목록에 없는 항목이 있습니다.")
+    return {
+        "status": "검토 필요" if warnings else "URL 형식·연결 확인",
+        "source_count": len(entries),
+        "sources": entries,
+        "malformed_urls": malformed,
+        "duplicate_urls": duplicates,
+        "unlinked_citations": unlinked,
+        "warnings": warnings,
+        "scope_note": "URL 형식과 조사 자료의 출처 목록 연결만 확인했습니다. 원문 접속, 사실 주장과 출처의 관련성, 출처 신뢰도, 최신성은 검증하지 않았습니다.",
+    }
+
+
 def _evaluate_content_quality(
     package: dict, keyword: str, trend_context: dict | None = None,
 ) -> dict:
@@ -535,9 +621,11 @@ def _make_preview(
         )
         package = _parse_content_package(result.answer)
         quality_report = _evaluate_content_quality(package, keyword, item)
+        source_integrity = _evaluate_source_integrity(item, trend_report, list(result.citations))
         return {
             "keyword": keyword,
             "quality_report": quality_report,
+            "source_integrity": source_integrity,
             "knowledge_id": knowledge.id,
             "strategy_insights": strategy_insights or [],
             "created_at": utc_now(),
@@ -576,6 +664,7 @@ def _make_preview(
     return {
         "keyword": keyword,
         "quality_report": _evaluate_content_quality(offline_package, keyword, item),
+        "source_integrity": _evaluate_source_integrity(item, trend_report),
         "knowledge_id": knowledge.id,
         "strategy_insights": strategy_insights or [],
         "created_at": utc_now(),
@@ -769,6 +858,15 @@ def _page(
             if strategy_insights else
             '<p class="meta">성과 인사이트를 생성 참고자료로 선택하지 않았습니다.</p>'
         )
+        source_integrity = preview.get("source_integrity") or {}
+        source_feedback_html = (
+            '<div class="toolbar"><b>출처 URL 확인: '
+            + escape(str(source_integrity.get("status", "미평가"))) + '</b><p class="meta">'
+            + escape(str(source_integrity.get("source_count", 0))) + '개 URL 확인</p><ul>'
+            + "".join("<li>" + escape(str(value)) + "</li>" for value in source_integrity.get("warnings", []))
+            + "".join('<li><a href="' + escape(str(url), quote=True) + '" target="_blank" rel="noopener">' + escape(str(url)) + '</a></li>' for url in source_integrity.get("sources", []))
+            + '</ul><p class="meta">' + escape(str(source_integrity.get("scope_note", ""))) + '</p></div>'
+        )
         quality_report = preview.get("quality_report") or {}
         quality_feedback_html = (
             '<div class="toolbar"><b>콘텐츠 구조 품질 체크: '
@@ -785,6 +883,7 @@ def _page(
   <p class="meta">KNOWLEDGE ID: {escape(str(preview.get('knowledge_id') or ''))} · <a href="/performance?knowledge_id={escape(str(preview.get('knowledge_id') or ''), quote=True)}">이 주제의 플랫폼별 성과 보기</a></p>
   <p class="warning">{escape(str(preview.get('warning', '')))}</p>
   {quality_feedback_html}
+  {source_feedback_html}
   {strategy_feedback_html}
   <h3>네이버 블로그 · {escape(str(blog.get('title', '')))}</h3>
   <button type="button" class="secondary copy" data-copy="blog-{len(preview_cards)}">블로그 원고 복사</button>
