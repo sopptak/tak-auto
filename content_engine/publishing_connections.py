@@ -210,7 +210,7 @@ def publishing_connection_statuses(
                 elif not refresh_ready:
                     publish_note = "YouTube 업로드 권한은 있으나 refresh token이 없습니다. 계정을 다시 연결하세요."
                 else:
-                    publish_note = "YouTube Shorts 업로드 권한이 확인되었습니다. 액세스 토큰은 refresh token으로 자동 갱신됩니다."
+                    publish_note = "YouTube Shorts 업로드 권한(youtube.upload)이 확인되었습니다. 액세스 토큰은 refresh token으로 자동 갱신됩니다."
             if platform["key"] == "facebook":
                 granted_scopes = {
                     scope for scope in str(oauth_connection.get("granted_scopes", "")).replace(",", " ").split() if scope
