@@ -188,6 +188,21 @@ class TrendPublisherTests(unittest.TestCase):
                 }, "instagram-key")
         vault_type.return_value.get.assert_called_once_with("instagram_reels")
 
+    def test_instagram_adapter_rejects_obsolete_publishing_scope(self):
+        with patch.dict("os.environ", {
+            "TAK_AUTO_DATA_DIR": str(self.data_dir),
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key",
+        }, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type:
+            vault_type.return_value.get.return_value = {
+                "access_token": "ig-token", "account_id": "123456789",
+                "granted_scopes": "instagram_business_basic,instagram_business_content_publishing",
+            }
+            with self.assertRaisesRegex(PermanentPublishError, "게시 권한이 없습니다"):
+                publish("instagram_reels", {
+                    "video_url": "https://cdn.example.test/reel.mp4",
+                    "caption": "승인된 릴스",
+                }, "instagram-old-scope-key")
+
     def test_instagram_adapter_uses_encrypted_account_and_marks_api_failure_uncertain(self):
         with patch.dict("os.environ", {
             "TAK_AUTO_DATA_DIR": str(self.data_dir),
@@ -198,7 +213,7 @@ class TrendPublisherTests(unittest.TestCase):
                 patch("content_engine.trend_publishers.InstagramClient") as client_type:
             vault_type.return_value.get.return_value = {
                 "access_token": "ig-private-token", "account_id": "123456789",
-                "granted_scopes": "instagram_business_basic,instagram_business_content_publishing",
+                "granted_scopes": "instagram_business_basic,instagram_business_content_publish",
                 "expires_at": "2099-01-01T00:00:00+00:00",
             }
             client_type.return_value.publish_reel.side_effect = InstagramAPIError("network lost")
@@ -227,7 +242,7 @@ class TrendPublisherTests(unittest.TestCase):
                 patch("content_engine.trend_publishers.InstagramClient") as client_type:
             vault_type.return_value.get.return_value = {
                 "access_token": "ig-private-token", "account_id": "123456789",
-                "granted_scopes": "instagram_business_basic,instagram_business_content_publishing",
+                "granted_scopes": "instagram_business_basic,instagram_business_content_publish",
                 "expires_at": "2099-01-01T00:00:00+00:00",
             }
             store_type.return_value.signed_url.return_value = "https://tak-auto.example.test/media/assets/" + "a" * 32 + "?signed"
