@@ -648,6 +648,48 @@ def _evaluate_content_quality(
     }
 
 
+def _build_editorial_recommendations(quality_report: dict, claim_coverage: dict) -> list[dict]:
+    """Build non-destructive, actionable revision proposals from review findings."""
+    proposals = []
+    guidance = {
+        "블로그 본문 1,200자 이상": ("블로그 본문", "핵심 설명 뒤에 실제 적용 사례, 예외 조건, 주의사항을 추가하세요."),
+        "블로그 소제목 3개 이상": ("블로그 구조", "독자가 궁금해할 질문형 소제목을 3개 이상으로 나누세요."),
+        "핵심 키워드가 제목에 포함": ("블로그 제목", "핵심 키워드를 제목 앞부분에 자연스럽게 넣으세요."),
+        "핵심 키워드가 본문에 포함": ("블로그 본문", "핵심 키워드와 동의어를 본문 초반에 자연스럽게 반영하세요."),
+        "독자 질문의 핵심어가 제목·본문에 반영": ("검색 의도", "독자 질문의 핵심어를 제목과 첫 단락에 반영하고 직접 답변하세요."),
+        "검색 설명 60~160자": ("검색 설명", "대상·핵심 효익·본문에서 얻을 정보를 60~160자로 요약하세요."),
+        "쇼츠 장면 6~8개": ("쇼츠 구성", "문제 제기부터 해결·행동 유도까지 6~8장면으로 재구성하세요."),
+        "쇼츠 첫 3초 후킹 문장": ("쇼츠 후킹", "첫 3초에 독자의 손실·궁금증·문제를 직접 제시하세요."),
+        "질문·문제·대비 등 후킹 장치 포함": ("쇼츠 후킹", "일반적인 소개 대신 질문·흔한 실수·예상 밖의 차이를 제시하세요."),
+        "쇼츠 마무리 행동 유도": ("쇼츠 CTA", "저장·댓글·공유 중 하나의 행동만 구체적으로 요청하세요."),
+        "각 장면에 화면·자막·내레이션 존재": ("쇼츠 장면", "각 장면에 화면 묘사·짧은 자막·말로 읽을 내레이션을 모두 채우세요."),
+        "Threads 독립 초안 2개 및 500자 제한": ("Threads", "서로 다른 관점의 독립 게시물 2개를 각각 500자 이내로 작성하세요."),
+        "Threads 두 초안의 본문이 서로 다름": ("Threads", "첫 게시물은 문제 제기, 두 번째는 해결·반론 등 역할을 분리하세요."),
+        "Facebook 전용 문안이 Threads와 구분됨": ("Facebook", "Facebook용으로 배경 설명과 독자 맥락을 보강한 별도 문안을 작성하세요."),
+        "쇼츠 해시태그 3개 이상": ("쇼츠 해시태그", "주제·대상·형식을 대표하는 관련 해시태그를 추가하세요."),
+    }
+    for warning in quality_report.get("warnings", []):
+        area, instruction = guidance.get(warning, ("콘텐츠 편집", "해당 항목을 확인하고 내용을 보완하세요."))
+        proposals.append({"area": area, "original": warning, "proposal": instruction, "reason": "편집 품질 점검에서 미통과"})
+    intent = quality_report.get("search_intent") or {}
+    if not intent.get("answer_cue_present", True):
+        proposals.append({
+            "area": "검색 의도 답변",
+            "original": str(intent.get("audience_question") or "검색 의도에 맞는 직접 답변"),
+            "proposal": "질문에 대한 한 문장 답변을 본문 첫 부분에 배치한 뒤, 근거와 세부 내용을 이어서 설명하세요.",
+            "reason": "검색 의도 유형에 맞는 답변 단서를 찾지 못함",
+        })
+    for row in claim_coverage.get("claims", []):
+        if not row.get("citation_attached"):
+            proposals.append({
+                "area": str(row.get("section") or "사실 확인"),
+                "original": str(row.get("claim") or ""),
+                "proposal": "원문을 열어 수치·날짜·정책 주장을 대조하세요. 근거가 확인되면 해당 문장 바로 뒤에 출처 URL을 붙이고, 확인되지 않으면 삭제하거나 범위를 좁혀 표현하세요.",
+                "reason": "문장에 직접 연결된 출처 URL이 없음",
+            })
+    return proposals[:40]
+
+
 def _make_preview(
     item: dict, trend_report: dict, provider=None,
     strategy_insights: list[dict] | None = None,
@@ -710,11 +752,13 @@ def _make_preview(
         quality_report = _evaluate_content_quality(package, keyword, item)
         source_integrity = _evaluate_source_integrity(item, trend_report, list(result.citations))
         claim_coverage = _evaluate_claim_citation_coverage(package, list(dict.fromkeys(urls + list(result.citations))))
+        editorial_recommendations = _build_editorial_recommendations(quality_report, claim_coverage)
         return {
             "keyword": keyword,
             "quality_report": quality_report,
             "source_integrity": source_integrity,
             "claim_coverage": claim_coverage,
+            "editorial_recommendations": editorial_recommendations,
             "knowledge_id": knowledge.id,
             "strategy_insights": strategy_insights or [],
             "created_at": utc_now(),
@@ -751,11 +795,14 @@ def _make_preview(
         "facebook": ({"body": bundle.threads[0].body} if bundle.threads else {}),
     }
     claim_coverage = _evaluate_claim_citation_coverage(offline_package, urls)
+    quality_report = _evaluate_content_quality(offline_package, keyword, item)
+    editorial_recommendations = _build_editorial_recommendations(quality_report, claim_coverage)
     return {
         "keyword": keyword,
-        "quality_report": _evaluate_content_quality(offline_package, keyword, item),
+        "quality_report": quality_report,
         "source_integrity": _evaluate_source_integrity(item, trend_report),
         "claim_coverage": claim_coverage,
+        "editorial_recommendations": editorial_recommendations,
         "knowledge_id": knowledge.id,
         "strategy_insights": strategy_insights or [],
         "created_at": utc_now(),
@@ -968,6 +1015,19 @@ def _page(
             + "".join('<li><a href="' + escape(str(url), quote=True) + '" target="_blank" rel="noopener">' + escape(str(url)) + '</a></li>' for url in source_integrity.get("sources", []))
             + '</ul><p class="meta">' + escape(str(source_integrity.get("scope_note", ""))) + '</p></div>'
         )
+        editorial_recommendations = preview.get("editorial_recommendations") or []
+        editorial_recommendations_html = (
+            '<div class="toolbar"><b>원문 보존형 수정 제안 · '
+            + str(len(editorial_recommendations)) + '건</b><ol>'
+            + "".join(
+                '<li><b>' + escape(str(row.get("area", ""))) + '</b>'
+                + '<p class="meta">점검 항목: ' + escape(str(row.get("original", ""))) + '</p>'
+                + '<p>' + escape(str(row.get("proposal", ""))) + '</p>'
+                + '<p class="meta">제안 이유: ' + escape(str(row.get("reason", ""))) + '</p></li>'
+                for row in editorial_recommendations
+            )
+            + '</ol><p class="meta">이 항목은 수정 제안입니다. 원문을 자동 덮어쓰거나 게시하지 않습니다. 운영자가 원문과 근거를 확인한 뒤 직접 반영해야 합니다.</p></div>'
+        )
         quality_report = preview.get("quality_report") or {}
         search_intent = quality_report.get("search_intent") or {}
         search_intent_html = (
@@ -995,6 +1055,7 @@ def _page(
   <p class="warning">{escape(str(preview.get('warning', '')))}</p>
   {quality_feedback_html}
   {search_intent_html}
+  {editorial_recommendations_html}
   {source_feedback_html}\n  {claim_feedback_html}
   {strategy_feedback_html}
   <h3>네이버 블로그 · {escape(str(blog.get('title', '')))}</h3>
