@@ -1039,7 +1039,7 @@ def _publishing_platform_readiness(oauth_connections: dict, *, media_available: 
 
     def connected(platform: str) -> bool:
         connection = oauth_connections.get(platform, {})
-        return bool(connection.get("account_id"))
+        return bool(connection.get("account_id") and str(connection.get("access_token_configured", "")).lower() == "true")
 
     def token_active(platform: str) -> bool:
         raw_expiry = str(oauth_connections.get(platform, {}).get("expires_at", "")).strip()
