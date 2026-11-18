@@ -47,6 +47,15 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             [{"title": "제목", "body": "승인된 Threads 원고"}],
         )
 
+    def test_facebook_queue_uses_first_approved_text_draft(self):
+        payload = run_trend_content_mvp._queue_payload_for_platform(
+            self.preview, "facebook",
+        )
+        self.assertEqual(payload, [{
+            "title": "제목",
+            "body": "제목\\n\\n승인된 Threads 원고",
+        }])
+
     def test_youtube_queue_uses_uploaded_mp4_path_and_metadata(self):
         payload = run_trend_content_mvp._queue_payload_for_platform(
             self.preview, "youtube_shorts", self.asset.asset_id,
