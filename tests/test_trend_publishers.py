@@ -240,7 +240,7 @@ class TrendPublisherTests(unittest.TestCase):
         with patch.dict("os.environ", {
             "TAK_AUTO_DATA_DIR": str(self.data_dir),
             "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key",
-        }, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \\
+        }, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \
                 patch("content_engine.trend_publishers.FacebookClient") as client_type:
             vault_type.return_value.get.return_value = {
                 "access_token": "page-token", "account_id": "123",
@@ -254,7 +254,7 @@ class TrendPublisherTests(unittest.TestCase):
         with patch.dict("os.environ", {
             "TAK_AUTO_DATA_DIR": str(self.data_dir),
             "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key",
-        }, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \\
+        }, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \
                 patch("content_engine.trend_publishers.FacebookClient") as client_type:
             vault_type.return_value.get.return_value = {
                 "access_token": "page-token", "account_id": "123",
@@ -274,7 +274,7 @@ class TrendPublisherTests(unittest.TestCase):
         with patch.dict("os.environ", {
             "TAK_AUTO_DATA_DIR": str(self.data_dir),
             "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key",
-        }, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \\
+        }, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \
                 patch("content_engine.trend_publishers.FacebookClient") as client_type:
             vault_type.return_value.get.return_value = {
                 "access_token": "page-token", "account_id": "123",
