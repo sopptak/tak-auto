@@ -75,7 +75,7 @@ def _json_request(method: str, url: str, *, access_token: str,
     if not isinstance(result, dict):
         raise TikTokAPIError("TikTok API 응답 형식이 올바르지 않습니다.")
     error = result.get("error")
-    if isinstance(error, dict) and str(error.get("code") or "ok") != "ok":
+    if isinstance(error, dict) and str(error.get("code") or "") != "ok":
         raise TikTokAPIError("TikTok이 요청을 거부했습니다. 앱 승인, 계정 권한, 영상 정보를 확인하세요.")
     return result
 
@@ -188,6 +188,10 @@ class TikTokClient:
         privacy_options = {str(value) for value in creator.get("privacy_level_options", [])}
         if privacy_level not in privacy_options:
             raise ValueError("선택한 TikTok 공개 범위가 현재 계정에서 허용되지 않습니다.")
+        # Creator-level restrictions always win over less restrictive payload flags.
+        disable_comment = disable_comment or bool(creator.get("comment_disabled"))
+        disable_duet = disable_duet or bool(creator.get("duet_disabled"))
+        disable_stitch = disable_stitch or bool(creator.get("stitch_disabled"))
 
         # TikTok allows up to 64MB chunks; keep each chunk within that limit.
         chunk_count = 1 if size <= MAX_CHUNK_BYTES else ceil(size / MAX_CHUNK_BYTES)
