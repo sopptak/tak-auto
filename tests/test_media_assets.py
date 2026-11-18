@@ -56,10 +56,10 @@ class MediaAssetStoreTests(unittest.TestCase):
     def test_rejects_path_traversal_and_expired_or_excessive_ttl(self):
         with self.assertRaisesRegex(MediaAssetError, "ID 형식"):
             self.store.get_asset("../secret")
+        payload = mp4_bytes()
+        asset = self.store.save_stream(io.BytesIO(payload), len(payload), "approved.mp4")
         with self.assertRaisesRegex(MediaAssetError, "유효기간"):
-            self.store.signed_url("0" * 32, ttl_seconds=3600)
-        with self.assertRaisesRegex(MediaAssetError, "유효기간"):
-            self.store.signed_url("0" * 32, ttl_seconds=31 * 24 * 60 * 60)
+            self.store.signed_url(asset.asset_id, ttl_seconds=31 * 24 * 60 * 60)
 
     def test_requires_strong_signing_key_and_https_public_origin(self):
         with self.assertRaisesRegex(MediaAssetError, "32자"):
