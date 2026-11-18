@@ -467,7 +467,7 @@ def _queue_payload_for_platform(
         first = posts[0]
         title = str(first.get("title") or "").strip()
         body = str(first.get("body") or "").strip()
-        message = "\\n\\n".join(part for part in (title, body) if part).strip()
+        message = "\n\n".join(part for part in (title, body) if part).strip()
         if not message:
             raise ValueError("Facebook 페이지 게시 본문이 비어 있습니다.")
         return [{"title": title, "body": message}]
@@ -546,7 +546,7 @@ def _page(
                         and "video.publish" in tiktok_scopes)
     facebook_connection = oauth_connections.get("facebook", {})
     facebook_scopes = {
-        scope for scope in re.split(r"[,\\s]+", str(facebook_connection.get("granted_scopes", ""))) if scope
+        scope for scope in re.split(r"[,\s]+", str(facebook_connection.get("granted_scopes", ""))) if scope
     }
     facebook_required_scopes = {"pages_show_list", "pages_read_engagement", "pages_manage_posts"}
     facebook_ready = bool(facebook_connection.get("account_id")
