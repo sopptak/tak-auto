@@ -64,6 +64,8 @@ services:
         value: https://tak-auto-trend-factory.onrender.com
       - key: TAK_AUTO_OAUTH_ENCRYPTION_KEY
         sync: false
+      - key: TAK_AUTO_MEDIA_SIGNING_KEY
+        sync: false
       - key: YOUTUBE_OAUTH_CLIENT_ID
         sync: false
       - key: YOUTUBE_OAUTH_CLIENT_SECRET
