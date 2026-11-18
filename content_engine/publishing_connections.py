@@ -45,7 +45,7 @@ PLATFORMS = (
         "required": ("FACEBOOK_ACCESS_TOKEN", "FACEBOOK_PAGE_ID"),
         "account_env": "FACEBOOK_PAGE_NAME", "expiry_env": "FACEBOOK_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
-        "publish_note": "웹 로그인은 계정 확인용이며 Facebook 페이지 자동 게시 어댑터는 준비 중입니다.",
+        "publish_note": "Facebook 페이지 게시에는 pages_manage_posts, pages_read_engagement 권한과 선택한 페이지의 CREATE_CONTENT 작업 권한이 필요합니다.",
     },
     {
         "key": "threads", "name": "Threads", "icon": "@",
@@ -156,6 +156,15 @@ def publishing_connection_statuses(
                     publish_note = "Threads 게시 권한이 연결되었습니다. 실제 게시에는 게시 스위치와 운영자 승인이 필요합니다."
                 else:
                     publish_note = "계정은 연결됐지만 Threads 게시 권한이 없습니다. 다시 연결해 게시 권한에 동의해야 합니다."
+            if platform["key"] == "facebook":
+                granted_scopes = {
+                    scope for scope in str(oauth_connection.get("granted_scopes", "")).replace(",", " ").split() if scope
+                }
+                required_scopes = {"pages_show_list", "pages_read_engagement", "pages_manage_posts"}
+                if required_scopes.issubset(granted_scopes):
+                    publish_note = "Facebook 페이지 게시 권한이 연결되었습니다. 페이지에서 CREATE_CONTENT 작업 권한도 필요합니다."
+                else:
+                    publish_note = "페이지는 연결됐지만 게시 권한이 부족합니다. pages_manage_posts 및 pages_read_engagement 권한으로 다시 연결하세요."
             if linked_expiry:
                 expires_in, expiry_state = _expiry_label(linked_expiry, current)
                 if expiry_state == "expired":
