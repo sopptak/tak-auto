@@ -25,6 +25,7 @@ class TrendPublisherTests(unittest.TestCase):
                 patch("content_engine.trend_publishers.ThreadsClient.from_environment", return_value=self.client):
             remote_id = publish("threads", {
                 "title": "제목", "body": "승인된 Threads 문안", "_content_id": "trend-thread-1",
+                "_knowledge_id": "trend-preview-k123", "_source_url": "https://example.test/source",
             }, "queue-key")
 
         self.assertEqual(remote_id, "threads-post-1")
@@ -32,6 +33,9 @@ class TrendPublisherTests(unittest.TestCase):
         history = (self.data_dir / "threads_publish_log.json").read_text(encoding="utf-8")
         self.assertIn("trend-thread-1", history)
         self.assertIn("threads-post-1", history)
+        self.assertIn('"knowledge_id": "trend-preview-k123"', history)
+        self.assertIn('"source_url": "https://example.test/source"', history)
+        self.assertIn('"title": "제목"', history)
 
     def test_existing_threads_history_skips_remote_publish(self):
         with patch.dict("os.environ", {"TAK_AUTO_DATA_DIR": str(self.data_dir)}, clear=True), \
