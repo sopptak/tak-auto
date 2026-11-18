@@ -57,7 +57,7 @@ PROVIDERS: dict[str, Provider] = {
     "instagram_reels": Provider(
         "instagram_reels", "Instagram Reels", "INSTAGRAM_APP_ID", "INSTAGRAM_APP_SECRET", "client_id",
         "https://www.instagram.com/oauth/authorize",
-        ("instagram_business_basic", "instagram_business_content_publishing"),
+        ("instagram_business_basic", "instagram_business_content_publish"),
     ),
     "facebook": Provider(
         "facebook", "Facebook 페이지", "FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET", "client_id",
@@ -456,7 +456,15 @@ class SocialOAuthClient:
                 "client_id": client_id, "client_secret": secret, "grant_type": "authorization_code",
                 "redirect_uri": redirect, "code": code,
             })
-            token = self._token_fields(raw)
+            # Meta documents Instagram Login tokens inside data: [ {...} ].
+            # Accept that single-account envelope and retain flat response support.
+            token_payload = raw
+            if isinstance(raw.get("data"), list):
+                entries = raw["data"]
+                if len(entries) != 1 or not isinstance(entries[0], dict):
+                    raise SocialOAuthError("Instagram 인증 응답의 계정 정보가 올바르지 않습니다.")
+                token_payload = entries[0]
+            token = self._token_fields(token_payload)
             # Convert the short-lived token into the long-lived Instagram Login token.
             long = self.request_json("GET", "https://graph.instagram.com/access_token", fields={
                 "grant_type": "ig_exchange_token", "client_secret": secret, "access_token": token["access_token"],
@@ -554,7 +562,7 @@ class SocialOAuthClient:
             "token_type": str(raw.get("token_type", "Bearer")),
             "expires_in": _safe_int(raw.get("expires_in")),
             "refresh_expires_in": _safe_int(raw.get("refresh_expires_in")),
-            "scope": str(raw.get("scope", raw.get("scopes", ""))),
+            "scope": str(raw.get("scope", raw.get("scopes", raw.get("permissions", "")))),
         }
 
 
