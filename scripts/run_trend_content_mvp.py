@@ -505,7 +505,13 @@ def _page(
     oauth_setup = _oauth_setup_statuses(oauth_storage_error)
     media_assets = _list_media_assets()
     media_key_ready = len(os.getenv("TAK_AUTO_MEDIA_SIGNING_KEY", "").strip()) >= 32
-    public_media_ready = os.getenv("TAK_AUTO_PUBLIC_URL", "").strip().startswith("https://")
+    public_media_origin = urlparse(os.getenv("TAK_AUTO_PUBLIC_URL", "").strip())
+    public_media_ready = (
+        public_media_origin.scheme == "https" and bool(public_media_origin.hostname)
+        and not public_media_origin.username and not public_media_origin.password
+        and public_media_origin.path in {"", "/"}
+        and not public_media_origin.query and not public_media_origin.fragment
+    )
     asset_options = "".join(
         f'<option value="{escape(asset.asset_id, quote=True)}">{escape(asset.filename)} · {asset.size_bytes // (1024 * 1024)}MB</option>'
         for asset in media_assets
