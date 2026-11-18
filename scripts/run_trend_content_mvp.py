@@ -530,17 +530,32 @@ def _evaluate_claim_citation_coverage(package: dict, source_urls: list | None = 
     facebook = package.get("facebook") or {}
     if isinstance(facebook, dict) and facebook.get("body"):
         sections.append(("Facebook", str(facebook.get("body"))))
-    pattern = re.compile(r"(?:\\d|%|퍼센트|원\\b|명\\b|건\\b|년\\b|월\\b|일\\b|분기|통계|조사|발표|집계|기준|정책|법률|시행|증가|감소|최초|최대|최저)")
+    pattern = re.compile(
+        r"(?:\d|%|퍼센트|원\b|명\b|건\b|년\b|월\b|일\b|분기|통계|조사|발표|집계|기준|정책|법률|시행|증가|감소|최초|최대|최저)"
+    )
     candidates = []
     for section, body in sections:
-        for sentence in re.split(r"(?<=[.!?。])\\s+|\\n+", body):
+        for sentence in re.split(r"(?<=[.!?。])\s+|\n+", body):
             sentence = sentence.strip()
             if len(sentence) < 18 or not pattern.search(sentence):
                 continue
             attached = [url for url in urls if url in sentence]
-            candidates.append({"section": section, "claim": sentence[:500], "citation_attached": bool(attached), "attached_sources": attached, "status": "문장 내 URL 연결" if attached else "문장별 출처 대조 필요"})
+            candidates.append({
+                "section": section,
+                "claim": sentence[:500],
+                "citation_attached": bool(attached),
+                "attached_sources": attached,
+                "status": "문장 내 URL 연결" if attached else "문장별 출처 대조 필요",
+            })
     unlinked = [row for row in candidates if not row["citation_attached"]]
-    return {"status": "문장별 검토 필요" if unlinked else ("후보 문장 없음" if not candidates else "문장 내 URL 연결"), "candidate_count": len(candidates), "unlinked_count": len(unlinked), "claims": candidates[:30], "warnings": (["수치·날짜·정책 등 사실 확인이 필요한 문장에 개별 출처 URL이 직접 연결되지 않았습니다."] if unlinked else []), "scope_note": "규칙으로 사실 확인 후보 문장을 추출하고 같은 문장 안의 URL만 표시했습니다. URL이 문장에 있어도 출처가 주장을 뒷받침하는지 의미적으로 검증하지 않습니다. 나머지 문장에도 사실 오류가 없다는 뜻은 아닙니다."}
+    return {
+        "status": "문장별 검토 필요" if unlinked else ("후보 문장 없음" if not candidates else "문장 내 URL 연결"),
+        "candidate_count": len(candidates),
+        "unlinked_count": len(unlinked),
+        "claims": candidates[:30],
+        "warnings": (["수치·날짜·정책 등 사실 확인이 필요한 문장에 개별 출처 URL이 직접 연결되지 않았습니다."] if unlinked else []),
+        "scope_note": "규칙으로 사실 확인 후보 문장을 추출하고 같은 문장 안의 URL만 표시했습니다. URL이 문장에 있어도 출처가 주장을 뒷받침하는지 의미적으로 검증하지 않습니다. 나머지 문장에도 사실 오류가 없다는 뜻은 아닙니다.",
+    }
 
 
 def _evaluate_content_quality(
