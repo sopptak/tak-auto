@@ -314,7 +314,7 @@ def _publish_facebook_page_post(payload: Mapping[str, object]) -> str:
     if not connection:
         raise PermanentPublishError("Facebook 페이지가 연결되지 않았습니다. 먼저 페이지를 연결하세요.")
     scopes = {
-        scope for scope in re.split(r"[,\\s]+", str(connection.get("granted_scopes", ""))) if scope
+        scope for scope in re.split(r"[,\s]+", str(connection.get("granted_scopes", ""))) if scope
     }
     required_scopes = {"pages_show_list", "pages_read_engagement", "pages_manage_posts"}
     if not required_scopes.issubset(scopes):
