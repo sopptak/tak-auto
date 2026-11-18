@@ -251,7 +251,7 @@ class TrendPublisherTests(unittest.TestCase):
         }, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \
                 patch("content_engine.trend_publishers.FacebookClient") as client_type:
             vault_type.return_value.get.return_value = {
-                "access_token": "page-token", "account_id": "123",
+                "access_token": "page-token", "account_id": "123", "tasks": ["CREATE_CONTENT"],
                 "granted_scopes": "pages_show_list,pages_read_engagement",
             }
             with self.assertRaisesRegex(PermanentPublishError, "게시 권한이 부족"):
@@ -265,7 +265,7 @@ class TrendPublisherTests(unittest.TestCase):
         }, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \
                 patch("content_engine.trend_publishers.FacebookClient") as client_type:
             vault_type.return_value.get.return_value = {
-                "access_token": "page-token", "account_id": "123",
+                "access_token": "page-token", "account_id": "123", "tasks": ["CREATE_CONTENT"],
                 "account_name": "탁자동 페이지",
                 "granted_scopes": "pages_show_list,pages_read_engagement,pages_manage_posts",
             }
@@ -285,7 +285,7 @@ class TrendPublisherTests(unittest.TestCase):
         }, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \
                 patch("content_engine.trend_publishers.FacebookClient") as client_type:
             vault_type.return_value.get.return_value = {
-                "access_token": "page-token", "account_id": "123",
+                "access_token": "page-token", "account_id": "123", "tasks": ["CREATE_CONTENT"],
                 "granted_scopes": "pages_show_list pages_read_engagement pages_manage_posts",
             }
             client_type.return_value.publish_text.side_effect = FacebookAPIError("network")
