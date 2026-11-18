@@ -772,6 +772,53 @@ def _build_editorial_revision_prompt(preview: dict, recommendation: dict, target
         f"기존 원문:\n{original_text}\n참고 출처 URL(근거 확인 보장 아님):\n" + "\n".join(sources)
     )
 
+def _refresh_preview_editorial_checks(preview: dict) -> None:
+    """Recompute deterministic checks after an explicit editorial change."""
+    shorts = preview.get("shorts") or []
+    package = {
+        "blog": preview.get("blog") or {},
+        "shorts": shorts[0] if shorts and isinstance(shorts[0], dict) else {},
+        "threads": preview.get("threads") or [],
+        "facebook": preview.get("facebook") or {},
+    }
+    quality = _evaluate_content_quality(package, str(preview.get("keyword") or ""))
+    claims = _evaluate_claim_citation_coverage(package, preview.get("source_urls") or [])
+    preview["quality_report"] = quality
+    preview["claim_coverage"] = claims
+    preview["editorial_recommendations"] = _build_editorial_recommendations(quality, claims)
+
+
+def _apply_editorial_revision(preview: dict, revision_id: str, applied_by: str) -> None:
+    revisions = preview.get("editorial_revisions") or []
+    revision = next(
+        (row for row in revisions if hmac.compare_digest(str(row.get("revision_id", "")), revision_id)),
+        None,
+    )
+    if not revision or revision.get("status") != "pending_review":
+        raise ValueError("수정본이 없거나 이미 처리되었습니다.")
+    target = str(revision.get("target") or "")
+    current_text = _read_editorial_target(preview, target)
+    if current_text != revision.get("base_text"):
+        raise ValueError("원문이 수정본 생성 이후 변경되었습니다. 최신 원문으로 다시 수정 문구를 생성하세요.")
+    revised_text = str(revision.get("revised_text") or "").strip()
+    if not revised_text:
+        raise ValueError("수정 문구가 비어 있어 적용할 수 없습니다.")
+    history = preview.setdefault("editorial_history", [])
+    history.insert(0, {
+        "target": target,
+        "before": current_text,
+        "after": revised_text,
+        "revision_id": revision_id,
+        "applied_at": utc_now(),
+        "applied_by": applied_by,
+    })
+    preview["editorial_history"] = history[:20]
+    _write_editorial_target(preview, target, revised_text)
+    revision["status"] = "applied"
+    revision["applied_at"] = utc_now()
+    _refresh_preview_editorial_checks(preview)
+
+
 def _make_preview(
     item: dict, trend_report: dict, provider=None,
     strategy_insights: list[dict] | None = None,
@@ -1648,27 +1695,8 @@ def create_handler():
                     if preview_index < 0 or preview_index >= len(previews) or not revision_id:
                         raise ValueError("적용할 수정본을 찾을 수 없습니다.")
                     preview = previews[preview_index]
-                    revisions = preview.get("editorial_revisions") or []
-                    revision = next((row for row in revisions if hmac.compare_digest(str(row.get("revision_id", "")), revision_id)), None)
-                    if not revision or revision.get("status") != "pending_review":
-                        raise ValueError("수정본이 없거나 이미 처리되었습니다.")
-                    target = str(revision.get("target") or "")
-                    current_text = _read_editorial_target(preview, target)
-                    if current_text != revision.get("base_text"):
-                        raise ValueError("원문이 수정본 생성 이후 변경되었습니다. 최신 원문으로 다시 수정 문구를 생성하세요.")
-                    revised_text = str(revision.get("revised_text") or "").strip()
-                    if not revised_text:
-                        raise ValueError("수정 문구가 비어 있어 적용할 수 없습니다.")
-                    history = preview.setdefault("editorial_history", [])
-                    history.insert(0, {
-                        "target": target, "before": current_text, "after": revised_text,
-                        "revision_id": revision_id, "applied_at": utc_now(),
-                        "applied_by": os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user",
-                    })
-                    preview["editorial_history"] = history[:20]
-                    _write_editorial_target(preview, target, revised_text)
-                    revision["status"] = "applied"
-                    revision["applied_at"] = utc_now()
+                    applied_by = os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user"
+                    _apply_editorial_revision(preview, revision_id, applied_by)
                     _write_json(PREVIEW_PATH, previews)
                     self._respond(_page(report, previews, "선택한 수정본을 적용했습니다. 원문은 수정 이력에 보존했습니다.", queue.snapshot()))
                     return
