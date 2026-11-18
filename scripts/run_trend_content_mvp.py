@@ -1561,6 +1561,81 @@ def create_handler():
                     _write_json(PREVIEW_PATH, previews[:10])
                     self._respond(_page(report, previews[:10], queue_snapshot=queue.snapshot()))
                     return
+                if self.path == "/editorial/revise":
+                    preview_index = int(form.get("preview_index", ["-1"])[0])
+                    recommendation_index = int(form.get("recommendation_index", ["-1"])[0])
+                    if preview_index < 0 or preview_index >= len(previews):
+                        raise ValueError("수정할 콘텐츠 미리보기를 찾을 수 없습니다.")
+                    preview = previews[preview_index]
+                    recommendations = preview.get("editorial_recommendations") or []
+                    if recommendation_index < 0 or recommendation_index >= len(recommendations):
+                        raise ValueError("수정 제안을 찾을 수 없습니다.")
+                    recommendation = recommendations[recommendation_index]
+                    target_info = _editorial_target(recommendation)
+                    if target_info is None:
+                        raise ValueError("이 항목은 자동 수정 문구 생성 대상이 아닙니다. 전용 편집기에서 직접 수정하세요.")
+                    target, _section = target_info
+                    original_text = _read_editorial_target(preview, target)
+                    if not original_text:
+                        raise ValueError("수정 대상 원문이 비어 있어 진행할 수 없습니다.")
+                    provider = PerplexityResearchProvider.from_environment()
+                    result = provider.search(
+                        _build_editorial_revision_prompt(preview, recommendation, target, original_text),
+                        system_prompt=(
+                            "당신은 보수적인 편집자입니다. 제공된 원문과 참고 URL 범위 밖의 사실을 만들지 않습니다. "
+                            "요청된 JSON 구조를 엄격히 지키며, 검증되지 않은 주장은 반드시 미확인 목록에 남깁니다."
+                        ),
+                    )
+                    parsed_revision = _parse_editorial_revision(result.answer)
+                    revision = {
+                        "revision_id": secrets.token_urlsafe(18),
+                        "recommendation_index": recommendation_index,
+                        "area": str(recommendation.get("area") or ""),
+                        "target": target,
+                        "base_text": original_text,
+                        "revised_text": parsed_revision["revised_text"],
+                        "changes": parsed_revision["changes"],
+                        "unresolved_claims": parsed_revision["unresolved_claims"],
+                        "created_at": utc_now(),
+                        "status": "pending_review",
+                        "model": result.model,
+                    }
+                    revisions = preview.setdefault("editorial_revisions", [])
+                    revisions.insert(0, revision)
+                    preview["editorial_revisions"] = revisions[:20]
+                    _write_json(PREVIEW_PATH, previews)
+                    self._respond(_page(report, previews, "수정 문구를 생성했습니다. 원문과 비교한 뒤 직접 적용 여부를 결정하세요.", queue.snapshot()))
+                    return
+                if self.path == "/editorial/apply":
+                    preview_index = int(form.get("preview_index", ["-1"])[0])
+                    revision_id = form.get("revision_id", [""])[0]
+                    if preview_index < 0 or preview_index >= len(previews) or not revision_id:
+                        raise ValueError("적용할 수정본을 찾을 수 없습니다.")
+                    preview = previews[preview_index]
+                    revisions = preview.get("editorial_revisions") or []
+                    revision = next((row for row in revisions if hmac.compare_digest(str(row.get("revision_id", "")), revision_id)), None)
+                    if not revision or revision.get("status") != "pending_review":
+                        raise ValueError("수정본이 없거나 이미 처리되었습니다.")
+                    target = str(revision.get("target") or "")
+                    current_text = _read_editorial_target(preview, target)
+                    if current_text != revision.get("base_text"):
+                        raise ValueError("원문이 수정본 생성 이후 변경되었습니다. 최신 원문으로 다시 수정 문구를 생성하세요.")
+                    revised_text = str(revision.get("revised_text") or "").strip()
+                    if not revised_text:
+                        raise ValueError("수정 문구가 비어 있어 적용할 수 없습니다.")
+                    history = preview.setdefault("editorial_history", [])
+                    history.insert(0, {
+                        "target": target, "before": current_text, "after": revised_text,
+                        "revision_id": revision_id, "applied_at": utc_now(),
+                        "applied_by": os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user",
+                    })
+                    preview["editorial_history"] = history[:20]
+                    _write_editorial_target(preview, target, revised_text)
+                    revision["status"] = "applied"
+                    revision["applied_at"] = utc_now()
+                    _write_json(PREVIEW_PATH, previews)
+                    self._respond(_page(report, previews, "선택한 수정본을 적용했습니다. 원문은 수정 이력에 보존했습니다.", queue.snapshot()))
+                    return
                 if self.path == "/queue/approve":
                     index = int(form.get("preview_index", ["-1"])[0])
                     if index < 0 or index >= len(previews):
