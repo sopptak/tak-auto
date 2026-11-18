@@ -1226,6 +1226,7 @@ def _page(
         revision_cards = []
         for revision in editorial_revisions:
             pending = revision.get("status") == "pending_review"
+            citation_text = " · ".join(str(url) for url in revision.get("citations", []))
             if pending:
                 apply_form = (
                     f'<form method="post" action="/editorial/apply"><input type="hidden" name="preview_index" value="{preview_index}">'
@@ -1241,6 +1242,7 @@ def _page(
                 + '<p class="meta">원문</p><pre>' + escape(str(revision.get("base_text", ""))) + '</pre>'
                 + '<p class="meta">수정 제안</p><pre>' + escape(str(revision.get("revised_text", ""))) + '</pre>'
                 + '<p class="meta">수정 내역: ' + escape(" · ".join(revision.get("changes", []))) + '</p>'
+                + '<p class="meta">AI 추가 참고 URL(원문 확인 필요): ' + escape(citation_text) + '</p>'
                 + ('<p class="warning">추가 확인 필요: ' + escape(" · ".join(revision.get("unresolved_claims", []))) + '</p>' if revision.get("unresolved_claims") else '')
                 + apply_form + '</article>'
             )
