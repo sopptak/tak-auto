@@ -53,7 +53,7 @@ SNS 연결을 준비할 경우에만 추가:
    - `web_auth_configured=true`
    - `storage_persistent=true`
    - `storage_mode=persistent_disk`
-   - 게시 비활성화 상태(`publishing_enabled=false))
+   - 게시 비활성화 상태(`publishing_enabled=false`)
    - `ready=true`
 4. 화면에서 최신 트렌드 조사를 실행한다.
 5. 트렌드 1개를 선택해 블로그, 쇼츠 장면 구성, Threads 2개 등 콘텐츠 패키지를 생성한다.
@@ -161,3 +161,14 @@ SNS 연결을 준비할 경우에만 추가:
 - 게시 대기열은 작업 시작 전 `processing` 상태를 영속 저장하고, 불확실한 응답이나 장시간 중단은 `needs_review`로 전환해 자동 중복 게시를 막는다.
 - 현재 JSON 대기열 및 자산 인덱스의 동시성 제어는 단일 프로세스/인스턴스 기준이다. 다중 인스턴스 운영은 공유 DB 및 원자적 claim 구조로 이전하기 전까지 금지한다.
 - 위 점검은 저장소 코드와 CI에 대한 검토다. Render 실제 배포, Persistent Disk 연결, 백업/복구, SNS 실계정 인증 및 게시 성공은 확인하지 않았다.
+
+
+## 최신 게시 준비 UI 보완 — 2026-11-19
+
+- 게시 플랫폼 선택은 실제 계정 연결 메타데이터와 실제 부여 scope를 기준으로 활성화한다.
+- OAuth 대시보드 데이터는 액세스 토큰 원문을 전달하지 않는다. `access_token_configured`는 토큰이 암호화 저장소에 존재하는지만 나타내는 비밀값 없는 표시다.
+- Threads는 `threads_content_publish`, Instagram은 `instagram_business_basic` 및 `instagram_business_content_publish`, YouTube Shorts는 `youtube.upload`와 refresh token, TikTok은 `video.publish`, Facebook은 페이지 게시 scope와 `CREATE_CONTENT` 또는 `MANAGE` 작업 권한을 요구한다.
+- 만료 시각이 기록된 Meta/TikTok 토큰은 만료 여부를 검사해 게시 플랫폼 선택을 비활성화한다. YouTube는 refresh token 보유 여부로 액세스 토큰 갱신 가능성을 확인한다.
+- 영상 플랫폼은 등록 MP4가 필요하며 Instagram Reels는 공개 HTTPS URL도 필요하다.
+- 관련 회귀 테스트는 부여 scope 누락, 미디어 누락, 공개 URL 미설정, 만료 토큰, 토큰 존재 표시 누락을 포함한다.
+- 최신 코드 SHA `d62ad49a48cea2a532e33beb2d6ca38dff676f20`에서 TAK AUTO MVP 및 TAK SCOUT 테스트는 성공했다. Python 전체 테스트는 완료 여부 미확정이며, 통과로 기록하지 않는다.
