@@ -17,6 +17,7 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.preview = {
             "keyword": "테스트 키워드",
             "threads": [{"title": "제목", "body": "승인된 Threads 원고"}],
+            "facebook": {"title": "Facebook 제목", "body": "Facebook 전용 게시문"},
             "blog": {"title": "블로그 제목", "body": "블로그 본문"},
             "shorts": [{
                 "title": "쇼츠 제목", "body": "영상 대본",
@@ -52,9 +53,15 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             self.preview, "facebook",
         )
         self.assertEqual(payload, [{
-            "title": "제목",
-            "body": "제목\n\n승인된 Threads 원고",
+            "title": "Facebook 제목",
+            "body": "Facebook 제목\n\nFacebook 전용 게시문",
         }])
+
+    def test_facebook_queue_falls_back_to_threads_when_legacy_preview_has_no_facebook_copy(self):
+        legacy_preview = dict(self.preview)
+        legacy_preview.pop("facebook")
+        payload = run_trend_content_mvp._queue_payload_for_platform(legacy_preview, "facebook")
+        self.assertEqual(payload[0]["body"], "제목\\n\\n승인된 Threads 원고")
 
     def test_youtube_queue_uses_uploaded_mp4_path_and_metadata(self):
         payload = run_trend_content_mvp._queue_payload_for_platform(
