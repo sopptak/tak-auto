@@ -246,6 +246,76 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertIn("원문을 열어", claim_proposal["proposal"])
         self.assertTrue(all("proposal" in row and "reason" in row for row in proposals))
 
+    def test_editorial_target_mapping_is_explicit_and_rejects_unsupported_fields(self):
+        self.assertEqual(
+            run_trend_content_mvp._editorial_target({"area": "블로그 본문"}),
+            ("blog.body", "blog"),
+        )
+        self.assertEqual(
+            run_trend_content_mvp._editorial_target({"area": "Threads"}),
+            ("threads.0.body", "threads"),
+        )
+        self.assertIsNone(
+            run_trend_content_mvp._editorial_target({"area": "쇼츠 해시태그"}),
+        )
+
+    def test_editorial_revision_parser_requires_nonempty_text_and_valid_metadata(self):
+        parsed = run_trend_content_mvp._parse_editorial_revision(
+            '{"revised_text":"수정된 문장","changes":["문장 간결화"],"unresolved_claims":["금액 원문 확인"]}'
+        )
+        self.assertEqual(parsed["revised_text"], "수정된 문장")
+        self.assertEqual(parsed["unresolved_claims"], ["금액 원문 확인"])
+        with self.assertRaisesRegex(ValueError, "비어"):
+            run_trend_content_mvp._parse_editorial_revision('{"revised_text":" "}')
+        with self.assertRaisesRegex(ValueError, "형식"):
+            run_trend_content_mvp._parse_editorial_revision(
+                '{"revised_text":"수정","changes":"문자열이어서는 안 됨"}'
+            )
+
+    def test_apply_editorial_revision_preserves_before_after_and_rechecks(self):
+        preview = {
+            "keyword": "테스트 키워드",
+            "blog": {"title": "테스트 키워드 제목", "body": "기존 원문입니다. " * 30, "meta_description": "설명"},
+            "shorts": [],
+            "threads": [],
+            "facebook": {},
+            "source_urls": ["https://example.test/source"],
+            "editorial_revisions": [{
+                "revision_id": "revision-1",
+                "target": "blog.body",
+                "base_text": "기존 원문입니다. " * 30,
+                "revised_text": "검토 후 수정한 원문입니다. " * 30,
+                "status": "pending_review",
+                "changes": ["표현을 명확하게 정리"],
+                "unresolved_claims": [],
+            }],
+        }
+        run_trend_content_mvp._apply_editorial_revision(preview, "revision-1", "reviewer")
+        self.assertEqual(preview["blog"]["body"], "검토 후 수정한 원문입니다. " * 30)
+        self.assertEqual(preview["editorial_history"][0]["before"], "기존 원문입니다. " * 30)
+        self.assertEqual(preview["editorial_history"][0]["after"], preview["blog"]["body"])
+        self.assertEqual(preview["editorial_history"][0]["applied_by"], "reviewer")
+        self.assertEqual(preview["editorial_revisions"][0]["status"], "applied")
+        self.assertIn("quality_report", preview)
+        self.assertIn("claim_coverage", preview)
+
+    def test_apply_editorial_revision_rejects_stale_original_without_mutation(self):
+        preview = {
+            "blog": {"body": "이미 다른 사람이 변경한 원문"},
+            "editorial_revisions": [{
+                "revision_id": "revision-stale",
+                "target": "blog.body",
+                "base_text": "예전 원문",
+                "revised_text": "오래된 수정안",
+                "status": "pending_review",
+            }],
+        }
+        with self.assertRaisesRegex(ValueError, "원문이 수정본 생성 이후 변경"):
+            run_trend_content_mvp._apply_editorial_revision(preview, "revision-stale", "reviewer")
+        self.assertEqual(preview["blog"]["body"], "이미 다른 사람이 변경한 원문")
+        self.assertEqual(preview["editorial_revisions"][0]["status"], "pending_review")
+        self.assertNotIn("editorial_history", preview)
+
     def test_editorial_recommendations_are_empty_when_all_checks_pass(self):
         proposals = run_trend_content_mvp._build_editorial_recommendations(
             {"warnings": [], "search_intent": {"answer_cue_present": True}},
