@@ -421,7 +421,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     try:
-        client = YouTubeClient.from_environment()
+        client = YouTubeClient.from_environment_or_oauth(
+            required_scope="https://www.googleapis.com/auth/youtube.readonly",
+        )
     except YouTubeConfigurationError as error:
         print(f"오류: {error}", file=sys.stderr)
         return 1
