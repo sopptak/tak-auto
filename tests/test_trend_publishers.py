@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 from content_engine.publishing_queue import PermanentPublishError, PublishUncertainError
 from content_engine.threads_publisher import ThreadsAPIError
 from content_engine.youtube_publisher import YouTubeAPIError
+from content_engine.instagram_publisher import InstagramAPIError, InstagramClient
 from content_engine.trend_publishers import publish
 
 
@@ -82,6 +83,91 @@ class TrendPublisherTests(unittest.TestCase):
                     "title": "승인된 쇼츠 제목",
                 }, "youtube-key")
         youtube.upload_short.assert_called_once()
+
+    def test_instagram_client_creates_container_waits_then_publishes(self):
+        calls = []
+        responses = iter([
+            {"id": "container-1"},
+            {"status_code": "IN_PROGRESS"},
+            {"status_code": "FINISHED"},
+            {"id": "instagram-media-1"},
+        ])
+
+        def transport(method, url, *, access_token, fields=None, timeout_seconds=30.0):
+            calls.append((method, url, fields))
+            return next(responses)
+
+        client = InstagramClient(
+            access_token="test-token", instagram_user_id="123456789",
+            transport=transport, sleep=lambda seconds: None,
+        )
+        result = client.publish_reel(
+            video_url="https://cdn.example.test/approved.mp4",
+            caption="승인된 릴스 문안", share_to_feed=False,
+        )
+        self.assertEqual(result.media_id, "instagram-media-1")
+        self.assertEqual([call[0] for call in calls], ["POST", "GET", "GET", "POST"])
+        self.assertEqual(calls[0][2]["media_type"], "REELS")
+        self.assertEqual(calls[0][2]["video_url"], "https://cdn.example.test/approved.mp4")
+        self.assertEqual(calls[0][2]["share_to_feed"], "false")
+        self.assertEqual(calls[-1][2]["creation_id"], "container-1")
+
+    def test_instagram_client_never_publishes_before_container_is_finished(self):
+        calls = []
+        def transport(method, url, *, access_token, fields=None, timeout_seconds=30.0):
+            calls.append(method)
+            return {"id": "container-1"} if method == "POST" and url.endswith("/media") else {"status_code": "ERROR"}
+
+        client = InstagramClient(
+            access_token="test-token", instagram_user_id="123456789",
+            transport=transport, sleep=lambda seconds: None,
+        )
+        with self.assertRaises(InstagramAPIError):
+            client.publish_reel(video_url="https://cdn.example.test/approved.mp4", caption="문안")
+        self.assertEqual(calls, ["POST", "GET"])
+
+    def test_instagram_adapter_requires_public_video_url_and_publish_scope(self):
+        with patch.dict("os.environ", {
+            "TAK_AUTO_DATA_DIR": str(self.data_dir),
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key",
+        }, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type:
+            vault_type.return_value.get.return_value = {
+                "access_token": "ig-token", "account_id": "123456789",
+                "granted_scopes": "instagram_business_basic",
+            }
+            with self.assertRaisesRegex(PermanentPublishError, "게시 권한이 없습니다"):
+                publish("instagram_reels", {
+                    "video_url": "https://cdn.example.test/reel.mp4",
+                    "caption": "승인된 릴스",
+                }, "instagram-key")
+        vault_type.return_value.get.assert_called_once_with("instagram_reels")
+
+    def test_instagram_adapter_uses_encrypted_account_and_marks_api_failure_uncertain(self):
+        with patch.dict("os.environ", {
+            "TAK_AUTO_DATA_DIR": str(self.data_dir),
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key",
+            "META_GRAPH_API_VERSION": "v27.0",
+        }, clear=True), \
+                patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \
+                patch("content_engine.trend_publishers.InstagramClient") as client_type:
+            vault_type.return_value.get.return_value = {
+                "access_token": "ig-private-token", "account_id": "123456789",
+                "granted_scopes": "instagram_business_basic,instagram_business_content_publish",
+                "expires_at": "2099-01-01T00:00:00+00:00",
+            }
+            client_type.return_value.publish_reel.side_effect = InstagramAPIError("network lost")
+            with self.assertRaises(PublishUncertainError):
+                publish("instagram_reels", {
+                    "video_url": "https://cdn.example.test/reel.mp4",
+                    "caption": "승인된 릴스", "share_to_feed": True,
+                }, "instagram-key")
+        client_type.assert_called_once_with(
+            access_token="ig-private-token", instagram_user_id="123456789", api_version="v27.0",
+        )
+        client_type.return_value.publish_reel.assert_called_once_with(
+            video_url="https://cdn.example.test/reel.mp4",
+            caption="승인된 릴스", share_to_feed=True,
+        )
 
     def test_unsupported_platform_fails_closed_without_calling_threads(self):
         with patch("content_engine.trend_publishers.ThreadsClient.from_environment") as factory:
