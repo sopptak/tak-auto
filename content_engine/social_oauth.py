@@ -464,12 +464,16 @@ class SocialOAuthClient:
                 if len(entries) != 1 or not isinstance(entries[0], dict):
                     raise SocialOAuthError("Instagram 인증 응답의 계정 정보가 올바르지 않습니다.")
                 token_payload = entries[0]
-            token = self._token_fields(token_payload)
+            short_token = self._token_fields(token_payload)
             # Convert the short-lived token into the long-lived Instagram Login token.
             long = self.request_json("GET", "https://graph.instagram.com/access_token", fields={
-                "grant_type": "ig_exchange_token", "client_secret": secret, "access_token": token["access_token"],
+                "grant_type": "ig_exchange_token", "client_secret": secret, "access_token": short_token["access_token"],
             })
             token = self._token_fields(long)
+            # The long-lived exchange response omits granted permissions; retain
+            # only the permissions explicitly returned with the authorization code.
+            if not token["scope"]:
+                token["scope"] = short_token["scope"]
             info = self.request_json("GET", "https://graph.instagram.com/me?fields=user_id,username",
                                      headers={"Authorization": f"Bearer {token['access_token']}"})
             if not info.get("user_id") and not info.get("id"):
@@ -526,12 +530,15 @@ class SocialOAuthClient:
                 "client_id": client_id, "client_secret": secret, "grant_type": "authorization_code",
                 "redirect_uri": redirect, "code": code,
             })
-            token = self._token_fields(raw)
+            short_token = self._token_fields(raw)
             # Exchange for the long-lived Threads token before storing it.
             long = self.request_json("GET", "https://graph.threads.net/access_token", fields={
-                "grant_type": "th_exchange_token", "client_secret": secret, "access_token": token["access_token"],
+                "grant_type": "th_exchange_token", "client_secret": secret, "access_token": short_token["access_token"],
             })
             token = self._token_fields(long)
+            # The long-lived exchange response may omit granted permissions.
+            if not token["scope"]:
+                token["scope"] = short_token["scope"]
             profile = self.request_json("GET", "https://graph.threads.net/v1.0/me?fields=id,username",
                                         headers={"Authorization": f"Bearer {token['access_token']}"})
             if not profile.get("id"):
