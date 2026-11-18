@@ -746,6 +746,7 @@ def create_handler():
             self.send_header("Cache-Control", "public, max-age=300")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Content-Disposition", "inline; filename=video.mp4")
+            self.send_header("Referrer-Policy", "no-referrer")
             if status == 206:
                 self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
             self.end_headers()
