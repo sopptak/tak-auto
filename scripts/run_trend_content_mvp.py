@@ -510,7 +510,7 @@ def _page(
     )
     media_upload_html = (
         '<section class="toolbar"><h2>쇼츠 영상 파일 등록</h2>'
-        '<p>완성된 MP4를 등록하면 YouTube Shorts와 Instagram Reels 예약에 연결할 수 있습니다. 최대 512MB.</p>'
+        '<p>완성된 MP4를 등록하면 YouTube Shorts와 Instagram Reels 예약에 연결할 수 있습니다. 최대 100MB.</p>'
         '<input id="media-file" type="file" accept="video/mp4">'
         '<button type="button" id="upload-media">MP4 등록</button>'
         '<p id="media-upload-result" class="meta"></p></section>'
@@ -632,8 +632,8 @@ if (uploadButton) uploadButton.addEventListener("click", async () => {{
   const result = document.getElementById("media-upload-result");
   const file = fileInput && fileInput.files && fileInput.files[0];
   if (!file) {{ result.textContent = "먼저 MP4 파일을 선택하세요."; return; }}
-  if (!file.name.toLowerCase().endsWith(".mp4") || file.size > 512 * 1024 * 1024) {{
-    result.textContent = "MP4 파일만 등록할 수 있으며 최대 크기는 512MB입니다."; return;
+  if (!file.name.toLowerCase().endsWith(".mp4") || file.size > 100 * 1024 * 1024) {{
+    result.textContent = "MP4 파일만 등록할 수 있으며 최대 크기는 100MB입니다."; return;
   }}
   uploadButton.disabled = true;
   result.textContent = "영상 파일을 안전하게 등록하고 있습니다...";
@@ -867,8 +867,8 @@ def create_handler():
                 if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "video/mp4":
                     self._respond(json.dumps({"error": "video/mp4 형식으로 전송해야 합니다."}), 415, "application/json; charset=utf-8")
                     return
-                if length <= 0 or length > 512 * 1024 * 1024:
-                    self._respond(json.dumps({"error": "MP4 파일은 1~512MB 범위여야 합니다."}), 413, "application/json; charset=utf-8")
+                if length <= 0 or length > 100 * 1024 * 1024:
+                    self._respond(json.dumps({"error": "MP4 파일은 1~100MB 범위여야 합니다."}), 413, "application/json; charset=utf-8")
                     return
                 try:
                     asset = _media_asset_store().save_stream(
