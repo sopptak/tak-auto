@@ -329,6 +329,46 @@ class YouTubeClient:
     channel_transport: YouTubeChannelTransport = _default_channel_transport
 
     @classmethod
+    def from_environment_or_oauth(
+        cls,
+        environ: Mapping[str, str] | None = None,
+        *,
+        required_scope: str,
+    ) -> "YouTubeClient":
+        """Prefer the encrypted web OAuth connection and fall back to legacy env tokens."""
+        values = os.environ if environ is None else environ
+        encryption_key = str(values.get("TAK_AUTO_OAUTH_ENCRYPTION_KEY", "")).strip()
+        if encryption_key:
+            from .social_oauth import OAuthTokenVault, SocialOAuthError, TOKEN_FILE_NAME
+
+            data_dir = Path(values.get(
+                "TAK_AUTO_DATA_DIR", str(Path(__file__).resolve().parents[1] / "data")
+            ))
+            try:
+                connection = OAuthTokenVault(data_dir / TOKEN_FILE_NAME, encryption_key).get("youtube_shorts")
+            except SocialOAuthError as error:
+                raise YouTubeConfigurationError(str(error)) from None
+            if connection is not None:
+                scopes = {
+                    scope for scope in str(connection.get("granted_scopes", "")).replace(",", " ").split() if scope
+                }
+                if required_scope not in scopes:
+                    raise YouTubeConfigurationError(
+                        f"YouTube OAuth 권한({required_scope.rsplit('/', 1)[-1]})이 없습니다. 계정을 다시 연결하세요."
+                    )
+                refresh_token = str(connection.get("refresh_token", "")).strip()
+                client_id = str(values.get("YOUTUBE_OAUTH_CLIENT_ID") or values.get("YOUTUBE_CLIENT_ID") or "").strip()
+                client_secret = str(values.get("YOUTUBE_OAUTH_CLIENT_SECRET") or values.get("YOUTUBE_CLIENT_SECRET") or "").strip()
+                if not refresh_token or not client_id or not client_secret:
+                    raise YouTubeConfigurationError(
+                        "YouTube OAuth refresh token 또는 웹 앱 클라이언트 설정이 부족합니다. 계정을 다시 연결하세요."
+                    )
+                return cls(
+                    client_id=client_id, client_secret=client_secret, refresh_token=refresh_token,
+                )
+        return cls.from_environment(values)
+
+    @classmethod
     def from_environment(
         cls,
         environ: Mapping[str, str] | None = None,
