@@ -447,6 +447,31 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             run_trend_content_mvp._revert_editorial_revision(preview, "revision-stale-revert")
         self.assertEqual(preview["blog"]["body"], "사람이 다시 수정한 내용")
 
+    def test_apply_editorial_revision_requires_acknowledgement_for_unresolved_claims(self):
+        preview = {
+            "keyword": "테스트",
+            "blog": {"title": "테스트", "body": "원문 " * 30},
+            "shorts": [],
+            "threads": [],
+            "facebook": {},
+            "source_urls": [],
+            "editorial_revisions": [{
+                "revision_id": "revision-unresolved",
+                "target": "blog.body",
+                "base_text": "원문 " * 30,
+                "revised_text": "수정본 " * 30,
+                "unresolved_claims": ["지원금 금액 공식 원문 확인"],
+                "status": "pending_review",
+            }],
+        }
+        with self.assertRaisesRegex(ValueError, "원문과 대조"):
+            run_trend_content_mvp._apply_editorial_revision(preview, "revision-unresolved", "reviewer")
+        self.assertEqual(preview["blog"]["body"], "원문 " * 30)
+        run_trend_content_mvp._apply_editorial_revision(
+            preview, "revision-unresolved", "reviewer", confirm_unresolved=True,
+        )
+        self.assertEqual(preview["blog"]["body"], ("수정본 " * 30).strip())
+
     def test_apply_editorial_revision_rejects_stale_original_without_mutation(self):
         preview = {
             "blog": {"body": "이미 다른 사람이 변경한 원문"},
