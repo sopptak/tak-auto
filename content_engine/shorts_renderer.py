@@ -41,10 +41,17 @@ DEFAULT_FPS = 30
 # 5-18 문서가 기록한 기존 스타일(명조체 제목/마무리, 고딕체 본문)을 그대로
 # 따른다. Windows 표준 한글 폰트만 쓴다 - 별도 폰트 파일을 저장소에 추가하지
 # 않는다(라이선스 확인 없이 폰트 자산을 커밋하지 않기 위함).
-_WINDOWS_FONTS = Path("C:/Windows/Fonts")
-SERIF_FONT_CANDIDATES = (_WINDOWS_FONTS / "HANBatangB.ttf", _WINDOWS_FONTS / "batang.ttc")
-SANS_FONT_CANDIDATES = (_WINDOWS_FONTS / "malgunbd.ttf", _WINDOWS_FONTS / "malgun.ttf")
-SANS_REGULAR_FONT_CANDIDATES = (_WINDOWS_FONTS / "malgun.ttf",)
+_WINDOWS_FONTS = Path(os.getenv("TAK_AUTO_FONT_DIR", "C:/Windows/Fonts"))
+_NOTO_SANS_CJK = Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc")
+_NOTO_SERIF_CJK = Path("/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc")
+SERIF_FONT_CANDIDATES = (
+    _WINDOWS_FONTS / "HANBatangB.ttf", _WINDOWS_FONTS / "batang.ttc",
+    _NOTO_SERIF_CJK, _NOTO_SANS_CJK,
+)
+SANS_FONT_CANDIDATES = (
+    _WINDOWS_FONTS / "malgunbd.ttf", _WINDOWS_FONTS / "malgun.ttf", _NOTO_SANS_CJK,
+)
+SANS_REGULAR_FONT_CANDIDATES = (_WINDOWS_FONTS / "malgun.ttf", _NOTO_SANS_CJK)
 
 
 class ShortsRenderError(RuntimeError):
