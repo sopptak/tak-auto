@@ -526,16 +526,22 @@ def _page(
         f'<option value="{escape(asset.asset_id, quote=True)}">{escape(asset.filename)} · {asset.size_bytes // (1024 * 1024)}MB</option>'
         for asset in media_assets
     )
+    tiktok_connection = oauth_connections.get("tiktok", {})
+    tiktok_scopes = {
+        scope for scope in re.split(r"[,\\s]+", str(tiktok_connection.get("granted_scopes", ""))) if scope
+    }
+    tiktok_ready = bool(media_assets and tiktok_connection.get("account_id")
+                        and "video.publish" in tiktok_scopes)
     platform_options = (
         '<option value="threads">Threads · 자동 게시</option>'
         + ('<option value="youtube_shorts">YouTube Shorts · MP4 등록됨</option>' if media_assets else '<option value="youtube_shorts" disabled>YouTube Shorts · MP4 등록 필요</option>')
         + ('<option value="instagram_reels">Instagram Reels · MP4 등록됨</option>' if media_assets and public_media_ready else '<option value="instagram_reels" disabled>Instagram Reels · HTTPS 주소 설정 및 MP4 필요</option>')
         + '<option value="blog" disabled>네이버 블로그 · 수동 게시</option>'
-        + '<option value="tiktok" disabled>TikTok · 준비 중</option>'
+        + ('<option value="tiktok">TikTok Direct Post · 계정 및 MP4 준비됨</option>' if tiktok_ready else '<option value="tiktok" disabled>TikTok · video.publish 계정 연결 및 MP4 필요</option>')
     )
     media_upload_html = (
         '<section class="toolbar"><h2>쇼츠 영상 파일 등록</h2>'
-        '<p>완성된 MP4를 등록하면 YouTube Shorts와 Instagram Reels 예약에 연결할 수 있습니다. 최대 100MB.</p>'
+        '<p>완성된 MP4를 등록하면 YouTube Shorts, Instagram Reels, TikTok 예약에 연결할 수 있습니다. 최대 100MB.</p>'
         '<input id="media-file" type="file" accept="video/mp4">'
         '<button type="button" id="upload-media">MP4 등록</button>'
         '<p id="media-upload-result" class="meta"></p></section>'
