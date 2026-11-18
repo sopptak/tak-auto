@@ -51,7 +51,7 @@ PROVIDERS: dict[str, Provider] = {
     ),
     "tiktok": Provider(
         "tiktok", "TikTok", "TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "client_key",
-        "https://www.tiktok.com/v2/auth/authorize/", ("user.info.basic",),
+        "https://www.tiktok.com/v2/auth/authorize/", ("user.info.basic", "video.publish"),
     ),
     "instagram_reels": Provider(
         "instagram_reels", "Instagram Reels", "INSTAGRAM_APP_ID", "INSTAGRAM_APP_SECRET", "client_id",
