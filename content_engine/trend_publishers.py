@@ -1,7 +1,7 @@
 """Publisher adapters used by the approved trend-content queue.
 
-Approved Threads text and YouTube Shorts MP4 jobs are supported. Other platforms
-fail closed until their account, media, review, and API requirements are implemented.
+Approved Threads text, YouTube Shorts MP4, and Instagram Reels jobs are supported.
+Other platforms fail closed until their account, media, review, and API requirements are implemented.
 """
 from __future__ import annotations
 
