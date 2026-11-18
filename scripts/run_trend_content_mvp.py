@@ -750,12 +750,22 @@ def _page(
             if strategy_insights else
             '<p class="meta">성과 인사이트를 생성 참고자료로 선택하지 않았습니다.</p>'
         )
+        quality_report = preview.get("quality_report") or {}
+        quality_feedback_html = (
+            '<div class="toolbar"><b>콘텐츠 구조 품질 체크: '
+            + escape(str(quality_report.get("score", 0))) + '/100 · '
+            + escape(str(quality_report.get("grade", "미평가"))) + '</b><p class="meta">'
+            + escape(str(quality_report.get("checks_passed", 0))) + ' / '
+            + escape(str(quality_report.get("checks_total", 0))) + '개 항목 통과</p><ul>'
+            + "".join("<li>" + escape(str(value)) + "</li>" for value in quality_report.get("warnings", []))
+            + '</ul><p class="meta">' + escape(str(quality_report.get("scope_note", ""))) + '</p></div>'
+        )
         preview_cards.append(f"""
 <section class="preview">
   <h2>{escape(str(preview.get('keyword', '')))} 콘텐츠 미리보기</h2>
   <p class="meta">KNOWLEDGE ID: {escape(str(preview.get('knowledge_id') or ''))} · <a href="/performance?knowledge_id={escape(str(preview.get('knowledge_id') or ''), quote=True)}">이 주제의 플랫폼별 성과 보기</a></p>
   <p class="warning">{escape(str(preview.get('warning', '')))}</p>
-  {f'<div class="toolbar"><b>콘텐츠 구조 품질 체크: {int((preview.get("quality_report") or {}).get("score", 0))}/100 · {escape(str((preview.get("quality_report") or {}).get("grade", "미평가")))}</b><p class="meta">{escape(str((preview.get("quality_report") or {}).get("checks_passed", 0)))} / {escape(str((preview.get("quality_report") or {}).get("checks_total", 0)))}개 항목 통과</p><ul>{"".join(f"<li>{escape(str(value))}</li>" for value in (preview.get("quality_report") or {}).get("warnings", []))}</ul><p class="meta">{escape(str((preview.get("quality_report") or {}).get("scope_note", "")))}</p></div>'}
+  {quality_feedback_html}
   {strategy_feedback_html}
   <h3>네이버 블로그 · {escape(str(blog.get('title', '')))}</h3>
   <button type="button" class="secondary copy" data-copy="blog-{len(preview_cards)}">블로그 원고 복사</button>
