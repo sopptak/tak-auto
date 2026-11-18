@@ -700,6 +700,65 @@ def create_handler():
             self.send_header("Content-Length", "0")
             self.end_headers()
 
+        def _serve_media_asset(self, asset_id: str):
+            try:
+                query = parse_qs(urlparse(self.path).query)
+                asset = _media_asset_store().resolve_signed(
+                    asset_id,
+                    query.get("expires", [""])[0],
+                    query.get("signature", [""])[0],
+                )
+            except MediaAssetError:
+                self._respond("유효하지 않거나 만료된 미디어 URL입니다.", 403, "text/plain; charset=utf-8")
+                return
+            size = asset.path.stat().st_size
+            start, end = 0, size - 1
+            status = 200
+            range_header = self.headers.get("Range", "").strip()
+            if range_header:
+                try:
+                    unit, value = range_header.split("=", 1)
+                    if unit != "bytes" or "," in value:
+                        raise ValueError("unsupported range")
+                    first, last = value.split("-", 1)
+                    if first:
+                        start = int(first)
+                        end = int(last) if last else size - 1
+                    else:
+                        suffix = int(last)
+                        start = max(0, size - suffix)
+                        end = size - 1
+                    if start < 0 or start >= size or end < start:
+                        raise ValueError("invalid range")
+                    end = min(end, size - 1)
+                    status = 206
+                except (ValueError, TypeError):
+                    self.send_response(416)
+                    self.send_header("Content-Range", f"bytes */{size}")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+            length = end - start + 1
+            self.send_response(status)
+            self.send_header("Content-Type", "video/mp4")
+            self.send_header("Content-Length", str(length))
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Cache-Control", "public, max-age=300")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Disposition", "inline; filename=video.mp4")
+            if status == 206:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            self.end_headers()
+            with asset.path.open("rb") as handle:
+                handle.seek(start)
+                remaining = length
+                while remaining:
+                    chunk = handle.read(min(256 * 1024, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
+
         def _start_oauth(self, platform: str):
             if platform not in PROVIDERS:
                 self._respond("지원하지 않는 SNS입니다.", 404, "text/plain; charset=utf-8")
@@ -771,6 +830,10 @@ def create_handler():
                 self._respond(json.dumps(_health_payload()), content_type="application/json; charset=utf-8")
                 return
             request_path = urlparse(self.path).path
+            media_prefix = "/media/assets/"
+            if request_path.startswith(media_prefix):
+                self._serve_media_asset(request_path[len(media_prefix):])
+                return
             callback_prefix = "/connections/oauth/callback/"
             if request_path.startswith(callback_prefix):
                 self._finish_oauth(request_path[len(callback_prefix):])
@@ -794,6 +857,29 @@ def create_handler():
             forwarded_proto = self.headers.get("X-Forwarded-Proto", "http")
             if not _same_origin(origin, host, forwarded_proto, os.getenv("TAK_AUTO_PUBLIC_URL", "")):
                 self._respond(_page(_read_json(TREND_PATH, {}), [], "허용되지 않은 출처의 요청입니다."), 403)
+                return
+            if urlparse(self.path).path == "/media/assets/upload":
+                try:
+                    length = int(self.headers.get("Content-Length", "0"))
+                except (TypeError, ValueError):
+                    self._respond(json.dumps({"error": "Content-Length가 올바르지 않습니다."}), 400, "application/json; charset=utf-8")
+                    return
+                if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "video/mp4":
+                    self._respond(json.dumps({"error": "video/mp4 형식으로 전송해야 합니다."}), 415, "application/json; charset=utf-8")
+                    return
+                if length <= 0 or length > 512 * 1024 * 1024:
+                    self._respond(json.dumps({"error": "MP4 파일은 1~512MB 범위여야 합니다."}), 413, "application/json; charset=utf-8")
+                    return
+                try:
+                    asset = _media_asset_store().save_stream(
+                        self.rfile, length,
+                        unquote(self.headers.get("X-Asset-Filename", "video.mp4")),
+                    )
+                    self._respond(json.dumps(asset.to_public_dict(), ensure_ascii=False), content_type="application/json; charset=utf-8")
+                except MediaAssetError as error:
+                    self._respond(json.dumps({"error": str(error)}, ensure_ascii=False), 400, "application/json; charset=utf-8")
+                except OSError:
+                    self._respond(json.dumps({"error": "영상 파일을 저장하지 못했습니다. 저장 공간을 확인하세요."}, ensure_ascii=False), 507, "application/json; charset=utf-8")
                 return
             length = int(self.headers.get("Content-Length", "0"))
             if length > 16_384:
@@ -867,7 +953,8 @@ def create_handler():
                     preview = previews[index]
                     preview_key = json.dumps(preview, ensure_ascii=False, sort_keys=True)
                     content_id = "trend-" + hashlib.sha256(preview_key.encode("utf-8")).hexdigest()[:20]
-                    payloads = _queue_payload_for_platform(preview, platform)
+                    media_asset_id = form.get("media_asset_id", [""])[0]
+                    payloads = _queue_payload_for_platform(preview, platform, media_asset_id)
                     approver = os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user"
                     enqueued = [queue.enqueue_approved(
                         content_id=f"{content_id}-{platform}-{payload_index + 1}",
