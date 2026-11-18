@@ -219,12 +219,13 @@ class SocialOAuthTests(unittest.TestCase):
                 {"permission": "pages_manage_posts", "status": "granted"},
                 {"permission": "business_management", "status": "declined"},
             ]},
-            {"data": [{"id": "page-1", "name": "TAK AUTO", "access_token": "page-token"}]},
+            {"data": [{"id": "page-1", "name": "TAK AUTO", "access_token": "page-token", "tasks": ["CREATE_CONTENT", "MODERATE"]}]},
         ])
         client = SocialOAuthClient(self.environ, request_json=lambda *args, **kwargs: next(responses))
         result = client.complete("facebook", "code", callback_uri("facebook", self.environ), state="state")
         self.assertEqual(result["choices"][0]["account_id"], "page-1")
         self.assertEqual(result["choices"][0]["access_token"], "page-token")
+        self.assertIn("CREATE_CONTENT", result["choices"][0]["tasks"])
         self.assertEqual(result["tokens"], {})
         self.assertEqual(result["scopes"], "pages_show_list,pages_read_engagement,pages_manage_posts")
 
