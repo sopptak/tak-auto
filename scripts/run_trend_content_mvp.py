@@ -564,7 +564,7 @@ def _page(
     facebook_tasks = facebook_connection.get("tasks", [])
     facebook_ready = bool(facebook_connection.get("account_id") and facebook_connection.get("access_token")
                           and facebook_required_scopes.issubset(facebook_scopes)
-                          and isinstance(facebook_tasks, list) and "CREATE_CONTENT" in facebook_tasks)
+                          and isinstance(facebook_tasks, list)\n                          and {"CREATE_CONTENT", "MANAGE"}.intersection(facebook_tasks))
     platform_options = (
         '<option value="threads">Threads · 자동 게시</option>'
         + ('<option value="facebook">Facebook 페이지 · 게시 권한 연결됨</option>' if facebook_ready else '<option value="facebook" disabled>Facebook 페이지 · 게시 권한 연결 필요</option>')
