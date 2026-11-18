@@ -192,6 +192,15 @@ def publishing_connection_statuses(
                     publish_note = "Threads 게시 권한이 연결되었습니다. 실제 게시에는 게시 스위치와 운영자 승인이 필요합니다."
                 else:
                     publish_note = "계정은 연결됐지만 Threads 게시 권한이 없습니다. 다시 연결해 게시 권한에 동의해야 합니다."
+            if platform["key"] == "instagram_reels":
+                granted_scopes = {
+                    scope for scope in str(oauth_connection.get("granted_scopes", "")).replace(",", " ").split() if scope
+                }
+                required_scopes = {"instagram_business_basic", "instagram_business_content_publish"}
+                if required_scopes.issubset(granted_scopes):
+                    publish_note = "Instagram 릴스 게시 권한이 확인되었습니다. 실제 게시에는 게시 스위치와 운영자 승인이 필요합니다."
+                else:
+                    publish_note = "Instagram 계정은 연결됐지만 릴스 게시 권한이 없습니다. 다시 연결해 instagram_business_content_publish에 동의해야 합니다."
             if platform["key"] == "youtube_shorts":
                 granted_scopes = {
                     scope for scope in str(oauth_connection.get("granted_scopes", "")).replace(",", " ").split() if scope
