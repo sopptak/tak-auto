@@ -21,7 +21,7 @@ PLATFORMS = (
         "required": ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"),
         "account_env": "YOUTUBE_CHANNEL_NAME", "expiry_env": "",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
-        "publish_note": "웹 로그인은 계정 확인용이며 YouTube Shorts 자동 게시 어댑터는 준비 중입니다.",
+        "publish_note": "YouTube Shorts 게시 어댑터는 승인 대기열에서 비공개 업로드로 동작합니다. 웹 OAuth 연결과 MP4 등록이 필요합니다.",
     },
     {
         "key": "tiktok", "name": "TikTok", "icon": "♪",
@@ -29,7 +29,7 @@ PLATFORMS = (
         "required": ("TIKTOK_ACCESS_TOKEN", "TIKTOK_OPEN_ID"),
         "account_env": "TIKTOK_USERNAME", "expiry_env": "TIKTOK_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
-        "publish_note": "웹 로그인은 계정 확인용이며 TikTok 자동 게시 어댑터는 준비 중입니다.",
+        "publish_note": "TikTok Direct Post는 video.publish 권한, 앱 승인, 명시적 공개 범위 선택과 MP4 등록이 필요합니다.",
     },
     {
         "key": "instagram_reels", "name": "Instagram Reels", "icon": "◎",
@@ -37,7 +37,7 @@ PLATFORMS = (
         "required": ("INSTAGRAM_ACCESS_TOKEN", "INSTAGRAM_USER_ID"),
         "account_env": "INSTAGRAM_USERNAME", "expiry_env": "INSTAGRAM_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
-        "publish_note": "웹 로그인은 계정 확인용이며 Instagram Reels 자동 게시 어댑터는 준비 중입니다.",
+        "publish_note": "Instagram Reels 게시 어댑터는 Instagram 프로페셔널 계정 권한과 공개 HTTPS 영상 URL이 필요합니다.",
     },
     {
         "key": "facebook", "name": "Facebook 페이지", "icon": "f",
