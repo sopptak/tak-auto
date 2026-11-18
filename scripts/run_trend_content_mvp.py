@@ -784,6 +784,8 @@ def _parse_editorial_revision(answer: str) -> dict:
     revised = payload.get("revised_text")
     if not isinstance(revised, str) or not revised.strip():
         raise ValueError("수정 문구가 비어 있습니다.")
+    if len(revised) > 40000:
+        raise ValueError("수정 문구가 너무 깁니다. 40,000자 이내로 다시 생성하세요.")
     changes = payload.get("changes", [])
     unresolved = payload.get("unresolved_claims", [])
     if not isinstance(changes, list) or any(not isinstance(row, str) for row in changes):
@@ -1303,7 +1305,7 @@ def _page(
   <button type="button" class="secondary copy" data-copy="blog-{len(preview_cards)}">블로그 원고 복사</button>
   <pre id="blog-{len(preview_cards)}">{escape(str(blog.get('body', '')))}</pre>
   <h3>유튜브 쇼츠 · {len(shorts)}편</h3>
-  {"".join(f'<div class="draft"><b>{escape(str(row.get("title", "")))}</b><button type="button" class="secondary copy" data-copy="short-{len(preview_cards)}-{i}">쇼츠 대본 복사</button><pre id="short-{len(preview_cards)}-{i}">{escape(str(row.get("body", "")))}</pre></div>' for i, row in enumerate(shorts))}
+  {"".join(f'<div class="draft"><b>{escape(str(row.get("title", "")))}</b><p><b>첫 3초 후킹</b>: {escape(str(row.get("hook", "")))}</p><button type="button" class="secondary copy" data-copy="short-{len(preview_cards)}-{i}">쇼츠 대본 복사</button><pre id="short-{len(preview_cards)}-{i}">{escape(str(row.get("body", "")))}</pre></div>' for i, row in enumerate(shorts))}
   {"".join(f'<div class="draft"><b>{label}</b><button type="button" class="secondary copy" data-copy="caption-{len(preview_cards)}-{i}">문안 복사</button><pre id="caption-{len(preview_cards)}-{i}">{escape(str(shorts[i].get(field, "")))}</pre></div>' for i in range(len(shorts)) for label, field in [("YouTube 설명란", "youtube_description"), ("Instagram 릴스 문안", "instagram_caption"), ("TikTok 설명문", "tiktok_caption")])}
   {"".join(f'<p class="meta">해시태그: {escape(" ".join("#" + str(tag).lstrip("#") for tag in shorts[i].get("hashtags", [])))}</p>' for i in range(len(shorts)))}
   <h3>Threads · {len(threads)}편</h3>
@@ -1756,6 +1758,8 @@ def create_handler():
                         ),
                     )
                     parsed_revision = _parse_editorial_revision(result.answer)
+                    if parsed_revision["revised_text"] == original_text.strip():
+                        raise ValueError("수정 결과가 원문과 같습니다. 다른 수정 방향으로 다시 요청하세요.")
                     revision = {
                         "revision_id": secrets.token_urlsafe(18),
                         "recommendation_index": recommendation_index,
