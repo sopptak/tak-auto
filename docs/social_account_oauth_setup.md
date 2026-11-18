@@ -26,6 +26,12 @@ Render의 `tak-auto-trend-factory` 서비스에서 **Environment**에 아래 값
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
+미디어 서명 키는 별도로 생성합니다. 이 값도 Render Secret Environment Variable에만 입력하고 저장소나 채팅에 붙이지 마세요.
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
 ## 2. 각 개발자 앱에 콜백 주소 등록
 
 앱 등록 시 해당 서비스의 웹 OAuth/Login 제품을 활성화하고 아래 주소를 **그대로** 등록하세요.
