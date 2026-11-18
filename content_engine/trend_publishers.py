@@ -17,6 +17,7 @@ from .social_oauth import OAuthTokenVault, SocialOAuthError
 from .threads_publisher import ThreadsAPIError, ThreadsClient, ThreadsConfigurationError
 from .youtube_publisher import YouTubeAPIError, YouTubeClient, YouTubeConfigurationError
 from .instagram_publisher import InstagramAPIError, InstagramClient, InstagramConfigurationError
+from .media_assets import MediaAssetError, MediaAssetStore
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -69,8 +70,18 @@ def _threads_client() -> ThreadsClient:
 def _publish_youtube_short(payload: Mapping[str, object]) -> str:
     """Upload an approved MP4 as private first; public visibility is never implicit."""
     raw_path = str(payload.get("video_path") or payload.get("media_path") or "").strip()
+    if not raw_path and payload.get("media_asset_id"):
+        try:
+            asset_store = MediaAssetStore(
+                Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))) ,
+                os.getenv("TAK_AUTO_MEDIA_SIGNING_KEY", ""),
+                os.getenv("TAK_AUTO_PUBLIC_URL", ""),
+            )
+            raw_path = str(asset_store.get_asset(str(payload["media_asset_id"])).path)
+        except MediaAssetError as error:
+            raise PermanentPublishError(str(error)) from error
     if not raw_path:
-        raise PermanentPublishError("YouTube Shorts 영상 파일 경로(video_path)가 필요합니다.")
+        raise PermanentPublishError("YouTube Shorts 영상 파일 경로 또는 등록된 media_asset_id가 필요합니다.")
     video_path = Path(raw_path).expanduser()
     if not video_path.is_file() or video_path.suffix.lower() != ".mp4":
         raise PermanentPublishError("YouTube Shorts 게시 파일은 존재하는 MP4 파일이어야 합니다.")
@@ -112,9 +123,19 @@ def _publish_youtube_short(payload: Mapping[str, object]) -> str:
 def _publish_instagram_reel(payload: Mapping[str, object]) -> str:
     """Publish a reviewed Reel from a publicly reachable HTTPS media URL."""
     video_url = str(payload.get("video_url") or payload.get("media_url") or "").strip()
+    if not video_url and payload.get("media_asset_id"):
+        try:
+            asset_store = MediaAssetStore(
+                Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))),
+                os.getenv("TAK_AUTO_MEDIA_SIGNING_KEY", ""),
+                os.getenv("TAK_AUTO_PUBLIC_URL", ""),
+            )
+            video_url = asset_store.signed_url(str(payload["media_asset_id"]), ttl_seconds=48 * 60 * 60)
+        except MediaAssetError as error:
+            raise PermanentPublishError(str(error)) from error
     if not video_url:
         raise PermanentPublishError(
-            "Instagram 릴스에는 공개 HTTPS 영상 URL(video_url)이 필요합니다. 로컬 MP4 경로는 사용할 수 없습니다."
+            "Instagram 릴스에는 등록된 media_asset_id 또는 공개 HTTPS 영상 URL이 필요합니다."
         )
     caption = str(payload.get("caption") or payload.get("body") or payload.get("text") or "").strip()
     if not caption:
