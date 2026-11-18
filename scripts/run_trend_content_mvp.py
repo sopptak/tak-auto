@@ -217,11 +217,18 @@ def _list_media_assets() -> list:
         return []
 
 
-def _read_oauth_connections() -> tuple[dict[str, dict[str, str]], str]:
-    if not os.getenv("TAK_AUTO_OAUTH_ENCRYPTION_KEY", "").strip():
+def _read_oauth_connections(environ=None) -> tuple[dict[str, dict[str, str]], str]:
+    values = os.environ if environ is None else environ
+    encryption_key = str(values.get("TAK_AUTO_OAUTH_ENCRYPTION_KEY", "")).strip()
+    if not encryption_key:
         return {}, ""
     try:
-        return _oauth_vault().public_connections(), ""
+        if environ is None:
+            vault = _oauth_vault()
+        else:
+            data_dir = Path(values.get("TAK_AUTO_DATA_DIR", str(DATA_DIR)))
+            vault = OAuthTokenVault(data_dir / "social_oauth_tokens.enc", encryption_key)
+        return vault.public_connections(), ""
     except SocialOAuthError as error:
         return {}, str(error)
 
@@ -286,7 +293,7 @@ def _run_connection_verification(
     values = os.environ if environ is None else environ
     current = now or datetime.now(timezone.utc)
     if oauth_connections is None:
-        oauth_connections, storage_error = _read_oauth_connections()
+        oauth_connections, storage_error = _read_oauth_connections(values)
         if storage_error:
             raise ValueError("SNS 암호화 저장소를 확인할 수 없습니다. 연결 설정을 점검하세요.")
     rows = {
