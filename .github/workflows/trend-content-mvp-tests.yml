@@ -47,6 +47,7 @@ on:
       - "content_engine/publishing_connections.py"
       - "tests/test_publishing_connections.py"
       - "tests/test_publishing_connection_routes.py"
+      - "content_engine/instagram_publisher.py"
       - "content_engine/trend_publishers.py"
       - "tests/test_trend_publishers.py"
       - "content_engine/youtube_publisher.py"
