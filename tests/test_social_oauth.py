@@ -265,6 +265,26 @@ class SocialOAuthTests(unittest.TestCase):
         result = client.complete("threads", "code", callback_uri("threads", self.environ), state="state")
         self.assertEqual(result["scopes"], "")
 
+    def test_threads_callback_keeps_connection_when_permission_debug_is_unavailable(self):
+        from content_engine.social_oauth import SocialOAuthError
+
+        token_responses = iter([
+            {"access_token": "threads-short", "expires_in": 3600},
+            {"access_token": "threads-long", "expires_in": 5184000},
+        ])
+
+        def fake_request(method, url, *, fields=None, headers=None):
+            if "/debug_token" in url:
+                raise SocialOAuthError("permission debugger unavailable")
+            if "oauth/access_token" in url:
+                return next(token_responses)
+            return {"id": "threads-id", "username": "tak_auto"}
+
+        client = SocialOAuthClient(self.environ, request_json=fake_request)
+        result = client.complete("threads", "code", callback_uri("threads", self.environ), state="state")
+        self.assertEqual(result["profile"]["account_id"], "threads-id")
+        self.assertEqual(result["scopes"], "")
+
     def test_youtube_callback_does_not_assume_requested_scopes_were_granted(self):
         responses = iter([
             {"access_token": "access", "refresh_token": "refresh", "expires_in": 3600},
