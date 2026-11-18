@@ -1242,10 +1242,14 @@ def _page(
             pending = revision.get("status") == "pending_review"
             citation_text = " · ".join(str(url) for url in revision.get("citations", []))
             if pending:
+                acknowledgement = (
+                    '<label class="meta"><input type="checkbox" name="confirm_unresolved" value="1" required> 추가 확인이 필요한 주장을 원문과 대조했습니다.</label>'
+                    if revision.get("unresolved_claims") else ""
+                )
                 apply_form = (
                     f'<form method="post" action="/editorial/apply"><input type="hidden" name="preview_index" value="{preview_index}">'
                     f'<input type="hidden" name="revision_id" value="{escape(str(revision.get("revision_id", "")), quote=True)}">'
-                    '<button type="submit">이 수정본 적용</button></form>'
+                    + acknowledgement + '<button type="submit">이 수정본 적용</button></form>'
                 )
             elif revision.get("status") == "applied":
                 apply_form = '<p class="meta">적용 완료</p>'
