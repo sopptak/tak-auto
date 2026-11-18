@@ -141,14 +141,18 @@ class PublishingConnectionTests(unittest.TestCase):
                 verify_publishing_connection("threads", {"THREADS_ACCESS_TOKEN": "secret"}),
                 {"account_id": "thread-id", "account_name": "tak_auto"},
             )
-        with patch("content_engine.publishing_connections.YouTubeClient.from_environment") as youtube_factory:
+        youtube_environ = {"YOUTUBE_REFRESH_TOKEN": "secret"}
+        with patch("content_engine.publishing_connections.YouTubeClient.from_environment_or_oauth") as youtube_factory:
             youtube_factory.return_value.get_channel_profile.return_value = SimpleNamespace(
                 channel_id="channel-id", title="TAK AUTO",
             )
             self.assertEqual(
-                verify_publishing_connection("youtube_shorts", {"YOUTUBE_REFRESH_TOKEN": "secret"}),
+                verify_publishing_connection("youtube_shorts", youtube_environ),
                 {"account_id": "channel-id", "account_name": "TAK AUTO"},
             )
+        youtube_factory.assert_called_once_with(
+            youtube_environ, required_scope="https://www.googleapis.com/auth/youtube.readonly",
+        )
         with self.assertRaisesRegex(ValueError, "아직 지원하지 않습니다"):
             verify_publishing_connection("tiktok", {})
 
@@ -181,17 +185,16 @@ class PublishingConnectionTests(unittest.TestCase):
             "refresh_token": "oauth-refresh-token",
             "granted_scopes": "https://www.googleapis.com/auth/youtube.readonly",
         }
-        with patch("content_engine.publishing_connections.OAuthTokenVault") as vault_type:
-            with patch("content_engine.publishing_connections.YouTubeClient") as client_type:
+        with patch("content_engine.social_oauth.OAuthTokenVault") as vault_type:
+            with patch.object(
+                __import__("content_engine.youtube_publisher", fromlist=["YouTubeClient"]).YouTubeClient,
+                "get_channel_profile",
+                return_value=SimpleNamespace(channel_id="oauth-channel-id", title="OAuth channel"),
+            ) as profile_check:
                 vault_type.return_value.get.return_value = connection
-                client_type.return_value.get_channel_profile.return_value = SimpleNamespace(
-                    channel_id="oauth-channel-id", title="OAuth channel",
-                )
                 result = verify_publishing_connection("youtube_shorts", environ)
-                client_type.assert_called_once_with(
-                    client_id="web-client-id", client_secret="web-client-secret",
-                    refresh_token="oauth-refresh-token",
-                )
+        vault_type.return_value.get.assert_called_once_with("youtube_shorts")
+        profile_check.assert_called_once()
         self.assertEqual(result, {"account_id": "oauth-channel-id", "account_name": "OAuth channel"})
 
     def test_oauth_vault_verification_rejects_missing_profile_scope(self):
