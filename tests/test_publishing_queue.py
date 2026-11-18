@@ -72,6 +72,21 @@ class PublishingQueueTests(unittest.TestCase):
         self.assertEqual(self.queue.run_due(publisher, enabled=True, now=due), [])
         self.assertEqual(len(calls), 1)
 
+    def test_published_history_retains_knowledge_source_and_title(self):
+        self.enqueue(platform="facebook", payload={
+            "title": "Facebook 제목", "body": "승인된 본문",
+            "_knowledge_id": "trend-preview-k123",
+            "_source_url": "https://example.test/source",
+        })
+        self.queue.run_due(
+            lambda *_args: "123_456", enabled=True,
+            now=self.now + timedelta(minutes=2),
+        )
+        history = self.queue.snapshot()["history"][0]
+        self.assertEqual(history["knowledge_id"], "trend-preview-k123")
+        self.assertEqual(history["source_url"], "https://example.test/source")
+        self.assertEqual(history["title"], "Facebook 제목")
+
     def test_retry_backoff_stops_after_three_attempts(self):
         self.enqueue()
         first_time = self.now + timedelta(minutes=2)
