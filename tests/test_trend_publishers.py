@@ -238,7 +238,7 @@ class TrendPublisherTests(unittest.TestCase):
 
     def test_facebook_transport_rejects_untrusted_hosts_before_network_call(self):
         from content_engine.facebook_publisher import FacebookAPIError, _request_json
-        with patch("content_engine.facebook_publisher.urlopen") as opener:
+        with patch("content_engine.facebook_publisher.build_opener") as opener:
             with self.assertRaises(FacebookAPIError):
                 _request_json("POST", "https://example.com/v27.0/123/feed",
                               access_token="page-token", fields={"message": "문안"})
