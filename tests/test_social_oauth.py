@@ -276,7 +276,9 @@ class SocialOAuthTests(unittest.TestCase):
         def fake_request(method, url, *, fields=None, headers=None):
             if "/debug_token" in url:
                 raise SocialOAuthError("permission debugger unavailable")
-            if "oauth/access_token" in url:
+            if "graph.threads.net/oauth/access_token" in url:
+                return next(token_responses)
+            if url == "https://graph.threads.net/access_token":
                 return next(token_responses)
             return {"id": "threads-id", "username": "tak_auto"}
 
