@@ -1894,7 +1894,7 @@ def render_performance_list_html(
 ) -> str:
     """GET /performance - content_id별 성과 시계열 요약을 읽기 전용으로 보여준다.
 
-    knowledge_id가 주어지면 같은 원본 KNOWLEDGE에서 파생된 플랫폼별 게시물만
+    ?knowledge_id=...가 주어지면 같은 원본 KNOWLEDGE에서 파생된 플랫폼별 게시물만
     필터링한다. 집계/합산은 하지 않고 각 content_id의 원래 성과 시계열을 유지한다.
     """
     filtered = summaries
