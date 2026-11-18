@@ -146,7 +146,7 @@ class TikTokClient:
             chunk_count = 1
         else:
             chunk_count = ceil(size / MAX_CHUNK_BYTES)
-            chunk_size = ceil(size / chunk_count)
+            chunk_size = size // chunk_count
         if chunk_size < MIN_CHUNK_BYTES and size >= MIN_CHUNK_BYTES:
             raise ValueError("TikTok 영상 청크 크기가 최소 5MB보다 작습니다.")
 
