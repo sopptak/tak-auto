@@ -48,7 +48,7 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         return {
             "blog": {
                 "title": "블로그 제목", "meta_description": "검색 설명",
-                "focus_keyword": "핵심 키워드", "body": "본문 " * 130,
+                "focus_keyword": "핵심 키워드", "body": "본문 " * 200,
             },
             "shorts": {
                 "title": "쇼츠 제목", "hook": "첫 3초 후킹", "closing_cta": "댓글 남겨주세요",
