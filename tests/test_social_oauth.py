@@ -209,6 +209,20 @@ class SocialOAuthTests(unittest.TestCase):
         self.assertEqual(calls[0][1]["state"], "original-state")
         self.assertEqual(result["profile"]["account_name"], "takcreator")
 
+    def test_facebook_rejects_pages_without_create_content_task(self):
+        from content_engine.social_oauth import SocialOAuthError
+
+        responses = iter([
+            {"access_token": "short-user-token", "expires_in": 3600},
+            {"access_token": "long-user-token", "expires_in": 5184000},
+            {"data": [{"permission": "pages_show_list", "status": "granted"}]},
+            {"data": [{"id": "page-2", "name": "Read Only", "access_token": "page-token",
+                       "tasks": ["MODERATE"]}]},
+        ])
+        client = SocialOAuthClient(self.environ, request_json=lambda *args, **kwargs: next(responses))
+        with self.assertRaisesRegex(SocialOAuthError, "CREATE_CONTENT"):
+            client.complete("facebook", "code", callback_uri("facebook", self.environ), state="state")
+
     def test_facebook_returns_page_choices_without_storing_them_implicitly(self):
         responses = iter([
             {"access_token": "short-user-token", "expires_in": 3600},
