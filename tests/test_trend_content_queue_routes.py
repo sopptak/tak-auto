@@ -603,6 +603,33 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertEqual(parsed["facebook"]["title"], "Threads 제목")
         self.assertEqual(parsed["facebook"]["body"], "Threads 본문")
 
+    def test_publishing_platform_choices_require_granted_scopes_and_assets(self):
+        connections = {
+            "threads": {"account_id": "th-1", "access_token": "token", "granted_scopes": "threads_basic"},
+            "facebook": {"account_id": "fb-1", "access_token": "token", "granted_scopes": "pages_show_list pages_read_engagement pages_manage_posts", "tasks": ["CREATE_CONTENT"]},
+            "youtube_shorts": {"account_id": "yt-1", "access_token": "token", "granted_scopes": "https://www.googleapis.com/auth/youtube.upload", "refresh_token_configured": "true"},
+            "instagram_reels": {"account_id": "ig-1", "access_token": "token", "granted_scopes": "instagram_business_basic"},
+            "tiktok": {"account_id": "tt-1", "access_token": "token", "granted_scopes": "user.info.basic"},
+        }
+        readiness = run_trend_content_mvp._publishing_platform_readiness(connections, media_available=True, public_media_ready=True)
+        self.assertFalse(readiness["threads"])
+        self.assertTrue(readiness["facebook"])
+        self.assertTrue(readiness["youtube_shorts"])
+        self.assertFalse(readiness["instagram_reels"])
+        self.assertFalse(readiness["tiktok"])
+
+        connections["threads"]["granted_scopes"] += " threads_content_publish"
+        connections["instagram_reels"]["granted_scopes"] += " instagram_business_content_publish"
+        connections["tiktok"]["granted_scopes"] += " video.publish"
+        readiness = run_trend_content_mvp._publishing_platform_readiness(connections, media_available=False, public_media_ready=False)
+        self.assertTrue(readiness["threads"])
+        self.assertTrue(readiness["facebook"])
+        self.assertFalse(readiness["youtube_shorts"])
+        self.assertFalse(readiness["instagram_reels"])
+        self.assertFalse(readiness["tiktok"])
+
+        readiness = run_trend_content_mvp._publishing_platform_readiness(connections, media_available=True, public_media_ready=True)
+        self.assertTrue(all(readiness.values()))
     def test_threads_is_ready_without_a_video_asset(self):
         self.assertEqual(
             run_trend_content_mvp._queue_payload_for_platform(self.preview, "threads"),
