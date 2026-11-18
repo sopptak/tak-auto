@@ -458,15 +458,17 @@ class SocialOAuthClient:
             # Store only permissions Meta explicitly reports as granted. Never infer grants
             # merely because they were requested in the OAuth dialog.
             user_token["scope"] = ",".join(granted)
-            pages = self.request_json("GET", f"https://graph.facebook.com/{version}/me/accounts?fields=id,name,access_token",
+            pages = self.request_json("GET", f"https://graph.facebook.com/{version}/me/accounts?fields=id,name,access_token,tasks",
                                       headers={"Authorization": f"Bearer {user_token['access_token']}"})
             rows = pages.get("data")
             choices = []
             if isinstance(rows, list):
                 for row in rows:
                     if isinstance(row, dict) and row.get("id") and row.get("access_token"):
+                        tasks = row.get("tasks") if isinstance(row.get("tasks"), list) else []
                         choices.append({"account_id": str(row["id"]), "account_name": str(row.get("name") or "Facebook 페이지"),
                                         "access_token": str(row["access_token"]),
+                                        "tasks": [str(task) for task in tasks],
                                         "expires_in": _safe_int(row.get("expires_in"))})
             if not choices:
                 raise SocialOAuthError("이 Facebook 계정에서 관리 가능한 페이지를 찾지 못했습니다. 페이지 권한을 확인하세요.")
