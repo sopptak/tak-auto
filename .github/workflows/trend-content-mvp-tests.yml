@@ -63,6 +63,8 @@ on:
       - "tests/test_publishing_connections.py"
       - "tests/test_publishing_connection_routes.py"
       - "content_engine/instagram_publisher.py"
+      - "content_engine/facebook_publisher.py"
+      - "tests/test_facebook_publisher.py"
       - "content_engine/media_assets.py"
       - "tests/test_media_assets.py"
       - "tests/test_media_asset_routes.py"
