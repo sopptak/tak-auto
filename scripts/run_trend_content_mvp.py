@@ -1098,18 +1098,53 @@ def _page(
             + '</ul><p class="meta">' + escape(str(source_integrity.get("scope_note", ""))) + '</p></div>'
         )
         editorial_recommendations = preview.get("editorial_recommendations") or []
-        editorial_recommendations_html = (
-            '<div class="toolbar"><b>원문 보존형 수정 제안 · '
-            + str(len(editorial_recommendations)) + '건</b><ol>'
-            + "".join(
+        recommendation_rows = []
+        for recommendation_index, row in enumerate(editorial_recommendations):
+            target_info = _editorial_target(row)
+            if target_info:
+                action = (
+                    f'<form method="post" action="/editorial/revise"><input type="hidden" name="preview_index" value="{preview_index}">'
+                    f'<input type="hidden" name="recommendation_index" value="{recommendation_index}"><button type="submit" class="secondary">이 항목 수정 문구 만들기</button></form>'
+                )
+            else:
+                action = '<p class="meta">이 항목은 현재 자동 수정 대상이 아닙니다. 안내에 따라 직접 점검하세요.</p>'
+            recommendation_rows.append(
                 '<li><b>' + escape(str(row.get("area", ""))) + '</b>'
                 + '<p class="meta">점검 항목: ' + escape(str(row.get("original", ""))) + '</p>'
                 + '<p>' + escape(str(row.get("proposal", ""))) + '</p>'
-                + '<p class="meta">제안 이유: ' + escape(str(row.get("reason", ""))) + '</p></li>'
-                for row in editorial_recommendations
+                + '<p class="meta">제안 이유: ' + escape(str(row.get("reason", ""))) + '</p>' + action + '</li>'
             )
-            + '</ol><p class="meta">이 항목은 수정 제안입니다. 원문을 자동 덮어쓰거나 게시하지 않습니다. 운영자가 원문과 근거를 확인한 뒤 직접 반영해야 합니다.</p></div>'
+        editorial_recommendations_html = (
+            '<div class="toolbar"><b>원문 보존형 수정 제안 · ' + str(len(editorial_recommendations)) + '건</b><ol>'
+            + "".join(recommendation_rows)
+            + '</ol><p class="meta">수정 문구 생성은 별도 요청이며, 생성 후에도 운영자가 비교·검토하고 직접 적용해야 합니다.</p></div>'
         )
+        editorial_revisions = preview.get("editorial_revisions") or []
+        revision_cards = []
+        for revision in editorial_revisions:
+            pending = revision.get("status") == "pending_review"
+            if pending:
+                apply_form = (
+                    f'<form method="post" action="/editorial/apply"><input type="hidden" name="preview_index" value="{preview_index}">'
+                    f'<input type="hidden" name="revision_id" value="{escape(str(revision.get("revision_id", "")), quote=True)}">'
+                    '<button type="submit">이 수정본 적용</button></form>'
+                )
+            elif revision.get("status") == "applied":
+                apply_form = '<p class="meta">적용 완료</p>'
+            else:
+                apply_form = '<p class="meta">처리 완료</p>'
+            revision_cards.append(
+                '<article class="draft"><b>' + escape(str(revision.get("area", "수정본"))) + ' · ' + escape(str(revision.get("status", ""))) + '</b>'
+                + '<p class="meta">원문</p><pre>' + escape(str(revision.get("base_text", ""))) + '</pre>'
+                + '<p class="meta">수정 제안</p><pre>' + escape(str(revision.get("revised_text", ""))) + '</pre>'
+                + '<p class="meta">수정 내역: ' + escape(" · ".join(revision.get("changes", []))) + '</p>'
+                + ('<p class="warning">추가 확인 필요: ' + escape(" · ".join(revision.get("unresolved_claims", []))) + '</p>' if revision.get("unresolved_claims") else '')
+                + apply_form + '</article>'
+            )
+        editorial_revisions_html = (
+            '<div class="toolbar"><b>수정 전후 비교 · ' + str(len(editorial_revisions)) + '건</b>'
+            + "".join(revision_cards) + '</div>'
+        ) if editorial_revisions else ""
         quality_report = preview.get("quality_report") or {}
         search_intent = quality_report.get("search_intent") or {}
         search_intent_html = (
@@ -1138,6 +1173,7 @@ def _page(
   {quality_feedback_html}
   {search_intent_html}
   {editorial_recommendations_html}
+  {editorial_revisions_html}
   {source_feedback_html}\n  {claim_feedback_html}
   {strategy_feedback_html}
   <h3>네이버 블로그 · {escape(str(blog.get('title', '')))}</h3>
