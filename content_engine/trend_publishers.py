@@ -17,6 +17,7 @@ from .social_oauth import OAuthTokenVault, SocialOAuthError
 from .threads_publisher import ThreadsAPIError, ThreadsClient, ThreadsConfigurationError
 from .youtube_publisher import YouTubeAPIError, YouTubeClient, YouTubeConfigurationError
 from .instagram_publisher import InstagramAPIError, InstagramClient, InstagramConfigurationError
+from .tiktok_publisher import TikTokAPIError, TikTokClient, TikTokConfigurationError, TikTokPublishRejectedError
 from .media_assets import MediaAssetError, MediaAssetStore
 
 
@@ -205,12 +206,101 @@ def _publish_instagram_reel(payload: Mapping[str, object]) -> str:
     return result.media_id
 
 
+
+def _publish_tiktok_video(payload: Mapping[str, object]) -> str:
+    """Direct-post an approved MP4 using the creator's currently allowed privacy options."""
+    raw_path = str(payload.get("video_path") or payload.get("media_path") or "").strip()
+    if not raw_path and payload.get("media_asset_id"):
+        try:
+            asset_store = MediaAssetStore(
+                Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))),
+                os.getenv("TAK_AUTO_MEDIA_SIGNING_KEY", ""),
+                os.getenv("TAK_AUTO_PUBLIC_URL", ""),
+            )
+            raw_path = str(asset_store.get_asset(str(payload["media_asset_id"])).path)
+        except MediaAssetError as error:
+            raise PermanentPublishError(str(error)) from error
+    if not raw_path:
+        raise PermanentPublishError("TikTok 게시에는 등록된 media_asset_id 또는 MP4 파일 경로가 필요합니다.")
+    video_path = Path(raw_path).expanduser()
+    if not video_path.is_file() or video_path.suffix.lower() != ".mp4":
+        raise PermanentPublishError("TikTok 게시 파일은 존재하는 MP4 파일이어야 합니다.")
+    title = str(payload.get("title") or payload.get("caption") or payload.get("body") or "").strip()
+    if not title or len(title.encode("utf-16-le")) // 2 > 2200:
+        raise PermanentPublishError("TikTok 캡션은 비어 있지 않고 UTF-16 기준 2,200자 이하여야 합니다.")
+    privacy_level = str(payload.get("privacy_level") or "").strip()
+    if not privacy_level:
+        raise PermanentPublishError(
+            "TikTok privacy_level을 명시해야 합니다. 계정에서 허용된 공개 범위 중 하나를 선택하세요."
+        )
+    encryption_key = os.getenv("TAK_AUTO_OAUTH_ENCRYPTION_KEY", "").strip()
+    if not encryption_key:
+        raise PermanentPublishError("TikTok 게시용 암호화 인증 저장소 설정이 없습니다.")
+    try:
+        vault = OAuthTokenVault(
+            Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))) / "social_oauth_tokens.enc",
+            encryption_key,
+        )
+        connection = vault.get("tiktok")
+    except SocialOAuthError as error:
+        raise PermanentPublishError(str(error)) from error
+    if not connection:
+        raise PermanentPublishError("TikTok 계정이 연결되지 않았습니다. 먼저 계정을 연결하세요.")
+    scopes = {
+        scope for scope in re.split(r"[,\\s]+", str(connection.get("granted_scopes", ""))) if scope
+    }
+    if "video.publish" not in scopes:
+        raise PermanentPublishError(
+            "TikTok 계정에 Direct Post 게시 권한이 없습니다. 계정을 다시 연결하고 video.publish에 동의하세요."
+        )
+    token = str(connection.get("access_token", "")).strip()
+    open_id = str(connection.get("account_id", "")).strip()
+    if not token or not open_id:
+        raise PermanentPublishError("TikTok 인증 정보에 액세스 토큰 또는 Open ID가 없습니다.")
+    expiry = str(connection.get("expires_at", "")).strip()
+    if expiry:
+        try:
+            expires_at = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+        except ValueError:
+            raise PermanentPublishError("TikTok 토큰 만료일 형식을 확인할 수 없습니다.") from None
+        if expires_at <= datetime.now(timezone.utc):
+            raise PermanentPublishError("TikTok 토큰이 만료되었습니다. 계정을 다시 연결하세요.")
+    try:
+        client = TikTokClient(access_token=token, open_id=open_id)
+    except TikTokConfigurationError as error:
+        raise PermanentPublishError(str(error)) from error
+    options = {}
+    for field in ("disable_comment", "disable_duet", "disable_stitch", "is_aigc"):
+        value = payload.get(field, False)
+        if not isinstance(value, bool):
+            raise PermanentPublishError(f"TikTok {field} 값은 true 또는 false여야 합니다.")
+        options[field] = value
+    try:
+        result = client.publish_video(
+            video_path=video_path, title=title, privacy_level=privacy_level, **options,
+        )
+    except TikTokPublishRejectedError as error:
+        raise PermanentPublishError(str(error)) from error
+    except ValueError as error:
+        raise PermanentPublishError(str(error)) from error
+    except TikTokAPIError:
+        # TikTok may have accepted the upload or completed the post before a response was lost.
+        raise PublishUncertainError(
+            "TikTok 게시 결과를 확정할 수 없습니다. TikTok 계정의 게시 목록을 확인하세요."
+        ) from None
+    return result.post_id or result.publish_id
+
+
 def publish(platform: str, payload: Mapping[str, object], idempotency_key: str) -> str:
     """Publish one approved queue item and return the platform's remote ID."""
     if platform == "youtube_shorts":
         return _publish_youtube_short(payload)
     if platform == "instagram_reels":
         return _publish_instagram_reel(payload)
+    if platform == "tiktok":
+        return _publish_tiktok_video(payload)
     if platform != "threads":
         raise PermanentPublishError(
             f"{platform} 게시 어댑터는 아직 준비되지 않았습니다. 작업은 게시되지 않았습니다."
