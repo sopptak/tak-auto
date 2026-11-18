@@ -169,6 +169,55 @@ class TrendPublisherTests(unittest.TestCase):
             caption="승인된 릴스", share_to_feed=True,
         )
 
+    def test_instagram_adapter_generates_short_lived_signed_url_from_media_asset(self):
+        with patch.dict("os.environ", {
+            "TAK_AUTO_DATA_DIR": str(self.data_dir),
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key",
+            "TAK_AUTO_MEDIA_SIGNING_KEY": "test-signing-key-that-is-at-least-32-chars",
+            "TAK_AUTO_PUBLIC_URL": "https://tak-auto.example.test",
+        }, clear=True), \
+                patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type, \
+                patch("content_engine.trend_publishers.MediaAssetStore") as store_type, \
+                patch("content_engine.trend_publishers.InstagramClient") as client_type:
+            vault_type.return_value.get.return_value = {
+                "access_token": "ig-private-token", "account_id": "123456789",
+                "granted_scopes": "instagram_business_basic,instagram_business_content_publish",
+                "expires_at": "2099-01-01T00:00:00+00:00",
+            }
+            store_type.return_value.signed_url.return_value = "https://tak-auto.example.test/media/assets/" + "a" * 32 + "?signed"
+            client_type.return_value.publish_reel.return_value = SimpleNamespace(media_id="ig-media-asset-1")
+            remote_id = publish("instagram_reels", {
+                "media_asset_id": "a" * 32, "caption": "등록 영상 릴스",
+            }, "instagram-key")
+        self.assertEqual(remote_id, "ig-media-asset-1")
+        store_type.return_value.signed_url.assert_called_once_with("a" * 32, ttl_seconds=48 * 60 * 60)
+        client_type.return_value.publish_reel.assert_called_once_with(
+            video_url="https://tak-auto.example.test/media/assets/" + "a" * 32 + "?signed",
+            caption="등록 영상 릴스", share_to_feed=True,
+        )
+
+    def test_youtube_adapter_resolves_uploaded_media_asset_when_path_is_omitted(self):
+        video_path = self.data_dir / "approved-short.mp4"
+        video_path.write_bytes(b"test-video")
+        youtube = Mock()
+        youtube.upload_short.return_value = SimpleNamespace(video_id="youtube-asset-video")
+        with patch.dict("os.environ", {
+            "TAK_AUTO_DATA_DIR": str(self.data_dir),
+            "TAK_AUTO_MEDIA_SIGNING_KEY": "test-signing-key-that-is-at-least-32-chars",
+            "TAK_AUTO_PUBLIC_URL": "https://tak-auto.example.test",
+        }, clear=True), \
+                patch("content_engine.trend_publishers.MediaAssetStore") as store_type, \
+                patch("content_engine.trend_publishers.YouTubeClient.from_environment", return_value=youtube):
+            store_type.return_value.get_asset.return_value = SimpleNamespace(path=video_path)
+            remote_id = publish("youtube_shorts", {
+                "media_asset_id": "b" * 32, "title": "등록 MP4",
+            }, "youtube-key")
+        self.assertEqual(remote_id, "youtube-asset-video")
+        store_type.return_value.get_asset.assert_called_once_with("b" * 32)
+        youtube.upload_short.assert_called_once_with(
+            video_path=video_path, title="등록 MP4", description="", tags=[], privacy_status="private",
+        )
+
     def test_unsupported_platform_fails_closed_without_calling_threads(self):
         with patch("content_engine.trend_publishers.ThreadsClient.from_environment") as factory:
             with self.assertRaisesRegex(PermanentPublishError, "아직 준비되지 않았습니다"):
