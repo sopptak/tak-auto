@@ -460,6 +460,17 @@ def _queue_payload_for_platform(
         if not payloads:
             raise ValueError("이 콘텐츠에는 Threads 초안이 없습니다.")
         return payloads
+    if platform == "facebook":
+        posts = preview.get("threads") or []
+        if not posts:
+            raise ValueError("이 콘텐츠에는 Facebook 페이지용 텍스트 초안이 없습니다.")
+        first = posts[0]
+        title = str(first.get("title") or "").strip()
+        body = str(first.get("body") or "").strip()
+        message = "\\n\\n".join(part for part in (title, body) if part).strip()
+        if not message:
+            raise ValueError("Facebook 페이지 게시 본문이 비어 있습니다.")
+        return [{"title": title, "body": message}]
     if platform in {"youtube_shorts", "instagram_reels", "tiktok"}:
         asset = _media_asset_store().get_asset(media_asset_id)
         shorts = preview.get("shorts") or []
@@ -533,8 +544,16 @@ def _page(
     }
     tiktok_ready = bool(media_assets and tiktok_connection.get("account_id")
                         and "video.publish" in tiktok_scopes)
+    facebook_connection = oauth_connections.get("facebook", {})
+    facebook_scopes = {
+        scope for scope in re.split(r"[,\\s]+", str(facebook_connection.get("granted_scopes", ""))) if scope
+    }
+    facebook_required_scopes = {"pages_show_list", "pages_read_engagement", "pages_manage_posts"}
+    facebook_ready = bool(facebook_connection.get("account_id")
+                          and facebook_required_scopes.issubset(facebook_scopes))
     platform_options = (
         '<option value="threads">Threads · 자동 게시</option>'
+        + ('<option value="facebook">Facebook 페이지 · 게시 권한 연결됨</option>' if facebook_ready else '<option value="facebook" disabled>Facebook 페이지 · 게시 권한 연결 필요</option>')
         + ('<option value="youtube_shorts">YouTube Shorts · MP4 등록됨</option>' if media_assets else '<option value="youtube_shorts" disabled>YouTube Shorts · MP4 등록 필요</option>')
         + ('<option value="instagram_reels">Instagram Reels · MP4 등록됨</option>' if media_assets and public_media_ready else '<option value="instagram_reels" disabled>Instagram Reels · HTTPS 주소 설정 및 MP4 필요</option>')
         + '<option value="blog" disabled>네이버 블로그 · 수동 게시</option>'
@@ -599,7 +618,7 @@ def _page(
       <label>영상 파일 <select name="media_asset_id"><option value="">영상 선택 (영상 플랫폼만)</option>{asset_options}</select></label>
       <label>TikTok 공개 범위 (TikTok 선택 시 필수) <select name="privacy_level"><option value="">공개 범위 선택</option><option value="SELF_ONLY">나만 보기</option><option value="MUTUAL_FOLLOW_FRIENDS">맞팔로워</option><option value="FOLLOWER_OF_CREATOR">팔로워</option><option value="PUBLIC_TO_EVERYONE">전체 공개</option></select></label>
       <label><input type="checkbox" name="is_aigc" value="1"> TikTok 영상이 AI 생성 콘텐츠임을 표시</label>
-      <p class="meta">영상 플랫폼은 등록한 MP4를 사용합니다. Instagram은 공개 HTTPS 서명 URL로 Meta가 가져가며, TikTok은 MP4를 TikTok으로 직접 전송합니다. TikTok 공개 범위는 실제 계정에서 허용하는 옵션과 일치해야 합니다.</p>
+      <p class="meta">영상 플랫폼은 등록한 MP4를 사용합니다. Instagram은 공개 HTTPS 서명 URL로 Meta가 가져가며, TikTok은 MP4를 TikTok으로 직접 전송하며 Facebook은 선택한 페이지에 텍스트를 게시합니다. TikTok 공개 범위는 실제 계정에서 허용하는 옵션과 일치해야 합니다.</p>
       <label>예약 시각 (한국시간) <input type="datetime-local" name="scheduled_at" required></label>
       <button type="submit">승인하고 예약</button>
     </form>
