@@ -248,7 +248,7 @@ class SocialOAuthTests(unittest.TestCase):
         result = client.complete("threads", "code", callback_uri("threads", self.environ), state="state")
         self.assertEqual(result["profile"], {"account_id": "threads-id", "account_name": "tak_auto"})
         self.assertEqual(result["tokens"]["access_token"], "threads-long")
-        self.assertEqual(result["scopes"], "threads_basic threads_content_publish")
+        self.assertEqual(result["scopes"], "threads_basic,threads_content_publish")
         self.assertEqual(calls[1][2]["grant_type"], "th_exchange_token")
         self.assertIn("/debug_token", calls[2][1])
         self.assertEqual(calls[2][2]["input_token"], "threads-long")
