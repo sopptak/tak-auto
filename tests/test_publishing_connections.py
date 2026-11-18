@@ -138,6 +138,58 @@ class PublishingConnectionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "아직 지원하지 않습니다"):
             verify_publishing_connection("tiktok", {})
 
+    def test_oauth_vault_threads_connection_is_used_for_read_only_profile_check(self):
+        environ = {
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "vault-key",
+            "TAK_AUTO_DATA_DIR": "/tmp/tak-auto-test",
+        }
+        connection = {"access_token": "oauth-thread-token", "granted_scopes": "threads_basic"}
+        with patch("content_engine.publishing_connections.OAuthTokenVault") as vault_type:
+            with patch("content_engine.publishing_connections.ThreadsClient") as client_type:
+                vault_type.return_value.get.return_value = connection
+                client_type.return_value.api_base = "https://graph.threads.net"
+                client_type.return_value.get_profile.return_value = SimpleNamespace(
+                    id="oauth-thread-id", username="oauth_creator",
+                )
+                result = verify_publishing_connection("threads", environ)
+                client_type.assert_called_once_with(access_token="oauth-thread-token")
+        vault_type.return_value.get.assert_called_once_with("threads")
+        self.assertEqual(result, {"account_id": "oauth-thread-id", "account_name": "oauth_creator"})
+
+    def test_oauth_vault_youtube_connection_uses_refresh_token_and_web_app_credentials(self):
+        environ = {
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "vault-key",
+            "TAK_AUTO_DATA_DIR": "/tmp/tak-auto-test",
+            "YOUTUBE_OAUTH_CLIENT_ID": "web-client-id",
+            "YOUTUBE_OAUTH_CLIENT_SECRET": "web-client-secret",
+        }
+        connection = {
+            "refresh_token": "oauth-refresh-token",
+            "granted_scopes": "https://www.googleapis.com/auth/youtube.readonly",
+        }
+        with patch("content_engine.publishing_connections.OAuthTokenVault") as vault_type:
+            with patch("content_engine.publishing_connections.YouTubeClient") as client_type:
+                vault_type.return_value.get.return_value = connection
+                client_type.return_value.get_channel_profile.return_value = SimpleNamespace(
+                    channel_id="oauth-channel-id", title="OAuth channel",
+                )
+                result = verify_publishing_connection("youtube_shorts", environ)
+                client_type.assert_called_once_with(
+                    client_id="web-client-id", client_secret="web-client-secret",
+                    refresh_token="oauth-refresh-token",
+                )
+        self.assertEqual(result, {"account_id": "oauth-channel-id", "account_name": "OAuth channel"})
+
+    def test_oauth_vault_verification_rejects_missing_profile_scope(self):
+        environ = {"TAK_AUTO_OAUTH_ENCRYPTION_KEY": "vault-key"}
+        with patch("content_engine.publishing_connections.OAuthTokenVault") as vault_type:
+            with patch("content_engine.publishing_connections.ThreadsClient") as client_type:
+                vault_type.return_value.get.return_value = {
+                    "access_token": "token", "granted_scopes": "threads_content_publish",
+                }
+                with self.assertRaisesRegex(ValueError, "threads_basic"):
+                    verify_publishing_connection("threads", environ)
+                client_type.assert_not_called()
     def test_threads_verification_rejects_non_official_api_host_before_sending_token(self):
         with patch("content_engine.publishing_connections.ThreadsClient.from_environment") as factory:
             factory.return_value.api_base = "https://example.invalid"
@@ -182,6 +234,7 @@ class PublishingConnectionTests(unittest.TestCase):
         self.assertIn("계정은 연결됐지만 Threads 게시 권한이 없습니다", html)
         self.assertIn('action="/connections/disconnect"', html)
         self.assertNotIn("never-render-this-token", html)
+        self.assertIn("action=\"/connections/verify\"", html)
         self.assertIn("게시 기능은 기본 비활성화입니다", html)
 
     def test_dashboard_shows_provider_callback_and_setup_without_secrets(self):
