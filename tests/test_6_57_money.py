@@ -242,7 +242,7 @@ class MoneyHttpTests(MoneyCase):
     def req(self, path: str, form: dict | None = None) -> tuple[int, str, str]:
         data = urllib.parse.urlencode(form).encode() if form is not None else None
         try:
-            with urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{self.server.server_address[1]}{path}", data=data), timeout=30) as r:
+            with urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{self.server.server_address[1]}{path}", data=data, headers={"Origin": f"http://127.0.0.1:{self.server.server_address[1]}"} if data is not None else {}), timeout=30) as r:
                 return r.status, r.geturl(), r.read().decode("utf-8")
         except urllib.error.HTTPError as error:
             return error.code, path, error.read().decode("utf-8")
