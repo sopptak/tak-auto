@@ -321,6 +321,17 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertIn("원문을 열어", claim_proposal["proposal"])
         self.assertTrue(all("proposal" in row and "reason" in row for row in proposals))
 
+    def test_concurrent_insight_appends_do_not_overwrite_each_other(self):
+        path = self.data_dir / "concurrent-insights.json"
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            list(executor.map(
+                lambda index: append_insights(path, [self._insight(f"parallel-{index}")]),
+                range(24),
+            ))
+        stored = load_insights(path)
+        self.assertEqual(len(stored), 24)
+        self.assertEqual({row.insight_id for row in stored}, {f"parallel-{i}" for i in range(24)})
+
     def test_editorial_recommendation_fingerprint_is_preview_scoped(self):
         recommendation = {"area": "블로그", "original": "주장", "proposal": "원문 확인"}
         first = run_trend_content_mvp._editorial_recommendation_key(recommendation, "knowledge-a")
