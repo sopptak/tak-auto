@@ -131,6 +131,9 @@ class SocialOAuthTests(unittest.TestCase):
                 {"account_id": "channel-123", "account_name": "TAK AUTO"},
                 scopes="https://www.googleapis.com/auth/youtube.readonly")
             self.assertEqual(vault.get("youtube_shorts")["refresh_token"], "long-lived-refresh")
+            public = vault.public_connections()["youtube_shorts"]
+            self.assertEqual(public["refresh_token_configured"], "true")
+            self.assertNotIn("long-lived-refresh", str(public))
 
     def test_vault_rejects_first_youtube_connection_without_refresh_token(self):
         with tempfile.TemporaryDirectory() as directory:
