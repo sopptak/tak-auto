@@ -619,6 +619,10 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertFalse(readiness["tiktok"])
 
         connections["threads"]["granted_scopes"] += " threads_content_publish"
+        connections["threads"]["access_token_configured"] = "false"
+        missing_token = run_trend_content_mvp._publishing_platform_readiness(connections, media_available=True, public_media_ready=True)
+        self.assertFalse(missing_token["threads"])
+        connections["threads"]["access_token_configured"] = "true"
         connections["instagram_reels"]["granted_scopes"] += " instagram_business_content_publish"
         connections["tiktok"]["granted_scopes"] += " video.publish"
         readiness = run_trend_content_mvp._publishing_platform_readiness(connections, media_available=False, public_media_ready=False)
@@ -632,10 +636,10 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertTrue(all(readiness.values()))
     def test_expired_meta_tokens_disable_publishing_platform_choices(self):
         connections = {
-            "threads": {"account_id": "th-1", "granted_scopes": "threads_content_publish", "expires_at": "2000-01-01T00:00:00+00:00"},
-            "facebook": {"account_id": "fb-1", "granted_scopes": "pages_show_list pages_read_engagement pages_manage_posts", "tasks": ["MANAGE"], "expires_at": "2000-01-01T00:00:00+00:00"},
-            "instagram_reels": {"account_id": "ig-1", "granted_scopes": "instagram_business_basic instagram_business_content_publish", "expires_at": "2000-01-01T00:00:00+00:00"},
-            "tiktok": {"account_id": "tt-1", "granted_scopes": "video.publish", "expires_at": "2000-01-01T00:00:00+00:00"},
+            "threads": {"account_id": "th-1", "access_token_configured": "true", "granted_scopes": "threads_content_publish", "expires_at": "2000-01-01T00:00:00+00:00"},
+            "facebook": {"account_id": "fb-1", "access_token_configured": "true", "granted_scopes": "pages_show_list pages_read_engagement pages_manage_posts", "tasks": ["MANAGE"], "expires_at": "2000-01-01T00:00:00+00:00"},
+            "instagram_reels": {"account_id": "ig-1", "access_token_configured": "true", "granted_scopes": "instagram_business_basic instagram_business_content_publish", "expires_at": "2000-01-01T00:00:00+00:00"},
+            "tiktok": {"account_id": "tt-1", "access_token_configured": "true", "granted_scopes": "video.publish", "expires_at": "2000-01-01T00:00:00+00:00"},
         }
         readiness = run_trend_content_mvp._publishing_platform_readiness(connections, media_available=True, public_media_ready=True)
         self.assertFalse(readiness["threads"])
