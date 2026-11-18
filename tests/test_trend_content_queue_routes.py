@@ -48,7 +48,7 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             [{"title": "제목", "body": "승인된 Threads 원고"}],
         )
 
-    def test_facebook_queue_uses_first_approved_text_draft(self):
+    def test_facebook_queue_uses_facebook_specific_copy(self):
         payload = run_trend_content_mvp._queue_payload_for_platform(
             self.preview, "facebook",
         )
@@ -61,7 +61,7 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         legacy_preview = dict(self.preview)
         legacy_preview.pop("facebook")
         payload = run_trend_content_mvp._queue_payload_for_platform(legacy_preview, "facebook")
-        self.assertEqual(payload[0]["body"], "제목\\n\\n승인된 Threads 원고")
+        self.assertEqual(payload[0]["body"], "제목\n\n승인된 Threads 원고")
 
     def test_youtube_queue_uses_uploaded_mp4_path_and_metadata(self):
         payload = run_trend_content_mvp._queue_payload_for_platform(
