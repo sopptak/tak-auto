@@ -451,6 +451,7 @@ def _make_preview(item: dict, trend_report: dict, provider=None) -> dict:
 
 def _queue_payload_for_platform(
     preview: dict, platform: str, media_asset_id: str = "",
+    privacy_level: str = "", is_aigc: bool = False,
 ) -> list[dict]:
     """Build platform payloads only when the required text or media asset exists."""
     if platform == "threads":
@@ -458,7 +459,7 @@ def _queue_payload_for_platform(
         if not payloads:
             raise ValueError("이 콘텐츠에는 Threads 초안이 없습니다.")
         return payloads
-    if platform in {"youtube_shorts", "instagram_reels"}:
+    if platform in {"youtube_shorts", "instagram_reels", "tiktok"}:
         asset = _media_asset_store().get_asset(media_asset_id)
         shorts = preview.get("shorts") or []
         if not shorts:
@@ -478,18 +479,27 @@ def _queue_payload_for_platform(
                 "video_path": str(asset.path),
                 "media_asset_id": asset.asset_id,
             }]
-        caption = str(script.get("instagram_caption") or title).strip()
+        caption_field = "tiktok_caption" if platform == "tiktok" else "instagram_caption"
+        caption = str(script.get(caption_field) or title).strip()
         missing_hashtags = [f"#{tag}" for tag in hashtags if f"#{tag}" not in caption]
         if missing_hashtags:
             caption = caption + "\\n\\n" + " ".join(missing_hashtags)
+        if platform == "tiktok":
+            allowed_privacy = {"PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "SELF_ONLY"}
+            if privacy_level not in allowed_privacy:
+                raise ValueError("TikTok 공개 범위를 명시적으로 선택해야 합니다.")
+            return [{
+                "title": caption,
+                "media_asset_id": asset.asset_id,
+                "privacy_level": privacy_level,
+                "is_aigc": bool(is_aigc),
+            }]
         return [{
             "title": title,
             "caption": caption,
             "media_asset_id": asset.asset_id,
             "share_to_feed": True,
         }]
-    if platform == "tiktok":
-        raise ValueError("TikTok 자동 게시 어댑터는 아직 준비 중입니다.")
     if platform == "blog":
         raise ValueError("네이버 블로그는 현재 수동 게시 방식입니다. 원고를 복사해 직접 발행하세요.")
     raise ValueError("지원하지 않는 게시 플랫폼입니다.")
