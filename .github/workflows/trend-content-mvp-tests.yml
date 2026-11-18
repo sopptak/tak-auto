@@ -19,6 +19,7 @@ on:
       - "scripts/run_scout_dashboard.py"
       - "tests/test_performance_dashboard.py"
       - "tests/test_collect_performance_cli.py"
+      - "tests/test_collect_performance_live_gate.py"
       - "tests/test_publishing_queue.py"
       - "content_engine/publishing_connections.py"
       - "tests/test_publishing_connections.py"
@@ -60,6 +61,7 @@ jobs:
           python -m unittest discover -s tests -p "test_social_oauth_routes.py" -v
           python -m unittest discover -s tests -p "test_publishing_queue.py" -v
           python -m unittest discover -s tests -p "test_collect_performance_cli.py" -v
+          python -m unittest discover -s tests -p "test_collect_performance_live_gate.py" -v
           python -m unittest discover -s tests -p "test_performance_dashboard.py" -v
           python -m unittest discover -s tests -p "test_publishing_connections.py" -v
           python -m unittest discover -s tests -p "test_publishing_connection_routes.py" -v
