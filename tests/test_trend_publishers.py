@@ -428,6 +428,8 @@ class TrendPublisherTests(unittest.TestCase):
         ])
 
     def test_tiktok_adapter_requires_video_publish_scope_and_explicit_privacy(self):
+        video = self.data_dir / "not-needed.mp4"
+        video.write_bytes(b"mp4-test-data")
         with patch.dict("os.environ", {"TAK_AUTO_DATA_DIR": str(self.data_dir),
                                       "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "test-fernet-key"}, clear=True), patch("content_engine.trend_publishers.OAuthTokenVault") as vault_type:
             vault_type.return_value.get.return_value = {
@@ -435,9 +437,9 @@ class TrendPublisherTests(unittest.TestCase):
                 "granted_scopes": "user.info.basic",
             }
             with self.assertRaisesRegex(PermanentPublishError, "공개 범위"):
-                publish("tiktok", {"video_path": "not-needed.mp4", "title": "문안"}, "tt-key")
+                publish("tiktok", {"video_path": str(video), "title": "문안"}, "tt-key")
             with self.assertRaisesRegex(PermanentPublishError, "Direct Post 게시 권한"):
-                publish("tiktok", {"video_path": "not-needed.mp4", "title": "문안",
+                publish("tiktok", {"video_path": str(video), "title": "문안",
                                    "privacy_level": "SELF_ONLY"}, "tt-key")
 
     def test_tiktok_adapter_uses_encrypted_token_and_marks_ambiguous_api_failure(self):
