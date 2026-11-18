@@ -416,8 +416,11 @@ def _parse_content_package(answer: str) -> dict:
     return package
 
 
-def _evaluate_content_quality(package: dict, keyword: str) -> dict:
+def _evaluate_content_quality(
+    package: dict, keyword: str, trend_context: dict | None = None,
+) -> dict:
     """Deterministic editorial checklist; this is not factual verification."""
+    trend_context = trend_context if isinstance(trend_context, dict) else {}
     blog = package.get("blog") if isinstance(package.get("blog"), dict) else {}
     shorts = package.get("shorts") if isinstance(package.get("shorts"), dict) else {}
     threads = package.get("threads") if isinstance(package.get("threads"), list) else []
@@ -429,13 +432,29 @@ def _evaluate_content_quality(package: dict, keyword: str) -> dict:
     thread_bodies = [
         str(row.get("body") or "").strip() for row in threads if isinstance(row, dict)
     ]
+    audience_question = str(trend_context.get("audience_question") or "").strip()
+    intent_terms = [
+        term for term in re.findall(r"[가-힣A-Za-z0-9]{2,}", audience_question)
+        if term not in {"어떻게", "무엇을", "무엇이", "어떤", "있나요", "인가요", "할까요", "위해서"}
+    ]
+    intent_hits = sum(
+        1 for term in set(intent_terms)
+        if term.casefold() in (blog_title + " " + body).casefold()
+    )
+    intent_is_measurable = len(set(intent_terms)) >= 2
+    hook = str(shorts.get("hook") or "").strip()
+    hook_patterns = ("?", "왜", "놓치", "모르", "차이", "실수", "바로", "단 ", "3가지", "5가지", "반전", "하지만", "그런데")
+    hook_has_pattern = any(pattern in hook for pattern in hook_patterns)
     checks = [
-        ("blog_length", "블로그 본문 1,200자 이상", len(body.strip()) >= 1200, 15),
+        ("blog_length", "블로그 본문 1,200자 이상", len(body.strip()) >= 1200, 10),
         ("blog_headings", "블로그 소제목 3개 이상", headings >= 3, 10),
-        ("keyword_alignment", "핵심 키워드가 제목과 본문에 포함", bool(keyword and keyword.casefold() in blog_title.casefold() and keyword.casefold() in body.casefold()), 10),
+        ("keyword_title", "핵심 키워드가 제목에 포함", bool(keyword and keyword.casefold() in blog_title.casefold()), 5),
+        ("keyword_body", "핵심 키워드가 본문에 포함", bool(keyword and keyword.casefold() in body.casefold()), 5),
+        ("search_intent", "독자 질문의 핵심어가 제목·본문에 반영", intent_is_measurable and intent_hits >= min(2, len(set(intent_terms))), 10),
         ("blog_meta", "검색 설명 60~160자", 60 <= len(str(blog.get("meta_description") or "").strip()) <= 160, 5),
         ("shorts_scene_count", "쇼츠 장면 6~8개", 6 <= len(scenes) <= 8, 10),
-        ("shorts_hook", "쇼츠 첫 3초 후킹 문장", bool(str(shorts.get("hook") or "").strip()) and len(str(shorts.get("hook") or "").strip()) >= 8, 10),
+        ("shorts_hook", "쇼츠 첫 3초 후킹 문장", bool(hook) and len(hook) >= 8, 5),
+        ("shorts_hook_pattern", "질문·문제·대비 등 후킹 장치 포함", hook_has_pattern, 5),
         ("shorts_cta", "쇼츠 마무리 행동 유도", bool(str(shorts.get("closing_cta") or "").strip()), 5),
         ("shorts_scene_detail", "각 장면에 화면·자막·내레이션 존재", bool(scenes) and all(isinstance(s, dict) and all(str(s.get(k) or "").strip() for k in ("visual", "caption", "narration")) for s in scenes), 10),
         ("threads_pair", "Threads 독립 초안 2개 및 500자 제한", len(thread_bodies) == 2 and all(0 < len(text) <= 500 for text in thread_bodies), 10),
@@ -515,7 +534,7 @@ def _make_preview(
             search_recency_filter="week",
         )
         package = _parse_content_package(result.answer)
-        quality_report = _evaluate_content_quality(package, keyword)
+        quality_report = _evaluate_content_quality(package, keyword, item)
         return {
             "keyword": keyword,
             "quality_report": quality_report,
@@ -556,7 +575,7 @@ def _make_preview(
     }
     return {
         "keyword": keyword,
-        "quality_report": _evaluate_content_quality(offline_package, keyword),
+        "quality_report": _evaluate_content_quality(offline_package, keyword, item),
         "knowledge_id": knowledge.id,
         "strategy_insights": strategy_insights or [],
         "created_at": utc_now(),
