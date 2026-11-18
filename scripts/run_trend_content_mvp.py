@@ -968,6 +968,7 @@ def _page(
             + "".join('<li><a href="' + escape(str(url), quote=True) + '" target="_blank" rel="noopener">' + escape(str(url)) + '</a></li>' for url in source_integrity.get("sources", []))
             + '</ul><p class="meta">' + escape(str(source_integrity.get("scope_note", ""))) + '</p></div>'
         )
+        quality_report = preview.get("quality_report") or {}
         search_intent = quality_report.get("search_intent") or {}
         search_intent_html = (
             '<div class="toolbar"><b>검색 의도 점검: '
@@ -978,7 +979,6 @@ def _page(
             + escape(", ".join(search_intent.get("answer_cues", [])) or "발견되지 않음")
             + '</p><p class="meta">' + escape(str(search_intent.get("scope_note", ""))) + '</p></div>'
         )
-        quality_report = preview.get("quality_report") or {}
         quality_feedback_html = (
             '<div class="toolbar"><b>콘텐츠 구조 품질 체크: '
             + escape(str(quality_report.get("score", 0))) + '/100 · '
