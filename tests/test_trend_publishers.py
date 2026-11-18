@@ -222,7 +222,7 @@ class TrendPublisherTests(unittest.TestCase):
     def test_unsupported_platform_fails_closed_without_calling_threads(self):
         with patch("content_engine.trend_publishers.ThreadsClient.from_environment") as factory:
             with self.assertRaisesRegex(PermanentPublishError, "아직 준비되지 않았습니다"):
-                publish("tiktok", {"body": "본문"}, "queue-key")
+                publish("snapchat", {"body": "본문"}, "queue-key")
         factory.assert_not_called()
 
     def test_invalid_threads_text_fails_before_api_call(self):
