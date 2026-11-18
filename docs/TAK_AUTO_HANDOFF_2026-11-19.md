@@ -60,3 +60,16 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 
 ## 새 대화에서 이어갈 시작 지시
 “탁자동 개발을 이어간다. 먼저 GitHub 저장소 sopptak/tak-auto의 PR #3과 feature/trend-content-factory-mvp 최신 head SHA를 다시 조회하라. 이 인수인계 문서와 현재 코드/CI 결과를 대조한 뒤, 안전 설정과 미병합 상태를 유지하면서 다음 미완료 개발 작업을 수행하라. 각 단계마다 실제 수정 파일, 커밋 SHA, 테스트 명령과 결과, MVP 기능 완성도 및 운영 준비도를 보고하라. 사용자에게 물어보지 말고 진행하되, 병합·배포·외부 게시·유료 리소스 생성·실계정 API 호출은 별도 승인 없이 실행하지 말라.”
+
+
+## 2026-11-19 추가 진행 기록
+- 운영 개시 및 장애 대응 체크리스트를 `docs/TAK_AUTO_OPERATIONS_RUNBOOK.md`로 추가했다.
+- 운영 체크리스트 커밋: `e3c25eaf4ea9bea2000d75dc1740b94e9c6c108c`
+- PR #3은 Draft / Open / 미병합 상태를 유지한다.
+- `f9cdc21468f0d18f98dd53592ad18ca0cc21c7f2` 기준 TAK SCOUT research tests 성공, TAK AUTO trend content MVP tests 성공.
+- 같은 SHA의 Python 전체 테스트 workflow는 실행 중 취소됨(cancelled). 전체 회귀 테스트 통과로 보고하지 않는다.
+- 후속 문서 커밋 `e3c25eaf4ea9bea2000d75dc1740b94e9c6c108c` 기준 GitHub Actions workflow run은 아직 조회되지 않았다. 따라서 최신 head SHA에 대한 CI 결과는 미확정이다.
+- 운영 체크리스트는 코드 기반 확인과 Render/SNS 운영자가 직접 수행해야 할 확인을 구분하며, Render 배포·SNS 연결·실제 게시 완료를 주장하지 않는다.
+
+## 최신 재개 지시 추가
+최신 브랜치 head는 인수인계 파일 자체가 갱신될 수 있으므로, 재개 시 PR #3의 head SHA를 다시 확인한다. 최신 head에서 GitHub Actions가 자동 시작되지 않으면 저장소 Actions 화면에서 최신 브랜치의 워크플로를 수동 실행하거나, 적절한 권한으로 재실행할 수 있는 절차를 확인한다. 이전 SHA에서 성공한 테스트를 최신 SHA의 통과 결과로 대체하지 않는다.
