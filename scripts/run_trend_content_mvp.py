@@ -1246,6 +1246,27 @@ def _page(
             '<div class="toolbar"><b>수정 전후 비교 · ' + str(len(editorial_revisions)) + '건</b>'
             + "".join(revision_cards) + '</div>'
         ) if editorial_revisions else ""
+        editorial_history = preview.get("editorial_history") or []
+        history_cards = []
+        for history in editorial_history:
+            if history.get("reverted_at"):
+                history_action = '<p class="meta">원문 복구 완료</p>'
+            else:
+                history_action = (
+                    f'<form method="post" action="/editorial/revert"><input type="hidden" name="preview_index" value="{preview_index}">'
+                    f'<input type="hidden" name="revision_id" value="{escape(str(history.get("revision_id", "")), quote=True)}">'
+                    '<button type="submit" class="secondary">이 수정 적용 되돌리기</button></form>'
+                )
+            history_cards.append(
+                '<article class="draft"><b>' + escape(str(history.get("target", ""))) + '</b>'
+                + '<p class="meta">적용 전</p><pre>' + escape(str(history.get("before", ""))) + '</pre>'
+                + '<p class="meta">적용 후</p><pre>' + escape(str(history.get("after", ""))) + '</pre>'
+                + history_action + '</article>'
+            )
+        editorial_history_html = (
+            '<div class="toolbar"><b>수정 이력 및 복구 · ' + str(len(editorial_history)) + '건</b>'
+            + "".join(history_cards) + '</div>'
+        ) if editorial_history else ""
         quality_report = preview.get("quality_report") or {}
         search_intent = quality_report.get("search_intent") or {}
         search_intent_html = (
@@ -1275,6 +1296,7 @@ def _page(
   {search_intent_html}
   {editorial_recommendations_html}
   {editorial_revisions_html}
+  {editorial_history_html}
   {source_feedback_html}\n  {claim_feedback_html}
   {strategy_feedback_html}
   <h3>네이버 블로그 · {escape(str(blog.get('title', '')))}</h3>
