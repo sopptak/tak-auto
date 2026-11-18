@@ -50,6 +50,7 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))).expanduser()
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -97,7 +98,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--queue-history",
         type=Path,
-        default=Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))) / "tak_auto_publishing_queue.json",
+        default=DATA_DIR / "tak_auto_publishing_queue.json",
         help="게시 대기열 경로 (--queue-content-id 사용 시)",
     )
     parser.add_argument("--content-id", help="archive/발행 이력의 content_id")
@@ -126,25 +127,25 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--store",
         type=Path,
-        default=ROOT / "data" / "tak_performance.json",
+        default=DATA_DIR / "tak_performance.json",
         help="성과 저장소 경로 (기본값: data/tak_performance.json)",
     )
     parser.add_argument(
         "--publish-history",
         type=Path,
-        default=ROOT / "data" / "threads_publish_log.json",
+        default=DATA_DIR / "threads_publish_log.json",
         help="scheduled 모드의 실제 Threads 발행 이력 경로",
     )
     parser.add_argument(
         "--production-archive",
         type=Path,
-        default=ROOT / "data" / "tak_media_archive.json",
+        default=DATA_DIR / "tak_media_archive.json",
         help="scheduled 모드의 Production Archive 경로",
     )
     parser.add_argument(
         "--threads-pending",
         type=Path,
-        default=ROOT / "data" / "tak_threads_pending.json",
+        default=DATA_DIR / "tak_threads_pending.json",
         help="scheduled 모드의 Threads 게시 완료 상태 경로",
     )
     parser.add_argument(
