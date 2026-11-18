@@ -465,17 +465,26 @@ def _queue_payload_for_platform(
             raise ValueError("이 콘텐츠에는 쇼츠 대본이 없습니다.")
         script = shorts[0]
         title = str(script.get("title") or preview.get("keyword") or "").strip()
+        hashtags = [
+            str(tag).strip().lstrip("#")
+            for tag in (script.get("hashtags") or [])
+            if str(tag).strip().lstrip("#")
+        ]
         if platform == "youtube_shorts":
             return [{
                 "title": title,
                 "description": str(script.get("youtube_description") or ""),
-                "tags": list(script.get("hashtags") or []),
+                "tags": hashtags,
                 "video_path": str(asset.path),
                 "media_asset_id": asset.asset_id,
             }]
+        caption = str(script.get("instagram_caption") or title).strip()
+        missing_hashtags = [f"#{tag}" for tag in hashtags if f"#{tag}" not in caption]
+        if missing_hashtags:
+            caption = caption + "\\n\\n" + " ".join(missing_hashtags)
         return [{
             "title": title,
-            "caption": str(script.get("instagram_caption") or title),
+            "caption": caption,
             "media_asset_id": asset.asset_id,
             "share_to_feed": True,
         }]
