@@ -334,6 +334,47 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertIn("quality_report", preview)
         self.assertIn("claim_coverage", preview)
 
+    def test_revert_editorial_revision_restores_original_and_marks_history(self):
+        preview = {
+            "keyword": "테스트",
+            "blog": {"title": "테스트", "body": "수정 적용된 본문 " * 30},
+            "shorts": [],
+            "threads": [],
+            "facebook": {},
+            "source_urls": [],
+            "editorial_revisions": [{
+                "revision_id": "revision-revert",
+                "target": "blog.body",
+                "base_text": "원래 본문 " * 30,
+                "revised_text": "수정 적용된 본문 " * 30,
+                "status": "applied",
+            }],
+            "editorial_history": [{
+                "revision_id": "revision-revert",
+                "target": "blog.body",
+                "before": "원래 본문 " * 30,
+                "after": "수정 적용된 본문 " * 30,
+            }],
+        }
+        run_trend_content_mvp._revert_editorial_revision(preview, "revision-revert")
+        self.assertEqual(preview["blog"]["body"], "원래 본문 " * 30)
+        self.assertTrue(preview["editorial_history"][0]["reverted_at"])
+        self.assertEqual(preview["editorial_revisions"][0]["status"], "reverted")
+
+    def test_revert_editorial_revision_rejects_newer_manual_changes(self):
+        preview = {
+            "blog": {"body": "사람이 다시 수정한 내용"},
+            "editorial_history": [{
+                "revision_id": "revision-stale-revert",
+                "target": "blog.body",
+                "before": "기존 내용",
+                "after": "AI 수정본",
+            }],
+        }
+        with self.assertRaisesRegex(ValueError, "원문이 다시 변경"):
+            run_trend_content_mvp._revert_editorial_revision(preview, "revision-stale-revert")
+        self.assertEqual(preview["blog"]["body"], "사람이 다시 수정한 내용")
+
     def test_apply_editorial_revision_rejects_stale_original_without_mutation(self):
         preview = {
             "blog": {"body": "이미 다른 사람이 변경한 원문"},
