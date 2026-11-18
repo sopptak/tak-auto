@@ -693,7 +693,7 @@ def _page(
             '<div class="warning"><b>사람이 승인한 성과 참고자료 적용</b><ul>'
             + "".join(
                 f'<li>{escape(str(row.get("platform", "")))} · {escape(str(row.get("metric", "")))} · '
-                f'{escape(str(row.get("result", "")))} · 표본 {int(row.get("sample_size", 0))}건 '
+                f'{escape(str(row.get("result", "")))} · 표본 {escape(str(row.get("sample_size", 0)))}건 '
                 f'({escape(str(row.get("insight_id", "")))})</li>'
                 for row in strategy_insights if isinstance(row, dict)
             )
