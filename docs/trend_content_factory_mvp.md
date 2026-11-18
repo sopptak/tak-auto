@@ -249,4 +249,4 @@ Render 환경에서는 단순히 데이터 경로에 쓰기가 가능한지만 �
 
 게시 이력 저장도 프로세스 공용 잠금으로 동시 append를 직렬화한다. 성과 인사이트와 마찬가지로 이 잠금은 단일 프로세스 범위이며 여러 인스턴스 간 분산 동시성 제어는 아니다.
 
-쇼츠 렌더러는 Windows NotoSansKR/NotoSerifKR를 우선 사용하고, Linux에서는 Noto CJK 정적 폰트와 DejaVu 모노스페이스 폰트로 fallback한다. Render 빌드와 Linux 테스트 환경은 fonts-noto-cjk를 설치해 한글 렌더링 폰트가 누락되지 않도록 한다.
+쇼츠 렌더러는 Windows 한글 폰트를 우선 사용하고, Linux에서는 Noto CJK 정적 폰트와 DejaVu 모노스페이스 폰트로 fallback한다. Render 빌드와 Linux 테스트 환경은 fonts-noto-cjk를 설치해 한글 렌더링 폰트가 누락되지 않도록 한다.
