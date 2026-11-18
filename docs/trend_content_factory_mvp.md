@@ -124,3 +124,12 @@ python scripts/collect_performance.py \
 ```
 
 현재 자동 API 수집은 Threads와 YouTube Shorts만 지원한다. Facebook, Instagram Reels, TikTok의 성과 API 수집은 별도 권한·지표 검증 후 추가한다. `--confirm-live` 없이 실제 API 호출은 거부되며, dry-run은 성과 저장소를 변경하지 않는다.
+
+
+### 성과 수집 운영 주의사항
+
+- 게시 대기열의 `content_id`는 플랫폼별·게시 작업별 식별자다. Threads 2개 초안은 서로 다른 두 개의 ID를 가지므로 각 게시 이력을 따로 추적한다.
+- Threads 실측에는 `THREADS_ACCESS_TOKEN`과 Meta 앱에서 승인된 `threads_manage_insights` 권한이 필요하다.
+- YouTube 실측에는 `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN`이 필요하다.
+- `--confirm-live`는 실제 외부 API 조회를 수행한다. 먼저 `--dry-run`으로 대상과 원격 ID를 확인하고, 운영자가 승인한 경우에만 실제 조회를 실행한다.
+- 게시 성공만으로 성과 수집이 자동 실행되지는 않는다. 게시 이력을 근거로 명시적으로 수집 명령을 실행해야 하며, 수집된 스냅샷은 기존 `data/tak_performance.json`에 append-only로 저장된다.
