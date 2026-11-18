@@ -69,11 +69,31 @@ class MediaAssetStore:
 
     def _save_index(self, rows: list[dict[str, object]]) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=self.data_dir, delete=False) as handle:
-            json.dump(rows, handle, ensure_ascii=False, indent=2)
-            handle.write("\n")
-            temporary = Path(handle.name)
-        temporary.replace(self.index_path)
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=self.data_dir, delete=False) as handle:
+                temporary_path = Path(handle.name)
+                json.dump(rows, handle, ensure_ascii=False, indent=2)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            try:
+                os.chmod(temporary_path, 0o600)
+            except OSError:
+                pass
+            os.replace(temporary_path, self.index_path)
+            temporary_path = None
+            try:
+                directory_fd = os.open(self.data_dir, os.O_RDONLY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+            except OSError:
+                pass
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
 
     def list_assets(self) -> list[MediaAsset]:
         assets = []
@@ -126,6 +146,8 @@ class MediaAssetStore:
                         header += chunk[:12 - len(header)]
                     handle.write(chunk)
                     written += len(chunk)
+                handle.flush()
+                os.fsync(handle.fileno())
             if len(header) < 12 or header[4:8] != b"ftyp":
                 raise MediaAssetError("업로드 파일이 올바른 MP4 컨테이너가 아닙니다.")
             temporary_path.replace(final_path)
