@@ -93,9 +93,25 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         )
         self.assertTrue(preview["knowledge_id"].startswith("trend-preview-"))
         self.assertEqual(preview["source_urls"][0], "https://example.test/source")
-        self.assertEqual(preview["knowledge_id"], "trend-preview-" + __import__("hashlib").sha256(
-            "테스트 키워드".encode("utf-8")
-        ).hexdigest()[:16])
+        identity_payload = json.dumps(
+            {"keyword": "테스트 키워드", "source_urls": ["https://example.test/source"]},
+            ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        )
+        expected_id = "trend-preview-" + __import__("hashlib").sha256(
+            identity_payload.encode("utf-8")
+        ).hexdigest()[:16]
+        self.assertEqual(preview["knowledge_id"], expected_id)
+
+        # Same topic + same source set is stable; a different source event gets a new lineage.
+        repeated = run_trend_content_mvp._make_preview(
+            item, {"citations": []}, provider=provider,
+        )
+        self.assertEqual(repeated["knowledge_id"], preview["knowledge_id"])
+        different_event = dict(item, source_urls=["https://example.test/another-event"])
+        other_preview = run_trend_content_mvp._make_preview(
+            different_event, {"citations": []}, provider=provider,
+        )
+        self.assertNotEqual(other_preview["knowledge_id"], preview["knowledge_id"])
 
     def test_content_package_preserves_facebook_specific_copy(self):
         package = self._valid_package()
