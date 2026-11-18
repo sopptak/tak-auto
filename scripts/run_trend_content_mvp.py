@@ -534,10 +534,14 @@ def _evaluate_content_quality(
         str(row.get("body") or "").strip() for row in threads if isinstance(row, dict)
     ]
     audience_question = str(trend_context.get("audience_question") or "").strip()
-    intent_terms = [
-        term for term in re.findall(r"[가-힣A-Za-z0-9]{2,}", audience_question)
-        if term not in {"어떻게", "무엇을", "무엇이", "어떤", "있나요", "인가요", "할까요", "위해서"}
-    ]
+    intent_terms = []
+    for raw_term in re.findall(r"[가-힣A-Za-z0-9]{2,}", audience_question):
+        term = re.sub(
+            r"(에서|으로|까지|부터|하나요|인가요|할까요|습니다|합니다|하세요|은|는|이|가|을|를|의|에|로|와|과|도|만)$",
+            "", raw_term,
+        )
+        if len(term) >= 2 and term not in {"어떻게", "무엇을", "무엇이", "어떤", "있나요", "위해서"}:
+            intent_terms.append(term)
     intent_hits = sum(
         1 for term in set(intent_terms)
         if term.casefold() in (blog_title + " " + body).casefold()
