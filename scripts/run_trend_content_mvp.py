@@ -47,10 +47,22 @@ from tak_scout.trend_discovery import TrendDiscovery, TrendItem, discover_trends
 
 KST = ZoneInfo("Asia/Seoul")
 STATE_MUTATION_LOCK = threading.RLock()
+def _has_persistent_mount(path: Path) -> bool:
+    """Return true when path or one of its parents is an actual mount point."""
+    candidate = path.expanduser().absolute()
+    while True:
+        if os.path.ismount(candidate):
+            return True
+        if candidate.parent == candidate:
+            return False
+        candidate = candidate.parent
+
 def _resolve_writable_data_dir(configured: Path) -> tuple[Path, bool]:
     """Use the configured data directory when writable; otherwise use ephemeral /tmp."""
-    candidates = [(configured, False)]
     fallback = Path(tempfile.gettempdir()) / "tak-auto-data"
+    is_render = bool(os.getenv("RENDER_SERVICE_ID") or os.getenv("RENDER_GIT_COMMIT"))
+    # On Render, a writable directory is not proof that the Persistent Disk mounted.
+    candidates = [(configured, False)] if not is_render or _has_persistent_mount(configured) else []
     if fallback != configured:
         candidates.append((fallback, True))
     for candidate, is_fallback in candidates:
