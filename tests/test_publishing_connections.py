@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from content_engine.youtube_publisher import YouTubeClient
 from content_engine.publishing_connections import (
     connection_dashboard, publishing_connection_statuses, verify_publishing_connection,
 )
@@ -187,7 +188,7 @@ class PublishingConnectionTests(unittest.TestCase):
         }
         with patch("content_engine.social_oauth.OAuthTokenVault") as vault_type:
             with patch.object(
-                __import__("content_engine.youtube_publisher", fromlist=["YouTubeClient"]).YouTubeClient,
+                YouTubeClient,
                 "get_channel_profile",
                 return_value=SimpleNamespace(channel_id="oauth-channel-id", title="OAuth channel"),
             ) as profile_check:
