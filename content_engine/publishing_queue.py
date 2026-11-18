@@ -282,9 +282,14 @@ class PublishingQueue:
                 payload_for_adapter = dict(item["payload"])
                 payload_for_adapter["_content_id"] = item["content_id"]
                 remote_id = publisher(item["platform"], payload_for_adapter, key)
+                normalized_remote_id = str(remote_id or "").strip()
+                if not normalized_remote_id:
+                    raise PublishUncertainError(
+                        "게시 응답에 외부 게시 ID가 없습니다. 플랫폼 게시 여부를 확인하세요."
+                    )
                 record = {
                     "content_id": item["content_id"], "platform": item["platform"],
-                    "remote_id": str(remote_id), "published_at": _iso(current),
+                    "remote_id": normalized_remote_id, "published_at": _iso(current),
                     "idempotency_key": key,
                     "knowledge_id": str(item["payload"].get("_knowledge_id") or ""),
                     "source_url": str(item["payload"].get("_source_url") or ""),
