@@ -223,6 +223,36 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         report = run_trend_content_mvp._evaluate_claim_citation_coverage(package, [url])
         self.assertEqual(report["unlinked_count"], 1)
 
+    def test_editorial_recommendations_are_actionable_and_preserve_original_claim(self):
+        quality = {
+            "warnings": ["쇼츠 첫 3초 후킹 문장"],
+            "search_intent": {
+                "type": "절차형",
+                "audience_question": "어떻게 신청하나요?",
+                "answer_cue_present": False,
+            },
+        }
+        claims = {
+            "claims": [{
+                "section": "블로그",
+                "claim": "2026년 지원금은 300만원으로 확정됐습니다.",
+                "citation_attached": False,
+            }]
+        }
+        proposals = run_trend_content_mvp._build_editorial_recommendations(quality, claims)
+        self.assertGreaterEqual(len(proposals), 3)
+        claim_proposal = next(row for row in proposals if row["area"] == "블로그")
+        self.assertEqual(claim_proposal["original"], "2026년 지원금은 300만원으로 확정됐습니다.")
+        self.assertIn("원문을 열어", claim_proposal["proposal"])
+        self.assertTrue(all("proposal" in row and "reason" in row for row in proposals))
+
+    def test_editorial_recommendations_are_empty_when_all_checks_pass(self):
+        proposals = run_trend_content_mvp._build_editorial_recommendations(
+            {"warnings": [], "search_intent": {"answer_cue_present": True}},
+            {"claims": [{"claim": "근거 URL이 연결된 문장", "citation_attached": True}]},
+        )
+        self.assertEqual(proposals, [])
+
     def test_search_intent_diagnostic_classifies_comparison_and_checks_answer_cues(self):
         package = self._valid_package()
         package["blog"]["title"] = "스마트안경 비교와 선택 기준"
