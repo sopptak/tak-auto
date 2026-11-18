@@ -236,6 +236,14 @@ class TrendPublisherTests(unittest.TestCase):
         self.assertEqual(calls[0][2]["access_token"], "page-access-token")
         self.assertEqual(calls[0][2]["fields"]["message"], "승인된 Facebook 페이지 문안")
 
+    def test_facebook_transport_rejects_untrusted_hosts_before_network_call(self):
+        from content_engine.facebook_publisher import FacebookAPIError, _request_json
+        with patch("content_engine.facebook_publisher.urlopen") as opener:
+            with self.assertRaises(FacebookAPIError):
+                _request_json("POST", "https://example.com/v27.0/123/feed",
+                              access_token="page-token", fields={"message": "문안"})
+        opener.assert_not_called()
+
     def test_facebook_adapter_requires_page_publish_scopes(self):
         with patch.dict("os.environ", {
             "TAK_AUTO_DATA_DIR": str(self.data_dir),
