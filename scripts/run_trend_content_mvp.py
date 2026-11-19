@@ -49,6 +49,8 @@ from tak_scout.trend_discovery import TrendDiscovery, TrendItem, discover_trends
 KST = ZoneInfo("Asia/Seoul")
 STATE_MUTATION_LOCK = threading.RLock()
 _JSON_REPLACE_LOCK = threading.Lock()
+_AI_PROVIDER_ACTION_LOCK = threading.Lock()
+_AI_PROVIDER_ACTION_IN_FLIGHT = False
 def _has_persistent_mount(path: Path) -> bool:
     """Check the configured data directory itself, which matches Render mountPath."""
     return os.path.ismount(path.expanduser().absolute())
@@ -1718,20 +1720,56 @@ def create_handler():
             # Serialize state-changing form requests so read-modify-write flows
             # cannot overwrite each other's JSON snapshots. Large media uploads
             # use their own asset-store path and do not hold this lock.
-            if urlparse(self.path).path == "/media/assets/upload":
+            global _AI_PROVIDER_ACTION_IN_FLIGHT
+            request_path = urlparse(self.path).path
+            if request_path == "/media/assets/upload":
                 self._do_post_impl()
+                return
+            if self.path in {"/discover", "/generate", "/editorial/revise"}:
+                if not self._validate_post_security():
+                    return
+                with _AI_PROVIDER_ACTION_LOCK:
+                    if _AI_PROVIDER_ACTION_IN_FLIGHT:
+                        action_in_flight = True
+                    else:
+                        _AI_PROVIDER_ACTION_IN_FLIGHT = True
+                        action_in_flight = False
+                if action_in_flight:
+                    self.close_connection = True
+                    report = _read_json(TREND_PATH, {})
+                    previews = _read_json(PREVIEW_PATH, [])
+                    self._respond(
+                        _page(
+                            report, previews,
+                            "다른 AI 요청이 진행 중입니다. 완료된 뒤 다시 시도하세요.",
+                            PublishingQueue(QUEUE_PATH).snapshot(),
+                        ),
+                        429,
+                    )
+                    return
+                try:
+                    with STATE_MUTATION_LOCK:
+                        self._do_post_impl(request_security_checked=True)
+                finally:
+                    with _AI_PROVIDER_ACTION_LOCK:
+                        _AI_PROVIDER_ACTION_IN_FLIGHT = False
                 return
             with STATE_MUTATION_LOCK:
                 self._do_post_impl()
 
-        def _do_post_impl(self):
+        def _validate_post_security(self) -> bool:
             if not self._require_auth():
-                return
+                return False
             host = self.headers.get("Host", "")
             origin = self.headers.get("Origin", "")
             forwarded_proto = self.headers.get("X-Forwarded-Proto", "http")
             if not _same_origin(origin, host, forwarded_proto, os.getenv("TAK_AUTO_PUBLIC_URL", "")):
                 self._respond(_page(_read_json(TREND_PATH, {}), [], "허용되지 않은 출처의 요청입니다."), 403)
+                return False
+            return True
+
+        def _do_post_impl(self, *, request_security_checked: bool = False):
+            if not request_security_checked and not self._validate_post_security():
                 return
             if urlparse(self.path).path == "/media/assets/upload":
                 try:
