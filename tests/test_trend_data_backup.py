@@ -116,6 +116,31 @@ class TrendDataBackupTests(unittest.TestCase):
                 self.assertFalse(archive.exists())
                 self.assertEqual(list(self.root.glob(f".{archive.name}.*")), [])
 
+    def test_create_rejects_new_source_file_added_during_backup(self):
+        original_verify = trend_data_backup._verify_zip_archive
+        for label, passphrase in (
+            ("plaintext", None),
+            ("encrypted", "correct horse battery staple"),
+        ):
+            with self.subTest(mode=label):
+                archive = self.root / f"backup-new-file-{label}.zip"
+                late_file = self.source / "late-added.json"
+
+                def verify_then_add_file(path):
+                    manifest = original_verify(path)
+                    late_file.write_text('{"arrived":"during backup"}\n', encoding="utf-8")
+                    return manifest
+
+                with patch.object(
+                    trend_data_backup, "_verify_zip_archive", side_effect=verify_then_add_file,
+                ):
+                    with self.assertRaisesRegex(BackupError, "파일 목록이 변경"):
+                        create_backup(self.source, archive, passphrase=passphrase)
+
+                self.assertFalse(archive.exists())
+                self.assertEqual(list(self.root.glob(f".{archive.name}.*")), [])
+                late_file.unlink()
+
     def test_create_refuses_to_overwrite_existing_archive(self):
         self.archive.write_bytes(b"keep this")
         with self.assertRaisesRegex(BackupError, "이미 있습니다"):

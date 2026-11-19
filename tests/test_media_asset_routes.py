@@ -42,8 +42,8 @@ class MediaAssetRouteTests(unittest.TestCase):
         self.thread.join(timeout=2)
 
     def _upload(self, *, authorization=True, origin="https://tak-auto.example.test",
-                content_type="video/mp4"):
-        payload = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 128
+                content_type="video/mp4", body=None):
+        payload = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 128 if body is None else body
         headers = {
             "Content-Type": content_type,
             "Content-Length": str(len(payload)),
@@ -95,7 +95,10 @@ class MediaAssetRouteTests(unittest.TestCase):
         self.assertEqual(origin_error.exception.code, 403)
 
     def test_upload_rejects_wrong_content_type(self):
-        _, request = self._upload(content_type="application/octet-stream")
+        # This route rejects the content type before reading the body. Keep this
+        # negative request bodyless so Windows does not reset the loopback socket
+        # while the server closes a connection with unread upload bytes.
+        _, request = self._upload(content_type="application/octet-stream", body=b"")
         with self.assertRaises(HTTPError) as error:
             urlopen(request, timeout=5)
         self.assertEqual(error.exception.code, 415)

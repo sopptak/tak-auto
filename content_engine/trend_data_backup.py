@@ -309,6 +309,18 @@ def create_backup(
                 )
             _verify_zip_archive(zip_temporary_name)
             candidate_name = zip_temporary_name
+        expected_paths = [entry["path"] for entry in entries]
+        current_paths = []
+        for path in sorted(source.rglob("*")):
+            if path.is_symlink():
+                raise BackupError(f"백업 중 원본에 심볼릭 링크가 생겼습니다: {path.relative_to(source)}")
+            if path.is_dir():
+                continue
+            if not path.is_file():
+                raise BackupError(f"백업 중 원본에 일반 파일이 아닌 항목이 생겼습니다: {path.relative_to(source)}")
+            current_paths.append(_safe_relative_path(path.relative_to(source).as_posix()))
+        if current_paths != expected_paths:
+            raise BackupError("백업 중 원본 파일 목록이 변경되었습니다. 데이터 쓰기를 멈춘 뒤 다시 시도하세요.")
         if os.name == "posix":
             with open(candidate_name, "rb+") as handle:
                 os.fsync(handle.fileno())
