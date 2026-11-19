@@ -19,6 +19,7 @@ from content_engine.trend_data_backup import (
     restore_backup,
     verify_backup,
 )
+from content_engine import trend_data_backup
 from scripts import backup_trend_factory_data as backup_cli
 
 
@@ -82,6 +83,20 @@ class TrendDataBackupTests(unittest.TestCase):
     def test_encryption_requires_a_long_passphrase_and_leaves_no_archive(self):
         with self.assertRaisesRegex(BackupError, "16자 이상"):
             create_backup(self.source, self.archive, passphrase="too-short")
+        self.assertFalse(self.archive.exists())
+        self.assertEqual(list(self.root.glob(".backup.zip.*")), [])
+
+    def test_encrypted_create_rejects_source_changed_during_archive_write(self):
+        original_writer = trend_data_backup._write_encrypted_zip
+
+        def write_then_change_source(files, manifest, destination, passphrase):
+            (self.source / "queue.json").write_text('[{"id":"changed"}]\\n', encoding="utf-8")
+            original_writer(files, manifest, destination, passphrase)
+
+        with patch.object(trend_data_backup, "_write_encrypted_zip", side_effect=write_then_change_source):
+            with self.assertRaisesRegex(BackupError, "검증에 실패"):
+                create_backup(self.source, self.archive, passphrase="correct horse battery staple")
+
         self.assertFalse(self.archive.exists())
         self.assertEqual(list(self.root.glob(".backup.zip.*")), [])
 
