@@ -28,6 +28,7 @@ import unittest
 from unittest import mock
 
 from content_engine.performance.store import load_snapshots
+from content_engine.instagram_publisher import InstagramClient
 from content_engine.threads_publisher import ThreadsClient
 from content_engine.youtube_publisher import YouTubeClient
 from scripts.collect_performance import _guard_live_network_call, main as collect_performance_main
@@ -71,6 +72,13 @@ class GuardLiveNetworkCallPureFunctionTests(unittest.TestCase):
             error = _guard_live_network_call("youtube", dry_run=False, confirm_live=True)
         self.assertIsNotNone(error)
 
+    def test_instagram_confirm_live_is_gated_like_other_network_collectors(self):
+        error = _guard_live_network_call("instagram", dry_run=False, confirm_live=False, environ={})
+        self.assertIn("--confirm-live", error)
+        self.assertIsNone(
+            _guard_live_network_call("instagram", dry_run=False, confirm_live=True, environ={})
+        )
+
 
 class CollectPerformanceLiveGateCLITests(unittest.TestCase):
     def setUp(self):
@@ -85,7 +93,11 @@ class CollectPerformanceLiveGateCLITests(unittest.TestCase):
         return exit_code, stdout.getvalue(), stderr.getvalue()
 
     def _assert_client_never_created(self, client_cls, argv: list[str]) -> tuple[int, str, str]:
-        factory_name = "from_environment_or_oauth" if client_cls is YouTubeClient else "from_environment"
+        factory_name = (
+            "from_environment_or_oauth"
+            if client_cls in {YouTubeClient, InstagramClient}
+            else "from_environment"
+        )
         with mock.patch.object(
             client_cls, factory_name, side_effect=AssertionError("실제 API가 호출되면 안 됩니다")
         ) as mocked:
@@ -126,6 +138,28 @@ class CollectPerformanceLiveGateCLITests(unittest.TestCase):
         self.assertEqual(exit_code, 1)
         self.assertFalse(self.store_path.exists())
         self.assertIn("--confirm-live", stderr)
+
+    def test_instagram_without_any_flag_never_creates_client(self):
+        exit_code, _stdout, stderr = self._assert_client_never_created(
+            InstagramClient,
+            ["--platform", "instagram", "--content-id", "content-ig-1",
+             "--knowledge-id", "knowledge-ig-1", "--published-at", "2026-09-10T00:00:00+00:00",
+             "--external-id", "17890000000000001", "--store", str(self.store_path)],
+        )
+        self.assertEqual(exit_code, 1)
+        self.assertFalse(self.store_path.exists())
+        self.assertIn("--confirm-live", stderr)
+
+    def test_instagram_dry_run_never_creates_client(self):
+        exit_code, stdout, _stderr = self._assert_client_never_created(
+            InstagramClient,
+            ["--platform", "instagram", "--content-id", "content-ig-1",
+             "--knowledge-id", "knowledge-ig-1", "--published-at", "2026-09-10T00:00:00+00:00",
+             "--external-id", "17890000000000001", "--store", str(self.store_path), "--dry-run"],
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertIn("likes/comments", stdout)
+        self.assertFalse(self.store_path.exists())
 
     # --- 3. --confirm-live면 진행된다(단, from_environment는 mock으로 대체) -------
 
@@ -181,6 +215,30 @@ class CollectPerformanceLiveGateCLITests(unittest.TestCase):
         self.assertIn("성공", output)
         snapshots = load_snapshots(self.store_path)
         self.assertEqual(snapshots[0].metrics, {"views": 10})
+
+    def test_instagram_confirm_live_uses_mocked_client_and_stores_metrics(self):
+        fake_client = InstagramClient(
+            access_token="fake-token", instagram_user_id="17840000000000000",
+            transport=lambda method, url, **kwargs: {
+                "id": "17890000000000001", "media_type": "REELS",
+                "like_count": 8, "comments_count": 3,
+            },
+        )
+        with mock.patch.dict("os.environ", {}, clear=True), mock.patch.object(
+            InstagramClient, "from_environment_or_oauth", return_value=fake_client
+        ) as client_factory:
+            exit_code, output, _stderr = self._run([
+                "--platform", "instagram", "--content-id", "content-ig-1",
+                "--knowledge-id", "knowledge-ig-1", "--published-at", "2026-09-10T00:00:00+00:00",
+                "--external-id", "17890000000000001", "--store", str(self.store_path), "--confirm-live",
+            ])
+        self.assertEqual(exit_code, 0)
+        client_factory.assert_called_once_with()
+        self.assertIn("성공", output)
+        snapshot = load_snapshots(self.store_path)[0]
+        self.assertEqual(snapshot.platform, "instagram")
+        self.assertEqual(snapshot.metrics, {"likes": 8, "comments": 3})
+        self.assertEqual(snapshot.source, "instagram_api")
 
     # --- 4. GitHub Actions에서는 --confirm-live도 거부된다 -----------------------
 

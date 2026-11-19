@@ -8,9 +8,9 @@ scheduled Threads collection은 `--scheduled`로 기존 publish history, Perform
 store, Threads Insights collector를 재사용한다. GitHub Actions live 호출에는 전용
 opt-in 환경변수와 `--confirm-live`가 모두 필요하다.
 
-6-02 안전장치: platform=threads/youtube는 ``--dry-run``도 ``--confirm-live``도
-주지 않으면 **아무 것도 하지 않고 거부한다**(에러 메시지만 출력하고 종료 코드
-1). 6-01에서 이 Codespace 환경에 실제 THREADS_ACCESS_TOKEN/YOUTUBE_*가 이미
+6-02 안전장치: platform=threads/youtube/instagram은 ``--dry-run``도
+``--confirm-live``도 주지 않으면 **아무 것도 하지 않고 거부한다**(에러 메시지만
+출력하고 종료 코드 1). 6-01에서 이 Codespace 환경에 실제 THREADS_ACCESS_TOKEN/YOUTUBE_*가 이미
 존재한다는 사실이 확인됐기 때문에, "--dry-run을 깜빡 빼먹은 실행"이 곧바로
 실제 API 호출로 이어지는 위험을 막기 위함이다. 실제 호출을 원하면 명시적으로
 ``--confirm-live``를 줘야 한다. GitHub Actions 환경(``GITHUB_ACTIONS=true``)에서는
@@ -58,10 +58,12 @@ from content_engine.performance.blog import build_manual_blog_performance_record
 from content_engine.media_archive import load_archive
 from content_engine.performance.schedule import select_due_threads_targets
 from content_engine.performance.store import append_snapshot, load_snapshots
+from content_engine.performance.instagram import collect_instagram_performance
 from content_engine.performance.threads import collect_threads_performance
 from content_engine.performance.youtube import collect_youtube_performance
 from content_engine.publish_history import PublishHistory
 from content_engine.publishing_queue import PublishingQueue
+from content_engine.instagram_publisher import InstagramAPIError, InstagramConfigurationError, InstagramClient
 from content_engine.threads_publisher import ThreadsAPIError, ThreadsConfigurationError, ThreadsClient
 from content_engine.threads_review import load_pending
 from content_engine.youtube_publisher import YouTubeConfigurationError, YouTubeClient
@@ -90,7 +92,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="publish history에서 lineage가 확인된 Threads 게시물의 due 24h/72h snapshot을 수집합니다.",
     )
-    parser.add_argument("--platform", choices=("threads", "youtube", "blog"))
+    parser.add_argument("--platform", choices=("threads", "youtube", "instagram", "blog"))
     parser.add_argument(
         "--queue-content-id",
         help="TAK AUTO 게시 대기열의 content_id로 발행 이력을 찾아 성과 수집 대상을 자동 지정합니다.",
@@ -151,13 +153,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="실제 API 호출(threads/youtube)과 저장을 하지 않고, 무엇을 할지만 출력한다.",
+        help="실제 API 호출(threads/youtube/instagram)과 저장을 하지 않고, 무엇을 할지만 출력한다.",
     )
     parser.add_argument(
         "--confirm-live",
         action="store_true",
-        help="platform=threads/youtube에서 실제 API를 호출하겠다는 명시적 동의(6-02). "
-        "--dry-run도 이 플래그도 없으면 threads/youtube는 아무 것도 하지 않고 거부한다.",
+        help="platform=threads/youtube/instagram에서 실제 API를 호출하겠다는 명시적 동의. "
+        "--dry-run도 이 플래그도 없으면 아무 것도 하지 않고 거부한다.",
     )
     return parser
 
@@ -302,12 +304,12 @@ def _resolve_queue_history_target(args: argparse.Namespace, parser: argparse.Arg
             f"정확히 1건이어야 합니다(현재 {len(matches)}건)."
         )
     row = matches[0]
-    platform_map = {"threads": "threads", "youtube_shorts": "youtube"}
+    platform_map = {"threads": "threads", "youtube_shorts": "youtube", "instagram_reels": "instagram"}
     platform = platform_map.get(str(row.get("platform") or ""))
     if platform is None:
         parser.error(
             f"플랫폼 {row.get('platform')!r}은 아직 성과 API 수집 대상이 아닙니다. "
-            "현재 자동 연결은 Threads와 YouTube Shorts만 지원합니다."
+            "현재 자동 연결은 Threads, YouTube Shorts, Instagram Reels를 지원합니다."
         )
     required = {
         "content_id": str(row.get("content_id") or ""),
@@ -405,6 +407,35 @@ def main(argv: list[str] | None = None) -> int:
             metric_collected_at=collected_at,
             title=args.title,
         )
+        added = append_snapshot(args.store, record)
+        _print_result(added, record, args.store)
+        return 0
+
+    if args.platform == "instagram":
+        guard_error = _guard_live_network_call("instagram", args.dry_run, args.confirm_live)
+        if guard_error is not None:
+            print(f"오류: {guard_error}", file=sys.stderr)
+            return 1
+        if args.dry_run:
+            print(
+                f"[dry-run] Instagram media stats 조회 예정: content_id={args.content_id}, "
+                f"media_id={args.external_id} (실제 API 호출하지 않음; likes/comments만 수집)"
+            )
+            return 0
+        try:
+            client = InstagramClient.from_environment_or_oauth()
+            record = collect_instagram_performance(
+                client,
+                media_id=args.external_id,
+                content_id=args.content_id,
+                knowledge_id=args.knowledge_id,
+                published_at=args.published_at,
+                metric_collected_at=collected_at,
+                title=args.title,
+            )
+        except (InstagramAPIError, InstagramConfigurationError, OSError, ValueError) as error:
+            print(f"오류: Instagram 성과를 수집하지 못했습니다: {type(error).__name__}: {error}", file=sys.stderr)
+            return 1
         added = append_snapshot(args.store, record)
         _print_result(added, record, args.store)
         return 0

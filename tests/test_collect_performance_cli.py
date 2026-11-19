@@ -96,6 +96,22 @@ class CollectPerformanceCLITests(unittest.TestCase):
         self.assertIn("video_id=youtube-video-456", output)
         self.assertFalse(self.store_path.exists())
 
+    def test_queue_content_id_maps_instagram_reels_to_instagram_performance(self):
+        queue_path = self._write_queue_history(
+            platform="instagram_reels", remote_id="17890000000000001",
+            content_id="trend-content-instagram-1",
+        )
+        exit_code, output = self._run([
+            "--queue-content-id", "trend-content-instagram-1",
+            "--queue-history", str(queue_path),
+            "--store", str(self.store_path),
+            "--dry-run",
+        ])
+        self.assertEqual(exit_code, 0)
+        self.assertIn("content_id=trend-content-instagram-1", output)
+        self.assertIn("media_id=17890000000000001", output)
+        self.assertFalse(self.store_path.exists())
+
     # --- G. Blog manual metric import 저장 -------------------------------------
 
     def test_blog_manual_metrics_are_saved(self):

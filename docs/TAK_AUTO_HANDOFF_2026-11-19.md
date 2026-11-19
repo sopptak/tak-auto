@@ -122,3 +122,13 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - `tests/test_trend_data_backup.py`의 생성/검증/복구, 변조, 경로 탈출, 덮어쓰기 차단 테스트를 추가했고, `trend-content-mvp-tests.yml`에 경로 감지와 새 테스트 실행을 연결했다.
 - 백업 아카이브는 암호화되지 않으며 OAuth 암호문, 게시/미디어 정보를 포함할 수 있다. 운영자는 보호된 보관 위치를 사용해야 한다. 실제 Render 디스크 복사·보관·복구 리허설은 수행하지 않았다.
 - runbook은 데이터 작성 프로세스를 정지한 복제본에서의 명령과 보안 한계를 안내한다. Render 실서비스 생성 후 운영자 설정과 승인이 필요한 부분은 미완료다.
+
+
+## 2026-11-19 Instagram Reels 성과 수집
+
+- 작업 시작 시점 PR #3 head `6fb8efa716362e681926af31c27f37fc1e78d7b3`은 Draft/Open이며, TAK AUTO MVP, TAK SCOUT, Python 전체 CI가 성공했다.
+- Instagram Reels 미디어의 `like_count`/`comments_count`를 암호화 OAuth vault의 실제 `instagram_business_basic` 승인 scope로 수집하는 경로를 추가했다. 플랫폼/소스 모델, CLI와 대기열 연결, 명시적 `--confirm-live` 가드, dry-run, 테스트와 운영 문서를 갱신했다.
+- 조회수는 추정하지 않고 미제공 필드는 unavailable로 기록한다. 미디어 ID가 API 응답과 정확히 일치해야 하며, 토큰은 Authorization header로만 전달한다.
+- 실계정 API 요청은 수행하지 않았다. 모의 transport와 dry-run 테스트만 실행한다. 이 플랫폼을 실제 계정에서 검증하려면 별도의 승인 이후 진행해야 한다.
+- 로컬 회귀 테스트 118개가 통과했다. `tests.test_instagram_performance`, `tests.test_collect_performance_live_gate`, `tests.test_collect_performance_cli`, `tests.test_performance_models`, `tests.test_performance_dashboard`, `tests.test_trend_publishers`, `tests.test_social_oauth`, `tests.test_social_oauth_routes`를 실행했다. `compileall`과 `git diff --check`도 통과했다.
+- 새 커밋의 PR CI는 push 후 확인한다. PR은 계속 Draft/Open으로 유지하며, Render 배포/실제 SNS 연결/게시/병합은 수행하지 않는다.

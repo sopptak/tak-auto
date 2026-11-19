@@ -27,11 +27,11 @@ Performance는 **콘텐츠를 자동으로 만들거나 고치지 않는다.** �
 |---|---|
 | `content_id` | archive/발행 이력의 content_id(이미 계산된 값을 그대로 받음) |
 | `knowledge_id` | 원본 KNOWLEDGE ID |
-| `platform` | `threads` / `youtube` / `blog` |
+| `platform` | `threads` / `youtube` / `instagram` / `blog` |
 | `published_at` | 원본이 실제로 발행된 시각(불변) |
 | `metric_collected_at` | **이 스냅샷을 수집한 시각** - 이 값이 다르면 같은 콘텐츠라도 별도 스냅샷으로 계속 쌓인다 |
 | `metrics` | `{"views": 850, "likes": 12}`처럼 플랫폼마다 다른 지표를 담는 dict(정수만 허용) |
-| `source` | `threads_api` / `youtube_api` / `manual` / `migration_baseline` - 8장 참고 |
+| `source` | `threads_api` / `youtube_api` / `instagram_api` / `manual` / `migration_baseline` - 8장 참고 |
 | `title` | 콘텐츠 제목(선택, 화면 표시용) |
 | `external_id` | 플랫폼별 원본 식별자(threads media id / youtube video id / blog url) |
 | `raw` | collector가 받은 원본 응답(정규화 이전, 감사용, 선택) |
@@ -69,7 +69,23 @@ python3 scripts/collect_performance.py --platform youtube \
   기록해 둔 값과 같아야 한다**(8장 - 업로드 이력과 별개로 사람이 다시 입력하는
   것이므로, 실수로 다른 값을 넣으면 성과가 엉뚱한 KNOWLEDGE에 연결된다).
 
-## 5. Blog 성과 수집 방법
+## 5. Instagram Reels 성과 수집 방법
+
+```bash
+python3 scripts/collect_performance.py --platform instagram \
+    --content-id content-abc123 --knowledge-id knowledge-xyz \
+    --published-at 2026-09-15T00:00:00+00:00 \
+    --external-id <instagram_media_id> \
+    --confirm-live
+```
+
+- `--external-id`는 Instagram Reels 게시 이력의 원격 media ID다.
+- 암호화 OAuth 연결과 실제 승인된 `instagram_business_basic` 권한이 필요하다.
+- 현재는 Meta가 문서화한 IG Media `like_count`와 `comments_count` 필드만 수집해 `likes`/`comments`로 저장한다. 조회수는 추정하지 않는다. 계정에서 숨김/제한된 값은 없는 metric으로 남긴다.
+- Instagram Login OAuth 연결에 실제 승인된 `instagram_business_basic` scope가 필요하다. 토큰은 기존 암호화 vault에서만 읽으며, 직접 입력한 환경 토큰 fallback은 제공하지 않는다.
+- Instagram media API 호출은 실제 네트워크 동작이다. `--dry-run`은 연결이나 저장 없이 대상만 출력하며, 실제 호출에는 `--confirm-live`가 필요하다.
+
+## 6. Blog 성과 수집 방법
 
 네이버는 블로그 조회수를 조회할 수 있는 공식 공개 API를 제공하지 않는다(6-01 조사
 결과, 2026-09-20 웹 검색으로 확인). 그래서 Blog는 **항상 사람이 네이버 블로그
@@ -85,7 +101,7 @@ python3 scripts/collect_performance.py --platform blog \
 `--confirm-live`가 필요 없다(애초에 네트워크 호출이 없다). `--metric key=value`를
 여러 번 지정할 수 있다.
 
-## 6. Snapshot 개념
+## 7. Snapshot 개념
 
 같은 `content_id`에 대해 `collect_performance.py`를 여러 날짜에 걸쳐 반복 실행하면,
 매번 새 스냅샷이 **추가**된다(덮어쓰지 않는다):
@@ -105,7 +121,7 @@ Day7: views=2,300 (metric_collected_at=2026-09-21)
 싶다"는 요구가 실제로 생기면 `append_snapshot`에 `overwrite=True` 같은 옵션을
 추가하는 것을 검토한다 - 아직 실제로 필요했던 적이 없어 미리 만들지 않았다.
 
-## 7. content_id / knowledge_id 연결 규칙
+## 8. content_id / knowledge_id 연결 규칙
 
 - **Threads/Blog**: `data/threads_publish_log.json`/`data/blog_publish_log.json`
   (둘 다 `content_engine.publish_history.PublishRecord` 구조)에 처음부터
@@ -115,7 +131,7 @@ Day7: views=2,300 (metric_collected_at=2026-09-21)
   `--content-id`/`--knowledge-id`(둘 다 선택, 둘 다 주거나 둘 다 생략해야 함)를
   추가해 **새로 업로드하는 영상부터** 연결 정보를 남길 수 있다.
 
-## 8. YouTube legacy 데이터 처리
+## 9. YouTube legacy 데이터 처리
 
 6-02 이전에 업로드된 영상(`data/youtube_publish_log.json`의 기존 기록)은
 `content_id`/`knowledge_id`가 없다 - 이 값을 **절대 추측해서 채우지 않는다**.
@@ -128,14 +144,14 @@ Day7: views=2,300 (metric_collected_at=2026-09-21)
 `data/youtube_publish_log.json`에 실행된 적은 없다(6-02 작업 범위 밖 - 실제
 실행은 사람이 매핑을 준비한 뒤 별도로 판단).
 
-## 9. dry-run / live 호출 안전 규칙
+## 10. dry-run / live 호출 안전 규칙
 
 이 Codespace 환경에는 실제 `THREADS_ACCESS_TOKEN`/`YOUTUBE_CLIENT_ID`/
 `YOUTUBE_CLIENT_SECRET`/`YOUTUBE_REFRESH_TOKEN`이 환경변수로 이미 존재한다
 (6-01에서 확인). `scripts/collect_performance.py`는 이 위험에 대응해 다음
 규칙을 따른다(6-02에서 추가):
 
-- `--platform threads`/`--platform youtube`는 **`--dry-run` 또는
+- `--platform threads`/`--platform youtube`/`--platform instagram`은 **`--dry-run` 또는
   `--confirm-live` 중 하나를 반드시 지정해야 한다.** 둘 다 없으면 아무 것도
   하지 않고(클라이언트조차 만들지 않고) 오류로 종료한다.
 - `--dry-run`: 네트워크 호출도, 저장도 하지 않는다. 무엇을 할지만 출력한다.
@@ -150,7 +166,7 @@ Day7: views=2,300 (metric_collected_at=2026-09-21)
 이 규칙을 적용하지 않는다 - "`--dry-run` 없으면 실제 호출"이라는 기존 운영 방식을
 6-02에서 바꾸지 않았다(변경 범위를 `collect_performance.py`로 한정).
 
-## 10. /performance 화면 사용법
+## 11. /performance 화면 사용법
 
 ```bash
 python3 scripts/run_scout_dashboard.py
@@ -170,7 +186,7 @@ python3 scripts/run_scout_dashboard.py
 (POST 라우트가 없다). 첫 스냅샷의 `source`가 `migration_baseline`이면 화면에
 경고 문구가 함께 뜬다 - 그 변화량은 실제 성과 비교가 아니라는 뜻이다.
 
-## 11. 향후 SCOUT와 연결할 때 지켜야 할 원칙
+## 12. 향후 SCOUT와 연결할 때 지켜야 할 원칙
 
 `tak_scout/scoring.py`(SCOUT SCORE, A~E 5개 차원)에 성과 신호를 추가한다면:
 
@@ -181,7 +197,7 @@ python3 scripts/run_scout_dashboard.py
   어땠는지"를 참고 정보로만 보여주고, 사람이 몇 번 보고 타당하다고 판단한 뒤에나
   자동 반영을 고려한다.
 
-## 12. 사람의 판단 없이 성과 데이터를 자동으로 콘텐츠 전략에 반영하지 않는다는 원칙
+## 13. 사람의 판단 없이 성과 데이터를 자동으로 콘텐츠 전략에 반영하지 않는다는 원칙
 
 이것이 이 기능 전체를 관통하는 가장 중요한 원칙이다:
 
@@ -202,7 +218,7 @@ PERFORMANCE → SCOUT SCORE → CONTENT GENERATION (자동)
   `/performance` 화면에서 데이터를 충분히 축적/검토한 뒤 별도로 명시적인 결정을
   내려야 한다 - 코드가 스스로 그 결정을 내리지 않는다.
 
-## 13. Threads 24h/72h scheduled snapshots
+## 14. Threads 24h/72h scheduled snapshots
 
 `.github/workflows/daily-performance-collection.yml`은 매일 07:30 UTC에
 `scripts/collect_performance.py --scheduled --confirm-live`를 실행한다. 수동

@@ -21,16 +21,16 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-PLATFORMS = ("threads", "youtube", "blog")
+PLATFORMS = ("threads", "youtube", "instagram", "blog")
 
 # collector가 성과를 어떻게 얻었는지 - "이 숫자를 얼마나 신뢰할 것인가" 판단에 쓴다.
-#   threads_api / youtube_api : 공식 API 응답을 그대로 정규화한 값
+#   threads_api / youtube_api / instagram_api : 공식 API 응답을 그대로 정규화한 값
 #   manual                    : 사람이 직접 입력한 값(Naver Blog처럼 공개 조회 API가
 #                                없는 채널, 또는 API 실패 시 수동 보정)
 #   migration_baseline        : 기존 발행 이력(threads_publish_log.json 등)에서
 #                                옮겨온 "발행 사실"일 뿐 실제 성과 지표가 아니다.
 #                                metrics가 비어 있을 수 있다.
-SOURCES = ("threads_api", "youtube_api", "manual", "migration_baseline")
+SOURCES = ("threads_api", "youtube_api", "instagram_api", "manual", "migration_baseline")
 MEASUREMENT_WINDOWS = ("initial", "24h", "72h")
 COLLECTION_STATUSES = ("collected",)
 

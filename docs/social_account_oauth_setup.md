@@ -60,6 +60,8 @@ Render 환경변수를 저장한 다음 서비스를 재시작하세요. 대시�
 
 Instagram Login은 Meta의 최신 Business Login 문서에 맞춰 `instagram_business_content_publish` 권한을 사용합니다. 인증 코드 교환 응답은 `data` 배열 안에 토큰·사용자 ID·승인 권한이 들어오는 형식이므로 이 구조를 기준으로 처리합니다.
 
+연결된 Instagram Reels의 좋아요·댓글 수를 성과 스냅샷으로 수집할 때는 게시물 읽기 권한 `instagram_business_basic`을 사용합니다. 별도의 성과 조회 API 권한은 요청하지 않으며, 실제 수집은 `collect_performance.py --platform instagram --confirm-live`로 명시해야 합니다. 조회수는 현재 수집하지 않습니다.
+
 Threads 권한은 OAuth 화면에서 요청한 scope를 그대로 승인된 것으로 간주하지 않습니다. 장기 토큰 교환 후 Meta Graph API `/debug_token`에서 `is_valid`와 실제 `scopes`를 확인합니다. 확인 요청이 실패하거나 토큰이 유효하지 않으면 계정 연결 정보는 보존하되 게시 권한은 미확인으로 표시하며, 자동 게시 준비 상태로 취급하지 않습니다. 이 확인에는 같은 Meta 앱의 App ID와 App Secret이 서버 환경변수로 필요합니다.
 
 ## 4. Instagram Reels 영상 준비
