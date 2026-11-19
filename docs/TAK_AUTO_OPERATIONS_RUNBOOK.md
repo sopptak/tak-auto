@@ -8,7 +8,7 @@
 ## 1. 배포 전 승인 게이트
 
 - [ ] PR #3의 최신 head SHA와 변경 파일을 확인한다.
-- [x] 2026-11-19 확인: PR head `651275680874e5e8256ccfa6e8552fc3ad4155b5`에서 TAK SCOUT, TAK AUTO trend content MVP, Python 전체 테스트가 모두 성공했다. 이후 커밋이 생기면 반드시 새 head에서 재검증한다.
+- [x] 2026-11-19 확인: PR head `4842053bb75c409311fa2664fe743f9fc9518435`에서 TAK SCOUT [#628](https://github.com/sopptak/tak-auto/actions/runs/44464937003), TAK AUTO trend content MVP [#714](https://github.com/sopptak/tak-auto/actions/runs/44464937030), Python 전체 테스트 [#604](https://github.com/sopptak/tak-auto/actions/runs/44464936854)가 모두 성공했다. 이후 커밋이 생기면 반드시 새 head에서 재검증한다.
 - [ ] PR의 base 브랜치와 병합 대상이 의도한 구조인지 검토한다. 현재 PR은 `feature/perplexity-research-provider`를 base로 하는 Draft이므로, main 배포용 PR로 오인하지 않는다.
 - [ ] Render 계정 소유자가 새 서비스 생성 및 Starter 플랜·Persistent Disk 비용을 승인한다.
 - [ ] 게시 기능은 계속 `TAK_AUTO_PUBLISHING_ENABLED=false`로 둔다.
@@ -155,7 +155,7 @@ SNS 연결을 준비할 경우에만 추가:
 ## 9. 현재 확인 상태
 
 2026-11-19 저장소 점검 시점:
-- 검증 SHA `651275680874e5e8256ccfa6e8552fc3ad4155b5`: TAK SCOUT research tests 성공
+- 검증 SHA `4842053bb75c409311fa2664fe743f9fc9518435`: TAK SCOUT research tests 성공
 - 같은 SHA: TAK AUTO trend content MVP tests 성공
 - 같은 SHA: Python 전체 테스트 성공
 - PR #3: Draft / Open / 미병합
@@ -164,7 +164,7 @@ SNS 연결을 준비할 경우에만 추가:
 - 외부 게시 기능: 비활성화 설정 유지
 - 운영 데이터 백업·복구 리허설: 미확인
 
-이 상태 표는 운영자가 실제로 확인한 결과에 따라 갱신한다.
+이 상태 표는 운영자가 실제로 확인한 결과에 따라 갱신한다. 최신 검증 SHA에 대한 Actions 링크는 위 1절에 기록한다.
 
 
 ## 2026-11-19 최신 저장소 점검

@@ -151,3 +151,9 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - `content_engine/trend_data_backup.py`에 PBKDF2-HMAC-SHA256 키 유도와 스트리밍 AES-256-GCM 암호화/인증을 추가했다. ZIP 출력을 암호화 스트림에 직접 연결해 생성 중 평문 ZIP 임시본을 만들지 않는다. 인증된 뒤에만 복호화 ZIP을 읽으며, 암호문구는 저장하지 않는다.
 - CLI는 데이터 `--source` 경로와 `--encrypt` 또는 명시적 `--allow-unencrypted`를 요구하고, 암호문구를 터미널에서 숨겨 입력한다. 인증 실패/변조 시 복구 대상이 생성되지 않는다. 임시 평문 파일은 존재할 수 있고 보안 삭제를 보장하지 않는 점을 runbook에 기록했다.
 - 관련 집중 회귀 130개가 통과했고 Windows에서 symlink 생성 테스트 1개는 환경 제한으로 skip됐다. 암호화 백업 왕복, 2MB 초과 streaming, 백업 중 원본 변경 감지와 임시 파일 정리, 잘못된 암호문구, 태그 변조, 평문 선택의 명시성, private file permissions, CLI 프롬프트와 Instagram 성과 경로를 검증했다. `compileall`과 `git diff --check`도 통과했다. 새 PR CI는 push 후 확인한다.
+
+## 운영 백업 경합 회귀 검증 및 최신 PR CI
+
+- `tests/test_trend_data_backup.py`에 암호화 백업 스트리밍 도중 원본 파일이 바뀌는 조건을 추가했다. manifest checksum 불일치로 생성을 거부하고 아카이브/임시 파일을 남기지 않는지 확인한다.
+- 최신 PR head `4842053bb75c409311fa2664fe743f9fc9518435`에서 TAK AUTO trend content MVP [run 714](https://github.com/sopptak/tak-auto/actions/runs/44464937030), TAK SCOUT [run 628](https://github.com/sopptak/tak-auto/actions/runs/44464937003), Python 전체 [run 604](https://github.com/sopptak/tak-auto/actions/runs/44464936854)가 모두 성공했다.
+- PR #3은 계속 Draft/Open이며 미병합이다. Render 배포, 유료 리소스 생성, 실계정 OAuth/API 호출, 외부 게시는 수행하지 않았다.
