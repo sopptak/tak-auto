@@ -52,7 +52,7 @@ PROVIDERS: dict[str, Provider] = {
     ),
     "tiktok": Provider(
         "tiktok", "TikTok", "TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "client_key",
-        "https://www.tiktok.com/v2/auth/authorize/", ("user.info.basic", "video.publish"),
+        "https://www.tiktok.com/v2/auth/authorize/", ("user.info.basic", "video.publish", "video.list"),
     ),
     "instagram_reels": Provider(
         "instagram_reels", "Instagram Reels", "INSTAGRAM_APP_ID", "INSTAGRAM_APP_SECRET", "client_id",
@@ -61,7 +61,9 @@ PROVIDERS: dict[str, Provider] = {
     ),
     "facebook": Provider(
         "facebook", "Facebook 페이지", "FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET", "client_id",
-        "https://www.facebook.com", ("pages_show_list", "pages_read_engagement", "pages_manage_posts"),
+        "https://www.facebook.com", (
+            "pages_show_list", "pages_read_engagement", "pages_manage_posts", "read_insights",
+        ),
     ),
     "threads": Provider(
         "threads", "Threads", "THREADS_APP_ID", "THREADS_APP_SECRET", "client_id",

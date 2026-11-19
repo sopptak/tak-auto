@@ -27,13 +27,13 @@ Performance는 **콘텐츠를 자동으로 만들거나 고치지 않는다.** �
 |---|---|
 | `content_id` | archive/발행 이력의 content_id(이미 계산된 값을 그대로 받음) |
 | `knowledge_id` | 원본 KNOWLEDGE ID |
-| `platform` | `threads` / `youtube` / `instagram` / `blog` |
+| `platform` | `threads` / `youtube` / `instagram` / `facebook` / `tiktok` / `blog` |
 | `published_at` | 원본이 실제로 발행된 시각(불변) |
 | `metric_collected_at` | **이 스냅샷을 수집한 시각** - 이 값이 다르면 같은 콘텐츠라도 별도 스냅샷으로 계속 쌓인다 |
 | `metrics` | `{"views": 850, "likes": 12}`처럼 플랫폼마다 다른 지표를 담는 dict(정수만 허용) |
-| `source` | `threads_api` / `youtube_api` / `instagram_api` / `manual` / `migration_baseline` - 8장 참고 |
+| `source` | `threads_api` / `youtube_api` / `instagram_api` / `facebook_api` / `tiktok_api` / `manual` / `migration_baseline` - 8장 참고 |
 | `title` | 콘텐츠 제목(선택, 화면 표시용) |
-| `external_id` | 플랫폼별 원본 식별자(threads media id / youtube video id / blog url) |
+| `external_id` | 플랫폼별 원본 식별자(Threads media ID / YouTube video ID / Facebook Page post ID / TikTok video ID / blog URL) |
 | `raw` | collector가 받은 원본 응답(정규화 이전, 감사용, 선택) |
 
 ## 3. Threads 성과 수집 방법
@@ -84,6 +84,37 @@ python3 scripts/collect_performance.py --platform instagram \
 - 현재는 Meta가 문서화한 IG Media `like_count`와 `comments_count` 필드만 수집해 `likes`/`comments`로 저장한다. 조회수는 추정하지 않는다. 계정에서 숨김/제한된 값은 없는 metric으로 남긴다.
 - Instagram Login OAuth 연결에 실제 승인된 `instagram_business_basic` scope가 필요하다. 토큰은 기존 암호화 vault에서만 읽으며, 직접 입력한 환경 토큰 fallback은 제공하지 않는다.
 - Instagram media API 호출은 실제 네트워크 동작이다. `--dry-run`은 연결이나 저장 없이 대상만 출력하며, 실제 호출에는 `--confirm-live`가 필요하다.
+
+## 5-1. Facebook 페이지 게시물 성과 수집
+
+```bash
+python3 scripts/collect_performance.py --platform facebook \
+    --content-id content-abc123 --knowledge-id knowledge-xyz \
+    --published-at 2026-09-15T00:00:00+00:00 \
+    --external-id <page_id_post_id> \
+    --confirm-live
+```
+
+- 대기열 이력에서 자동 선택하려면 `--queue-content-id <content_id>`를 사용한다.
+- 암호화 OAuth 연결에 `read_insights`, `pages_read_engagement` 권한과 선택 페이지의 `ANALYZE` 작업 권한이 필요하다. 기존 환경변수 토큰은 호환 입력으로 허용되지만, API 권한은 Meta가 확인한다.
+- 공식 Page Insights의 현재 게시물 지표 `post_media_view`를 `views`, `post_reactions_by_type_total`의 합을 `reactions`로 기록한다. metric이 없거나 API가 거부하면 0으로 만들지 않는다.
+- Meta는 Page Insights 데이터에 페이지 좋아요 100개 이상 조건을 안내한다. 실제 계정 권한과 앱 승인 여부에 따라 조회가 거부될 수 있다.
+- API 호출은 읽기 전용이지만 외부 네트워크 동작이다. `--dry-run`은 API와 저장소를 건드리지 않으며 실제 호출에는 `--confirm-live`가 필요하다.
+
+## 5-2. TikTok 동영상 성과 수집
+
+```bash
+python3 scripts/collect_performance.py --platform tiktok \
+    --content-id content-abc123 --knowledge-id knowledge-xyz \
+    --published-at 2026-09-15T00:00:00+00:00 \
+    --external-id <video_id> \
+    --confirm-live
+```
+
+- 대기열 이력에서 자동 선택하려면 `--queue-content-id <content_id>`를 사용한다.
+- 암호화 OAuth 연결에는 TikTok Display API의 `video.list` scope가 필요하다. 기존 환경변수 연결은 호환 입력으로 허용되지만 scope와 소유 여부는 API가 확인한다.
+- `/v2/video/query/`에서 요청한 계정 소유 영상의 `view_count`, `like_count`, `comment_count`, `share_count`를 각각 views, likes, comments, shares로 기록한다. ID가 응답에서 일치하지 않으면 저장하지 않는다.
+- API 호출은 읽기 전용이지만 외부 네트워크 동작이다. `--dry-run`은 API와 저장소를 건드리지 않으며 실제 호출에는 `--confirm-live`가 필요하다.
 
 ## 6. Blog 성과 수집 방법
 

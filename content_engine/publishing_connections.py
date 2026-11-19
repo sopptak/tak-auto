@@ -31,7 +31,7 @@ PLATFORMS = (
         "required": ("TIKTOK_ACCESS_TOKEN", "TIKTOK_OPEN_ID"),
         "account_env": "TIKTOK_USERNAME", "expiry_env": "TIKTOK_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
-        "publish_note": "TikTok Direct Post는 video.publish 권한, 앱 승인, 명시적 공개 범위 선택과 MP4 등록이 필요합니다.",
+        "publish_note": "TikTok Direct Post는 video.publish 권한, 앱 승인, 명시적 공개 범위 선택과 MP4 등록이 필요합니다. 성과 조회에는 video.list 권한이 추가로 필요합니다.",
     },
     {
         "key": "instagram_reels", "name": "Instagram Reels", "icon": "◎",
@@ -47,7 +47,7 @@ PLATFORMS = (
         "required": ("FACEBOOK_ACCESS_TOKEN", "FACEBOOK_PAGE_ID"),
         "account_env": "FACEBOOK_PAGE_NAME", "expiry_env": "FACEBOOK_ACCESS_TOKEN_EXPIRES_AT",
         "renewal": "토큰이 만료되면 이 화면에서 계정을 다시 연결하세요.",
-        "publish_note": "Facebook 페이지 게시에는 pages_manage_posts, pages_read_engagement 권한과 선택한 페이지의 CREATE_CONTENT 또는 MANAGE 작업 권한이 필요합니다.",
+        "publish_note": "Facebook 페이지 게시에는 pages_manage_posts, pages_read_engagement 권한과 CREATE_CONTENT 또는 MANAGE 작업 권한이 필요합니다. 성과 조회에는 read_insights, pages_read_engagement 및 ANALYZE 작업 권한이 추가로 필요합니다.",
     },
     {
         "key": "threads", "name": "Threads", "icon": "@",

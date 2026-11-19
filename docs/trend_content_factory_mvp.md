@@ -124,7 +124,7 @@ python scripts/collect_performance.py \
   --confirm-live
 ```
 
-현재 API 성과 수집은 Threads, YouTube Shorts, Instagram Reels를 지원한다. Instagram은 Instagram Login OAuth로 연결한 암호화 토큰과 승인된 `instagram_business_basic` scope를 사용해 `like_count`/`comments_count`만 수집한다. 조회수는 수집하지 않으며 API에서 제공하지 않은 값은 누락으로 남긴다. Facebook과 TikTok 성과 API는 아직 지원하지 않는다. `--confirm-live` 없이 실제 API 호출은 거부되며, dry-run은 API 연결과 성과 저장소 변경을 하지 않는다. 상세 실행 방법은 `docs/performance_operations.md`를 참고한다.
+API 성과 수집은 Threads, YouTube Shorts, Instagram Reels, Facebook 페이지 게시물, TikTok 영상을 지원한다. Instagram은 `like_count`/`comments_count`만 수집한다. Facebook은 `post_media_view`/`post_reactions_by_type_total`을 수집하려면 `read_insights`, `pages_read_engagement`, 페이지 `ANALYZE` 권한이 필요하다. TikTok은 `/v2/video/query/`에 필요한 `video.list` scope를 요청한다. 미지원·누락 지표는 0으로 추정하지 않는다. 모든 네트워크 수집은 운영자가 `--confirm-live`를 지정해야 하며, dry-run은 API와 성과 저장소를 건드리지 않는다. 상세 실행 방법은 `docs/performance_operations.md`를 참고한다.
 
 
 ### 성과 수집 운영 주의사항

@@ -144,6 +144,27 @@ class TikTokClient:
             raise TikTokAPIError("TikTok 크리에이터 게시 설정을 확인하지 못했습니다.")
         return data
 
+    def get_video_statistics(self, video_id: str) -> Mapping[str, object]:
+        """Read metrics for one owned video using the Display API video.list scope."""
+        normalized = str(video_id).strip()
+        if not normalized.isdigit():
+            raise ValueError("TikTok 영상 ID는 숫자여야 합니다.")
+        from urllib.parse import urlencode
+
+        fields = "id,view_count,like_count,comment_count,share_count"
+        url = self._api("/v2/video/query/") + "?" + urlencode({"fields": fields})
+        response = self.json_transport(
+            "POST", url, access_token=self.access_token,
+            body={"filters": {"video_ids": [normalized]}}, timeout_seconds=self.timeout_seconds,
+        )
+        data = response.get("data")
+        videos = data.get("videos") if isinstance(data, Mapping) else None
+        if not isinstance(videos, list) or len(videos) != 1 or not isinstance(videos[0], Mapping):
+            raise TikTokAPIError("TikTok 영상 성과 응답에서 요청한 영상을 찾지 못했습니다.")
+        if str(videos[0].get("id") or "") != normalized:
+            raise TikTokAPIError("TikTok 영상 성과 응답 ID가 요청한 영상과 일치하지 않습니다.")
+        return videos[0]
+
     def _upload_file(self, video_path: Path, upload_url: str) -> None:
         size = video_path.stat().st_size
         if size <= 0 or size > MAX_VIDEO_BYTES:

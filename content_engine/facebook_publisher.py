@@ -64,7 +64,7 @@ def _request_json(method: str, url: str, *, access_token: str,
         error = result["error"]
         code = error.get("code") if isinstance(error, dict) else ""
         # A provider rejection is a known failure; do not classify it as a successful post.
-        raise FacebookAPIError(f"Facebook이 게시 요청을 거부했습니다. (오류 코드: {code or 'unknown'})")
+        raise FacebookAPIError(f"Facebook API가 요청을 거부했습니다. (오류 코드: {code or 'unknown'})")
     return result
 
 
@@ -113,3 +113,17 @@ class FacebookClient:
         if not post_id:
             raise FacebookAPIError("Facebook 게시 응답에 게시물 ID가 없습니다.")
         return FacebookPublishResult(post_id=post_id)
+
+    def get_post_insights(self, post_id: str) -> Mapping[str, object]:
+        """Read the supported lifetime insights for one post on this Page."""
+        normalized = post_id.strip()
+        parts = normalized.split("_")
+        if not normalized or len(parts) > 2 or not all(part.isdigit() for part in parts):
+            raise ValueError("Facebook 게시물 ID 형식이 올바르지 않습니다.")
+        if len(parts) == 2 and parts[0] != self.page_id:
+            raise ValueError("Facebook 게시물이 연결된 페이지에 속하지 않습니다.")
+        metrics = "post_media_view,post_reactions_by_type_total"
+        url = f"{self._base}/{normalized}/insights?{urlencode({'metric': metrics})}"
+        return self.transport(
+            "GET", url, access_token=self.access_token, timeout_seconds=self.timeout_seconds,
+        )

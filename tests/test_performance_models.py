@@ -66,6 +66,12 @@ class PerformanceRecordCreationTests(unittest.TestCase):
         record = _record(source="migration_baseline", metrics={})
         self.assertEqual(record.metrics, {})
 
+    def test_facebook_and_tiktok_api_sources_are_supported(self):
+        facebook = _record(platform="facebook", source="facebook_api")
+        tiktok = _record(platform="tiktok", source="tiktok_api")
+        self.assertEqual(facebook.platform, "facebook")
+        self.assertEqual(tiktok.platform, "tiktok")
+
 
 class PerformanceRecordRoundTripTests(unittest.TestCase):
     def test_to_dict_and_from_dict_round_trip(self):

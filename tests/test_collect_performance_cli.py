@@ -112,6 +112,24 @@ class CollectPerformanceCLITests(unittest.TestCase):
         self.assertIn("media_id=17890000000000001", output)
         self.assertFalse(self.store_path.exists())
 
+    def test_queue_content_id_maps_facebook_and_tiktok_to_performance(self):
+        cases = (
+            ("facebook", "123456789_987654321", "post_id=123456789_987654321"),
+            ("tiktok", "1234567890123456789", "video_id=1234567890123456789"),
+        )
+        for platform, remote_id, output_hint in cases:
+            with self.subTest(platform=platform):
+                queue_path = self._write_queue_history(
+                    platform=platform, remote_id=remote_id, content_id=f"trend-content-{platform}-1",
+                )
+                exit_code, output = self._run([
+                    "--queue-content-id", f"trend-content-{platform}-1",
+                    "--queue-history", str(queue_path), "--store", str(self.store_path), "--dry-run",
+                ])
+                self.assertEqual(exit_code, 0)
+                self.assertIn(output_hint, output)
+                self.assertFalse(self.store_path.exists())
+
     # --- G. Blog manual metric import 저장 -------------------------------------
 
     def test_blog_manual_metrics_are_saved(self):
