@@ -2,6 +2,7 @@ import base64
 import json
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+import re
 import tempfile
 import threading
 import unittest
@@ -69,6 +70,24 @@ class MediaAssetRouteTests(unittest.TestCase):
             self.assertEqual(response.status, 200)
             self.assertEqual(response.headers.get("Content-Type"), "video/mp4")
             self.assertEqual(response.read(), payload)
+
+    def test_dashboard_uses_a_nonce_scoped_script_policy(self):
+        request = Request(self.base_url + "/", headers={"Authorization": self.auth})
+        with urlopen(request, timeout=5) as response:
+            policy = response.headers.get("Content-Security-Policy", "")
+            body = response.read().decode("utf-8")
+        nonce_match = re.search(r"script-src 'nonce-([^']+)'", policy)
+        self.assertIsNotNone(nonce_match)
+        self.assertIn(f'<script nonce="{nonce_match.group(1)}">', body)
+        self.assertIn("object-src 'none'", policy)
+        self.assertIn("base-uri 'none'", policy)
+        self.assertNotIn("script-src 'unsafe-inline'", policy)
+        second_request = Request(self.base_url + "/", headers={"Authorization": self.auth})
+        with urlopen(second_request, timeout=5) as response:
+            second_policy = response.headers.get("Content-Security-Policy", "")
+        second_nonce_match = re.search(r"script-src 'nonce-([^']+)'", second_policy)
+        self.assertIsNotNone(second_nonce_match)
+        self.assertNotEqual(nonce_match.group(1), second_nonce_match.group(1))
 
     def test_signed_public_media_supports_http_range_requests(self):
         _, request = self._upload()

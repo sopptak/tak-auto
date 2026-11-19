@@ -1504,6 +1504,15 @@ if (publishForm) {{
 def create_handler():
     class Handler(BaseHTTPRequestHandler):
         def _respond(self, body: str, status: int = 200, content_type: str = "text/html; charset=utf-8", *, cookie: str | list[str] = ""):
+            security_policy = "default-src 'none'; frame-ancestors 'none'"
+            if content_type.lower().startswith("text/html"):
+                nonce = secrets.token_urlsafe(18)
+                body = body.replace("<script>", f'<script nonce="{nonce}">')
+                security_policy = (
+                    "default-src 'none'; base-uri 'none'; connect-src 'self'; "
+                    "form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; "
+                    "object-src 'none'; script-src 'nonce-" + nonce + "'; style-src 'unsafe-inline'"
+                )
             encoded = body.encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", content_type)
@@ -1512,6 +1521,7 @@ def create_handler():
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("X-Frame-Options", "DENY")
             self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("Content-Security-Policy", security_policy)
             if isinstance(cookie, list):
                 for value in cookie:
                     self.send_header("Set-Cookie", value)
