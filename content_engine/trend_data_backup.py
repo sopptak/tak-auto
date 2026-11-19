@@ -377,6 +377,16 @@ def restore_backup(
     with _decrypted_archive_path(archive, passphrase) as zip_path:
         manifest = _verify_zip_archive(zip_path)
         destination.parent.mkdir(parents=True, exist_ok=True)
+        required_bytes = sum(entry["size"] for entry in manifest["files"])
+        try:
+            available_bytes = shutil.disk_usage(destination.parent).free
+        except OSError as error:
+            raise BackupError(f"복구 대상 디스크의 여유 공간을 확인하지 못했습니다: {error}") from None
+        if available_bytes < required_bytes:
+            raise BackupError(
+                "복구 대상 디스크의 여유 공간이 부족합니다 "
+                f"(필요: {required_bytes}바이트, 남음: {available_bytes}바이트)."
+            )
         stage = Path(tempfile.mkdtemp(prefix=f".{destination.name}.restore-", dir=destination.parent))
         try:
             with zipfile.ZipFile(zip_path, "r") as bundle:

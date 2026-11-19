@@ -8,6 +8,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from contextlib import redirect_stderr
+from types import SimpleNamespace
 from unittest.mock import patch
 import zipfile
 
@@ -184,6 +185,26 @@ class TrendDataBackupTests(unittest.TestCase):
         with self.assertRaisesRegex(BackupError, "덮어쓰지 않습니다"):
             restore_backup(self.archive, destination)
         self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
+
+    def test_restore_checks_free_space_before_creating_staging_directory(self):
+        create_backup(self.source, self.archive)
+        destination = self.root / "restored-data"
+        with patch.object(trend_data_backup.shutil, "disk_usage", return_value=SimpleNamespace(free=1)):
+            with self.assertRaisesRegex(BackupError, "여유 공간이 부족합니다"):
+                restore_backup(self.archive, destination)
+
+        self.assertFalse(destination.exists())
+        self.assertEqual(list(self.root.glob(".restored-data.restore-*")), [])
+
+    def test_restore_reports_disk_space_query_failure_without_creating_destination(self):
+        create_backup(self.source, self.archive)
+        destination = self.root / "restored-data"
+        with patch.object(trend_data_backup.shutil, "disk_usage", side_effect=OSError("unavailable")):
+            with self.assertRaisesRegex(BackupError, "여유 공간을 확인하지 못했습니다"):
+                restore_backup(self.archive, destination)
+
+        self.assertFalse(destination.exists())
+        self.assertEqual(list(self.root.glob(".restored-data.restore-*")), [])
 
     def test_backup_permissions_are_private_on_posix(self):
         create_backup(self.source, self.archive)
