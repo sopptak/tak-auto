@@ -484,6 +484,33 @@ def _parse_content_package(answer: str) -> dict:
     return package
 
 
+def _safe_http_url(value: object) -> str | None:
+    """Return a URL safe for an HTML link, or None for an unsafe/malformed value."""
+    candidate = str(value or "").strip()
+    has_control = any(ord(char) <= 0x20 or ord(char) == 0x7f for char in candidate)
+    if not candidate or "\\" in candidate or has_control:
+        return None
+    try:
+        parsed = urlparse(candidate)
+        if (
+            parsed.scheme.lower() not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            return None
+        _ = parsed.port
+    except ValueError:
+        return None
+    return candidate
+
+
+def _safe_http_urls(values: object) -> list[str]:
+    if not isinstance(values, (list, tuple)):
+        return []
+    return [safe for value in values if (safe := _safe_http_url(value)) is not None]
+
+
 def _evaluate_source_integrity(
     item: dict, trend_report: dict, generated_citations: list | None = None,
 ) -> dict:
@@ -504,20 +531,10 @@ def _evaluate_source_integrity(
         value = str(raw or "").strip()
         if not value:
             continue
-        try:
-            parsed = urlparse(value)
-            valid = (
-                parsed.scheme.lower() in {"http", "https"}
-                and bool(parsed.hostname)
-                and not parsed.username and not parsed.password
-                and not any(char.isspace() for char in value)
-            )
-            _ = parsed.port
-        except ValueError:
-            valid = False
-        if not valid:
+        if _safe_http_url(value) is None:
             malformed.append(value[:300])
             continue
+        parsed = urlparse(value)
         normalized = parsed._replace(
             scheme=parsed.scheme.lower(),
             netloc=parsed.netloc.lower(),
@@ -530,13 +547,8 @@ def _evaluate_source_integrity(
         entries.append(value)
     for raw in generated:
         value = str(raw or "").strip()
-        try:
+        if _safe_http_url(value) is not None:
             parsed = urlparse(value)
-            valid = parsed.scheme.lower() in {"http", "https"} and bool(parsed.hostname) and not parsed.username and not parsed.password and not any(char.isspace() for char in value)
-            _ = parsed.port
-        except ValueError:
-            valid = False
-        if valid:
             normalized = parsed._replace(scheme=parsed.scheme.lower(), netloc=parsed.netloc.lower(), fragment="").geturl()
             if normalized not in seen:
                 seen.add(normalized)
@@ -548,12 +560,11 @@ def _evaluate_source_integrity(
         base_urls = []
     base_normalized = set()
     for raw in base_urls:
-        try:
-            parsed = urlparse(str(raw or "").strip())
-            if parsed.scheme.lower() in {"http", "https"} and parsed.hostname and not parsed.username and not parsed.password:
-                base_normalized.add(parsed._replace(scheme=parsed.scheme.lower(), netloc=parsed.netloc.lower(), fragment="").geturl())
-        except ValueError:
+        value = str(raw or "").strip()
+        if _safe_http_url(value) is None:
             continue
+        parsed = urlparse(value)
+        base_normalized.add(parsed._replace(scheme=parsed.scheme.lower(), netloc=parsed.netloc.lower(), fragment="").geturl())
     unlinked = []
     for raw in generated:
         value = str(raw or "").strip()
@@ -1198,7 +1209,7 @@ def _page(
     for index, item in enumerate(trends):
         sources = " ".join(
             f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener">출처 {i}</a>'
-            for i, url in enumerate(item.get("source_urls", []), 1)
+            for i, url in enumerate(_safe_http_urls(item.get("source_urls", [])), 1)
         )
         cards.append(f"""
 <article class="trend">
@@ -1256,7 +1267,7 @@ def _page(
             + escape(str(source_integrity.get("status", "미평가"))) + '</b><p class="meta">'
             + escape(str(source_integrity.get("source_count", 0))) + '개 URL 확인</p><ul>'
             + "".join("<li>" + escape(str(value)) + "</li>" for value in source_integrity.get("warnings", []))
-            + "".join('<li><a href="' + escape(str(url), quote=True) + '" target="_blank" rel="noopener">' + escape(str(url)) + '</a></li>' for url in source_integrity.get("sources", []))
+            + "".join('<li><a href="' + escape(url, quote=True) + '" target="_blank" rel="noopener">' + escape(url) + '</a></li>' for url in _safe_http_urls(source_integrity.get("sources", [])))
             + '</ul><p class="meta">' + escape(str(source_integrity.get("scope_note", ""))) + '</p></div>'
         )
         editorial_recommendations = preview.get("editorial_recommendations") or []
@@ -1379,7 +1390,7 @@ def _page(
   <h3>Facebook 페이지 게시문 · {escape(str(facebook_post.get("title") or ""))}</h3>
   <button type="button" class="secondary copy" data-copy="facebook-{len(preview_cards)}">Facebook 글 복사</button>
   <pre id="facebook-{len(preview_cards)}">{escape(facebook_message)}</pre>
-  <p class="meta">{" ".join(f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener">원문 출처</a>' for url in preview.get("source_urls", []))}</p>
+  <p class="meta">{" ".join(f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener">원문 출처</a>' for url in _safe_http_urls(preview.get("source_urls", [])))}</p>
   <details><summary>플랫폼 게시 예약 및 승인</summary>
     <p class="warning">승인 후에도 실제 게시 기능은 기본 비활성 상태입니다.</p>
     <form method="post" action="/queue/approve" class="queue-form">

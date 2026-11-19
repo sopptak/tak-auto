@@ -262,12 +262,37 @@ class TrendContentQueueRouteTests(unittest.TestCase):
 
     def test_source_integrity_flags_malformed_and_duplicate_source_urls(self):
         report = run_trend_content_mvp._evaluate_source_integrity(
-            {"source_urls": ["ftp://example.test/file", "https://example.test/a#one", "https://example.test/a#two"]},
+            {"source_urls": ["ftp://example.test/file", "javascript:alert(1)", "https://example.test/a#one", "https://example.test/a#two"]},
             {},
         )
         self.assertTrue(report["malformed_urls"])
         self.assertTrue(report["duplicate_urls"])
         self.assertEqual(report["status"], "검토 필요")
+
+    def test_source_urls_are_filtered_again_when_rendering_links(self):
+        report = {"trends": [{"source_urls": ["javascript:alert(1)", "https://safe.example.test/source"]}]}
+        preview = {
+            "keyword": "테스트",
+            "source_urls": ["javascript:alert(1)", "https://safe.example.test/source"],
+            "source_integrity": {
+                "status": "검토 필요", "source_count": 2,
+                "sources": ["javascript:alert(1)", "https://safe.example.test/source"],
+                "warnings": [], "scope_note": "URL 형식만 확인",
+            },
+        }
+        not_ready = {name: False for name in ("threads", "facebook", "youtube_shorts", "instagram_reels", "tiktok")}
+        with (
+            patch.object(run_trend_content_mvp, "_read_connection_checks", return_value={}),
+            patch.object(run_trend_content_mvp, "_read_oauth_connections", return_value=({}, "")),
+            patch.object(run_trend_content_mvp, "_oauth_setup_statuses", return_value={}),
+            patch.object(run_trend_content_mvp, "_list_media_assets", return_value=[]),
+            patch.object(run_trend_content_mvp, "_publishing_platform_readiness", return_value=not_ready),
+            patch.object(run_trend_content_mvp, "load_insights", return_value=[]),
+            patch.object(run_trend_content_mvp, "connection_dashboard", return_value=""),
+        ):
+            html = run_trend_content_mvp._page(report, [preview], queue_snapshot={})
+        self.assertNotIn('href="javascript:', html)
+        self.assertIn('href="https://safe.example.test/source"', html)
 
     def test_source_integrity_flags_generated_citation_not_in_research_sources(self):
         report = run_trend_content_mvp._evaluate_source_integrity(
