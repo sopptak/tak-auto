@@ -205,7 +205,8 @@ class GuardTests(StudioCase):
         self.assertEqual(len(frames["frames"]), len(d["document"]["scenes"]) + 1)  # + 엔드카드
         self.assertTrue(frames["frames"][-1]["end_card"])
         png = self.store._dir(d["draft_id"]) / "frames" / frames["frames"][0]["file"]
-        self.assertEqual(Image.open(png).size, (360, 640))
+        with Image.open(png) as frame:
+            self.assertEqual(frame.size, (360, 640))
         self.assertEqual(studio.scene_frames(self.store, d["draft_id"]), frames)  # 캐시
         self.edit({"s0_layout": "image_top", "s0_image_path": str(self.dir / "없음.png")})
         self.assertIsNone(studio.scene_frames(self.store, d["draft_id"])["error"])  # 없는 이미지는 빈 틀로 그려 위치를 보여준다(렌더는 게이트가 막음)
