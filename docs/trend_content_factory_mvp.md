@@ -124,7 +124,7 @@ python scripts/collect_performance.py \
   --confirm-live
 ```
 
-현재 자동 API 수집은 Threads와 YouTube Shorts만 지원한다. Facebook, Instagram Reels, TikTok의 성과 API 수집은 별도 권한·지표 검증 후 추가한다. `--confirm-live` 없이 실제 API 호출은 거부되며, dry-run은 성과 저장소를 변경하지 않는다.
+현재 API 성과 수집은 Threads, YouTube Shorts, Instagram Reels를 지원한다. Instagram은 Instagram Login OAuth로 연결한 암호화 토큰과 승인된 `instagram_business_basic` scope를 사용해 `like_count`/`comments_count`만 수집한다. 조회수는 수집하지 않으며 API에서 제공하지 않은 값은 누락으로 남긴다. Facebook과 TikTok 성과 API는 아직 지원하지 않는다. `--confirm-live` 없이 실제 API 호출은 거부되며, dry-run은 API 연결과 성과 저장소 변경을 하지 않는다. 상세 실행 방법은 `docs/performance_operations.md`를 참고한다.
 
 
 ### 성과 수집 운영 주의사항
@@ -132,6 +132,7 @@ python scripts/collect_performance.py \
 - 게시 대기열의 `content_id`는 플랫폼별·게시 작업별 식별자다. Threads 2개 초안은 서로 다른 두 개의 ID를 가지므로 각 게시 이력을 따로 추적한다.
 - Threads 실측에는 `THREADS_ACCESS_TOKEN`과 Meta 앱에서 승인된 `threads_manage_insights` 권한이 필요하다.
 - YouTube 실측은 암호화된 OAuth 연결의 refresh token과 `YOUTUBE_OAUTH_CLIENT_ID`, `YOUTUBE_OAUTH_CLIENT_SECRET`을 우선 사용한다. 기존 `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN` 환경변수 연결도 호환된다.
+- Instagram Reels 실측은 `instagram_business_basic`이 실제 승인된 Instagram Login OAuth 연결이 필요하다. 수집 필드는 좋아요와 댓글뿐이다.
 - `--confirm-live`는 실제 외부 API 조회를 수행한다. 먼저 `--dry-run`으로 대상과 원격 ID를 확인하고, 운영자가 승인한 경우에만 실제 조회를 실행한다.
 - 게시 성공만으로 성과 수집이 자동 실행되지는 않는다. 게시 이력을 근거로 명시적으로 수집 명령을 실행해야 하며, 수집된 스냅샷은 기존 `data/tak_performance.json`에 append-only로 저장된다.
 
@@ -144,7 +145,7 @@ python scripts/collect_performance.py \
 /performance?knowledge_id=<trend-preview-id>
 ```
 
-같은 KNOWLEDGE에서 파생된 Threads와 YouTube 게시물은 한 화면에서 각각 별도 카드로 확인한다. 플랫폼별 조회수·반응을 임의로 합산하거나 서로 다른 측정 기준을 직접 비교하지 않는다. 성과 스냅샷이 아직 없으면 해당 주제의 미수집 상태를 표시한다. Dashboard는 읽기 전용이며 수집이나 게시를 실행하지 않는다.
+같은 KNOWLEDGE에서 파생된 Threads, YouTube, Instagram 게시물은 한 화면에서 각각 별도 성과 카드로 확인한다. 플랫폼별 조회수·반응을 임의로 합산하거나 서로 다른 측정 기준을 직접 비교하지 않는다. 성과 스냅샷이 아직 없으면 해당 주제의 미수집 상태를 표시한다. Dashboard는 읽기 전용이며 수집이나 게시를 실행하지 않는다.
 
 
 ## 콘텐츠 구조 품질 체크 (운영자 검토 보조)

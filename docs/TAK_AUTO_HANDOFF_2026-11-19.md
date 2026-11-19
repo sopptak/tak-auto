@@ -136,3 +136,10 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - 후속 커밋 `0b467c252bee5b91622b48a52779a36886c66463`에서 Instagram metrics의 대시보드 렌더링 테스트와 구식 platform 튜플 검사 갱신을 포함했다. 로컬 집중 테스트 65개, `compileall`, `git diff --check`가 통과했다.
 - 이 최신 SHA에서는 TAK AUTO trend content MVP run 710, TAK SCOUT research run 624, Python 전체 테스트 run 600(2,183개 테스트)이 모두 성공했다. 앞선 SHA의 단일 실패는 후속 수정으로 해결했다.
 - 운영 상태: `instagram_business_basic` OAuth 승인을 이용해 likes/comments를 읽도록 구현했으나, 실계정 연결이나 실제 API 요청은 하지 않았다. Render 배포·백업/복구 리허설·외부 게시는 미확인이다.
+
+
+## 제품 가이드 지원 범위 동기화 — 2026-11-19
+
+- `docs/trend_content_factory_mvp.md`의 오래된 “성과 API는 Threads/YouTube만 지원” 문구를 바로잡았다. 현재 문서는 Instagram Reels의 likes/comments만 수집하고 views는 수집하지 않는 범위, `instagram_business_basic` scope, dry-run/live 조건을 반영한다.
+- 대시보드 설명도 Instagram 성과 카드가 포함되도록 갱신했다. Facebook/TikTok 성과 API는 미지원으로 명시했다.
+- 문서 정합성 변경의 로컬 관련 회귀 테스트 112개 통과, `git diff --check` 통과. 변경 후 PR CI는 새 head에서 재확인한다.
