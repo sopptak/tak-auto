@@ -1522,6 +1522,7 @@ def create_handler():
             self.send_header("X-Frame-Options", "DENY")
             self.send_header("Referrer-Policy", "no-referrer")
             self.send_header("Content-Security-Policy", security_policy)
+            self.send_header("Permissions-Policy", "camera=(), geolocation=(), microphone=()")
             if isinstance(cookie, list):
                 for value in cookie:
                     self.send_header("Set-Cookie", value)

@@ -75,6 +75,7 @@ class MediaAssetRouteTests(unittest.TestCase):
         request = Request(self.base_url + "/", headers={"Authorization": self.auth})
         with urlopen(request, timeout=5) as response:
             policy = response.headers.get("Content-Security-Policy", "")
+            permissions_policy = response.headers.get("Permissions-Policy", "")
             body = response.read().decode("utf-8")
         nonce_match = re.search(r"script-src 'nonce-([^']+)'", policy)
         self.assertIsNotNone(nonce_match)
@@ -82,6 +83,7 @@ class MediaAssetRouteTests(unittest.TestCase):
         self.assertIn("object-src 'none'", policy)
         self.assertIn("base-uri 'none'", policy)
         self.assertNotIn("script-src 'unsafe-inline'", policy)
+        self.assertEqual(permissions_policy, "camera=(), geolocation=(), microphone=()")
         second_request = Request(self.base_url + "/", headers={"Authorization": self.auth})
         with urlopen(second_request, timeout=5) as response:
             second_policy = response.headers.get("Content-Security-Policy", "")
