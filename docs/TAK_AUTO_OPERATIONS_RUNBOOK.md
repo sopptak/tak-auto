@@ -181,3 +181,10 @@ SNS 연결을 준비할 경우에만 추가:
 - 영상 플랫폼은 등록 MP4가 필요하며 Instagram Reels는 공개 HTTPS URL도 필요하다.
 - 관련 회귀 테스트는 부여 scope 누락, 미디어 누락, 공개 URL 미설정, 만료 토큰, 토큰 존재 표시 누락을 포함한다.
 - 최신 코드 SHA `d62ad49a48cea2a532e33beb2d6ca38dff676f20`에서 TAK AUTO MVP 및 TAK SCOUT 테스트는 성공했다. Python 전체 테스트는 완료 여부 미확정이며, 통과로 기록하지 않는다.
+
+
+## 최신 Instagram 성과 수집 코드 검증 — 2026-11-19
+
+- PR #3 head `0b467c252bee5b91622b48a52779a36886c66463` 기준 TAK AUTO trend content MVP, TAK SCOUT research, Python 전체 회귀(2,183 tests)가 모두 통과했다.
+- Instagram Reels 조회는 `instagram_business_basic` 권한으로 `like_count`/`comments_count`만 가져온다. API가 제공하지 않은 값은 누락으로 유지하며 views를 추정하지 않는다. CLI 실제 호출은 `--confirm-live`로 보호된다.
+- 이 확인은 코드/CI 점검이다. Instagram OAuth 실계정, 실제 API 응답, Render 배포 및 영구 디스크, 백업/복구 리허설, 외부 게시는 확인하지 않았다. 게시 비활성화 설정은 그대로 유지한다.
