@@ -86,19 +86,34 @@ class TrendDataBackupTests(unittest.TestCase):
         self.assertFalse(self.archive.exists())
         self.assertEqual(list(self.root.glob(".backup.zip.*")), [])
 
-    def test_encrypted_create_rejects_source_changed_during_archive_write(self):
-        original_writer = trend_data_backup._write_encrypted_zip
+    def test_create_rejects_source_changed_before_archive_write(self):
+        original_digest = trend_data_backup._file_digest
+        original_queue = '[{"id":"queue-1"}]\n'
 
-        def write_then_change_source(files, manifest, destination, passphrase):
-            (self.source / "queue.json").write_text('[{"id":"changed"}]\\n', encoding="utf-8")
-            original_writer(files, manifest, destination, passphrase)
+        for label, passphrase in (
+            ("plaintext", None),
+            ("encrypted", "correct horse battery staple"),
+        ):
+            with self.subTest(mode=label):
+                (self.source / "queue.json").write_text(original_queue, encoding="utf-8")
+                archive = self.root / f"backup-{label}.zip"
+                mutated = False
 
-        with patch.object(trend_data_backup, "_write_encrypted_zip", side_effect=write_then_change_source):
-            with self.assertRaisesRegex(BackupError, "검증에 실패"):
-                create_backup(self.source, self.archive, passphrase="correct horse battery staple")
+                def digest_then_change_source(path):
+                    nonlocal mutated
+                    result = original_digest(path)
+                    if path.name == "queue.json" and not mutated:
+                        mutated = True
+                        path.write_text('[{"id":"changed"}]\n', encoding="utf-8")
+                    return result
 
-        self.assertFalse(self.archive.exists())
-        self.assertEqual(list(self.root.glob(".backup.zip.*")), [])
+                with patch.object(trend_data_backup, "_file_digest", side_effect=digest_then_change_source):
+                    with self.assertRaisesRegex(BackupError, "검증에 실패"):
+                        create_backup(self.source, archive, passphrase=passphrase)
+
+                self.assertTrue(mutated)
+                self.assertFalse(archive.exists())
+                self.assertEqual(list(self.root.glob(f".{archive.name}.*")), [])
 
     def test_create_refuses_to_overwrite_existing_archive(self):
         self.archive.write_bytes(b"keep this")
