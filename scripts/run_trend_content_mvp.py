@@ -284,8 +284,11 @@ def _health_payload(environ=None) -> dict[str, object]:
     values = os.environ if environ is None else environ
     raw_revision = str(values.get("RENDER_GIT_COMMIT", "")).strip().lower()
     revision = raw_revision[:12] if len(raw_revision) == 40 and all(char in "0123456789abcdef" for char in raw_revision) else None
-    perplexity_ready = bool(values.get("TAK_SCOUT_PERPLEXITY_API_KEY"))
-    auth_ready = bool(values.get("TAK_WEB_USERNAME") and values.get("TAK_WEB_PASSWORD"))
+    perplexity_ready = bool(str(values.get("TAK_SCOUT_PERPLEXITY_API_KEY", "")).strip())
+    auth_ready = bool(
+        str(values.get("TAK_WEB_USERNAME", "")).strip()
+        and str(values.get("TAK_WEB_PASSWORD", "")).strip()
+    )
     publishing_enabled = str(values.get("TAK_AUTO_PUBLISHING_ENABLED", "")).strip().lower() == "true"
     publisher_configured = bool(str(values.get("TAK_AUTO_PUBLISHER", "")).strip())
     return {

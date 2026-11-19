@@ -19,6 +19,19 @@ class TrendContentHealthTests(unittest.TestCase):
         self.assertEqual(payload["storage_mode"], "ephemeral_fallback")
         self.assertFalse(payload["ready"])
 
+    def test_whitespace_only_secrets_do_not_report_service_ready(self):
+        environ = {
+            "TAK_SCOUT_PERPLEXITY_API_KEY": "   ",
+            "TAK_WEB_USERNAME": " operator ",
+            "TAK_WEB_PASSWORD": " \t ",
+            "TAK_AUTO_PUBLISHING_ENABLED": "false",
+        }
+        with patch("scripts.run_trend_content_mvp.USING_EPHEMERAL_STORAGE", False):
+            payload = _health_payload(environ)
+        self.assertFalse(payload["perplexity_configured"])
+        self.assertFalse(payload["web_auth_configured"])
+        self.assertFalse(payload["ready"])
+
     def test_readiness_requires_publisher_adapter_when_publishing_is_enabled(self):
         environ = {
             "TAK_SCOUT_PERPLEXITY_API_KEY": "configured",
