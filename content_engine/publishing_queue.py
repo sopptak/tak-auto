@@ -236,9 +236,12 @@ class PublishingQueue:
             if item.get("status") == "processing":
                 try:
                     started = datetime.fromisoformat(item["updated_at"])
+                    is_stale = (current - _utc(started)).total_seconds() >= 300
                 except (KeyError, ValueError, TypeError):
-                    started = current - timedelta(minutes=6)
-                if (current - _utc(started)).total_seconds() >= 300:
+                    # Missing or malformed timestamps are ambiguous. Treat the
+                    # processing marker as stale and require an operator check.
+                    is_stale = True
+                if is_stale:
                     item.update(
                         status="needs_review",
                         last_error="작업 중단 또는 응답 저장 실패 가능성: 플랫폼 게시 여부를 먼저 확인하세요.",

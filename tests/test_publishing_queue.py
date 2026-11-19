@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 import os
@@ -128,6 +129,23 @@ class PublishingQueueTests(unittest.TestCase):
         self.assertEqual(result["remote_id"], "post-123")
         self.assertEqual(self.queue.run_due(uncertain, enabled=True, now=self.now + timedelta(days=1)), [])
         self.assertEqual(len(calls), 1)
+
+    def test_processing_item_with_timezone_free_timestamp_requires_review(self):
+        self.enqueue()
+        data = self.queue.snapshot()
+        data["items"][0].update(status="processing", updated_at="2026-11-17T00:02:00")
+        self.path.write_text(json.dumps(data), encoding="utf-8")
+        calls = []
+
+        result = self.queue.run_due(
+            lambda *_args: calls.append(1) or "should-not-publish",
+            enabled=True,
+            now=self.now + timedelta(minutes=10),
+        )
+
+        self.assertEqual(result[0]["status"], "needs_review")
+        self.assertIn("게시 여부를 먼저 확인", result[0]["last_error"])
+        self.assertEqual(calls, [])
 
     def test_empty_remote_id_is_uncertain_and_requires_human_review(self):
         for remote_id in ("", "   ", None):
