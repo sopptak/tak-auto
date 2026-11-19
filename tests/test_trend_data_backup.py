@@ -1,14 +1,25 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import tempfile
 import unittest
+from contextlib import redirect_stderr
+from unittest.mock import patch
 import zipfile
 
-from content_engine.trend_data_backup import BackupError, create_backup, restore_backup, verify_backup
+from content_engine.trend_data_backup import (
+    ENCRYPTED_HEADER_BYTES,
+    ENCRYPTED_MAGIC,
+    BackupError,
+    create_backup,
+    restore_backup,
+    verify_backup,
+)
+from scripts import backup_trend_factory_data as backup_cli
 
 
 class TrendDataBackupTests(unittest.TestCase):
@@ -33,6 +44,46 @@ class TrendDataBackupTests(unittest.TestCase):
         self.assertEqual(result, manifest)
         for relative in ("queue.json", "media_assets/approved.mp4", "social_oauth_tokens.enc"):
             self.assertEqual((restored / relative).read_bytes(), (self.source / relative).read_bytes())
+
+    def test_encrypted_archive_verifies_and_restores_with_passphrase(self):
+        passphrase = "correct horse battery staple"
+        large_payload = os.urandom(2 * 1024 * 1024 + 137)
+        (self.source / "large-random.bin").write_bytes(large_payload)
+        manifest = create_backup(self.source, self.archive, passphrase=passphrase)
+        encrypted = self.archive.read_bytes()
+        self.assertTrue(encrypted.startswith(ENCRYPTED_MAGIC))
+        self.assertNotEqual(encrypted[ENCRYPTED_HEADER_BYTES:ENCRYPTED_HEADER_BYTES + 4], b"PK\x03\x04")
+        self.assertNotIn(b"encrypted-token-fixture", encrypted)
+        self.assertNotIn(b"queue-1", encrypted)
+        self.assertEqual(list(self.root.glob(".backup.zip.*")), [])
+        with self.assertRaisesRegex(BackupError, "암호화되어 있습니다"):
+            verify_backup(self.archive)
+        self.assertEqual(verify_backup(self.archive, passphrase=passphrase), manifest)
+
+        restored = self.root / "restored-encrypted-data"
+        self.assertEqual(restore_backup(self.archive, restored, passphrase=passphrase), manifest)
+        for relative in ("queue.json", "media_assets/approved.mp4", "social_oauth_tokens.enc", "large-random.bin"):
+            self.assertEqual((restored / relative).read_bytes(), (self.source / relative).read_bytes())
+
+    def test_encrypted_archive_rejects_wrong_passphrase_and_tampering(self):
+        passphrase = "correct horse battery staple"
+        create_backup(self.source, self.archive, passphrase=passphrase)
+        with self.assertRaisesRegex(BackupError, "암호문구가 틀렸거나"):
+            verify_backup(self.archive, passphrase="totally wrong passphrase")
+
+        changed = bytearray(self.archive.read_bytes())
+        changed[-20] ^= 0x01
+        tampered = self.root / "tampered.takbak"
+        tampered.write_bytes(changed)
+        with self.assertRaisesRegex(BackupError, "암호문구가 틀렸거나"):
+            restore_backup(tampered, self.root / "must-not-exist", passphrase=passphrase)
+        self.assertFalse((self.root / "must-not-exist").exists())
+
+    def test_encryption_requires_a_long_passphrase_and_leaves_no_archive(self):
+        with self.assertRaisesRegex(BackupError, "16자 이상"):
+            create_backup(self.source, self.archive, passphrase="too-short")
+        self.assertFalse(self.archive.exists())
+        self.assertEqual(list(self.root.glob(".backup.zip.*")), [])
 
     def test_create_refuses_to_overwrite_existing_archive(self):
         self.archive.write_bytes(b"keep this")
@@ -108,6 +159,64 @@ class TrendDataBackupTests(unittest.TestCase):
         create_backup(self.source, self.archive)
         if os.name == "posix":
             self.assertEqual(self.archive.stat().st_mode & 0o777, 0o600)
+
+    def test_encrypted_backup_permissions_are_private_on_posix(self):
+        create_backup(self.source, self.archive, passphrase="correct horse battery staple")
+        if os.name == "posix":
+            self.assertEqual(self.archive.stat().st_mode & 0o777, 0o600)
+
+
+class TrendDataBackupCliTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.source = self.root / "data"
+        self.source.mkdir()
+        (self.source / "queue.json").write_text('{"id":"queue-1"}\n', encoding="utf-8")
+        self.archive = self.root / "backup.takbak"
+
+    def test_create_requires_explicit_encryption_or_plaintext_choice(self):
+        with self.assertRaises(SystemExit):
+            backup_cli.build_parser().parse_args([
+                "create", "--source", str(self.source), "--output", str(self.archive),
+            ])
+
+    def test_create_requires_an_explicit_data_source(self):
+        with self.assertRaises(SystemExit):
+            backup_cli.build_parser().parse_args([
+                "create", "--output", str(self.archive), "--encrypt",
+            ])
+
+    def test_cli_prompts_securely_for_encryption_and_verification(self):
+        passphrase = "correct horse battery staple"
+        fake_stdin = type("FakeStdin", (), {"isatty": lambda self: True})()
+        with patch.object(backup_cli.sys, "stdin", fake_stdin):
+            with patch.object(backup_cli.getpass, "getpass", side_effect=[passphrase, passphrase]):
+                self.assertEqual(backup_cli.main([
+                    "create", "--source", str(self.source), "--output", str(self.archive), "--encrypt",
+                ]), 0)
+            with patch.object(backup_cli.getpass, "getpass", return_value=passphrase):
+                self.assertEqual(backup_cli.main(["verify", "--archive", str(self.archive)]), 0)
+
+            wrong_passphrase = "wrong horse battery staple"
+            destination = self.root / "must-not-restore"
+            errors = io.StringIO()
+            with patch.object(backup_cli.getpass, "getpass", return_value=wrong_passphrase):
+                with redirect_stderr(errors):
+                    exit_code = backup_cli.main([
+                        "restore", "--archive", str(self.archive), "--destination", str(destination),
+                    ])
+            self.assertEqual(exit_code, 2)
+            self.assertFalse(destination.exists())
+            self.assertNotIn(wrong_passphrase, errors.getvalue())
+
+    def test_plaintext_requires_explicit_flag_and_remains_readable(self):
+        self.assertEqual(backup_cli.main([
+            "create", "--source", str(self.source), "--output", str(self.archive),
+            "--allow-unencrypted",
+        ]), 0)
+        self.assertEqual(verify_backup(self.archive)["format_version"], 1)
 
 
 if __name__ == "__main__":

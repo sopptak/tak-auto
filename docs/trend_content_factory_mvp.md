@@ -108,7 +108,7 @@ py -m unittest discover -s tests -p "test_trend_discovery.py" -v
 
 Threads와 Facebook의 게시 어댑터 이력에도 KNOWLEDGE ID, 출처 URL, 제목을 함께 보존한다. YouTube Shorts 등 다른 어댑터는 공통 게시 대기열 이력을 성과 추적의 기준으로 사용한다.
 
-### 게시 이력에서 Threads/YouTube 성과 대상 선택
+### 게시 이력에서 채널별 성과 대상 선택
 
 게시 대기열에 성공 이력이 생긴 뒤, `content_id`를 사용해 수동으로 ID를 다시 입력하지 않고 수집 대상을 지정할 수 있다.
 

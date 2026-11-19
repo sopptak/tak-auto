@@ -120,7 +120,7 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - Windows 동시 JSON 교체의 간헐 오류는 `scripts/run_trend_content_mvp.py`에서 교체 단계를 직렬화하고 일시 `PermissionError`에 제한 재시도하도록 보완했다. 권한 비트 테스트는 POSIX에서만 평가한다.
 - `content_engine/trend_data_backup.py`와 `scripts/backup_trend_factory_data.py`에 create/verify/restore 도구를 추가했다. checksum manifest 검증, 경로 탈출·심볼릭 링크 거부, 기존 파일/복구 경로 덮어쓰기 방지, 임시 경로에서 검증 후 복구 이동을 제공한다.
 - `tests/test_trend_data_backup.py`의 생성/검증/복구, 변조, 경로 탈출, 덮어쓰기 차단 테스트를 추가했고, `trend-content-mvp-tests.yml`에 경로 감지와 새 테스트 실행을 연결했다.
-- 백업 아카이브는 암호화되지 않으며 OAuth 암호문, 게시/미디어 정보를 포함할 수 있다. 운영자는 보호된 보관 위치를 사용해야 한다. 실제 Render 디스크 복사·보관·복구 리허설은 수행하지 않았다.
+- 당시 백업 아카이브는 암호화되지 않았으며 OAuth 암호문, 게시/미디어 정보를 포함할 수 있었다. 이 보안 상태는 아래 “운영 백업 아카이브 암호화” 섹션의 변경으로 대체됐다. 실제 Render 디스크 복사·보관·복구 리허설은 수행하지 않았다.
 - runbook은 데이터 작성 프로세스를 정지한 복제본에서의 명령과 보안 한계를 안내한다. Render 실서비스 생성 후 운영자 설정과 승인이 필요한 부분은 미완료다.
 
 
@@ -143,3 +143,11 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - `docs/trend_content_factory_mvp.md`의 오래된 “성과 API는 Threads/YouTube만 지원” 문구를 바로잡았다. 현재 문서는 Instagram Reels의 likes/comments만 수집하고 views는 수집하지 않는 범위, `instagram_business_basic` scope, dry-run/live 조건을 반영한다.
 - 대시보드 설명도 Instagram 성과 카드가 포함되도록 갱신했다. Facebook/TikTok 성과 API는 미지원으로 명시했다.
 - 문서 정합성 변경의 로컬 관련 회귀 테스트 112개 통과, `git diff --check` 통과. 변경 후 PR CI는 새 head에서 재확인한다.
+
+
+## 운영 백업 아카이브 암호화
+
+- 미완료 운영 위험 점검에서 백업 ZIP이 OAuth 암호문·게시 이력·콘텐츠·MP4를 포함할 수 있지만 파일 자체는 평문임을 확인했다.
+- `content_engine/trend_data_backup.py`에 PBKDF2-HMAC-SHA256 키 유도와 스트리밍 AES-256-GCM 암호화/인증을 추가했다. ZIP 출력을 암호화 스트림에 직접 연결해 생성 중 평문 ZIP 임시본을 만들지 않는다. 인증된 뒤에만 복호화 ZIP을 읽으며, 암호문구는 저장하지 않는다.
+- CLI는 데이터 `--source` 경로와 `--encrypt` 또는 명시적 `--allow-unencrypted`를 요구하고, 암호문구를 터미널에서 숨겨 입력한다. 인증 실패/변조 시 복구 대상이 생성되지 않는다. 임시 평문 파일은 존재할 수 있고 보안 삭제를 보장하지 않는 점을 runbook에 기록했다.
+- 관련 집중 회귀 129개가 통과했고 Windows에서 symlink 생성 테스트 1개는 환경 제한으로 skip됐다. 암호화 백업 왕복, 2MB 초과 streaming, 잘못된 암호문구, 태그 변조, 평문 선택의 명시성, private file permissions, CLI 프롬프트와 Instagram 성과 경로를 검증했다. `compileall`과 `git diff --check`도 통과했다. 새 PR CI는 push 후 확인한다.

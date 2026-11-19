@@ -133,13 +133,18 @@ SNS 연결을 준비할 경우에만 추가:
 ## 8. 백업·복구 및 확장 제한
 
 - 현재 JSON 저장소는 영속 디스크가 있어도 외부 백업을 대체하지 않는다.
-- `scripts/backup_trend_factory_data.py`로 로컬 데이터 디렉터리를 manifest/SHA-256 검증 ZIP으로 백업·검증·새 경로 복구할 수 있다.
+- `scripts/backup_trend_factory_data.py`로 로컬 데이터 디렉터리를 manifest/SHA-256 검증 ZIP으로 백업·검증·새 경로 복구할 수 있다. 운영 보관본은 반드시 암호화한다.
 - 예시(운영 데이터를 직접 읽거나 Render에 접속하는 명령이 아니다):
-  - `python scripts/backup_trend_factory_data.py create --source <정지된 데이터 복제본> --output <보호된 백업 경로>/tak-auto.zip`
-  - `python scripts/backup_trend_factory_data.py verify --archive <보호된 백업 경로>/tak-auto.zip`
-  - `python scripts/backup_trend_factory_data.py restore --archive <보호된 백업 경로>/tak-auto.zip --destination <새 복구 경로>`
+  - `python scripts/backup_trend_factory_data.py create --source <정지된 데이터 복제본> --output <보호된 백업 경로>/tak-auto.takbak --encrypt`
+  - `python scripts/backup_trend_factory_data.py verify --archive <보호된 백업 경로>/tak-auto.takbak`
+  - `python scripts/backup_trend_factory_data.py restore --archive <보호된 백업 경로>/tak-auto.takbak --destination <새 복구 경로>`
+- 생성·검증·복구 시 암호문구를 터미널에 직접 입력한다. 길고 추측하기 어려운 고유 암호문구를 사용하고, 16자 이상으로 설정하며 백업 파일과 다른 보안 장소에 보관한다. 암호문구를 잃으면 복구할 수 없다. 명령 인자·환경 변수·로그에 암호문구를 전달하지 않는다.
+- 생성 명령에는 `--source`를 반드시 직접 지정해야 한다. 기본 운영 데이터 경로를 실수로 백업하지 않도록 자동 source 경로를 두지 않는다.
+- 생성 시 CLI는 `--encrypt` 또는 명시적 예외인 `--allow-unencrypted` 중 하나를 요구한다. OAuth 토큰 파일·미디어를 포함할 수 있는 운영 데이터에는 평문 옵션을 사용하지 않는다.
+- 암호화는 PBKDF2-HMAC-SHA256으로 키를 유도하고 AES-256-GCM으로 ZIP 출력을 바로 스트리밍 암호화한다. 생성 중 평문 ZIP 파일은 디스크에 만들지 않는다. 검증·복구 때는 인증 태그를 확인한 뒤 복호화 임시본을 ZIP으로 연다. 잘못된 암호문구나 변조된 아카이브는 거부된다.
+- 검증·복구 중 복호화 임시본이 로컬 파일시스템에 잠시 만들어진다. POSIX에서는 권한을 소유자 전용으로 제한하지만, 강제 종료 시 잔존할 수 있고 삭제가 물리적 보안 삭제를 뜻하지 않는다. 임시파일이 놓이는 장치도 신뢰하고 여유 공간을 확보한다.
 - 일관된 파일 집합을 위해 백업 중에는 해당 데이터 디렉터리에 쓰는 프로세스를 정지한다. 서비스 중인 Render 디스크를 이 도구가 자동 스냅샷하지 않는다.
-- ZIP에는 암호화된 OAuth 토큰 파일, 게시 이력, 콘텐츠 및 업로드 MP4가 포함될 수 있다. 아카이브는 암호화되지 않으므로 접근 제한된 저장 위치에 보관하고, 채팅·저장소·공개 링크에 올리지 않는다.
+- ZIP 내부에는 암호화된 OAuth 토큰 파일, 게시 이력, 콘텐츠 및 업로드 MP4가 포함될 수 있다. 암호화된 `.takbak`을 접근 제한된 별도 보관 위치에 저장하고 채팅·저장소·공개 링크에 올리지 않는다.
 - OAuth 복호화 키와 기타 환경변수 비밀값은 데이터 디렉터리에 포함되지 않는다. 키는 별도 비밀 관리 절차로 보관하고, 키를 잃으면 백업 안의 OAuth 토큰을 복호화할 수 없다.
 - 생성은 기존 아카이브를 덮어쓰지 않으며, 검증은 경로 탈출·중복 경로·유형 불일치·크기/SHA 불일치를 거부한다. 복구는 이미 존재하는 디렉터리를 덮어쓰지 않는다.
 - 복구 리허설은 운영 데이터가 아닌 복제본과 새 대상 경로에서 수행하고, 파일 목록과 애플리케이션의 읽기 가능 여부를 확인한다. 이 도구의 테스트 통과는 Render 백업이 실제 존재한다는 뜻이 아니다.
@@ -188,3 +193,11 @@ SNS 연결을 준비할 경우에만 추가:
 - PR #3 head `0b467c252bee5b91622b48a52779a36886c66463` 기준 TAK AUTO trend content MVP, TAK SCOUT research, Python 전체 회귀(2,183 tests)가 모두 통과했다.
 - Instagram Reels 조회는 `instagram_business_basic` 권한으로 `like_count`/`comments_count`만 가져온다. API가 제공하지 않은 값은 누락으로 유지하며 views를 추정하지 않는다. CLI 실제 호출은 `--confirm-live`로 보호된다.
 - 이 확인은 코드/CI 점검이다. Instagram OAuth 실계정, 실제 API 응답, Render 배포 및 영구 디스크, 백업/복구 리허설, 외부 게시는 확인하지 않았다. 게시 비활성화 설정은 그대로 유지한다.
+
+
+## 운영 백업 암호화 코드 검증 — 2026-11-19
+
+- 백업 CLI는 source 경로를 명시해야 하며, 생성 시 암호화 또는 명시적 평문 선택을 요구한다. 운영 데이터에는 `--encrypt`를 사용한다.
+- 암호화 생성은 ZIP 출력을 AES-GCM 암호화 writer에 바로 전달한다. 생성 중 평문 ZIP 파일은 만들지 않는다. 검증 및 복구는 임시 복호화 ZIP을 쓰고 인증 태그가 맞은 뒤에만 읽는다.
+- 로컬 관련 테스트 129개가 통과했고, Windows에서 심볼릭 링크 생성 테스트 1개는 환경 제약으로 skip됐다. Render 디스크에서 백업 복사·보관, 운영 데이터 복구 리허설은 미수행이다.
+- 이 코드는 실제 외부 백업 서비스나 자동 보관 일정을 만들지 않는다. 운영자는 강한 암호문구를 백업과 별도 보안 위치에 보관해야 한다.

@@ -11,6 +11,7 @@ on:
       - "tests/test_trend_content_health.py"
       - "tests/test_trend_content_queue_routes.py"
       - "tests/test_trend_data_backup.py"
+      - "docs/TAK_AUTO_OPERATIONS_RUNBOOK.md"
       - "tests/test_perplexity_research.py"
       - "tests/test_trend_discovery.py"
       - "content_engine/generator.py"
