@@ -97,6 +97,21 @@ class TrendDataBackupTests(unittest.TestCase):
             with self.assertRaisesRegex(BackupError, "임시 디스크 공간이 부족합니다"):
                 verify_backup(self.archive, passphrase=passphrase)
 
+    def test_encrypted_verification_rejects_size_change_after_preflight(self):
+        passphrase = "correct horse battery staple"
+        create_backup(self.source, self.archive, passphrase=passphrase)
+        original_fstat = os.fstat
+        for size_delta in (-1, 1):
+            with self.subTest(size_delta=size_delta):
+                def report_changed_size(file_descriptor):
+                    result = original_fstat(file_descriptor)
+                    return SimpleNamespace(st_size=result.st_size + size_delta)
+
+                with patch.object(os, "fstat", side_effect=report_changed_size):
+                    with self.assertRaisesRegex(BackupError, "파일 크기가 읽는 동안 변경"):
+                        verify_backup(self.archive, passphrase=passphrase)
+        self.assertEqual(list(Path(tempfile.gettempdir()).glob("tak-auto-decrypted-backup-*.zip")), [])
+
     def test_encryption_requires_a_long_passphrase_and_leaves_no_archive(self):
         with self.assertRaisesRegex(BackupError, "16자 이상"):
             create_backup(self.source, self.archive, passphrase="too-short")
