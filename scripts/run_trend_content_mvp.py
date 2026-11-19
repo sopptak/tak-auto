@@ -1441,6 +1441,14 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 <h2>생성한 콘텐츠 패키지 {len(previews)}개</h2>{''.join(preview_cards) or '<p>트렌드를 선택해 콘텐츠 패키지를 생성하세요.</p>'}
 {queue_dashboard(queue_snapshot or {"items": [], "history": []}, publishing_enabled=os.getenv("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true", pending_approvals=len(previews))}
 </main><script>
+document.querySelectorAll('form[action="/discover"], form[action="/generate"], form[action="/editorial/revise"]').forEach((form) => {{
+  form.addEventListener("submit", (event) => {{
+    if (form.dataset.submitting === "true") {{ event.preventDefault(); return; }}
+    form.dataset.submitting = "true";
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton) {{ submitButton.disabled = true; submitButton.textContent = "요청 중..."; }}
+  }});
+}});
 document.addEventListener("click", async (event) => {{
   const button = event.target.closest("button.copy");
   if (!button) return;

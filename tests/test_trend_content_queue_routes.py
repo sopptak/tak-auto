@@ -293,6 +293,9 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             html = run_trend_content_mvp._page(report, [preview], queue_snapshot={})
         self.assertNotIn('href="javascript:', html)
         self.assertIn('href="https://safe.example.test/source"', html)
+        self.assertIn('form[action="/discover"]', html)
+        self.assertIn('form.dataset.submitting === "true"', html)
+        self.assertIn('submitButton.disabled = true', html)
 
     def test_source_integrity_flags_generated_citation_not_in_research_sources(self):
         report = run_trend_content_mvp._evaluate_source_integrity(
