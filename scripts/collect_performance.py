@@ -109,7 +109,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--external-id",
         default="",
-        help="platform별 원본 식별자: threads media id / youtube video id / blog url",
+        help="platform별 원본 식별자: Threads/Instagram media id / YouTube video id / blog url",
     )
     parser.add_argument("--title", default="", help="콘텐츠 제목(선택, 기록용)")
     parser.add_argument(
@@ -175,7 +175,7 @@ def _guard_live_network_call(
     confirm_live: bool,
     environ: Mapping[str, str] | None = None,
 ) -> str | None:
-    """threads/youtube 실제 API 호출을 시도해도 되는지 판단한다.
+    """threads/youtube/instagram 실제 API 호출을 시도해도 되는지 판단한다.
 
     문제가 없으면 None, 거부해야 하면 사람이 읽을 오류 메시지를 반환한다 - 이
     함수는 어떤 네트워크 호출도, 어떤 클라이언트 생성도 하지 않는다(순수 판단

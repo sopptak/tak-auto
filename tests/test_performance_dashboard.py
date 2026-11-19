@@ -157,6 +157,20 @@ class PerformanceDashboardHttpTests(unittest.TestCase):
         self.assertNotIn("content-other", body)
         self.assertIn("총 2건", body)
 
+    def test_instagram_engagement_metrics_render_without_inventing_views(self):
+        upsert_archive(self.archive_path, [_archive_record(platform="shorts")])
+        append_snapshot(self.performance_path, _perf_record(
+            platform="instagram", source="instagram_api",
+            metrics={"likes": 26, "comments": 3},
+            unavailable_metrics=("views",),
+        ))
+
+        status, body = self._get("/performance")
+        self.assertEqual(status, 200)
+        self.assertIn("instagram", body)
+        self.assertIn("최근 metrics: comments 3 · likes 26", body)
+        self.assertNotIn("views 0", body)
+
     def test_performance_list_shows_empty_state_for_uncollected_knowledge(self):
         status, body = self._get("/performance?knowledge_id=trend-preview-not-collected")
         self.assertEqual(status, 200)

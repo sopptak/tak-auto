@@ -92,7 +92,7 @@ BASELINE_TOLERANCE_RATIO = 0.2
 OUTLIER_RATIO = 3.0
 
 # MediaArchiveRecord.platform(콘텐츠 생성 단위: "blog"/"shorts"/"threads")과
-# PerformanceRecord.platform(실제 게시 채널: "blog"/"youtube"/"threads")은
+# PerformanceRecord.platform(실제 게시 채널: "blog"/"youtube"/"instagram"/"threads")은
 # 이름이 다르다 - "shorts"로 생성된 콘텐츠가 YouTube에 업로드되기
 # 때문이다(content_engine/performance/youtube.py, migration.py가 이미
 # platform="youtube"를 하드코딩하고 있다 - 6-35에서 처음 발견, 이 모듈이

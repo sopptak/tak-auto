@@ -97,7 +97,7 @@ def _snapshot_key(record: PerformanceRecord) -> tuple[str, str, str]:
     """Scheduled windows dedupe by post/window; legacy snapshots keep their old key.
 
     (content_id, metric_collected_at)이 같다는 것은 "같은 콘텐츠를 같은 순간에
-    측정했다"는 뜻이다 - source(threads_api/youtube_api/manual/migration_baseline)가
+    측정했다"는 뜻이다 - source(threads_api/youtube_api/instagram_api/manual/migration_baseline)가
     다르더라도 같은 순간의 측정치라면 저장소 입장에서는 여전히 "이미 가진 값"으로
     취급하는 것이 맞다고 판단했다: 두 값이 서로 다르면 어느 쪽이 맞는지 이 모듈이
     판단할 근거가 없고, 조용히 나중 값으로 덮어쓰는 것도(정확한 값을 잃을 위험)

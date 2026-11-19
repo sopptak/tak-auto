@@ -131,4 +131,5 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - 조회수는 추정하지 않고 미제공 필드는 unavailable로 기록한다. 미디어 ID가 API 응답과 정확히 일치해야 하며, 토큰은 Authorization header로만 전달한다.
 - 실계정 API 요청은 수행하지 않았다. 모의 transport와 dry-run 테스트만 실행한다. 이 플랫폼을 실제 계정에서 검증하려면 별도의 승인 이후 진행해야 한다.
 - 로컬 회귀 테스트 118개가 통과했다. `tests.test_instagram_performance`, `tests.test_collect_performance_live_gate`, `tests.test_collect_performance_cli`, `tests.test_performance_models`, `tests.test_performance_dashboard`, `tests.test_trend_publishers`, `tests.test_social_oauth`, `tests.test_social_oauth_routes`를 실행했다. `compileall`과 `git diff --check`도 통과했다.
-- 새 커밋의 PR CI는 push 후 확인한다. PR은 계속 Draft/Open으로 유지하며, Render 배포/실제 SNS 연결/게시/병합은 수행하지 않는다.
+- PR head `779ca54f1cbd7e6625f27e18d2898f3db24aedcb`에서는 TAK AUTO MVP와 TAK SCOUT CI가 성공했지만 Python 전체 테스트 2,183개 중 1개가 실패했다. `tests/test_6_63_game_factory_doc.py`가 새 플랫폼 모델을 반영하지 않은 고정 문자열을 검사하는 회귀였다. 이를 현재 platform tuple로 갱신했고, CI를 재실행할 후속 커밋에 포함한다.
+- PR은 계속 Draft/Open으로 유지하며, Render 배포/실제 SNS 연결/게시/병합은 수행하지 않는다.

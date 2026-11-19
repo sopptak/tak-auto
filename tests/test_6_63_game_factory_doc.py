@@ -35,7 +35,7 @@ class GameFactoryDocTests(unittest.TestCase):
         code = {"tak_brain/models.py": ("CATEGORIES", "class KnowledgeRecord", "judgment_rule", "_INTERNAL_PATTERN"),
                 "content_engine/media_strategy.py": ("HIGH_RISK_KEYWORDS", "def suggest_content_angles", "def build_generation_handoff",
                                                      'PLATFORMS = ("threads", "blog", "shorts")'),
-                "content_engine/performance/models.py": ("metrics: dict[str, int]", 'PLATFORMS = ("threads", "youtube", "blog")'),
+                "content_engine/performance/models.py": ("metrics: dict[str, int]", 'PLATFORMS = ("threads", "youtube", "instagram", "blog")'),
                 "content_engine/performance/window.py": ("def classify_measurement_window",)}
         for path, symbols in code.items():
             src = (ROOT / path).read_text(encoding="utf-8")

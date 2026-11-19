@@ -51,7 +51,7 @@ class PerformanceRecord:
     metrics: dict[str, int] = field(default_factory=dict)
     source: str = "manual"
     title: str = ""
-    # 플랫폼별 원본 식별자: threads post id / youtube video id / blog url 등.
+    # 플랫폼별 원본 식별자: Threads/Instagram media id, YouTube video id, blog url 등.
     external_id: str = ""
     # collector가 실제로 받은 원본 응답(정규화 이전) - 감사/디버깅용. 저장하지
     # 않아도(None) 기능상 문제 없다.
