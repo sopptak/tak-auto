@@ -186,6 +186,26 @@ class TrendDataBackupTests(unittest.TestCase):
             restore_backup(self.archive, destination)
         self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
 
+    def test_restore_refuses_destination_created_after_preflight(self):
+        create_backup(self.source, self.archive)
+        destination = self.root / "restored-data"
+        original_rename = trend_data_backup._rename_directory_without_replacing
+
+        def create_racing_destination(source, target):
+            target.mkdir()
+            return original_rename(source, target)
+
+        with patch.object(
+            trend_data_backup, "_rename_directory_without_replacing",
+            side_effect=create_racing_destination,
+        ):
+            with self.assertRaisesRegex(BackupError, "이미 있습니다"):
+                restore_backup(self.archive, destination)
+
+        self.assertTrue(destination.is_dir())
+        self.assertEqual(list(destination.iterdir()), [])
+        self.assertEqual(list(self.root.glob(".restored-data.restore-*")), [])
+
     def test_restore_refuses_to_replace_a_broken_destination_symlink(self):
         create_backup(self.source, self.archive)
         destination = self.root / "restored-data"

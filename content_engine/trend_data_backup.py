@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import ctypes
+import errno
 import hashlib
 import json
 import os
@@ -9,6 +11,7 @@ from pathlib import Path, PurePosixPath
 import shutil
 import stat
 import struct
+import sys
 import tempfile
 from typing import Any
 import zipfile
@@ -33,6 +36,29 @@ IO_CHUNK_BYTES = 1024 * 1024
 
 class BackupError(ValueError):
     """Backup cannot be created, verified, or restored safely."""
+
+
+def _rename_directory_without_replacing(source: Path, destination: Path) -> None:
+    """Atomically publish a restore directory only if its target is still absent."""
+    if os.name == "nt":
+        # Windows rename refuses to replace any existing destination.
+        os.rename(source, destination)
+        return
+    if sys.platform.startswith("linux"):
+        libc = ctypes.CDLL(None, use_errno=True)
+        renameat2 = getattr(libc, "renameat2", None)
+        if renameat2 is None:
+            raise BackupError("이 Linux 환경은 대상 덮어쓰기 없는 원자적 복구를 지원하지 않습니다.")
+        renameat2.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint)
+        renameat2.restype = ctypes.c_int
+        result = renameat2(-100, os.fsencode(source), -100, os.fsencode(destination), 1)
+        if result == 0:
+            return
+        error_number = ctypes.get_errno()
+        if error_number == errno.EEXIST:
+            raise FileExistsError(error_number, os.strerror(error_number), str(destination))
+        raise OSError(error_number, os.strerror(error_number), str(destination))
+    raise BackupError("이 운영체제는 대상 덮어쓰기 없는 원자적 복구를 지원하지 않습니다.")
 
 
 def _safe_relative_path(value: str) -> str:
@@ -405,7 +431,7 @@ def restore_backup(
                     for directory in sorted((p for p in stage.rglob("*") if p.is_dir()), key=lambda p: len(p.parts), reverse=True):
                         os.chmod(directory, 0o700)
                     os.chmod(stage, 0o700)
-            os.rename(stage, destination)
+            _rename_directory_without_replacing(stage, destination)
             return manifest
         except FileExistsError:
             raise BackupError("복구 대상 경로가 이미 있습니다. 기존 데이터를 덮어쓰지 않습니다.") from None

@@ -150,13 +150,20 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - 미완료 운영 위험 점검에서 백업 ZIP이 OAuth 암호문·게시 이력·콘텐츠·MP4를 포함할 수 있지만 파일 자체는 평문임을 확인했다.
 - `content_engine/trend_data_backup.py`에 PBKDF2-HMAC-SHA256 키 유도와 스트리밍 AES-256-GCM 암호화/인증을 추가했다. ZIP 출력을 암호화 스트림에 직접 연결해 생성 중 평문 ZIP 임시본을 만들지 않는다. 인증된 뒤에만 복호화 ZIP을 읽으며, 암호문구는 저장하지 않는다.
 - CLI는 데이터 `--source` 경로와 `--encrypt` 또는 명시적 `--allow-unencrypted`를 요구하고, 암호문구를 터미널에서 숨겨 입력한다. 인증 실패/변조 시 복구 대상이 생성되지 않는다. 임시 평문 파일은 존재할 수 있고 보안 삭제를 보장하지 않는 점을 runbook에 기록했다.
-- 관련 집중 회귀 135개 중 133개가 통과했고 Windows에서 symlink 관련 2개는 환경 제약으로 skip됐다. 암호화 백업 왕복, 2MB 초과 streaming, 평문·암호화 모드의 백업 중 원본 변경 감지, 복구 전 여유 공간 확인, 기존 경로(끊어진 symlink 포함) 덮어쓰기 방지, 잘못된 암호문구/태그 변조, private file permissions, 비밀번호 입력 취소의 안전 종료, CLI 프롬프트와 Instagram 성과 경로를 검증했다. `compileall`과 `git diff --check`도 통과했다. 변경 후 PR CI를 확인한다.
+- 관련 집중 회귀는 이 섹션 아래 최신 기록을 따른다. 암호화 백업 왕복, 2MB 초과 streaming, 원본 변경 감지, 복구 공간 사전 확인, 복구 대상 보호, 잘못된 암호문구/태그 변조, private file permissions, CLI 취소 동작을 검증했다.
 
 ## 운영 백업 경합 회귀 검증 및 최신 PR CI
 
 - `tests/test_trend_data_backup.py`는 평문과 암호화 백업 모두에서 manifest 생성 뒤 원본 파일이 바뀌는 경합을 확인한다. checksum 불일치로 생성을 거부하고 최종 아카이브나 임시 파일을 남기지 않는지 검증한다.
 - 코드/테스트 head `97d71b37abc9364b525ff37fbbfd70a882c68a53`에서 TAK AUTO trend content MVP [run 720](https://github.com/sopptak/tak-auto/actions/runs/44470487290), TAK SCOUT [run 634](https://github.com/sopptak/tak-auto/actions/runs/44470487353), Python 전체 [run 610](https://github.com/sopptak/tak-auto/actions/runs/44470487443)가 모두 성공했다.
 - PR #3은 계속 Draft/Open이며 미병합이다. Render 배포, 유료 리소스 생성, 실계정 OAuth/API 호출, 외부 게시는 수행하지 않았다.
+
+## 복구 대상 경합 보호 — 2026-11-19
+
+- 사전 `exists()` 검사 후 `os.rename(stage, destination)`까지의 경합에서 Linux가 새로 생긴 빈 디렉터리를 교체할 수 있음을 확인했다. 복구 대상 보호 약속과 달라 실패 시나리오 회귀를 추가했다.
+- Linux에서는 `renameat2(RENAME_NOREPLACE)`로 대상 없음 조건을 원자적으로 강제하고, Windows에서는 덮어쓰기 없는 `os.rename`을 사용한다. 다른 운영체제나 지원되지 않는 Linux 런타임에서는 안전한 원자 연산 없이 복구하지 않고 fail closed한다.
+- Windows 백업 집중 테스트는 24개 중 22개 통과, symlink 생성 제약 테스트 2개 skip이다. 사전 확인 후 빈 대상 폴더가 생성되는 경합 회귀도 포함된다. `compileall` 및 `git diff --check`가 통과했다.
+- Windows 전체 회귀는 `test_media_asset_routes.test_upload_requires_basic_auth_and_same_origin`에서 loopback 연결 종료 예외 1건으로 실패했다. 해당 테스트 파일 단독 재실행에서는 5개가 통과했다. 최신 커밋 CI의 전체 Python workflow 결과를 별도로 확인해야 한다.
 
 ## Windows 전체 회귀 결과 — 2026-11-19
 
