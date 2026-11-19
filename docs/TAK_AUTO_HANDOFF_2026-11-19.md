@@ -184,6 +184,12 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - 최신 코드 head `859f99e22e768272a463302ae39781d746a1529d`의 TAK AUTO trend content MVP #734와 TAK SCOUT #648은 성공했다. Python 전체 #624는 Ubuntu 한글 글꼴 설치 단계에서 실행 중이며 테스트 단계에 아직 도달하지 않았다. 직전 문서 head `f7379062ce9a82e5b8f8558ae08fe5fb9fedc176`에서는 세 CI가 모두 성공했다.
 - PR #3은 Draft/Open/미병합이고 head는 위 SHA다. 작업 트리는 깨끗하다. Render 배포, 유료 리소스, 실계정 API 연결, 외부 게시를 하지 않았다.
 
+## 최신 문서 head 확인
+
+- 최신 PR head `497bc1e502bc49f9b1975dda265df52ca7f09c42`는 앞선 코드/테스트 head `859f99e22e768272a463302ae39781d746a1529d`를 기록한 handoff 문서 갱신이다.
+- 최신 문서 head의 TAK AUTO MVP #735, TAK SCOUT #649, Python 전체 #625가 모두 성공했다. 같은 코드 기반의 Windows 전체 회귀는 2,204개 실행, 2,160개 통과, 44개 환경상 skip, 실패 0이다.
+- PR #3은 Draft/Open/미병합이며 base `feature/perplexity-research-provider`다. Render/외부 서비스 운영은 시작하지 않았다.
+
 ## Windows 전체 회귀 결과 — 2026-11-19
 
 - 앞선 Windows `python -m unittest discover -s tests -q` 실행은 2,193개 통과, 43개 환경상 skip이다. 최신 전체 회귀 결과는 위 “복구 대상 경합 보호” 항목을 참고한다.
