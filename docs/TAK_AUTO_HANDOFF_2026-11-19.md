@@ -155,12 +155,12 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 ## 운영 백업 경합 회귀 검증 및 최신 PR CI
 
 - `tests/test_trend_data_backup.py`는 평문과 암호화 백업 모두에서 manifest 생성 뒤 원본 파일이 바뀌는 경합을 확인한다. checksum 불일치로 생성을 거부하고 최종 아카이브나 임시 파일을 남기지 않는지 검증한다.
-- 코드/테스트 head `487f521b63cf3114e17ca7b9d5a1995609ca6468`에서 TAK AUTO trend content MVP [run 718](https://github.com/sopptak/tak-auto/actions/runs/44468322945), TAK SCOUT [run 632](https://github.com/sopptak/tak-auto/actions/runs/44468322934), Python 전체 [run 608](https://github.com/sopptak/tak-auto/actions/runs/44468322997)가 모두 성공했다.
+- 코드/테스트 head `97d71b37abc9364b525ff37fbbfd70a882c68a53`에서 TAK AUTO trend content MVP [run 720](https://github.com/sopptak/tak-auto/actions/runs/44470487290), TAK SCOUT [run 634](https://github.com/sopptak/tak-auto/actions/runs/44470487353), Python 전체 [run 610](https://github.com/sopptak/tak-auto/actions/runs/44470487443)가 모두 성공했다.
 - PR #3은 계속 Draft/Open이며 미병합이다. Render 배포, 유료 리소스 생성, 실계정 OAuth/API 호출, 외부 게시는 수행하지 않았다.
 
 ## Windows 전체 회귀 결과 — 2026-11-19
 
-- `python -m unittest discover -s tests -q` 최종 실행은 2,193개 통과, 43개 환경상 skip이다. PR의 Linux 전체 회귀도 위 SHA에서 성공했다.
+- 앞선 Windows `python -m unittest discover -s tests -q` 실행은 2,193개 통과, 43개 환경상 skip이다. 이후 암호문구 취소 테스트 2개가 추가되어 최신 관련 집중 회귀 132개 통과 및 최신 PR Linux 전체 회귀 성공으로 확인했다.
 - 앞선 전체 실행 4개 실패는 테스트가 `0547065b4f9b65ada8af6a3c33cc636d97b43345`의 아카이브 스냅샷을 요구했으나 local clone에 해당 과거 객체가 없어 발생했다. 커밋을 저장소에서 가져온 뒤 실패했던 4개 테스트를 다시 실행해 모두 통과시켰다. 이 과정에서 테스트/프로덕션 데이터를 수정하지 않았다.
 - 한 번의 재실행에서는 Windows loopback HTTP 테스트에서 `WinError 10053`이 났고, 단독 재실행은 통과했다. 후속 전체 실행은 통과했다.
 - 두 테스트 자원 누수를 정리했다. `tests/test_6_56_shorts_editor.py`는 PIL 프레임을 context manager로 닫고, `tests/test_run_scout_cli.py`는 HTTP 서버 종료 후 listening socket을 닫는다. 후속 전체 로그에는 `ResourceWarning`이 없었다. `python -W error::ResourceWarning -m unittest tests.test_run_scout_cli -v`도 6개 통과했다.
