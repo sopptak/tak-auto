@@ -163,11 +163,11 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - 사전 `exists()` 검사 후 `os.rename(stage, destination)`까지의 경합에서 Linux가 새로 생긴 빈 디렉터리를 교체할 수 있음을 확인했다. 복구 대상 보호 약속과 달라 실패 시나리오 회귀를 추가했다.
 - Linux에서는 `renameat2(RENAME_NOREPLACE)`로 대상 없음 조건을 원자적으로 강제하고, Windows에서는 덮어쓰기 없는 `os.rename`을 사용한다. 다른 운영체제나 지원되지 않는 Linux 런타임에서는 안전한 원자 연산 없이 복구하지 않고 fail closed한다.
 - Windows 백업 집중 테스트는 26개 중 24개 통과, symlink 생성 제약 테스트 2개 skip이다. 새 파일 추가 경합, 빈 대상 폴더 생성 경합, 실제 ZIP 파일이 manifest 크기를 넘을 때 첫 1MiB 뒤 읽기 중단을 확인했다. `compileall` 및 `git diff --check`가 통과했다.
-- 직전 Windows 전체 회귀는 2,200개 실행 중 2,155개 통과, 44개 환경상 skip, loopback HTTP 테스트 1개 오류로 끝났다. 콘텐츠 형식 사전 거절 테스트가 불필요한 업로드 본문을 보내지 않도록 조정한 뒤 해당 HTTP 테스트 파일을 연속 3회 실행해 매회 5개 통과했다. 이 전체 실행은 이후 원본 파일 목록 경합 변경보다 앞서 시작되었으므로 최신 전체 결과는 다시 확인한다.
+- 직전 Windows 전체 회귀는 2,200개 실행 중 2,155개 통과, 44개 환경상 skip, loopback HTTP 테스트 1개 오류로 끝났다. 콘텐츠 형식 사전 거절 테스트가 불필요한 업로드 본문을 보내지 않도록 조정한 뒤 해당 HTTP 테스트 파일을 연속 3회 실행해 매회 5개 통과했다. 이후 최신 코드/테스트 head `91b3a959e9bee4537c3ece53894b41a532cde89b`에서 전체 회귀를 다시 실행해 2,202개 실행, 2,158개 통과, 44개 환경상 skip, 실패 0을 확인했다.
 - 백업 검증 뒤 원본 경로 목록을 다시 확인해 생성 도중 추가·삭제된 파일과 링크/특수 파일 변경을 거부한다. 도구는 마지막 목록 확인 직후의 변경을 막을 스냅샷/잠금을 제공하지 않으므로 백업 중 데이터 쓰기 중지는 여전히 필요하다. 평문·암호화 모드 각각의 새 파일 경합 테스트가 실패 시 최종 아카이브와 임시 파일을 남기지 않는지 확인한다.
-- 최신 코드/테스트 head `b3ecbf13dbe9cc3cce51f1cef3bcc4e75b002df5`에서 TAK SCOUT [#640](https://github.com/sopptak/tak-auto/actions/runs/44475320720), TAK AUTO trend content MVP [#726](https://github.com/sopptak/tak-auto/actions/runs/44475320704), Python 전체 [#616](https://github.com/sopptak/tak-auto/actions/runs/44475320733)가 모두 성공했다. Windows 전체 회귀는 2,201개 실행, 2,157개 통과, 44개 skip, 실패 0이다. 관련 8개 집중 테스트 모듈은 138개 실행, 136개 통과, 2개 symlink 환경 skip이다.
+- 코드/테스트 head `91b3a959e9bee4537c3ece53894b41a532cde89b`의 TAK SCOUT #644, TAK AUTO trend content MVP #730, Python 전체 #620 CI가 모두 성공했다. Windows 전체 회귀는 2,202개 실행, 2,158개 통과, 44개 환경상 skip, 실패 0이다. 관련 8개 집중 테스트 모듈은 138개 실행, 136개 통과, 2개 symlink 환경 skip이다. 이후 추가한 Render 설정 starter 플랜 단언은 별도 정적 설정 모듈 10개 테스트 통과로 확인했다.
 - 검증 코드/테스트 head 뒤 runbook 표현을 바로잡은 문서 전용 커밋이 추가됐다. PR #3은 확인 시 Draft/Open/미병합이며 base는 `feature/perplexity-research-provider`다. 재개 시 PR head와 해당 SHA의 CI를 새로 조회한다. Render 배포, 유료 리소스 생성, 실계정 API 연결, 외부 게시를 하지 않았다.
-- 배포 준비 추가 점검에서 기존 정적 테스트가 트렌드 팩토리 서비스의 실제 데이터 경로와 Persistent Disk 경로 일치를 확인하지 않는 점을 보완했다. `tests/test_web_deployment_security.py`는 그 경로와 `/health`, 1GB 디스크, 외부 비밀 변수, 게시 비활성화를 검증하며 10개 테스트가 통과했다. 실제 Render 서비스 검증은 아니다.
+- 배포 준비 추가 점검에서 기존 정적 테스트가 트렌드 팩토리 서비스의 실제 데이터 경로와 Persistent Disk 경로 일치를 확인하지 않는 점을 보완했다. `tests/test_web_deployment_security.py`는 그 경로와 `/health`, 1GB 디스크, starter 플랜, 외부 비밀 변수, 게시 비활성화를 검증하며 10개 테스트가 통과했다. 실제 Render 서비스 검증은 아니다.
 
 ## Windows 전체 회귀 결과 — 2026-11-19
 

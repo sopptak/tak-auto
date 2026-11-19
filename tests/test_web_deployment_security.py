@@ -75,6 +75,7 @@ class HostedDashboardSecurityTests(unittest.TestCase):
             .split("value: ", 1)[1].splitlines()[0].strip()
         )
         self.assertEqual(configured_data_dir, disk_mount)
+        self.assertIn("plan: starter", trend_service)
         self.assertIn("healthCheckPath: /health", trend_service)
         self.assertIn("sizeGB: 1", trend_service)
         for secret in (
