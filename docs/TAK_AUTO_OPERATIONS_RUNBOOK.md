@@ -8,7 +8,7 @@
 ## 1. 배포 전 승인 게이트
 
 - [ ] PR #3의 최신 head SHA와 변경 파일을 확인한다.
-- 저장소 코드/CI 확인(운영 체크리스트 완료 아님): PR #3 최신 코드/테스트 head `b3ecbf13dbe9cc3cce51f1cef3bcc4e75b002df5`의 TAK SCOUT [#640](https://github.com/sopptak/tak-auto/actions/runs/44475320720), TAK AUTO trend content MVP [#726](https://github.com/sopptak/tak-auto/actions/runs/44475320704), Python 전체 테스트 [#616](https://github.com/sopptak/tak-auto/actions/runs/44475320733)가 모두 성공했다. PR은 Draft/Open이며 미병합이다.
+- 저장소 코드/CI 확인(운영 체크리스트 완료 아님, 2026-11-20): PR #3 head `1e4b2fecc028ec5fdca2c98a08bacb83831e147b`의 TAK SCOUT [#668](https://github.com/sopptak/tak-auto/actions/runs/44625499818), TAK AUTO trend content MVP [#754](https://github.com/sopptak/tak-auto/actions/runs/44625499764), Python 전체 테스트 [#644](https://github.com/sopptak/tak-auto/actions/runs/44625499866)가 모두 성공했다. PR #3은 `feature/perplexity-research-provider`를 대상으로 하는 Draft/Open이며 미병합이고, 선행 PR #1도 Draft/Open이다.
 - [ ] PR의 base 브랜치와 병합 대상이 의도한 구조인지 검토한다. 현재 PR은 `feature/perplexity-research-provider`를 base로 하는 Draft이므로, main 배포용 PR로 오인하지 않는다.
 - [ ] Render 계정 소유자가 새 서비스 생성 및 Starter 플랜·Persistent Disk 비용을 승인한다.
 - [ ] 게시 기능은 계속 `TAK_AUTO_PUBLISHING_ENABLED=false`로 둔다.
@@ -155,9 +155,10 @@ SNS 연결을 준비할 경우에만 추가:
 
 ## 9. 현재 확인 상태
 
-2026-11-19 저장소 점검 시점:
-- 검증 SHA `b3ecbf13dbe9cc3cce51f1cef3bcc4e75b002df5`: TAK SCOUT [#640 성공](https://github.com/sopptak/tak-auto/actions/runs/44475320720), TAK AUTO trend content MVP [#726 성공](https://github.com/sopptak/tak-auto/actions/runs/44475320704), Python 전체 [#616 성공](https://github.com/sopptak/tak-auto/actions/runs/44475320733)
-- Windows 전체 회귀(코드/test head `b3ecbf1`): 2,201개 실행, 2,157개 통과, 44개 환경상 skip
+2026-11-20 저장소 점검 시점:
+- 검증 SHA `1e4b2fecc028ec5fdca2c98a08bacb83831e147b`: TAK SCOUT [#668 성공](https://github.com/sopptak/tak-auto/actions/runs/44625499818), TAK AUTO trend content MVP [#754 성공](https://github.com/sopptak/tak-auto/actions/runs/44625499764), Python 전체 [#644 성공](https://github.com/sopptak/tak-auto/actions/runs/44625499866)
+- Windows 집중 회귀: CI 지정 22개 모듈, 356개 테스트 통과
+- Windows 전체 회귀: 2,225개 실행, 2,221개 통과, 40개 환경상 skip, 4개 실패. 실패 4개는 저장소 외부 운영 아카이브 스냅샷이 기대한 9/18개 legacy 레코드 및 알려진 content_id와 로컬의 2/3개 레코드 스냅샷이 다른 데서 발생했다. 최신 Python CI 전체 테스트는 통과했다.
 - Windows backup 집중 회귀: 26개 실행, 24개 통과, 2개 symlink 제약 skip
 - PR #3: Draft / Open / 미병합
 - Render 실제 서비스 생성·배포: 미확인
