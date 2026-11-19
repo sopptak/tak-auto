@@ -372,7 +372,7 @@ def restore_backup(
     """Restore a verified backup into a new directory without replacing data."""
     archive = Path(archive_path).expanduser()
     destination = Path(destination_dir).expanduser().absolute()
-    if destination.exists():
+    if destination.exists() or destination.is_symlink():
         raise BackupError("복구 대상 경로가 이미 있습니다. 기존 데이터를 덮어쓰지 않습니다.")
     with _decrypted_archive_path(archive, passphrase) as zip_path:
         manifest = _verify_zip_archive(zip_path)

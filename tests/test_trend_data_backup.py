@@ -186,6 +186,21 @@ class TrendDataBackupTests(unittest.TestCase):
             restore_backup(self.archive, destination)
         self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
 
+    def test_restore_refuses_to_replace_a_broken_destination_symlink(self):
+        create_backup(self.source, self.archive)
+        destination = self.root / "restored-data"
+        missing_target = self.root / "target-that-does-not-exist"
+        try:
+            destination.symlink_to(missing_target, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlink creation is unavailable")
+
+        with self.assertRaisesRegex(BackupError, "덮어쓰지 않습니다"):
+            restore_backup(self.archive, destination)
+
+        self.assertTrue(destination.is_symlink())
+        self.assertEqual(destination.resolve(strict=False), missing_target.resolve(strict=False))
+
     def test_restore_checks_free_space_before_creating_staging_directory(self):
         create_backup(self.source, self.archive)
         destination = self.root / "restored-data"
