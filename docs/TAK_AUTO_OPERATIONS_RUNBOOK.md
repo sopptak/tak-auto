@@ -8,7 +8,7 @@
 ## 1. 배포 전 승인 게이트
 
 - [ ] PR #3의 최신 head SHA와 변경 파일을 확인한다.
-- [x] 2026-11-19 확인: 코드/테스트 head `97d71b37abc9364b525ff37fbbfd70a882c68a53`에서 TAK SCOUT [#634](https://github.com/sopptak/tak-auto/actions/runs/44470487353), TAK AUTO trend content MVP [#720](https://github.com/sopptak/tak-auto/actions/runs/44470487290), Python 전체 테스트 [#610](https://github.com/sopptak/tak-auto/actions/runs/44470487443)가 모두 성공했다. 이후 커밋이 생기면 반드시 새 head에서 재검증한다.
+- [x] 2026-11-19 확인: PR #3 최신 코드/테스트 head `b3ecbf13dbe9cc3cce51f1cef3bcc4e75b002df5`의 TAK SCOUT [#640](https://github.com/sopptak/tak-auto/actions/runs/44475320720), TAK AUTO trend content MVP [#726](https://github.com/sopptak/tak-auto/actions/runs/44475320704), Python 전체 테스트 [#616](https://github.com/sopptak/tak-auto/actions/runs/44475320733)가 모두 성공했다. PR은 Draft/Open이며 미병합이다.
 - [ ] PR의 base 브랜치와 병합 대상이 의도한 구조인지 검토한다. 현재 PR은 `feature/perplexity-research-provider`를 base로 하는 Draft이므로, main 배포용 PR로 오인하지 않는다.
 - [ ] Render 계정 소유자가 새 서비스 생성 및 Starter 플랜·Persistent Disk 비용을 승인한다.
 - [ ] 게시 기능은 계속 `TAK_AUTO_PUBLISHING_ENABLED=false`로 둔다.
@@ -156,9 +156,9 @@ SNS 연결을 준비할 경우에만 추가:
 ## 9. 현재 확인 상태
 
 2026-11-19 저장소 점검 시점:
-- 검증 SHA `97d71b37abc9364b525ff37fbbfd70a882c68a53`: TAK SCOUT research tests 성공
-- 같은 SHA: TAK AUTO trend content MVP tests 성공
-- 같은 SHA: Python 전체 테스트 성공
+- 검증 SHA `b3ecbf13dbe9cc3cce51f1cef3bcc4e75b002df5`: TAK SCOUT [#640 성공](https://github.com/sopptak/tak-auto/actions/runs/44475320720), TAK AUTO trend content MVP [#726 성공](https://github.com/sopptak/tak-auto/actions/runs/44475320704), Python 전체 [#616 성공](https://github.com/sopptak/tak-auto/actions/runs/44475320733)
+- Windows 전체 회귀: 2,201개 실행, 2,157개 통과, 44개 환경상 skip
+- Windows backup 집중 회귀: 26개 실행, 24개 통과, 2개 symlink 제약 skip
 - PR #3: Draft / Open / 미병합
 - Render 실제 서비스 생성·배포: 미확인
 - SNS OAuth 실계정 연결: 미확인
@@ -170,7 +170,7 @@ SNS 연결을 준비할 경우에만 추가:
 
 ## 2026-11-19 최신 저장소 점검
 
-- 최신 검증 SHA `651275680874e5e8256ccfa6e8552fc3ad4155b5`에서 3개 workflow 모두 성공 완료했다.
+- 최신 검증 SHA `b3ecbf13dbe9cc3cce51f1cef3bcc4e75b002df5`의 3개 workflow 결과는 이 runbook 1절에 기록했다.
 - 영상 업로드는 Basic Auth + same-origin 확인 + `video/mp4` + 1~100MB 제한 + MP4 `ftyp` 컨테이너 시그니처 + 서명 URL + Range 응답으로 보호된다. `ftyp` 검사는 컨테이너 식별용 1차 검사이지 영상 전체 디코딩/재생 품질 검증은 아니다. 실제 업로드 후 플랫폼 사전 검증이 필요하다.
 - 게시 승인 요청은 인증 및 same-origin 확인을 통과해야 하며, TikTok은 공개 범위를 필수로 지정한다. 네이버 블로그는 수동 게시만 지원한다.
 - 게시 대기열은 작업 시작 전 `processing` 상태를 영속 저장하고, 불확실한 응답이나 장시간 중단은 `needs_review`로 전환해 자동 중복 게시를 막는다.

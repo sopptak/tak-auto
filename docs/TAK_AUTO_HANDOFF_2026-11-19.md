@@ -152,7 +152,7 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - CLI는 데이터 `--source` 경로와 `--encrypt` 또는 명시적 `--allow-unencrypted`를 요구하고, 암호문구를 터미널에서 숨겨 입력한다. 인증 실패/변조 시 복구 대상이 생성되지 않는다. 임시 평문 파일은 존재할 수 있고 보안 삭제를 보장하지 않는 점을 runbook에 기록했다.
 - 관련 집중 회귀는 이 섹션 아래 최신 기록을 따른다. 암호화 백업 왕복, 2MB 초과 streaming, 원본 변경 감지, 복구 공간 사전 확인, 복구 대상 보호, 잘못된 암호문구/태그 변조, private file permissions, CLI 취소 동작을 검증했다.
 
-## 운영 백업 경합 회귀 검증 및 최신 PR CI
+## 운영 백업 경합 회귀 검증 및 이전 PR CI
 
 - `tests/test_trend_data_backup.py`는 평문과 암호화 백업 모두에서 manifest 생성 뒤 원본 파일이 바뀌는 경합을 확인한다. checksum 불일치로 생성을 거부하고 최종 아카이브나 임시 파일을 남기지 않는지 검증한다.
 - 코드/테스트 head `97d71b37abc9364b525ff37fbbfd70a882c68a53`에서 TAK AUTO trend content MVP [run 720](https://github.com/sopptak/tak-auto/actions/runs/44470487290), TAK SCOUT [run 634](https://github.com/sopptak/tak-auto/actions/runs/44470487353), Python 전체 [run 610](https://github.com/sopptak/tak-auto/actions/runs/44470487443)가 모두 성공했다.
@@ -165,10 +165,12 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - Windows 백업 집중 테스트는 26개 중 24개 통과, symlink 생성 제약 테스트 2개 skip이다. 새 파일 추가 경합, 빈 대상 폴더 생성 경합, 실제 ZIP 파일이 manifest 크기를 넘을 때 첫 1MiB 뒤 읽기 중단을 확인했다. `compileall` 및 `git diff --check`가 통과했다.
 - 직전 Windows 전체 회귀는 2,200개 실행 중 2,155개 통과, 44개 환경상 skip, loopback HTTP 테스트 1개 오류로 끝났다. 콘텐츠 형식 사전 거절 테스트가 불필요한 업로드 본문을 보내지 않도록 조정한 뒤 해당 HTTP 테스트 파일을 연속 3회 실행해 매회 5개 통과했다. 이 전체 실행은 이후 원본 파일 목록 경합 변경보다 앞서 시작되었으므로 최신 전체 결과는 다시 확인한다.
 - 백업 검증 뒤 원본 경로 목록을 다시 확인해 생성 도중 추가·삭제된 파일과 링크/특수 파일 변경을 거부한다. 도구는 마지막 목록 확인 직후의 변경을 막을 스냅샷/잠금을 제공하지 않으므로 백업 중 데이터 쓰기 중지는 여전히 필요하다. 평문·암호화 모드 각각의 새 파일 경합 테스트가 실패 시 최종 아카이브와 임시 파일을 남기지 않는지 확인한다.
+- 최신 코드/테스트 head `b3ecbf13dbe9cc3cce51f1cef3bcc4e75b002df5`에서 TAK SCOUT [#640](https://github.com/sopptak/tak-auto/actions/runs/44475320720), TAK AUTO trend content MVP [#726](https://github.com/sopptak/tak-auto/actions/runs/44475320704), Python 전체 [#616](https://github.com/sopptak/tak-auto/actions/runs/44475320733)가 모두 성공했다. Windows 전체 회귀는 2,201개 실행, 2,157개 통과, 44개 skip, 실패 0이다. 관련 8개 집중 테스트 모듈은 138개 실행, 136개 통과, 2개 symlink 환경 skip이다.
+- 현재 PR #3 head는 위 SHA이며 계속 Draft/Open/미병합, base는 `feature/perplexity-research-provider`다. Render 배포, 유료 리소스 생성, 실계정 API 연결, 외부 게시를 하지 않았다.
 
 ## Windows 전체 회귀 결과 — 2026-11-19
 
-- 앞선 Windows `python -m unittest discover -s tests -q` 실행은 2,193개 통과, 43개 환경상 skip이다. 이후 암호문구 취소 테스트 2개가 추가되어 최신 관련 집중 회귀 132개 통과 및 최신 PR Linux 전체 회귀 성공으로 확인했다.
+- 앞선 Windows `python -m unittest discover -s tests -q` 실행은 2,193개 통과, 43개 환경상 skip이다. 최신 전체 회귀 결과는 위 “복구 대상 경합 보호” 항목을 참고한다.
 - 앞선 전체 실행 4개 실패는 테스트가 `0547065b4f9b65ada8af6a3c33cc636d97b43345`의 아카이브 스냅샷을 요구했으나 local clone에 해당 과거 객체가 없어 발생했다. 커밋을 저장소에서 가져온 뒤 실패했던 4개 테스트를 다시 실행해 모두 통과시켰다. 이 과정에서 테스트/프로덕션 데이터를 수정하지 않았다.
 - 한 번의 재실행에서는 Windows loopback HTTP 테스트에서 `WinError 10053`이 났고, 단독 재실행은 통과했다. 후속 전체 실행은 통과했다.
 - 두 테스트 자원 누수를 정리했다. `tests/test_6_56_shorts_editor.py`는 PIL 프레임을 context manager로 닫고, `tests/test_run_scout_cli.py`는 HTTP 서버 종료 후 listening socket을 닫는다. 후속 전체 로그에는 `ResourceWarning`이 없었다. `python -W error::ResourceWarning -m unittest tests.test_run_scout_cli -v`도 6개 통과했다.
