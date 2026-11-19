@@ -2,7 +2,7 @@
 
 TAK AUTO의 **게시 계정 연결 현황**에서 YouTube, TikTok, Instagram, Facebook 페이지, Threads, 네이버 계정을 OAuth로 연결할 수 있습니다. 이 흐름은 계정 프로필을 확인하고 인증 정보를 암호화해 보관합니다. 계정을 연결해도 게시나 예약 게시가 시작되지는 않습니다.
 
-웹 로그인은 계정 연결 상태를 확인합니다. Threads는 `threads_content_publish`, Instagram은 `instagram_business_content_publish`, Facebook은 `pages_show_list`, `pages_read_engagement`, `pages_manage_posts` 권한을 요청합니다. 연결 자체로 게시되지는 않습니다. 게시물은 운영자 승인 대기열을 통과해야 하며 전역 게시 스위치는 기본적으로 꺼져 있습니다.
+웹 로그인은 계정 연결 상태를 확인합니다. Threads는 `threads_content_publish`, Instagram은 `instagram_business_content_publish`, Facebook은 `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `read_insights` 권한을 요청합니다. TikTok은 `user.info.basic`, `video.publish`, `video.list` 권한을 요청합니다. 연결 자체로 게시되지는 않습니다. 게시물은 운영자 승인 대기열을 통과해야 하며 전역 게시 스위치는 기본적으로 꺼져 있습니다.
 
 암호화 저장소에 Threads 웹 연결 기록이 있으면 게시 어댑터는 그 토큰을 사용하며 `threads_content_publish` 권한이 확인되지 않으면 게시를 거부합니다. Threads 연결 기록이 없을 때만 기존 `THREADS_ACCESS_TOKEN` 설정을 사용할 수 있습니다. YouTube Shorts와 Instagram Reels는 승인 대기열 게시 어댑터가 구현되어 있지만, 실제 계정 인증·영상 준비·운영 검증은 별도입니다. Facebook 페이지 텍스트 게시 어댑터도 구현되어 있습니다. 선택한 페이지의 Page access token을 사용하며 게시 요청은 `/PAGE_ID/feed`에 전달됩니다. 네이버 블로그 자동 게시 어댑터는 지원하지 않습니다. TikTok Direct Post는 `video.publish` 승인 및 계정 연결이 완료된 경우에만 사용할 수 있습니다.
 
@@ -47,7 +47,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 YouTube는 Google Cloud에서 YouTube Data API v3를 활성화하고 OAuth 클라이언트 유형을 **웹 애플리케이션**으로 생성합니다. 채널 확인에는 `youtube.readonly`, 승인된 Shorts 비공개 업로드에는 `youtube.upload` 권한을 요청합니다. OAuth 연결 시 refresh token을 암호화해 보관하고 액세스 토큰 만료 시 자동 갱신합니다. 첫 연결에서 refresh token을 받지 못하면 불완전한 연결로 저장하지 않습니다. 기존 로컬 인증 스크립트의 Desktop 앱 JSON은 웹 콜백에 사용할 수 없습니다.
 
-TikTok 앱에는 Login Kit와 Content Posting API 제품을 추가하고 `user.info.basic`, `video.publish` 권한을 설정합니다. Direct Post 사용 전 TikTok 개발자 앱의 Direct Post 구성을 활성화하고 앱 심사를 완료해야 합니다. `video.publish` 권한을 요청하며, TikTok 앱의 Direct Post 제품 설정과 권한 승인이 필요합니다. Meta 앱에서는 Facebook Login, Instagram Login, Threads API 제품을 각각 설정하고 위 콜백을 등록합니다. Facebook 페이지 게시에는 `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`를 요청하고, Instagram에는 `instagram_business_basic`과 `instagram_business_content_publish`, Threads에는 `threads_basic`과 `threads_content_publish`를 요청합니다. Instagram 계정은 프로페셔널(비즈니스 또는 크리에이터) 계정이어야 하며, 릴스 게시에는 암호화된 연결 토큰에 두 Instagram 권한이 모두 있어야 합니다. Threads 연결 카드에 게시 권한이 표시되어야 승인 대기열의 텍스트 어댑터가 암호화된 웹 로그인 토큰을 사용할 수 있습니다. Meta 개발 앱이 개발 모드이면 앱 역할로 등록된 테스트 계정만 연결될 수 있습니다. 플랫폼이 앱 검토를 요구하면 해당 검토를 완료해야 다른 계정이 연결될 수 있습니다.
+TikTok 앱에는 Login Kit와 Content Posting API 제품을 추가하고 `user.info.basic`, `video.publish`, `video.list` 권한을 설정합니다. `video.publish`는 승인형 Direct Post에, `video.list`는 연결 계정의 조회수·좋아요·댓글·공유 수를 읽는 성과 수집에 사용합니다. Direct Post 사용 전 TikTok 개발자 앱의 Direct Post 구성을 활성화하고 앱 심사를 완료해야 합니다. Meta 앱에서는 Facebook Login, Instagram Login, Threads API 제품을 각각 설정하고 위 콜백을 등록합니다. Facebook 페이지 게시에는 `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`와 페이지 `CREATE_CONTENT` 또는 `MANAGE` 작업 권한이 필요합니다. Facebook 성과 수집에는 `read_insights`, `pages_read_engagement`, 페이지 `ANALYZE` 작업 권한이 추가로 필요합니다. Instagram에는 `instagram_business_basic`과 `instagram_business_content_publish`, Threads에는 `threads_basic`과 `threads_content_publish`를 요청합니다. Instagram 계정은 프로페셔널(비즈니스 또는 크리에이터) 계정이어야 하며, 릴스 게시에는 암호화된 연결 토큰에 두 Instagram 권한이 모두 있어야 합니다. Threads 연결 카드에 게시 권한이 표시되어야 승인 대기열의 텍스트 어댑터가 암호화된 웹 로그인 토큰을 사용할 수 있습니다. Meta 개발 앱이 개발 모드이면 앱 역할로 등록된 테스트 계정만 연결될 수 있습니다. 플랫폼이 앱 검토를 요구하면 해당 검토를 완료해야 다른 계정이 연결될 수 있습니다.
 
 네이버 앱에는 네이버 로그인을 추가하고 콜백 URL을 등록합니다. 이 연결은 네이버 사용자 프로필을 확인합니다. 네이버 블로그 글쓰기 Open API는 종료되어 계정 연결이 블로그 자동 게시를 열어주지는 않습니다.
 
@@ -98,6 +98,7 @@ Facebook OAuth를 다시 연결해 아래 권한을 승인해야 페이지 게�
 - `pages_show_list`: 관리 가능한 페이지 목록 확인
 - `pages_read_engagement`: 페이지 및 게시 권한 확인에 필요한 권한
 - `pages_manage_posts`: 페이지 이름으로 게시물 작성
+- `read_insights`: 페이지 게시물의 성과 지표 조회. 분석에는 선택 페이지의 `ANALYZE` 작업 권한도 필요합니다.
 - 연결 마지막 단계에서 실제 게시할 Facebook 페이지를 선택합니다. 선택된 페이지의 Page access token과 페이지 ID가 암호화 저장소에 보관됩니다.
 - 게시 권한이 있는 페이지에서 `CREATE_CONTENT` 또는 `MANAGE` 작업 권한을 가진 계정이어야 합니다.
 - 페이지 선택 화면에는 `CREATE_CONTENT` 또는 `MANAGE` 작업 권한이 있는 페이지만 표시됩니다. 현재 자동 게시 어댑터는 Facebook 전용 문안의 텍스트 게시만 지원합니다. 사진·영상·릴스는 Facebook 게시 어댑터 범위에 포함되지 않습니다.
@@ -105,4 +106,6 @@ Facebook OAuth를 다시 연결해 아래 권한을 승인해야 페이지 게�
 - 게시 응답이 유실되면 중복 게시 방지를 위해 자동 재시도하지 않고 운영자 확인 상태로 전환합니다.
 
 Meta 공식 요구사항은 Page access token, `pages_manage_posts`, `pages_read_engagement`, `pages_show_list` 및 해당 페이지의 `CREATE_CONTENT` 또는 `MANAGE` 작업 권한입니다.
+
+Facebook 페이지 게시물 성과 수집은 `read_insights`, `pages_read_engagement`, 페이지 `ANALYZE` 작업 권한을 사용하며, TikTok 성과 수집은 `video.list` 권한으로 인증 계정 소유 영상 통계를 조회합니다. 두 수집기는 읽기 전용이고 `--confirm-live`로 명시해야 실행됩니다. 상세 지표와 CLI 예시는 [성과 운영 안내](performance_operations.md)를 참고하세요.
 
