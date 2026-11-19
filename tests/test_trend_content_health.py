@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch
 
+from scripts import run_trend_content_mvp
 from scripts.run_trend_content_mvp import _health_payload
 
 
@@ -31,6 +32,15 @@ class TrendContentHealthTests(unittest.TestCase):
         self.assertFalse(payload["perplexity_configured"])
         self.assertFalse(payload["web_auth_configured"])
         self.assertFalse(payload["ready"])
+
+    def test_external_bind_rejects_whitespace_only_password(self):
+        with patch.dict("os.environ", {
+            "TAK_WEB_USERNAME": "operator",
+            "TAK_WEB_PASSWORD": " \t ",
+        }, clear=False):
+            with self.assertRaises(SystemExit) as error:
+                run_trend_content_mvp.main(["--host", "0.0.0.0", "--port", "8765"])
+        self.assertEqual(error.exception.code, 2)
 
     def test_readiness_requires_publisher_adapter_when_publishing_is_enabled(self):
         environ = {

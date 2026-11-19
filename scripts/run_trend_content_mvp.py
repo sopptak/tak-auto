@@ -30,7 +30,7 @@ if str(ROOT) not in sys.path:
 
 from blog_importer.models import utc_now
 from content_engine.generator import generate_content_bundle
-from content_engine.media_assets import MediaAssetError, MediaAssetStore
+from content_engine.media_assets import MediaAssetError, MediaAssetStore, is_public_https_origin
 from content_engine.publishing_connections import (
     VERIFY_PLATFORMS, connection_dashboard, publishing_connection_statuses,
     verify_publishing_connection,
@@ -1172,13 +1172,7 @@ def _page(
     oauth_setup = _oauth_setup_statuses(oauth_storage_error)
     media_assets = _list_media_assets()
     media_key_ready = len(os.getenv("TAK_AUTO_MEDIA_SIGNING_KEY", "").strip()) >= 32
-    public_media_origin = urlparse(os.getenv("TAK_AUTO_PUBLIC_URL", "").strip())
-    public_media_ready = (
-        public_media_origin.scheme == "https" and bool(public_media_origin.hostname)
-        and not public_media_origin.username and not public_media_origin.password
-        and public_media_origin.path in {"", "/"}
-        and not public_media_origin.query and not public_media_origin.fragment
-    )
+    public_media_ready = is_public_https_origin(os.getenv("TAK_AUTO_PUBLIC_URL", ""))
     asset_options = "".join(
         f'<option value="{escape(asset.asset_id, quote=True)}">{escape(asset.filename)} · {asset.size_bytes // (1024 * 1024)}MB</option>'
         for asset in media_assets
@@ -2018,7 +2012,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=int(os.getenv("PORT", "8765")))
     args = parser.parse_args(argv)
     if args.host not in {"127.0.0.1", "localhost"} and not (
-        os.getenv("TAK_WEB_USERNAME", "").strip() and os.getenv("TAK_WEB_PASSWORD", "")
+        os.getenv("TAK_WEB_USERNAME", "").strip() and os.getenv("TAK_WEB_PASSWORD", "").strip()
     ):
         parser.error("외부 공개 서버는 TAK_WEB_USERNAME과 TAK_WEB_PASSWORD 인증 설정이 필수입니다.")
     if not 1 <= args.port <= 65535:

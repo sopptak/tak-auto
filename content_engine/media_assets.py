@@ -25,6 +25,29 @@ MAX_SIGNED_URL_TTL_SECONDS = 30 * 24 * 60 * 60
 _INDEX_LOCK = threading.Lock()
 
 
+def is_public_https_origin(value: str) -> bool:
+    """Return whether a configured URL is a plain HTTPS origin usable by media fetchers."""
+    try:
+        parsed = urlsplit(str(value or "").strip())
+        hostname = parsed.hostname
+        # Accessing .port validates malformed and out-of-range port numbers.
+        parsed.port
+    except (TypeError, ValueError):
+        return False
+    return bool(
+        parsed.scheme.lower() == "https"
+        and hostname
+        and not any(char.isspace() for char in parsed.netloc)
+        and not parsed.netloc.endswith(":")
+        and "@" not in parsed.netloc
+        and not parsed.username
+        and not parsed.password
+        and parsed.path in {"", "/"}
+        and not parsed.query
+        and not parsed.fragment
+    )
+
+
 class MediaAssetError(ValueError):
     """Invalid, missing, or inaccessible uploaded media asset."""
 
@@ -184,8 +207,7 @@ class MediaAssetStore:
         self.get_asset(asset_id)
         if not self.public_url:
             raise MediaAssetError("TAK_AUTO_PUBLIC_URL이 설정되지 않았습니다.")
-        parsed = urlsplit(self.public_url)
-        if parsed.scheme != "https" or not parsed.hostname or parsed.path or parsed.query or parsed.fragment:
+        if not is_public_https_origin(self.public_url):
             raise MediaAssetError("공개 미디어 URL에는 도메인만 포함된 HTTPS 주소가 필요합니다.")
         if ttl_seconds < 60 or ttl_seconds > MAX_SIGNED_URL_TTL_SECONDS:
             raise MediaAssetError("미디어 URL 유효기간은 1분~30일 범위여야 합니다.")

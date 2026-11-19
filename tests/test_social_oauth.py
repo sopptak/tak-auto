@@ -136,6 +136,29 @@ class SocialOAuthTests(unittest.TestCase):
                     )
             self.assertEqual(vault.public_connections(), {})
 
+    def test_vault_rejects_missing_or_structured_account_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            vault = OAuthTokenVault(Path(directory) / "tokens.enc", self.key)
+            for invalid_id in (None, " \t ", {}, [], True, 1.23):
+                with self.subTest(invalid_id=invalid_id), self.assertRaisesRegex(
+                    SocialOAuthError, "계정 식별자"
+                ):
+                    vault.save(
+                        "threads", {"access_token": "valid-token"},
+                        {"account_id": invalid_id, "account_name": "tak_auto"},
+                    )
+            self.assertEqual(vault.public_connections(), {})
+
+    def test_vault_rejects_token_expiry_values_that_overflow_datetime(self):
+        with tempfile.TemporaryDirectory() as directory:
+            vault = OAuthTokenVault(Path(directory) / "tokens.enc", self.key)
+            with self.assertRaisesRegex(SocialOAuthError, "토큰 만료 시간"):
+                vault.save(
+                    "threads", {"access_token": "valid-token", "expires_in": 10**30},
+                    {"account_id": "thread-123", "account_name": "tak_auto"},
+                )
+            self.assertEqual(vault.public_connections(), {})
+
     def test_oauth_token_parser_rejects_malformed_access_tokens(self):
         for invalid_token in (None, 123, {}, " \t "):
             with self.subTest(invalid_token=invalid_token), self.assertRaisesRegex(

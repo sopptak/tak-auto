@@ -250,16 +250,28 @@ class OAuthTokenVault:
         access_token = raw_access_token.strip()
         raw_refresh_token = tokens.get("refresh_token", "")
         refresh_token = raw_refresh_token.strip() if isinstance(raw_refresh_token, str) else ""
+        raw_account_id = profile.get("account_id")
+        if raw_account_id is None or isinstance(raw_account_id, (bool, float, dict, list, tuple, set)):
+            raise SocialOAuthError("플랫폼 계정 식별자를 확인하지 못했습니다.")
+        account_id = str(raw_account_id).strip()
+        if not account_id:
+            raise SocialOAuthError("플랫폼 계정 식별자를 확인하지 못했습니다.")
+        raw_account_name = profile.get("account_name", "")
+        account_name = str(raw_account_name).strip() if isinstance(raw_account_name, (str, int, float)) else ""
         expires_in = _safe_int(tokens.get("expires_in"))
         now = datetime.now(timezone.utc)
+        try:
+            expires_at = (now + timedelta(seconds=expires_in)).isoformat() if expires_in > 0 else ""
+        except OverflowError:
+            raise SocialOAuthError("플랫폼 토큰 만료 시간이 올바르지 않습니다.") from None
         record: dict[str, object] = {
             "access_token": access_token,
             "refresh_token": refresh_token,
             "token_type": str(tokens.get("token_type", "Bearer")),
-            "expires_at": (now + timedelta(seconds=expires_in)).isoformat() if expires_in > 0 else "",
+            "expires_at": expires_at,
             "granted_scopes": scopes or str(tokens.get("scope", tokens.get("scopes", ""))),
-            "account_id": str(profile.get("account_id", ""))[:200],
-            "account_name": str(profile.get("account_name", ""))[:200],
+            "account_id": account_id[:200],
+            "account_name": account_name[:200],
             "tasks": [str(task) for task in profile.get("tasks", []) if str(task)] if isinstance(profile.get("tasks", []), (list, tuple, set)) else [],
             "connected_at": now.isoformat(),
         }

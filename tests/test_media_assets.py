@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from content_engine.media_assets import MediaAssetError, MediaAssetStore
+from content_engine.media_assets import MediaAssetError, MediaAssetStore, is_public_https_origin
 
 
 def mp4_bytes():
@@ -75,6 +75,17 @@ class MediaAssetStoreTests(unittest.TestCase):
         asset = invalid.save_stream(io.BytesIO(payload), len(payload), "approved.mp4")
         with self.assertRaisesRegex(MediaAssetError, "HTTPS"):
             invalid.signed_url(asset.asset_id)
+
+    def test_public_https_origin_validation_handles_malformed_configuration(self):
+        for value in (
+            "http://example.test", "https://example.test/path", "https://example.test?x=1",
+            "https://user:pass@example.test", "https://@example.test", "https://example.test:",
+            "https://example.test:99999", "https://[::1", "https://bad host.test",
+        ):
+            with self.subTest(value=value):
+                self.assertFalse(is_public_https_origin(value))
+        self.assertTrue(is_public_https_origin("https://example.test"))
+        self.assertTrue(is_public_https_origin("https://example.test:8443/"))
 
 
 if __name__ == "__main__":
