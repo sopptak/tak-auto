@@ -112,3 +112,13 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - 이전 문서의 SHA 및 CI 상태는 이 섹션의 최신 기록으로 대체한다. 문서 변경 커밋 후 CI가 새로 실행되면 그 결과를 별도로 확인한다.
 - Render 실제 서비스 생성·배포, Persistent Disk 연결, 백업/복구 리허설, SNS 실계정 연결, 외부 게시 성공은 여전히 미확인이다. `TAK_AUTO_PUBLISHING_ENABLED=false` 유지.
 - 다음 작업: 최신 head의 Python 전체 테스트 완료 확인 → 문서 변경 커밋의 CI 재확인 → 실제 운영 배포 전 체크리스트 최종 검토. PR 병합/배포/실계정 연결/게시/유료 리소스 생성은 별도 사용자 승인 없이는 하지 않는다.
+
+
+## 2026-11-19 다음 개발 단계 — 검증 가능한 백업·복구 도구
+
+- PR #3 최신 확인 head `4538d1a74bb8f593c90640fffe0cf884389f86d0`은 Draft/Open이며, TAK AUTO MVP, TAK SCOUT, Python 전체 CI가 모두 성공했다.
+- Windows 동시 JSON 교체의 간헐 오류는 `scripts/run_trend_content_mvp.py`에서 교체 단계를 직렬화하고 일시 `PermissionError`에 제한 재시도하도록 보완했다. 권한 비트 테스트는 POSIX에서만 평가한다.
+- `content_engine/trend_data_backup.py`와 `scripts/backup_trend_factory_data.py`에 create/verify/restore 도구를 추가했다. checksum manifest 검증, 경로 탈출·심볼릭 링크 거부, 기존 파일/복구 경로 덮어쓰기 방지, 임시 경로에서 검증 후 복구 이동을 제공한다.
+- `tests/test_trend_data_backup.py`의 생성/검증/복구, 변조, 경로 탈출, 덮어쓰기 차단 테스트를 추가했고, `trend-content-mvp-tests.yml`에 경로 감지와 새 테스트 실행을 연결했다.
+- 백업 아카이브는 암호화되지 않으며 OAuth 암호문, 게시/미디어 정보를 포함할 수 있다. 운영자는 보호된 보관 위치를 사용해야 한다. 실제 Render 디스크 복사·보관·복구 리허설은 수행하지 않았다.
+- runbook은 데이터 작성 프로세스를 정지한 복제본에서의 명령과 보안 한계를 안내한다. Render 실서비스 생성 후 운영자 설정과 승인이 필요한 부분은 미완료다.

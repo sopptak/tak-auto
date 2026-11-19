@@ -1,0 +1,114 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import tempfile
+import unittest
+import zipfile
+
+from content_engine.trend_data_backup import BackupError, create_backup, restore_backup, verify_backup
+
+
+class TrendDataBackupTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.source = self.root / "data"
+        self.source.mkdir()
+        (self.source / "queue.json").write_text('[{"id":"queue-1"}]\n', encoding="utf-8")
+        (self.source / "media_assets").mkdir()
+        (self.source / "media_assets" / "approved.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42\x00media")
+        (self.source / "social_oauth_tokens.enc").write_bytes(b"encrypted-token-fixture")
+        self.archive = self.root / "backup.zip"
+
+    def test_create_verify_and_restore_round_trip(self):
+        manifest = create_backup(self.source, self.archive)
+        self.assertEqual(len(manifest["files"]), 3)
+        self.assertEqual(verify_backup(self.archive), manifest)
+        restored = self.root / "restored-data"
+        result = restore_backup(self.archive, restored)
+        self.assertEqual(result, manifest)
+        for relative in ("queue.json", "media_assets/approved.mp4", "social_oauth_tokens.enc"):
+            self.assertEqual((restored / relative).read_bytes(), (self.source / relative).read_bytes())
+
+    def test_create_refuses_to_overwrite_existing_archive(self):
+        self.archive.write_bytes(b"keep this")
+        with self.assertRaisesRegex(BackupError, "이미 있습니다"):
+            create_backup(self.source, self.archive)
+        self.assertEqual(self.archive.read_bytes(), b"keep this")
+
+    def test_backup_must_be_outside_source_tree(self):
+        with self.assertRaisesRegex(BackupError, "밖에 저장"):
+            create_backup(self.source, self.source / "backup.zip")
+
+    def test_symlink_is_rejected_instead_of_followed(self):
+        link = self.source / "outside.json"
+        try:
+            link.symlink_to(self.root / "secret.json")
+        except (OSError, NotImplementedError):
+            self.skipTest("symlink creation is unavailable")
+        with self.assertRaisesRegex(BackupError, "심볼릭 링크"):
+            create_backup(self.source, self.archive)
+
+    def test_verify_rejects_changed_file_bytes(self):
+        create_backup(self.source, self.archive)
+        changed = self.root / "changed.zip"
+        with zipfile.ZipFile(self.archive) as original, zipfile.ZipFile(changed, "w") as edited:
+            for name in original.namelist():
+                data = original.read(name)
+                if name == "queue.json":
+                    data += b"tampered"
+                edited.writestr(original.getinfo(name), data)
+        with self.assertRaisesRegex(BackupError, "검증에 실패"):
+            verify_backup(changed)
+
+    def test_verify_rejects_path_traversal_manifest(self):
+        malicious = self.root / "malicious.zip"
+        payload = b"do not write outside"
+        manifest = {"format_version": 1, "files": [{
+            "path": "../outside.txt", "size": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+        }]}
+        with zipfile.ZipFile(malicious, "w") as bundle:
+            bundle.writestr("../outside.txt", payload)
+            bundle.writestr("tak-auto-backup-manifest.json", json.dumps(manifest))
+        with self.assertRaisesRegex(BackupError, "경로가 올바르지"):
+            verify_backup(malicious)
+        self.assertFalse((self.root.parent / "outside.txt").exists())
+
+    def test_verify_rejects_symlink_archive_entries(self):
+        malicious = self.root / "symlink.zip"
+        info = zipfile.ZipInfo("linked-file")
+        info.create_system = 3
+        info.external_attr = (0o120777 << 16)
+        with zipfile.ZipFile(malicious, "w") as bundle:
+            bundle.writestr(info, "../../outside.txt")
+            bundle.writestr("tak-auto-backup-manifest.json", json.dumps({
+                "format_version": 1,
+                "files": [{"path": "linked-file", "size": 19,
+                           "sha256": hashlib.sha256(b"../../outside.txt").hexdigest()}],
+            }))
+        with self.assertRaisesRegex(BackupError, "일반 파일이 아닌"):
+            verify_backup(malicious)
+
+    def test_restore_refuses_to_overwrite_existing_directory(self):
+        create_backup(self.source, self.archive)
+        destination = self.root / "existing"
+        destination.mkdir()
+        sentinel = destination / "keep.txt"
+        sentinel.write_text("keep", encoding="utf-8")
+        with self.assertRaisesRegex(BackupError, "덮어쓰지 않습니다"):
+            restore_backup(self.archive, destination)
+        self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
+
+    def test_backup_permissions_are_private_on_posix(self):
+        create_backup(self.source, self.archive)
+        if os.name == "posix":
+            self.assertEqual(self.archive.stat().st_mode & 0o777, 0o600)
+
+
+if __name__ == "__main__":
+    unittest.main()

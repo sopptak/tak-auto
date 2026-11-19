@@ -6,8 +6,11 @@ on:
       - "tak_scout/perplexity_research.py"
       - "tak_scout/trend_discovery.py"
       - "scripts/run_trend_content_mvp.py"
+      - "scripts/backup_trend_factory_data.py"
+      - "content_engine/trend_data_backup.py"
       - "tests/test_trend_content_health.py"
       - "tests/test_trend_content_queue_routes.py"
+      - "tests/test_trend_data_backup.py"
       - "tests/test_perplexity_research.py"
       - "tests/test_trend_discovery.py"
       - "content_engine/generator.py"
@@ -70,6 +73,7 @@ jobs:
           python -m unittest discover -s tests -p "test_trend_publishers.py" -v
           python -m unittest discover -s tests -p "test_facebook_publisher.py" -v
           python -m unittest discover -s tests -p "test_trend_content_queue_routes.py" -v
+          python -m unittest discover -s tests -p "test_trend_data_backup.py" -v
           python -m unittest discover -s tests -p "test_trend_content_health.py" -v
           python -m unittest discover -s tests -p "test_media_assets.py" -v
           python -m unittest discover -s tests -p "test_media_asset_routes.py" -v
