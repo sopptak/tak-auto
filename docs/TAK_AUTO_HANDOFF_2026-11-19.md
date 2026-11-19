@@ -155,7 +155,7 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 ## 운영 백업 경합 회귀 검증 및 최신 PR CI
 
 - `tests/test_trend_data_backup.py`는 평문과 암호화 백업 모두에서 manifest 생성 뒤 원본 파일이 바뀌는 경합을 확인한다. checksum 불일치로 생성을 거부하고 최종 아카이브나 임시 파일을 남기지 않는지 검증한다.
-- 코드/테스트 head `694b5ea70ec7d44f8cb7bbb2269e2770cb3b1da9`에서 TAK AUTO trend content MVP [run 716](https://github.com/sopptak/tak-auto/actions/runs/44466307464), TAK SCOUT [run 630](https://github.com/sopptak/tak-auto/actions/runs/44466307392), Python 전체 [run 606](https://github.com/sopptak/tak-auto/actions/runs/44466307472)가 모두 성공했다.
+- 코드/테스트 head `487f521b63cf3114e17ca7b9d5a1995609ca6468`에서 TAK AUTO trend content MVP [run 718](https://github.com/sopptak/tak-auto/actions/runs/44468322945), TAK SCOUT [run 632](https://github.com/sopptak/tak-auto/actions/runs/44468322934), Python 전체 [run 608](https://github.com/sopptak/tak-auto/actions/runs/44468322997)가 모두 성공했다.
 - PR #3은 계속 Draft/Open이며 미병합이다. Render 배포, 유료 리소스 생성, 실계정 OAuth/API 호출, 외부 게시는 수행하지 않았다.
 
 ## Windows 전체 회귀 결과 — 2026-11-19
