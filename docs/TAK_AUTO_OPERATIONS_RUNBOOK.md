@@ -171,6 +171,7 @@ SNS 연결을 준비할 경우에만 추가:
 ## 2026-11-19 최신 저장소 점검
 
 - 최신 검증 SHA `b3ecbf13dbe9cc3cce51f1cef3bcc4e75b002df5`의 3개 workflow 결과는 이 runbook 1절에 기록했다.
+- `tests/test_web_deployment_security.py`는 Render trend-factory의 `TAK_AUTO_DATA_DIR`와 Persistent Disk mount, `/health`, 1GB 디스크, 외부 비밀 환경변수, 게시 비활성화 설정이 서로 맞는지 정적으로 확인한다. 이는 Blueprint 검증이며 실제 Render 서비스·디스크가 생성됐다는 뜻은 아니다.
 - 영상 업로드는 Basic Auth + same-origin 확인 + `video/mp4` + 1~100MB 제한 + MP4 `ftyp` 컨테이너 시그니처 + 서명 URL + Range 응답으로 보호된다. `ftyp` 검사는 컨테이너 식별용 1차 검사이지 영상 전체 디코딩/재생 품질 검증은 아니다. 실제 업로드 후 플랫폼 사전 검증이 필요하다.
 - 게시 승인 요청은 인증 및 same-origin 확인을 통과해야 하며, TikTok은 공개 범위를 필수로 지정한다. 네이버 블로그는 수동 게시만 지원한다.
 - 게시 대기열은 작업 시작 전 `processing` 상태를 영속 저장하고, 불확실한 응답이나 장시간 중단은 `needs_review`로 전환해 자동 중복 게시를 막는다.

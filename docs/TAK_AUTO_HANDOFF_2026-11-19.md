@@ -167,6 +167,7 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - 백업 검증 뒤 원본 경로 목록을 다시 확인해 생성 도중 추가·삭제된 파일과 링크/특수 파일 변경을 거부한다. 도구는 마지막 목록 확인 직후의 변경을 막을 스냅샷/잠금을 제공하지 않으므로 백업 중 데이터 쓰기 중지는 여전히 필요하다. 평문·암호화 모드 각각의 새 파일 경합 테스트가 실패 시 최종 아카이브와 임시 파일을 남기지 않는지 확인한다.
 - 최신 코드/테스트 head `b3ecbf13dbe9cc3cce51f1cef3bcc4e75b002df5`에서 TAK SCOUT [#640](https://github.com/sopptak/tak-auto/actions/runs/44475320720), TAK AUTO trend content MVP [#726](https://github.com/sopptak/tak-auto/actions/runs/44475320704), Python 전체 [#616](https://github.com/sopptak/tak-auto/actions/runs/44475320733)가 모두 성공했다. Windows 전체 회귀는 2,201개 실행, 2,157개 통과, 44개 skip, 실패 0이다. 관련 8개 집중 테스트 모듈은 138개 실행, 136개 통과, 2개 symlink 환경 skip이다.
 - 검증 코드/테스트 head 뒤 runbook 표현을 바로잡은 문서 전용 커밋이 추가됐다. PR #3은 확인 시 Draft/Open/미병합이며 base는 `feature/perplexity-research-provider`다. 재개 시 PR head와 해당 SHA의 CI를 새로 조회한다. Render 배포, 유료 리소스 생성, 실계정 API 연결, 외부 게시를 하지 않았다.
+- 배포 준비 추가 점검에서 기존 정적 테스트가 트렌드 팩토리 서비스의 실제 데이터 경로와 Persistent Disk 경로 일치를 확인하지 않는 점을 보완했다. `tests/test_web_deployment_security.py`는 그 경로와 `/health`, 1GB 디스크, 외부 비밀 변수, 게시 비활성화를 검증하며 10개 테스트가 통과했다. 실제 Render 서비스 검증은 아니다.
 
 ## Windows 전체 회귀 결과 — 2026-11-19
 
