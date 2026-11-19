@@ -242,7 +242,7 @@ class LoopHttpTests(LoopCase):
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler_class(dataclasses.replace(self.cfg, money_scout_agent_enabled=True)))
         thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         thread.start()
-        self.addCleanup(lambda s=self.server: (s.shutdown(), s.server_close()))
+        self.addCleanup(lambda s=self.server: (s.shutdown(), s.server_close(), thread.join(5)))
         started = threading.Event()
 
         def fake_run_scout(**kw):
@@ -259,7 +259,8 @@ class LoopHttpTests(LoopCase):
                 if money_scout.load_staging(self.staging)["requests"][-1]["status"] == "done":
                     break
                 time.sleep(0.1)
-        self.assertEqual(money_scout.load_staging(self.staging)["requests"][-1]["status"], "done")
+        completed_request = money_scout.load_staging(self.staging)["requests"][-1]
+        self.assertEqual(completed_request["status"], "done", completed_request.get("message", ""))
         self.assertEqual(len(self.store.tasks()), 5)
         # The worker records "done" just before its finally block releases the
         # process-wide lock, so allow that tiny handoff window to finish.
