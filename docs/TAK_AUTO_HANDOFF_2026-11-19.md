@@ -177,6 +177,13 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - 코드/테스트 head `4c9a8b85e1c8d444f0378a422527f8c9e4f996f1`의 TAK AUTO trend content MVP [#732](https://github.com/sopptak/tak-auto/actions/runs/44489189308), TAK SCOUT [#646](https://github.com/sopptak/tak-auto/actions/runs/44489189407), Python 전체 [#622](https://github.com/sopptak/tak-auto/actions/runs/44489189141)가 모두 성공했다.
 - PR #3은 Draft/Open/미병합 상태이고 base는 `feature/perplexity-research-provider`다. Render 실배포, 유료 리소스, 실계정 API, 외부 게시를 하지 않았다.
 
+## 백업 복구 추출 상한 — 2026-11-19
+
+- 복구 단계에서 manifest 크기대로 제한 읽기를 적용해, 검증 이후 평문 ZIP이 교체되더라도 초과 바이트를 staging 파일에 기록하지 않도록 했다. 경합 회귀는 검증 함수를 대체한 뒤 manifest보다 큰 ZIP 항목을 넣어 조기 중단과 staging 정리를 확인한다.
+- 집중 백업 테스트 28개 중 26개 통과, 2개 Windows symlink 제약 skip. 최신 코드 전체 Windows 회귀는 2,204개 실행, 2,160개 통과, 44개 환경상 skip, 실패 0이다.
+- 최신 코드 head `859f99e22e768272a463302ae39781d746a1529d`의 TAK AUTO trend content MVP #734와 TAK SCOUT #648은 성공했다. Python 전체 #624는 Ubuntu 한글 글꼴 설치 단계에서 실행 중이며 테스트 단계에 아직 도달하지 않았다. 직전 문서 head `f7379062ce9a82e5b8f8558ae08fe5fb9fedc176`에서는 세 CI가 모두 성공했다.
+- PR #3은 Draft/Open/미병합이고 head는 위 SHA다. 작업 트리는 깨끗하다. Render 배포, 유료 리소스, 실계정 API 연결, 외부 게시를 하지 않았다.
+
 ## Windows 전체 회귀 결과 — 2026-11-19
 
 - 앞선 Windows `python -m unittest discover -s tests -q` 실행은 2,193개 통과, 43개 환경상 skip이다. 최신 전체 회귀 결과는 위 “복구 대상 경합 보호” 항목을 참고한다.
