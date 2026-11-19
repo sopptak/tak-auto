@@ -261,7 +261,15 @@ class LoopHttpTests(LoopCase):
                 time.sleep(0.1)
         self.assertEqual(money_scout.load_staging(self.staging)["requests"][-1]["status"], "done")
         self.assertEqual(len(self.store.tasks()), 5)
-        self.assertTrue(money_web._RUN_LOCK.acquire(blocking=False))
+        # The worker records "done" just before its finally block releases the
+        # process-wide lock, so allow that tiny handoff window to finish.
+        lock_released = False
+        for _ in range(100):
+            if money_web._RUN_LOCK.acquire(blocking=False):
+                lock_released = True
+                break
+            time.sleep(0.01)
+        self.assertTrue(lock_released)
         money_web._RUN_LOCK.release()
 
 
