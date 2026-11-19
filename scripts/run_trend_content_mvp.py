@@ -20,6 +20,7 @@ import secrets
 import sys
 import tempfile
 import threading
+import time
 from urllib.parse import parse_qs, urlparse, unquote
 from zoneinfo import ZoneInfo
 
@@ -47,6 +48,7 @@ from tak_scout.trend_discovery import TrendDiscovery, TrendItem, discover_trends
 
 KST = ZoneInfo("Asia/Seoul")
 STATE_MUTATION_LOCK = threading.RLock()
+_JSON_REPLACE_LOCK = threading.Lock()
 def _has_persistent_mount(path: Path) -> bool:
     """Check the configured data directory itself, which matches Render mountPath."""
     return os.path.ismount(path.expanduser().absolute())
@@ -172,7 +174,18 @@ def _write_json(path: Path, payload) -> None:
             os.chmod(temporary_name, 0o600)
         except OSError:
             pass
-        os.replace(temporary_name, path)
+        # Windows can transiently reject overlapping replacements of the same
+        # destination. Serialize the commit step while still allowing callers
+        # to prepare unique temporary files concurrently.
+        with _JSON_REPLACE_LOCK:
+            for attempt in range(6):
+                try:
+                    os.replace(temporary_name, path)
+                    break
+                except PermissionError:
+                    if os.name != "nt" or attempt == 5:
+                        raise
+                    time.sleep(0.01 * (attempt + 1))
         temporary_name = None
         try:
             directory_fd = os.open(path.parent, os.O_RDONLY)

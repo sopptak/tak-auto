@@ -1,6 +1,7 @@
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 import json
+import os
 import tempfile
 import unittest
 
@@ -111,7 +112,10 @@ class PublishHistoryStorageTests(unittest.TestCase):
         )
 
         self.assertTrue(self.history_path.exists())
-        self.assertEqual(self.history_path.stat().st_mode & 0o777, 0o600)
+        # POSIX file modes are enforced by the storage implementation. Windows
+        # exposes compatibility mode bits that do not represent ACL permissions.
+        if os.name == "posix":
+            self.assertEqual(self.history_path.stat().st_mode & 0o777, 0o600)
         records = history.load()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["content_id"], "content-abc123")

@@ -1,4 +1,5 @@
 import io
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -24,10 +25,9 @@ class MediaAssetStoreTests(unittest.TestCase):
         asset = self.store.save_stream(io.BytesIO(payload), len(payload), "../../approved.mp4")
         self.assertEqual(asset.filename, "approved.mp4")
         self.assertEqual(asset.path.read_bytes(), payload)
-        self.assertEqual(self.store.index_path.stat().st_mode & 0o777, 0o600)
-        self.assertEqual(asset.path.stat().st_mode & 0o777, 0o600)
-        self.assertEqual(self.store.index_path.stat().st_mode & 0o777, 0o600)
-        self.assertEqual(asset.path.stat().st_mode & 0o777, 0o600)
+        if os.name == "posix":
+            self.assertEqual(self.store.index_path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(asset.path.stat().st_mode & 0o777, 0o600)
         public = self.store.list_assets()[0].to_public_dict()
         self.assertEqual(public["asset_id"], asset.asset_id)
         self.assertNotIn("path", public)

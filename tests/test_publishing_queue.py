@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -35,7 +36,8 @@ class PublishingQueueTests(unittest.TestCase):
         self.assertEqual(first["status"], "scheduled")
         self.assertEqual(first["max_attempts"], MAX_ATTEMPTS)
         self.assertEqual(len(PublishingQueue(self.path).snapshot()["items"]), 1)
-        self.assertEqual(self.path.stat().st_mode & 0o777, 0o600)
+        if os.name == "posix":
+            self.assertEqual(self.path.stat().st_mode & 0o777, 0o600)
 
     def test_facebook_is_an_allowed_approved_queue_platform(self):
         item = self.enqueue(platform="facebook")

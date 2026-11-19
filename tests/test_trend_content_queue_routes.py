@@ -205,7 +205,8 @@ class TrendContentQueueRouteTests(unittest.TestCase):
             self._insight("candidate-1", STATUS_CANDIDATE),
             self._insight("insufficient-1", result="INSUFFICIENT_SAMPLE"),
         ])
-        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        if os.name == "posix":
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
         selected = run_trend_content_mvp._select_accepted_strategy_insights(
             ["accepted-1"], path=path,
         )
