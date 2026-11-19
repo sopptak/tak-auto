@@ -334,9 +334,13 @@ def _run_connection_verification(
         }
         message = f"{status['name']} 계정 연결을 확인했습니다: {profile['account_name']}"
     except (ValueError, RuntimeError) as error:
-        account_env = "THREADS_USERNAME" if platform == "threads" else "YOUTUBE_CHANNEL_NAME"
+        account_env = {
+            "threads": "THREADS_USERNAME", "youtube_shorts": "YOUTUBE_CHANNEL_NAME",
+            "tiktok": "TIKTOK_USERNAME", "instagram_reels": "INSTAGRAM_USERNAME",
+            "facebook": "FACEBOOK_PAGE_NAME",
+        }.get(platform, "")
         checks[platform] = {
-            "status": "failed", "account_name": values.get(account_env, ""),
+            "status": "failed", "account_name": values.get(account_env, "") if account_env else "",
             "message": str(error)[:240], "checked_at": current.isoformat(),
         }
         message = f"{status['name']} 계정 확인 실패: {error}"
