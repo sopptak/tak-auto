@@ -75,12 +75,20 @@ class MediaAssetStoreTests(unittest.TestCase):
         asset = invalid.save_stream(io.BytesIO(payload), len(payload), "approved.mp4")
         with self.assertRaisesRegex(MediaAssetError, "HTTPS"):
             invalid.signed_url(asset.asset_id)
+        invalid_path = MediaAssetStore(
+            self.temp_dir.name, "test-signing-key-that-is-at-least-32-chars", "https://example.test///",
+        )
+        with self.assertRaisesRegex(MediaAssetError, "HTTPS"):
+            invalid_path.signed_url(asset.asset_id)
 
     def test_public_https_origin_validation_handles_malformed_configuration(self):
         for value in (
             "http://example.test", "https://example.test/path", "https://example.test?x=1",
             "https://user:pass@example.test", "https://@example.test", "https://example.test:",
-            "https://example.test:99999", "https://[::1", "https://bad host.test",
+            "https://example.test:99999", "https://example.test///", "https://[::1", "https://bad host.test",
+            "https://localhost", "https://api.localhost", "https://127.0.0.1",
+            "https://10.0.0.8", "https://192.168.1.20", "https://[::1]",
+            "https://[fc00::1]", "https://169.254.169.254",
         ):
             with self.subTest(value=value):
                 self.assertFalse(is_public_https_origin(value))

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import hmac
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -33,6 +34,15 @@ def is_public_https_origin(value: str) -> bool:
         # Accessing .port validates malformed and out-of-range port numbers.
         parsed.port
     except (TypeError, ValueError):
+        return False
+    normalized_host = hostname.rstrip(".").lower() if hostname else ""
+    if normalized_host == "localhost" or normalized_host.endswith(".localhost"):
+        return False
+    try:
+        address = ipaddress.ip_address(normalized_host)
+    except ValueError:
+        address = None
+    if address is not None and not address.is_global:
         return False
     return bool(
         parsed.scheme.lower() == "https"
@@ -75,7 +85,7 @@ class MediaAssetStore:
         self.asset_dir = self.data_dir / "media_assets"
         self.index_path = self.data_dir / "tak_auto_media_assets.json"
         self.signing_key = signing_key.strip()
-        self.public_url = public_url.strip().rstrip("/")
+        self.public_url = public_url.strip()
         if len(self.signing_key) < 32:
             raise MediaAssetError("TAK_AUTO_MEDIA_SIGNING_KEY는 32자 이상의 비밀값이어야 합니다.")
 
@@ -215,7 +225,7 @@ class MediaAssetStore:
         expires_at = issued + ttl_seconds
         signature = self._signature(asset_id, expires_at)
         query = urlencode({"expires": expires_at, "signature": signature})
-        return f"{self.public_url}/media/assets/{asset_id}?{query}"
+        return f"{self.public_url.rstrip('/')}/media/assets/{asset_id}?{query}"
 
     def resolve_signed(self, asset_id: str, expires: str, signature: str,
                        *, now: int | None = None) -> MediaAsset:
