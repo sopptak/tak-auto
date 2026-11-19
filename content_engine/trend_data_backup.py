@@ -190,6 +190,20 @@ def _decrypted_archive_path(archive_path: str | Path, passphrase: str | None):
             header = source.read(ENCRYPTED_HEADER_BYTES)
             if len(header) != ENCRYPTED_HEADER_BYTES or not header.startswith(ENCRYPTED_MAGIC):
                 raise BackupError("암호화 백업 헤더가 손상되었습니다.")
+            encrypted_size = os.fstat(source.fileno()).st_size
+            encrypted_body_size = encrypted_size - ENCRYPTED_HEADER_BYTES
+            if encrypted_body_size < TAG_BYTES:
+                raise BackupError("암호화 백업 데이터가 잘렸습니다.")
+            decrypted_size = encrypted_body_size - TAG_BYTES
+            try:
+                temporary_free_bytes = shutil.disk_usage(tempfile.gettempdir()).free
+            except OSError as error:
+                raise BackupError(f"임시 디스크의 여유 공간을 확인하지 못했습니다: {error}") from None
+            if temporary_free_bytes < decrypted_size:
+                raise BackupError(
+                    "암호화 백업을 검증할 임시 디스크 공간이 부족합니다 "
+                    f"(필요: {decrypted_size}바이트, 남음: {temporary_free_bytes}바이트)."
+                )
             iterations_end = len(ENCRYPTED_MAGIC) + 4
             iterations = struct.unpack(">I", header[len(ENCRYPTED_MAGIC):iterations_end])[0]
             if iterations != KDF_ITERATIONS:
@@ -209,13 +223,20 @@ def _decrypted_archive_path(archive_path: str | Path, passphrase: str | None):
                 if os.name == "posix":
                     os.chmod(temporary_name, 0o600)
                 tail = b""
-                while chunk := source.read(IO_CHUNK_BYTES):
+                remaining = encrypted_body_size
+                while remaining:
+                    chunk = source.read(min(IO_CHUNK_BYTES, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
                     buffered = tail + chunk
                     if len(buffered) > TAG_BYTES:
                         ciphertext, tail = buffered[:-TAG_BYTES], buffered[-TAG_BYTES:]
                         temporary.write(decryptor.update(ciphertext))
                     else:
                         tail = buffered
+                if remaining or source.read(1):
+                    raise BackupError("암호화 백업 파일 크기가 읽는 동안 변경되었습니다.")
                 if len(tail) != TAG_BYTES:
                     raise BackupError("암호화 백업 데이터가 잘렸습니다.")
                 try:

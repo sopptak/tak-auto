@@ -81,6 +81,22 @@ class TrendDataBackupTests(unittest.TestCase):
             restore_backup(tampered, self.root / "must-not-exist", passphrase=passphrase)
         self.assertFalse((self.root / "must-not-exist").exists())
 
+    def test_encrypted_verification_checks_temp_space_before_decrypting(self):
+        passphrase = "correct horse battery staple"
+        create_backup(self.source, self.archive, passphrase=passphrase)
+        needed_bytes = self.archive.stat().st_size - ENCRYPTED_HEADER_BYTES - trend_data_backup.TAG_BYTES
+        with patch.object(
+            trend_data_backup.shutil,
+            "disk_usage",
+            return_value=SimpleNamespace(total=100, used=100, free=max(needed_bytes - 1, 0)),
+        ), patch.object(
+            trend_data_backup.tempfile,
+            "NamedTemporaryFile",
+            side_effect=AssertionError("temporary archive should not be created"),
+        ):
+            with self.assertRaisesRegex(BackupError, "임시 디스크 공간이 부족합니다"):
+                verify_backup(self.archive, passphrase=passphrase)
+
     def test_encryption_requires_a_long_passphrase_and_leaves_no_archive(self):
         with self.assertRaisesRegex(BackupError, "16자 이상"):
             create_backup(self.source, self.archive, passphrase="too-short")
