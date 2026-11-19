@@ -138,8 +138,11 @@ def _same_origin(
     if configured_origin is not None:
         return supplied_origin == configured_origin
 
-    request_host = urlparse(f"//{host}")
-    request_hostname = (request_host.hostname or "").lower().rstrip(".")
+    try:
+        request_host = urlparse(f"//{host}")
+        request_hostname = (request_host.hostname or "").lower().rstrip(".")
+    except ValueError:
+        return False
     is_loopback = request_hostname == "localhost"
     if not is_loopback:
         try:
