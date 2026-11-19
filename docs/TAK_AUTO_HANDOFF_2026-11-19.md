@@ -166,7 +166,7 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - 직전 Windows 전체 회귀는 2,200개 실행 중 2,155개 통과, 44개 환경상 skip, loopback HTTP 테스트 1개 오류로 끝났다. 콘텐츠 형식 사전 거절 테스트가 불필요한 업로드 본문을 보내지 않도록 조정한 뒤 해당 HTTP 테스트 파일을 연속 3회 실행해 매회 5개 통과했다. 이 전체 실행은 이후 원본 파일 목록 경합 변경보다 앞서 시작되었으므로 최신 전체 결과는 다시 확인한다.
 - 백업 검증 뒤 원본 경로 목록을 다시 확인해 생성 도중 추가·삭제된 파일과 링크/특수 파일 변경을 거부한다. 도구는 마지막 목록 확인 직후의 변경을 막을 스냅샷/잠금을 제공하지 않으므로 백업 중 데이터 쓰기 중지는 여전히 필요하다. 평문·암호화 모드 각각의 새 파일 경합 테스트가 실패 시 최종 아카이브와 임시 파일을 남기지 않는지 확인한다.
 - 최신 코드/테스트 head `b3ecbf13dbe9cc3cce51f1cef3bcc4e75b002df5`에서 TAK SCOUT [#640](https://github.com/sopptak/tak-auto/actions/runs/44475320720), TAK AUTO trend content MVP [#726](https://github.com/sopptak/tak-auto/actions/runs/44475320704), Python 전체 [#616](https://github.com/sopptak/tak-auto/actions/runs/44475320733)가 모두 성공했다. Windows 전체 회귀는 2,201개 실행, 2,157개 통과, 44개 skip, 실패 0이다. 관련 8개 집중 테스트 모듈은 138개 실행, 136개 통과, 2개 symlink 환경 skip이다.
-- 현재 PR #3 head는 위 SHA이며 계속 Draft/Open/미병합, base는 `feature/perplexity-research-provider`다. Render 배포, 유료 리소스 생성, 실계정 API 연결, 외부 게시를 하지 않았다.
+- 검증 코드/테스트 head 뒤 runbook 표현을 바로잡은 문서 전용 커밋이 추가됐다. PR #3은 확인 시 Draft/Open/미병합이며 base는 `feature/perplexity-research-provider`다. 재개 시 PR head와 해당 SHA의 CI를 새로 조회한다. Render 배포, 유료 리소스 생성, 실계정 API 연결, 외부 게시를 하지 않았다.
 
 ## Windows 전체 회귀 결과 — 2026-11-19
 
