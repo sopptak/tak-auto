@@ -123,6 +123,26 @@ class SocialOAuthTests(unittest.TestCase):
             self.assertTrue(vault.disconnect("threads"))
             self.assertEqual(vault.public_connections(), {})
 
+    def test_vault_rejects_non_string_or_blank_access_tokens(self):
+        with tempfile.TemporaryDirectory() as directory:
+            vault = OAuthTokenVault(Path(directory) / "tokens.enc", self.key)
+            for invalid_token in (None, 123, {}, " \t "):
+                with self.subTest(invalid_token=invalid_token), self.assertRaisesRegex(
+                    SocialOAuthError, "인증 토큰"
+                ):
+                    vault.save(
+                        "threads", {"access_token": invalid_token},
+                        {"account_id": "thread-123", "account_name": "tak_auto"},
+                    )
+            self.assertEqual(vault.public_connections(), {})
+
+    def test_oauth_token_parser_rejects_malformed_access_tokens(self):
+        for invalid_token in (None, 123, {}, " \t "):
+            with self.subTest(invalid_token=invalid_token), self.assertRaisesRegex(
+                SocialOAuthError, "인증 토큰"
+            ):
+                SocialOAuthClient._token_fields({"access_token": invalid_token})
+
     def test_vault_preserves_youtube_refresh_token_when_reauthorization_omits_it(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "tokens.enc"
@@ -131,7 +151,7 @@ class SocialOAuthTests(unittest.TestCase):
                 "access_token": "first-access", "refresh_token": "long-lived-refresh",
             }, {"account_id": "channel-123", "account_name": "TAK AUTO"},
                 scopes="https://www.googleapis.com/auth/youtube.readonly")
-            vault.save("youtube_shorts", {"access_token": "new-access"},
+            vault.save("youtube_shorts", {"access_token": "new-access", "refresh_token": None},
                 {"account_id": "channel-123", "account_name": "TAK AUTO"},
                 scopes="https://www.googleapis.com/auth/youtube.readonly")
             self.assertEqual(vault.get("youtube_shorts")["refresh_token"], "long-lived-refresh")

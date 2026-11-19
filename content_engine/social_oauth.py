@@ -244,14 +244,17 @@ class OAuthTokenVault:
     def save(self, platform: str, tokens: Mapping[str, object], profile: Mapping[str, object], *, scopes: str = "") -> None:
         if platform not in PROVIDERS:
             raise SocialOAuthError("지원하지 않는 SNS입니다.")
-        access_token = str(tokens.get("access_token", ""))
-        if not access_token:
+        raw_access_token = tokens.get("access_token")
+        if not isinstance(raw_access_token, str) or not raw_access_token.strip():
             raise SocialOAuthError("플랫폼에서 인증 토큰을 받지 못했습니다.")
+        access_token = raw_access_token.strip()
+        raw_refresh_token = tokens.get("refresh_token", "")
+        refresh_token = raw_refresh_token.strip() if isinstance(raw_refresh_token, str) else ""
         expires_in = _safe_int(tokens.get("expires_in"))
         now = datetime.now(timezone.utc)
         record: dict[str, object] = {
             "access_token": access_token,
-            "refresh_token": str(tokens.get("refresh_token", "")),
+            "refresh_token": refresh_token,
             "token_type": str(tokens.get("token_type", "Bearer")),
             "expires_at": (now + timedelta(seconds=expires_in)).isoformat() if expires_in > 0 else "",
             "granted_scopes": scopes or str(tokens.get("scope", tokens.get("scopes", ""))),
@@ -588,11 +591,17 @@ class SocialOAuthClient:
 
     @staticmethod
     def _token_fields(raw: object) -> dict[str, object]:
-        if not isinstance(raw, dict) or not raw.get("access_token"):
+        if not isinstance(raw, dict):
             raise SocialOAuthError("플랫폼에서 인증 토큰을 받지 못했습니다.")
+        access_token = raw.get("access_token")
+        if not isinstance(access_token, str) or not access_token.strip():
+            raise SocialOAuthError("플랫폼에서 인증 토큰을 받지 못했습니다.")
+        refresh_token = raw.get("refresh_token", "")
+        if not isinstance(refresh_token, str):
+            refresh_token = ""
         return {
-            "access_token": str(raw.get("access_token", "")),
-            "refresh_token": str(raw.get("refresh_token", "")),
+            "access_token": access_token.strip(),
+            "refresh_token": refresh_token.strip(),
             "token_type": str(raw.get("token_type", "Bearer")),
             "expires_in": _safe_int(raw.get("expires_in")),
             "refresh_expires_in": _safe_int(raw.get("refresh_expires_in")),
