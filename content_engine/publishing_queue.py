@@ -56,7 +56,18 @@ def _read(path: Path) -> dict[str, Any]:
         raise QueueError(f"게시 대기열 파일을 읽을 수 없습니다: {path}") from error
     if not isinstance(data, dict) or not isinstance(data.get("items"), list) or not isinstance(data.get("history"), list):
         raise QueueError("게시 대기열 파일의 형식이 올바르지 않습니다.")
+    if not all(isinstance(item, dict) for item in data["items"]) or not all(
+        isinstance(record, dict) for record in data["history"]
+    ):
+        raise QueueError("게시 대기열 항목 형식이 올바르지 않습니다.")
     return data
+
+
+def _attempt_count(value: Any) -> int | None:
+    """Return a valid stored attempt count; ambiguous values must fail closed."""
+    if type(value) is not int or value < 0:
+        return None
+    return value
 
 
 def _write(path: Path, data: dict[str, Any]) -> None:
@@ -196,7 +207,8 @@ class PublishingQueue:
             item = self._find(data, item_id)
             if item.get("status") != "needs_review":
                 raise QueueError("수동 검토 상태인 작업만 다시 예약할 수 있습니다.")
-            if int(item.get("attempts", 0)) >= MAX_ATTEMPTS:
+            attempts = _attempt_count(item.get("attempts", 0))
+            if attempts is None or attempts >= MAX_ATTEMPTS:
                 raise QueueError("최대 시도 횟수에 도달해 다시 예약할 수 없습니다.")
             item.update(
                 status="scheduled", scheduled_at=_iso(scheduled), next_attempt_at=_iso(scheduled),
@@ -233,6 +245,16 @@ class PublishingQueue:
         results = []
         published_keys = {record.get("idempotency_key") for record in data["history"]}
         for item in data["items"]:
+            attempts = _attempt_count(item.get("attempts", 0))
+            if item.get("status") in {"scheduled", "processing", "needs_review"} and attempts is None:
+                item.update(
+                    status="needs_review", attempts=MAX_ATTEMPTS,
+                    last_error="시도 횟수 기록이 올바르지 않습니다. 게시 여부를 먼저 확인하세요.",
+                    updated_at=_iso(current),
+                )
+                changed = True
+                results.append(item)
+                continue
             if item.get("status") == "processing":
                 try:
                     started = datetime.fromisoformat(item["updated_at"])
@@ -267,12 +289,12 @@ class PublishingQueue:
                 changed = True
                 results.append(item)
                 continue
-            if item.get("attempts", 0) >= MAX_ATTEMPTS:
+            if attempts >= MAX_ATTEMPTS:
                 item.update(status="failed", last_error=item.get("last_error") or "재시도 한도 초과", updated_at=_iso(current))
                 changed = True
                 results.append(item)
                 continue
-            item["attempts"] = int(item.get("attempts", 0)) + 1
+            item["attempts"] = attempts + 1
             item.update(status="processing", updated_at=_iso(current))
             changed = True
             # Persist the in-flight marker before calling a platform. If the process
@@ -334,11 +356,15 @@ def queue_dashboard(
     counts["pending approval"] = pending_approvals
     cards = []
     for item in sorted(items, key=lambda row: (row.get("scheduled_at", ""), row.get("created_at", ""))):
-        title = item.get("payload", {}).get("title") or item.get("payload", {}).get("keyword") or item.get("content_id", "")
+        payload = item.get("payload")
+        payload = payload if isinstance(payload, Mapping) else {}
+        title = payload.get("title") or payload.get("keyword") or item.get("content_id", "")
+        attempts = _attempt_count(item.get("attempts", 0))
+        attempts_label = str(attempts) if attempts is not None else "확인 필요"
         actions = ""
         if item.get("status") == "needs_review":
             item_id = _html(item.get("id", ""))
-            if int(item.get("attempts", 0)) < MAX_ATTEMPTS:
+            if attempts is not None and attempts < MAX_ATTEMPTS:
                 retry_action = f'<form method="post" action="/queue/retry"><input type="hidden" name="item_id" value="{item_id}"><button type="submit" class="secondary">미게시 확인 후 재시도</button></form>'
             else:
                 retry_action = "<span>최대 시도 횟수 도달</span>"
@@ -346,7 +372,7 @@ def queue_dashboard(
         cards.append(
             "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td></tr>".format(
                 _html(title), _html(item.get("platform", "")), _html(item.get("status", "")),
-                _html(item.get("scheduled_at", "")), item.get("attempts", 0), MAX_ATTEMPTS,
+                _html(item.get("scheduled_at", "")), _html(attempts_label), MAX_ATTEMPTS,
                 _html(item.get("last_error", "")), actions,
             )
         )
@@ -370,3 +396,4 @@ def queue_dashboard(
 def _html(value: Any) -> str:
     from html import escape
     return escape(str(value or ""))
+

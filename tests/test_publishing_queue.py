@@ -147,6 +147,42 @@ class PublishingQueueTests(unittest.TestCase):
         self.assertIn("게시 여부를 먼저 확인", result[0]["last_error"])
         self.assertEqual(calls, [])
 
+    def test_malformed_attempt_count_requires_review_without_retry_or_publish(self):
+        for malformed in ("unknown", -1, 1.5, True, False, None):
+            with self.subTest(attempts=malformed):
+                item = self.enqueue()
+                data = self.queue.snapshot()
+                data["items"][0].update(status="needs_review", attempts=malformed)
+                self.path.write_text(json.dumps(data), encoding="utf-8")
+                html = queue_dashboard(data, publishing_enabled=True)
+                self.assertIn("확인 필요", html)
+                self.assertNotIn("/queue/retry", html)
+                calls = []
+                result = self.queue.run_due(
+                    lambda *args: calls.append(args) or "must-not-publish",
+                    enabled=True, now=self.now + timedelta(minutes=2),
+                )[0]
+                self.assertEqual(result["status"], "needs_review")
+                self.assertEqual(result["attempts"], MAX_ATTEMPTS)
+                self.assertIn("시도 횟수 기록", result["last_error"])
+                self.assertEqual(calls, [])
+                with self.assertRaisesRegex(QueueError, "최대 시도"):
+                    self.queue.retry_after_review(
+                        item["id"], scheduled_at=self.now + timedelta(minutes=3),
+                        reviewed_by="operator", now=self.now + timedelta(minutes=2),
+                    )
+                self.path.unlink(missing_ok=True)
+
+    def test_queue_reader_rejects_non_object_items_and_history_rows(self):
+        for field in ("items", "history"):
+            with self.subTest(field=field):
+                data = {"version": 1, "items": [], "history": []}
+                data[field].append("not an object")
+                self.path.write_text(json.dumps(data), encoding="utf-8")
+                with self.assertRaisesRegex(QueueError, "항목 형식"):
+                    self.queue.snapshot()
+                self.path.unlink(missing_ok=True)
+
     def test_empty_remote_id_is_uncertain_and_requires_human_review(self):
         for remote_id in ("", "   ", None):
             with self.subTest(remote_id=remote_id):
@@ -249,3 +285,4 @@ class PublishingQueueTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
