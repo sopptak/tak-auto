@@ -83,7 +83,7 @@ py -m unittest discover -s tests -p "test_trend_discovery.py" -v
 - 대시보드에서 YouTube, TikTok, Instagram, Threads, Facebook 페이지, 네이버 블로그의 인증 정보 설정 여부, 표시 계정명, 설정된 토큰 만료 시각을 카드 형태로 확인합니다. 비밀 토큰 원문은 화면에 표시하지 않습니다.
 - 인증 정보가 등록되어 있다는 표시만으로 실제 계정 인증이 검증된 것은 아닙니다. 카드에는 연결 설정 여부와 계정 확인 여부를 구분합니다. 계정명은 플랫폼별 `*_USERNAME`, `*_CHANNEL_NAME`, `*_PAGE_NAME` 환경변수로, 선택 만료 시각은 각 플랫폼의 `*_ACCESS_TOKEN_EXPIRES_AT` ISO 8601 환경변수로 표시합니다.
 - YouTube와 Threads 카드의 **계정 연결 확인** 버튼은 운영자가 눌렀을 때만 공식 프로필 API를 조회합니다. OAuth로 연결한 계정은 암호화 저장소의 토큰을 우선 사용하고, 기존 환경변수 연결은 호환 fallback으로 사용합니다. YouTube는 저장된 refresh token으로 액세스 토큰을 갱신합니다. 성공한 계정 이름과 확인 시각은 영구 디스크에 보관하고 24시간 뒤 재확인을 요구합니다. 이 동작은 조회만 하며 게시하지 않습니다.
-- TikTok·Instagram·Facebook의 실제 계정 검증 UI는 아직 준비되지 않았습니다. 이 카드는 설정 정보만 표시하며, API에 연결되지 않았음을 명시합니다.
+- 연결된 YouTube·Threads·TikTok·Instagram·Facebook 페이지에서 **계정 연결 확인**을 누르면 공식 프로필 API로 읽기 전용 계정 ID와 표시명을 다시 확인합니다. 저장된 OAuth 계정 ID와 API 응답이 다르면 확인 실패로 기록합니다. 이 확인은 게시하지 않습니다. 네이버 블로그는 수동 게시 대상이라 API 계정 확인을 제공하지 않습니다.
 - YouTube OAuth는 `youtube.readonly`와 승인형 Shorts 업로드에 필요한 `youtube.upload` 권한을 요청합니다. 암호화된 refresh token으로 액세스 토큰을 자동 갱신하며, 대시보드의 만료 표시는 refresh token이 유효한 연결을 만료로 오인하지 않습니다.
 - 네이버 블로그는 자동 계정 연결 대신 수동 게시로 표시합니다. 네이버 블로그 글쓰기 Open API는 종료됐고 블로그 앱 URL Scheme도 지원 종료되어, 대시보드가 계정 비밀번호로 자동 게시를 시도하지 않습니다.
 - Instagram/TikTok은 앱 승인·계정 권한과 영상 파일 준비가 필요합니다. YouTube Shorts도 승인된 MP4가 있어야 합니다. 이들 adapter가 설정되지 않으면 queue worker는 게시하지 않습니다.

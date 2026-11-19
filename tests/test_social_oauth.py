@@ -247,6 +247,39 @@ class SocialOAuthTests(unittest.TestCase):
         self.assertIn("fields=open_id,display_name", calls[1][1])
         self.assertEqual(result["tokens"]["refresh_token"], "tt-refresh")
 
+    def test_read_only_profile_verification_uses_official_provider_endpoints(self):
+        cases = (
+            ("tiktok", "https://open.tiktokapis.com/v2/user/info/",
+             {"data": {"user": {"open_id": "tt-id", "display_name": "TikTok"}}}, "tt-id", "TikTok"),
+            ("instagram_reels", "https://graph.instagram.com/me",
+             {"user_id": "ig-id", "username": "Instagram"}, "ig-id", "Instagram"),
+            ("facebook", "https://graph.facebook.com/v27.0/me",
+             {"id": "page-id", "name": "Facebook Page"}, "page-id", "Facebook Page"),
+        )
+        for platform, expected_url, response, account_id, account_name in cases:
+            with self.subTest(platform=platform):
+                calls = []
+                def fake_request(method, url, *, fields=None, headers=None):
+                    calls.append((method, url, fields, headers))
+                    return response
+                client = SocialOAuthClient(self.environ, request_json=fake_request)
+                self.assertEqual(
+                    client.verify_profile(platform, "private-token"),
+                    {"account_id": account_id, "account_name": account_name},
+                )
+                self.assertEqual(calls[0][0:2], ("GET", expected_url))
+                self.assertEqual(calls[0][2], {"fields": "open_id,display_name"} if platform == "tiktok"
+                                 else {"fields": "user_id,username"} if platform == "instagram_reels"
+                                 else {"fields": "id,name"})
+                self.assertEqual(calls[0][3], {"Authorization": "Bearer private-token"})
+
+    def test_read_only_profile_verification_rejects_missing_identity_and_unknown_platform(self):
+        client = SocialOAuthClient(self.environ, request_json=lambda *args, **kwargs: {"data": {"user": {}}})
+        with self.assertRaisesRegex(SocialOAuthError, "식별자"):
+            client.verify_profile("tiktok", "private-token")
+        with self.assertRaisesRegex(SocialOAuthError, "지원하지 않습니다"):
+            client.verify_profile("blog", "private-token")
+
     def test_instagram_callback_exchanges_long_lived_token_and_reads_professional_profile(self):
         responses = iter([
             {"data": [{

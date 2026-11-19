@@ -154,7 +154,7 @@ class PublishingConnectionTests(unittest.TestCase):
         })
         self.assertIn('action="/connections/verify"', html)
         self.assertIn("계정 연결 확인", html)
-        self.assertIn("API 계정 확인 기능 준비 중", html)
+        self.assertNotIn("API 계정 확인 기능 준비 중", html)
 
     def test_verify_dispatch_uses_read_only_profile_clients(self):
         with patch("content_engine.publishing_connections.ThreadsClient.from_environment") as threads_factory:
@@ -177,7 +177,32 @@ class PublishingConnectionTests(unittest.TestCase):
             youtube_environ, required_scope="https://www.googleapis.com/auth/youtube.readonly",
         )
         with self.assertRaisesRegex(ValueError, "아직 지원하지 않습니다"):
-            verify_publishing_connection("tiktok", {})
+            verify_publishing_connection("blog", {})
+
+    def test_additional_social_profiles_can_be_checked_without_publishing(self):
+        profiles = {
+            "tiktok": {"TIKTOK_ACCESS_TOKEN": "token", "TIKTOK_OPEN_ID": "tt-id"},
+            "instagram_reels": {"INSTAGRAM_ACCESS_TOKEN": "token", "INSTAGRAM_USER_ID": "ig-id"},
+            "facebook": {"FACEBOOK_ACCESS_TOKEN": "token", "FACEBOOK_PAGE_ID": "page-id"},
+        }
+        expected = {
+            "tiktok": {"account_id": "tt-id", "account_name": "TikTok"},
+            "instagram_reels": {"account_id": "ig-id", "account_name": "Instagram"},
+            "facebook": {"account_id": "page-id", "account_name": "Facebook"},
+        }
+        with patch("content_engine.publishing_connections.SocialOAuthClient.verify_profile") as verify:
+            for platform, environ in profiles.items():
+                with self.subTest(platform=platform):
+                    verify.return_value = expected[platform]
+                    self.assertEqual(verify_publishing_connection(platform, environ), expected[platform])
+                    verify.assert_called_with(platform, "token")
+
+    def test_profile_check_rejects_an_identity_mismatch(self):
+        with patch("content_engine.publishing_connections.SocialOAuthClient.verify_profile", return_value={
+            "account_id": "different-id", "account_name": "Someone else",
+        }):
+            with self.assertRaisesRegex(ValueError, "일치하지 않습니다"):
+                verify_publishing_connection("tiktok", {"TIKTOK_ACCESS_TOKEN": "token", "TIKTOK_OPEN_ID": "expected-id"})
 
     def test_oauth_vault_threads_connection_is_used_for_read_only_profile_check(self):
         environ = {
@@ -230,6 +255,17 @@ class PublishingConnectionTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "threads_basic"):
                     verify_publishing_connection("threads", environ)
                 client_type.assert_not_called()
+
+    def test_oauth_vault_tiktok_verification_requires_basic_profile_scope(self):
+        environ = {"TAK_AUTO_OAUTH_ENCRYPTION_KEY": "vault-key"}
+        with patch("content_engine.publishing_connections.OAuthTokenVault") as vault_type:
+            with patch("content_engine.publishing_connections.SocialOAuthClient.verify_profile") as verify:
+                vault_type.return_value.get.return_value = {
+                    "access_token": "token", "granted_scopes": "video.publish", "account_id": "tt-id",
+                }
+                with self.assertRaisesRegex(ValueError, "user.info.basic"):
+                    verify_publishing_connection("tiktok", environ)
+                verify.assert_not_called()
 
     def test_threads_verification_rejects_non_official_api_host_before_sending_token(self):
         with patch("content_engine.publishing_connections.ThreadsClient.from_environment") as factory:

@@ -10,10 +10,10 @@ from urllib.parse import urlsplit
 
 from .threads_publisher import ThreadsClient
 from .youtube_publisher import YouTubeClient
-from .social_oauth import OAuthTokenVault, SocialOAuthError, TOKEN_FILE_NAME
+from .social_oauth import OAuthTokenVault, SocialOAuthClient, SocialOAuthError, TOKEN_FILE_NAME
 
 
-VERIFY_PLATFORMS = frozenset({"threads", "youtube_shorts"})
+VERIFY_PLATFORMS = frozenset({"threads", "youtube_shorts", "tiktok", "instagram_reels", "facebook"})
 
 
 PLATFORMS = (
@@ -134,6 +134,37 @@ def verify_publishing_connection(platform: str, environ: Mapping[str, str] | Non
             raise ValueError("YouTube 계정 연결을 확인하지 못했습니다.") from None
         profile = client.get_channel_profile()
         return {"account_id": profile.channel_id, "account_name": profile.title}
+    if platform in {"tiktok", "instagram_reels", "facebook"}:
+        legacy_credentials = {
+            "tiktok": ("TIKTOK_ACCESS_TOKEN", "TIKTOK_OPEN_ID"),
+            "instagram_reels": ("INSTAGRAM_ACCESS_TOKEN", "INSTAGRAM_USER_ID"),
+            "facebook": ("FACEBOOK_ACCESS_TOKEN", "FACEBOOK_PAGE_ID"),
+        }
+        token_key, expected_id_key = legacy_credentials[platform]
+        connection = _oauth_connection(platform, values)
+        if connection:
+            expected_scope = {
+                "tiktok": "user.info.basic",
+                "instagram_reels": "instagram_business_basic",
+                "facebook": "pages_show_list",
+            }[platform]
+            scopes = {scope for scope in str(connection.get("granted_scopes", "")).replace(",", " ").split() if scope}
+            if expected_scope not in scopes:
+                raise ValueError(f"{platform} 프로필 확인 권한({expected_scope})이 없습니다. 계정을 다시 연결하세요.")
+            token = str(connection.get("access_token", "")).strip()
+            expected_id = str(connection.get("account_id", "")).strip()
+        else:
+            token = str(values.get(token_key, "")).strip()
+            expected_id = str(values.get(expected_id_key, "")).strip()
+        if not token:
+            raise ValueError("계정 확인용 액세스 토큰이 없습니다. 계정을 다시 연결하세요.")
+        try:
+            profile = SocialOAuthClient(values).verify_profile(platform, token)
+        except SocialOAuthError as error:
+            raise ValueError(str(error)) from None
+        if expected_id and profile["account_id"] != expected_id:
+            raise ValueError("연결된 계정과 플랫폼 프로필이 일치하지 않습니다. 계정을 다시 연결하세요.")
+        return profile
     raise ValueError("이 플랫폼의 API 계정 확인은 아직 지원하지 않습니다.")
 
 

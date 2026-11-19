@@ -449,6 +449,40 @@ class SocialOAuthClient:
         granted_scopes = _scope_string(token.get("scope") or token.get("scopes", ""))
         return {"tokens": token, "profile": profile, "scopes": granted_scopes}
 
+    def verify_profile(self, platform: str, access_token: str) -> dict[str, str]:
+        """Read the connected account identity from its provider's official API."""
+        if not isinstance(access_token, str) or not access_token.strip():
+            raise SocialOAuthError("암호화된 SNS 연결에 액세스 토큰이 없습니다.")
+        token = access_token.strip()
+        headers = {"Authorization": f"Bearer {token}"}
+        if platform == "instagram_reels":
+            raw = self.request_json(
+                "GET", "https://graph.instagram.com/me", fields={"fields": "user_id,username"}, headers=headers,
+            )
+            account_id = raw.get("user_id") or raw.get("id")
+            account_name = raw.get("username") or "Instagram 계정"
+        elif platform == "tiktok":
+            raw = self.request_json(
+                "GET", "https://open.tiktokapis.com/v2/user/info/",
+                fields={"fields": "open_id,display_name"}, headers=headers,
+            )
+            data = raw.get("data") if isinstance(raw.get("data"), dict) else {}
+            profile = data.get("user") if isinstance(data.get("user"), dict) else {}
+            account_id = profile.get("open_id")
+            account_name = profile.get("display_name") or "TikTok 계정"
+        elif platform == "facebook":
+            version = _api_version(self.environ)
+            raw = self.request_json(
+                "GET", f"https://graph.facebook.com/{version}/me", fields={"fields": "id,name"}, headers=headers,
+            )
+            account_id = raw.get("id")
+            account_name = raw.get("name") or "Facebook 페이지"
+        else:
+            raise SocialOAuthError("이 플랫폼의 API 계정 확인은 아직 지원하지 않습니다.")
+        if not isinstance(account_id, (str, int)) or isinstance(account_id, bool) or not str(account_id).strip():
+            raise SocialOAuthError("플랫폼 프로필 응답에서 계정 식별자를 확인하지 못했습니다.")
+        return {"account_id": str(account_id).strip(), "account_name": str(account_name).strip()}
+
     def _exchange_and_profile(self, platform: str, code: str, redirect: str, verifier: str, state: str,
                               client_id: str, secret: str, version: str) -> tuple[dict[str, object], dict[str, object] | list[dict[str, object]]]:
         if platform == "youtube_shorts":
