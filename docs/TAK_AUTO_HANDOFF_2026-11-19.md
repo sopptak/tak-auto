@@ -155,11 +155,12 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 ## 운영 백업 경합 회귀 검증 및 최신 PR CI
 
 - `tests/test_trend_data_backup.py`에 암호화 백업 스트리밍 도중 원본 파일이 바뀌는 조건을 추가했다. manifest checksum 불일치로 생성을 거부하고 아카이브/임시 파일을 남기지 않는지 확인한다.
-- 최신 PR head `4842053bb75c409311fa2664fe743f9fc9518435`에서 TAK AUTO trend content MVP [run 714](https://github.com/sopptak/tak-auto/actions/runs/44464937030), TAK SCOUT [run 628](https://github.com/sopptak/tak-auto/actions/runs/44464937003), Python 전체 [run 604](https://github.com/sopptak/tak-auto/actions/runs/44464936854)가 모두 성공했다.
+- 코드/테스트 head `694b5ea70ec7d44f8cb7bbb2269e2770cb3b1da9`에서 TAK AUTO trend content MVP [run 716](https://github.com/sopptak/tak-auto/actions/runs/44466307464), TAK SCOUT [run 630](https://github.com/sopptak/tak-auto/actions/runs/44466307392), Python 전체 [run 606](https://github.com/sopptak/tak-auto/actions/runs/44466307472)가 모두 성공했다.
 - PR #3은 계속 Draft/Open이며 미병합이다. Render 배포, 유료 리소스 생성, 실계정 OAuth/API 호출, 외부 게시는 수행하지 않았다.
 
 ## Windows 전체 회귀 결과 — 2026-11-19
 
-- Windows에서 `python -m unittest discover -s tests -q`는 2,193개 테스트 중 48개를 환경상 skip하고 4개가 실패했다. 실패 4개는 모두 현재 로컬 `data/tak_media_archive.json`의 레코드 수가 테스트가 고정 기대하는 18개가 아니라 3개인 데이터 snapshot 불일치다. 데이터 fixture나 기대값은 변경하지 않았다.
-- 이 실행은 최신 PR CI의 대체가 아니다. PR의 Linux Python 전체 workflow는 최신 확인 SHA에서 성공했다.
-- Windows 로그에서 쇼츠 프레임 테스트가 PIL 이미지 파일을 닫지 않는 `ResourceWarning`을 보여 `tests/test_6_56_shorts_editor.py`에서 context manager로 정리했다. 해당 테스트는 수정 후 별도 실행한다.
+- `python -m unittest discover -s tests -q` 최종 실행은 2,193개 통과, 43개 환경상 skip이다. PR의 Linux 전체 회귀도 위 SHA에서 성공했다.
+- 앞선 전체 실행 4개 실패는 테스트가 `0547065b4f9b65ada8af6a3c33cc636d97b43345`의 아카이브 스냅샷을 요구했으나 local clone에 해당 과거 객체가 없어 발생했다. 커밋을 저장소에서 가져온 뒤 실패했던 4개 테스트를 다시 실행해 모두 통과시켰다. 이 과정에서 테스트/프로덕션 데이터를 수정하지 않았다.
+- 한 번의 재실행에서는 Windows loopback HTTP 테스트에서 `WinError 10053`이 났고, 단독 재실행은 통과했다. 후속 전체 실행은 통과했다.
+- 두 테스트 자원 누수를 정리했다. `tests/test_6_56_shorts_editor.py`는 PIL 프레임을 context manager로 닫고, `tests/test_run_scout_cli.py`는 HTTP 서버 종료 후 listening socket을 닫는다. 후속 전체 로그에는 `ResourceWarning`이 없었다. `python -W error::ResourceWarning -m unittest tests.test_run_scout_cli -v`도 6개 통과했다.

@@ -276,6 +276,7 @@ class RunScoutProductionEntrypointTests(unittest.TestCase):
         finally:
             server.shutdown()
             server_thread.join(timeout=5)
+            server.server_close()
 
     @staticmethod
     def _run_cli(sources_path: Path, output_json: Path, output_md: Path) -> subprocess.CompletedProcess[str]:
