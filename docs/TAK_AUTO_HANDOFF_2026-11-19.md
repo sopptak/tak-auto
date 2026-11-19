@@ -169,6 +169,14 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - 검증 코드/테스트 head 뒤 runbook 표현을 바로잡은 문서 전용 커밋이 추가됐다. PR #3은 확인 시 Draft/Open/미병합이며 base는 `feature/perplexity-research-provider`다. 재개 시 PR head와 해당 SHA의 CI를 새로 조회한다. Render 배포, 유료 리소스 생성, 실계정 API 연결, 외부 게시를 하지 않았다.
 - 배포 준비 추가 점검에서 기존 정적 테스트가 트렌드 팩토리 서비스의 실제 데이터 경로와 Persistent Disk 경로 일치를 확인하지 않는 점을 보완했다. `tests/test_web_deployment_security.py`는 그 경로와 `/health`, 1GB 디스크, starter 플랜, 외부 비밀 변수, 게시 비활성화를 검증하며 10개 테스트가 통과했다. 실제 Render 서비스 검증은 아니다.
 
+## 2026-11-19 백업 검증기 메모리 상한
+
+- `content_engine/trend_data_backup.py` 검토 중 ZIP manifest를 크기 제한 없이 한 번에 메모리로 읽는 점을 확인했다. 압축 해제 기준 16MiB 상한을 추가하고 metadata 검사 뒤 본문을 읽기 전에 초과를 거부한다.
+- `tests/test_trend_data_backup.py`에 압축된 과대 manifest 테스트를 추가했다. manifest 본문 read 호출이 없음을 확인한다. 백업 집중 테스트 27개 중 25개 통과, Windows symlink 제약 2개 skip이다.
+- Windows 전체 회귀는 2,203개 실행, 2,159개 통과, 44개 환경상 skip, 실패 0이다.
+- 코드/테스트 head `4c9a8b85e1c8d444f0378a422527f8c9e4f996f1`의 TAK AUTO trend content MVP [#732](https://github.com/sopptak/tak-auto/actions/runs/44489189308), TAK SCOUT [#646](https://github.com/sopptak/tak-auto/actions/runs/44489189407), Python 전체 [#622](https://github.com/sopptak/tak-auto/actions/runs/44489189141)가 모두 성공했다.
+- PR #3은 Draft/Open/미병합 상태이고 base는 `feature/perplexity-research-provider`다. Render 실배포, 유료 리소스, 실계정 API, 외부 게시를 하지 않았다.
+
 ## Windows 전체 회귀 결과 — 2026-11-19
 
 - 앞선 Windows `python -m unittest discover -s tests -q` 실행은 2,193개 통과, 43개 환경상 skip이다. 최신 전체 회귀 결과는 위 “복구 대상 경합 보호” 항목을 참고한다.

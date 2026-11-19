@@ -170,7 +170,8 @@ SNS 연결을 준비할 경우에만 추가:
 
 ## 2026-11-19 최신 저장소 점검
 
-- 코드/테스트 검증 SHA `91b3a959e9bee4537c3ece53894b41a532cde89b`에서 TAK SCOUT #644, TAK AUTO trend content MVP #730, Python 전체 #620 workflow가 모두 성공했다. Windows 전체 회귀는 2,202개 실행, 2,158개 통과, 44개 환경상 skip, 실패 0이다.
+- 백업 검증기는 ZIP manifest의 압축 해제 크기를 16MiB로 제한하고 초과하면 내용을 읽기 전에 중단한다. 과대 압축 manifest에서 무제한 메모리 읽기가 일어나지 않는지 회귀 테스트를 추가했다.
+- 코드/테스트 검증 SHA `4c9a8b85e1c8d444f0378a422527f8c9e4f996f1`에서 TAK SCOUT #646, TAK AUTO trend content MVP #732, Python 전체 #622 workflow가 모두 성공했다. Windows 전체 회귀는 2,203개 실행, 2,159개 통과, 44개 환경상 skip, 실패 0이다.
 - `tests/test_web_deployment_security.py`의 starter 플랜 추가 단언은 10개 테스트 전체 통과로 확인했다. 이 문서 갱신/단언 변경 이후 새 PR CI는 별도로 확인한다.
 - `tests/test_web_deployment_security.py`는 Render trend-factory의 `TAK_AUTO_DATA_DIR`와 Persistent Disk mount, `/health`, 1GB 디스크, starter 플랜, 외부 비밀 환경변수, 게시 비활성화 설정이 서로 맞는지 정적으로 확인한다. 이는 Blueprint 검증이며 실제 Render 서비스·디스크가 생성됐다는 뜻은 아니다.
 - 영상 업로드는 Basic Auth + same-origin 확인 + `video/mp4` + 1~100MB 제한 + MP4 `ftyp` 컨테이너 시그니처 + 서명 URL + Range 응답으로 보호된다. `ftyp` 검사는 컨테이너 식별용 1차 검사이지 영상 전체 디코딩/재생 품질 검증은 아니다. 실제 업로드 후 플랫폼 사전 검증이 필요하다.
