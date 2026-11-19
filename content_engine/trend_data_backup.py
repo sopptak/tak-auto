@@ -445,7 +445,19 @@ def restore_backup(
                     target = stage.joinpath(*PurePosixPath(relative).parts)
                     target.parent.mkdir(parents=True, exist_ok=True)
                     with bundle.open(relative) as source, target.open("wb") as output:
-                        shutil.copyfileobj(source, output)
+                        restored_bytes = 0
+                        while True:
+                            # Re-check the manifest limit while extracting too:
+                            # a plaintext archive may be replaced after preflight.
+                            chunk = source.read(min(IO_CHUNK_BYTES, entry["size"] - restored_bytes + 1))
+                            if not chunk:
+                                break
+                            restored_bytes += len(chunk)
+                            if restored_bytes > entry["size"]:
+                                raise BackupError(
+                                    f"복구 파일 크기가 manifest 선언을 초과합니다: {relative}"
+                                )
+                            output.write(chunk)
                     size, digest = _file_digest(target)
                     if size != entry["size"] or digest != entry["sha256"]:
                         raise BackupError(f"복구 중 파일 검증에 실패했습니다: {relative}")

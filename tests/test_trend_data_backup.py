@@ -261,6 +261,27 @@ class TrendDataBackupTests(unittest.TestCase):
             restore_backup(self.archive, destination)
         self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
 
+    def test_restore_stops_if_plaintext_archive_grows_after_preflight(self):
+        payload = b"x" * (4 * 1024 * 1024)
+        with zipfile.ZipFile(self.archive, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+            info = zipfile.ZipInfo("queue.json")
+            info.external_attr = 0o100600 << 16
+            bundle.writestr(info, payload)
+        manifest = {
+            "format_version": 1,
+            "files": [{"path": "queue.json", "size": 1,
+                       "sha256": hashlib.sha256(b"x").hexdigest()}],
+        }
+        destination = self.root / "restored-data"
+
+        # Simulate an archive being replaced after its successful preflight check.
+        with patch.object(trend_data_backup, "_verify_zip_archive", return_value=manifest):
+            with self.assertRaisesRegex(BackupError, "복구 파일 크기가 manifest 선언을 초과"):
+                restore_backup(self.archive, destination)
+
+        self.assertFalse(destination.exists())
+        self.assertEqual(list(self.root.glob(".restored-data.restore-*")), [])
+
     def test_restore_refuses_destination_created_after_preflight(self):
         create_backup(self.source, self.archive)
         destination = self.root / "restored-data"
