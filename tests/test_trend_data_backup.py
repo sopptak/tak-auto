@@ -202,6 +202,26 @@ class TrendDataBackupTests(unittest.TestCase):
 
         self.assertEqual(sum(decompressed_sizes), 1024 * 1024)
 
+    def test_verify_rejects_oversized_manifest_before_reading_its_contents(self):
+        oversized = self.root / "oversized-manifest.zip"
+        manifest_size = trend_data_backup.MAX_MANIFEST_BYTES + 1
+        with zipfile.ZipFile(oversized, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+            bundle.writestr(trend_data_backup.MANIFEST_NAME, b" " * manifest_size)
+
+        original_read = zipfile.ZipExtFile.read
+        manifest_reads = []
+
+        def track_manifest_read(entry, size=-1):
+            if entry.name == trend_data_backup.MANIFEST_NAME:
+                manifest_reads.append(size)
+            return original_read(entry, size)
+
+        with patch.object(zipfile.ZipExtFile, "read", new=track_manifest_read):
+            with self.assertRaisesRegex(BackupError, "manifest가 허용 크기"):
+                verify_backup(oversized)
+
+        self.assertEqual(manifest_reads, [])
+
     def test_verify_rejects_path_traversal_manifest(self):
         malicious = self.root / "malicious.zip"
         payload = b"do not write outside"

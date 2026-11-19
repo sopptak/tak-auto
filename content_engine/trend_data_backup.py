@@ -32,6 +32,7 @@ NONCE_BYTES = 12
 TAG_BYTES = 16
 ENCRYPTED_HEADER_BYTES = len(ENCRYPTED_MAGIC) + 4 + SALT_BYTES + NONCE_BYTES
 IO_CHUNK_BYTES = 1024 * 1024
+MAX_MANIFEST_BYTES = 16 * 1024 * 1024
 
 
 class BackupError(ValueError):
@@ -356,7 +357,14 @@ def _verify_zip_archive(archive_path: str | Path) -> dict[str, Any]:
                 mode = info.external_attr >> 16
                 if stat.S_ISLNK(mode) or not stat.S_ISREG(mode):
                     raise BackupError("백업에 일반 파일이 아닌 항목이 있습니다.")
-            manifest = json.loads(bundle.read(MANIFEST_NAME).decode("utf-8"))
+            manifest_info = bundle.getinfo(MANIFEST_NAME)
+            if manifest_info.file_size > MAX_MANIFEST_BYTES:
+                raise BackupError("백업 manifest가 허용 크기를 초과합니다.")
+            with bundle.open(MANIFEST_NAME) as manifest_file:
+                manifest_bytes = manifest_file.read(MAX_MANIFEST_BYTES + 1)
+            if len(manifest_bytes) > MAX_MANIFEST_BYTES:
+                raise BackupError("백업 manifest가 허용 크기를 초과합니다.")
+            manifest = json.loads(manifest_bytes.decode("utf-8"))
             if not isinstance(manifest, dict) or manifest.get("format_version") != FORMAT_VERSION:
                 raise BackupError("지원하지 않는 백업 형식입니다.")
             entries = manifest.get("files")
