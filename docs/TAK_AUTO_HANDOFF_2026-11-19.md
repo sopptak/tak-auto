@@ -150,7 +150,7 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - 미완료 운영 위험 점검에서 백업 ZIP이 OAuth 암호문·게시 이력·콘텐츠·MP4를 포함할 수 있지만 파일 자체는 평문임을 확인했다.
 - `content_engine/trend_data_backup.py`에 PBKDF2-HMAC-SHA256 키 유도와 스트리밍 AES-256-GCM 암호화/인증을 추가했다. ZIP 출력을 암호화 스트림에 직접 연결해 생성 중 평문 ZIP 임시본을 만들지 않는다. 인증된 뒤에만 복호화 ZIP을 읽으며, 암호문구는 저장하지 않는다.
 - CLI는 데이터 `--source` 경로와 `--encrypt` 또는 명시적 `--allow-unencrypted`를 요구하고, 암호문구를 터미널에서 숨겨 입력한다. 인증 실패/변조 시 복구 대상이 생성되지 않는다. 임시 평문 파일은 존재할 수 있고 보안 삭제를 보장하지 않는 점을 runbook에 기록했다.
-- 관련 집중 회귀 130개가 통과했고 Windows에서 symlink 생성 테스트 1개는 환경 제한으로 skip됐다. 암호화 백업 왕복, 2MB 초과 streaming, 백업 중 원본 변경 감지와 임시 파일 정리, 잘못된 암호문구, 태그 변조, 평문 선택의 명시성, private file permissions, CLI 프롬프트와 Instagram 성과 경로를 검증했다. `compileall`과 `git diff --check`도 통과했다. 새 PR CI는 push 후 확인한다.
+- 관련 집중 회귀 132개가 통과했고 Windows에서 symlink 생성 테스트 1개는 환경 제한으로 skip됐다. 암호화 백업 왕복, 2MB 초과 streaming, 평문·암호화 모드의 백업 중 원본 변경 감지, 잘못된 암호문구/태그 변조, private file permissions, 비밀번호 입력 취소의 안전 종료, CLI 프롬프트와 Instagram 성과 경로를 검증했다. `compileall`과 `git diff --check`도 통과했다. 변경 후 PR CI를 확인한다.
 
 ## 운영 백업 경합 회귀 검증 및 최신 PR CI
 

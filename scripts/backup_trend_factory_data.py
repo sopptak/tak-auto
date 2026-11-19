@@ -52,10 +52,17 @@ def build_parser() -> argparse.ArgumentParser:
 def _prompt_passphrase(*, confirm: bool) -> str:
     if not sys.stdin.isatty():
         raise BackupError("암호문구는 보안 입력이 가능한 터미널에서 직접 입력해야 합니다.")
-    passphrase = getpass.getpass("백업 암호문구(최소 16자): ")
+
+    def read_hidden(prompt: str) -> str:
+        try:
+            return getpass.getpass(prompt)
+        except (EOFError, KeyboardInterrupt):
+            raise BackupError("암호문구 입력이 취소되었습니다.") from None
+
+    passphrase = read_hidden("백업 암호문구(최소 16자): ")
     if len(passphrase) < 16:
         raise BackupError("백업 암호문구는 16자 이상이어야 합니다.")
-    if confirm and getpass.getpass("백업 암호문구를 다시 입력하세요: ") != passphrase:
+    if confirm and read_hidden("백업 암호문구를 다시 입력하세요: ") != passphrase:
         raise BackupError("암호문구가 일치하지 않습니다.")
     return passphrase
 

@@ -241,6 +241,38 @@ class TrendDataBackupCliTests(unittest.TestCase):
             self.assertFalse(destination.exists())
             self.assertNotIn(wrong_passphrase, errors.getvalue())
 
+    def test_cli_prompt_cancellation_is_clean_and_creates_no_archive(self):
+        fake_stdin = type("FakeStdin", (), {"isatty": lambda self: True})()
+        args = [
+            "create", "--source", str(self.source), "--output", str(self.archive), "--encrypt",
+        ]
+        for prompts, label in (
+            ([EOFError()], "EOF at first prompt"),
+            (["correct horse battery staple", KeyboardInterrupt()], "interrupt at confirmation"),
+        ):
+            with self.subTest(stage=label):
+                errors = io.StringIO()
+                with patch.object(backup_cli.sys, "stdin", fake_stdin):
+                    with patch.object(backup_cli.getpass, "getpass", side_effect=prompts):
+                        with redirect_stderr(errors):
+                            exit_code = backup_cli.main(args)
+                self.assertEqual(exit_code, 2)
+                self.assertIn("암호문구 입력이 취소되었습니다", errors.getvalue())
+                self.assertFalse(self.archive.exists())
+
+    def test_encrypted_verify_prompt_cancellation_does_not_expose_traceback(self):
+        create_backup(self.source, self.archive, passphrase="correct horse battery staple")
+        fake_stdin = type("FakeStdin", (), {"isatty": lambda self: True})()
+        errors = io.StringIO()
+        with patch.object(backup_cli.sys, "stdin", fake_stdin):
+            with patch.object(backup_cli.getpass, "getpass", side_effect=EOFError()):
+                with redirect_stderr(errors):
+                    exit_code = backup_cli.main(["verify", "--archive", str(self.archive)])
+        self.assertEqual(exit_code, 2)
+        self.assertIn("암호문구 입력이 취소되었습니다", errors.getvalue())
+        self.assertNotIn("Traceback", errors.getvalue())
+        self.assertTrue(self.archive.exists())
+
     def test_plaintext_requires_explicit_flag_and_remains_readable(self):
         self.assertEqual(backup_cli.main([
             "create", "--source", str(self.source), "--output", str(self.archive),
