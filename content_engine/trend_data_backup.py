@@ -369,6 +369,10 @@ def _verify_zip_archive(archive_path: str | Path) -> dict[str, Any]:
                 with bundle.open(relative) as source:
                     while chunk := source.read(1024 * 1024):
                         size += len(chunk)
+                        if size > entry["size"]:
+                            raise BackupError(
+                                f"백업 파일 크기가 manifest 선언을 초과합니다: {relative}"
+                            )
                         digest.update(chunk)
                 if size != entry["size"] or digest.hexdigest() != entry["sha256"]:
                     raise BackupError(f"백업 파일 검증에 실패했습니다: {relative}")

@@ -144,8 +144,38 @@ class TrendDataBackupTests(unittest.TestCase):
                 if name == "queue.json":
                     data += b"tampered"
                 edited.writestr(original.getinfo(name), data)
-        with self.assertRaisesRegex(BackupError, "검증에 실패"):
+        with self.assertRaisesRegex(BackupError, "queue.json"):
             verify_backup(changed)
+
+    def test_verify_stops_when_file_exceeds_manifest_size(self):
+        oversized = self.root / "oversized.takbak"
+        payload = b"x" * (4 * 1024 * 1024)
+        with zipfile.ZipFile(oversized, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+            info = zipfile.ZipInfo("oversized.bin")
+            info.external_attr = (0o100600 << 16)
+            bundle.writestr(info, payload)
+            bundle.writestr(trend_data_backup.MANIFEST_NAME, json.dumps({
+                "format_version": 1,
+                "files": [{
+                    "path": "oversized.bin", "size": 0,
+                    "sha256": hashlib.sha256(b"").hexdigest(),
+                }],
+            }))
+
+        original_read = zipfile.ZipExtFile.read
+        decompressed_sizes = []
+
+        def track_payload_read(entry, size=-1):
+            chunk = original_read(entry, size)
+            if entry.name == "oversized.bin":
+                decompressed_sizes.append(len(chunk))
+            return chunk
+
+        with patch.object(zipfile.ZipExtFile, "read", new=track_payload_read):
+            with self.assertRaisesRegex(BackupError, "manifest 선언을 초과"):
+                verify_backup(oversized)
+
+        self.assertEqual(sum(decompressed_sizes), 1024 * 1024)
 
     def test_verify_rejects_path_traversal_manifest(self):
         malicious = self.root / "malicious.zip"

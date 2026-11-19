@@ -162,7 +162,8 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 
 - 사전 `exists()` 검사 후 `os.rename(stage, destination)`까지의 경합에서 Linux가 새로 생긴 빈 디렉터리를 교체할 수 있음을 확인했다. 복구 대상 보호 약속과 달라 실패 시나리오 회귀를 추가했다.
 - Linux에서는 `renameat2(RENAME_NOREPLACE)`로 대상 없음 조건을 원자적으로 강제하고, Windows에서는 덮어쓰기 없는 `os.rename`을 사용한다. 다른 운영체제나 지원되지 않는 Linux 런타임에서는 안전한 원자 연산 없이 복구하지 않고 fail closed한다.
-- Windows 백업 집중 테스트는 24개 중 22개 통과, symlink 생성 제약 테스트 2개 skip이다. 사전 확인 후 빈 대상 폴더가 생성되는 경합 회귀도 포함된다. `compileall` 및 `git diff --check`가 통과했다.
+- Windows 백업 집중 테스트는 25개 중 23개 통과, symlink 생성 제약 테스트 2개 skip이다. 사전 확인 후 빈 대상 폴더가 생성되는 경합과 실제 ZIP 파일이 manifest 크기를 넘는 즉시 읽기를 중단하는 회귀를 포함한다. 초과 크기 테스트는 첫 1MiB를 읽은 뒤 멈추는 것을 확인했다. `compileall` 및 `git diff --check`가 통과했다.
+- Windows 전체 회귀 2,199개 실행은 2,155개 통과, 44개 환경상 skip으로 끝났다. 이 전체 실행은 manifest 초과 크기 조기 중단 변경 전에 시작되어, 새 변경은 위 집중 테스트 및 최신 CI에서 별도 확인한다.
 - Windows 전체 회귀는 `test_media_asset_routes.test_upload_requires_basic_auth_and_same_origin`에서 loopback 연결 종료 예외 1건으로 실패했다. 해당 테스트 파일 단독 재실행에서는 5개가 통과했다. 최신 커밋 CI의 전체 Python workflow 결과를 별도로 확인해야 한다.
 
 ## Windows 전체 회귀 결과 — 2026-11-19
