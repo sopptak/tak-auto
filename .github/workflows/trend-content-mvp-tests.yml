@@ -25,7 +25,6 @@ on:
       - "content_engine/performance/instagram.py"
       - "content_engine/performance/facebook.py"
       - "content_engine/performance/tiktok.py"
-      - "content_engine/performance/store.py"
       - "content_engine/performance/threads.py"
       - "content_engine/performance/youtube.py"
       - "content_engine/performance/models.py"
