@@ -251,6 +251,7 @@ class PublishingQueueTests(unittest.TestCase):
         )
         self.assertEqual(resolved["status"], "published")
         self.assertEqual(resolved["last_review"]["decision"], "confirmed_published")
+        self.assertEqual([event["decision"] for event in resolved["review_history"]], ["confirmed_published"])
         self.assertEqual(self.queue.snapshot()["history"][0]["remote_id"], "https://threads.example/post/123")
 
     def test_operator_can_retry_only_after_confirming_not_published(self):
@@ -267,9 +268,73 @@ class PublishingQueueTests(unittest.TestCase):
         self.assertEqual(reviewed["status"], "scheduled")
         self.assertEqual(reviewed["attempts"], 1)
         self.assertEqual(reviewed["last_review"]["decision"], "confirmed_not_published")
+        self.assertEqual([event["decision"] for event in reviewed["review_history"]], ["confirmed_not_published"])
         calls = []
         self.queue.run_due(lambda *_args: calls.append(1) or "remote-after-check", enabled=True, now=retry_at)
         self.assertEqual(calls, [1])
+
+    def test_review_history_retains_each_decision_across_retry_and_confirmation(self):
+        item = self.enqueue()
+        first_due = self.now + timedelta(minutes=2)
+        uncertain = lambda *_args: (_ for _ in ()).throw(PublishUncertainError("response lost"))
+
+        self.queue.run_due(uncertain, enabled=True, now=first_due)
+        retry_at = first_due + timedelta(minutes=2)
+        self.queue.retry_after_review(
+            item["id"], scheduled_at=retry_at, reviewed_by="first-operator",
+            now=first_due + timedelta(seconds=30),
+        )
+        self.queue.run_due(uncertain, enabled=True, now=retry_at)
+        resolved = self.queue.confirm_published(
+            item["id"], remote_id="remote-2", reviewed_by="second-operator",
+            now=retry_at + timedelta(seconds=30),
+        )
+
+        self.assertEqual(
+            [event["decision"] for event in resolved["review_history"]],
+            ["confirmed_not_published", "confirmed_published"],
+        )
+        self.assertEqual(resolved["review_history"][0]["reviewed_by"], "first-operator")
+        self.assertEqual(resolved["review_history"][1]["remote_id"], "remote-2")
+        html = queue_dashboard({"items": [resolved], "history": []}, publishing_enabled=False)
+        self.assertIn("운영자 확인 기록 (2)", html)
+        self.assertIn("미게시 확인 후 재시도 예약", html)
+        self.assertIn("게시 완료 확인", html)
+
+    def test_dashboard_escapes_review_history_fields(self):
+        html = queue_dashboard({
+            "items": [{
+                "id": "queue-1", "content_id": "content-1", "platform": "threads",
+                "status": "published", "attempts": 1, "max_attempts": MAX_ATTEMPTS,
+                "review_history": [{
+                    "decision": "confirmed_published", "reviewed_by": "<script>alert(1)</script>",
+                    "reviewed_at": "<img src=x>", "remote_id": "<iframe>remote</iframe>",
+                }],
+            }],
+            "history": [],
+        }, publishing_enabled=False)
+        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", html)
+        self.assertIn("&lt;img src=x&gt;", html)
+        self.assertIn("&lt;iframe&gt;remote&lt;/iframe&gt;", html)
+        self.assertNotIn("<script>alert(1)</script>", html)
+
+    def test_malformed_review_history_prevents_reconciliation_without_mutation(self):
+        item = self.enqueue()
+        self.queue.run_due(
+            lambda *_args: (_ for _ in ()).throw(PublishUncertainError("response lost")),
+            enabled=True, now=self.now + timedelta(minutes=2),
+        )
+        data = self.queue.snapshot()
+        data["items"][0]["review_history"] = "corrupted"
+        self.path.write_text(json.dumps(data), encoding="utf-8")
+
+        with self.assertRaisesRegex(QueueError, "검토 이력 형식"):
+            self.queue.confirm_published(
+                item["id"], remote_id="remote-1", reviewed_by="operator",
+                now=self.now + timedelta(minutes=3),
+            )
+        self.assertEqual(self.queue.snapshot()["items"][0]["status"], "needs_review")
+        self.assertEqual(self.queue.snapshot()["history"], [])
 
     def test_dashboard_offers_manual_reconciliation_only_when_required(self):
         item = self.enqueue()
