@@ -24,6 +24,10 @@ class NormalizeYouTubeStatisticsTests(unittest.TestCase):
         item = {"statistics": {"viewCount": "not-a-number", "likeCount": "5"}}
         self.assertEqual(normalize_youtube_statistics(item), {"likes": 5})
 
+    def test_negative_and_boolean_counts_are_skipped(self):
+        item = {"statistics": {"viewCount": "-1", "likeCount": True, "commentCount": "0"}}
+        self.assertEqual(normalize_youtube_statistics(item), {"comments": 0})
+
 
 class CollectYouTubePerformanceTests(unittest.TestCase):
     def test_collect_builds_performance_record_from_mock_client(self):

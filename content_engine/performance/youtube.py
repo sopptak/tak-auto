@@ -36,12 +36,17 @@ def normalize_youtube_statistics(raw_item: Any) -> dict[str, int]:
     metrics: dict[str, int] = {}
     for api_field, metric_name in _STATISTICS_FIELD_MAP.items():
         value = statistics.get(api_field)
-        if value is None:
+        if isinstance(value, bool) or value is None:
             continue
-        try:
-            metrics[metric_name] = int(value)
-        except (TypeError, ValueError):
+        if isinstance(value, int):
+            numeric = value
+        elif isinstance(value, str) and value.strip().isdigit():
+            numeric = int(value.strip())
+        else:
             continue
+        if numeric < 0:
+            continue
+        metrics[metric_name] = numeric
     return metrics
 
 
