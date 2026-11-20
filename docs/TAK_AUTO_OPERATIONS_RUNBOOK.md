@@ -8,7 +8,7 @@
 ## 1. 배포 전 승인 게이트
 
 - [ ] PR #3의 최신 head SHA와 변경 파일을 확인한다.
-- 저장소 코드/CI 확인(운영 체크리스트 완료 아님, 2026-11-20): PR #3 head `1e4b2fecc028ec5fdca2c98a08bacb83831e147b`의 TAK SCOUT [#668](https://github.com/sopptak/tak-auto/actions/runs/44625499818), TAK AUTO trend content MVP [#754](https://github.com/sopptak/tak-auto/actions/runs/44625499764), Python 전체 테스트 [#644](https://github.com/sopptak/tak-auto/actions/runs/44625499866)가 모두 성공했다. PR #3은 `feature/perplexity-research-provider`를 대상으로 하는 Draft/Open이며 미병합이고, 선행 PR #1도 Draft/Open이다.
+- 저장소 코드/CI 확인(운영 체크리스트 완료 아님, 2026-11-20): PR #3 head `df3654f56bd7d5c94eab14f777c3494e96b29bb8`에서 TAK SCOUT [#44744944831](https://github.com/sopptak/tak-auto/actions/runs/44744944831), TAK AUTO trend content MVP [#44744944908](https://github.com/sopptak/tak-auto/actions/runs/44744944908), Python 전체 테스트 [#44744944875](https://github.com/sopptak/tak-auto/actions/runs/44744944875)가 모두 성공했다. 전체 Python은 2,248개 통과, 118개 환경상 skip이다. PR #3은 `feature/perplexity-research-provider`를 대상으로 하는 Draft/Open이며 미병합이고, 선행 PR #1은 `main`을 대상으로 하는 Draft/Open이다.
 - [ ] PR의 base 브랜치와 병합 대상이 의도한 구조인지 검토한다. 현재 PR은 `feature/perplexity-research-provider`를 base로 하는 Draft이므로, main 배포용 PR로 오인하지 않는다.
 - [ ] Render 계정 소유자가 새 서비스 생성 및 Starter 플랜·Persistent Disk 비용을 승인한다.
 - [ ] 게시 기능은 계속 `TAK_AUTO_PUBLISHING_ENABLED=false`로 둔다.
