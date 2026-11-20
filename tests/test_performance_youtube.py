@@ -8,7 +8,7 @@ from __future__ import annotations
 import unittest
 
 from content_engine.performance.youtube import collect_youtube_performance, normalize_youtube_statistics
-from content_engine.youtube_publisher import YouTubeClient
+from content_engine.youtube_publisher import YouTubeAPIError, YouTubeClient
 
 
 class NormalizeYouTubeStatisticsTests(unittest.TestCase):
@@ -78,6 +78,26 @@ class CollectYouTubePerformanceTests(unittest.TestCase):
             metric_collected_at="2026-09-16T00:00:00+00:00",
         )
         self.assertEqual(record.metrics, {})
+
+    def test_collect_rejects_response_for_a_different_video(self):
+        client = YouTubeClient(
+            client_id="cid",
+            client_secret="secret",
+            refresh_token="rtoken",
+            token_transport=lambda *a: {"access_token": "t"},
+            stats_transport=lambda *a: {
+                "items": [{"id": "other-video", "statistics": {"viewCount": "999"}}]
+            },
+        )
+        with self.assertRaisesRegex(YouTubeAPIError, "요청한 영상 ID"):
+            collect_youtube_performance(
+                client,
+                video_id="requested-video",
+                content_id="content-yt-3",
+                knowledge_id="knowledge-yt-3",
+                published_at="2026-09-14T00:00:00+00:00",
+                metric_collected_at="2026-09-16T00:00:00+00:00",
+            )
 
 
 if __name__ == "__main__":
