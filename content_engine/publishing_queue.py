@@ -156,8 +156,13 @@ class PublishingQueue:
         with _QUEUE_LOCK:
             data = _read(self.path)
             item = self._find(data, item_id)
-            if item["status"] == "published":
+            status = item.get("status")
+            if status == "published":
                 raise QueueError("이미 게시된 작업은 거절할 수 없습니다.")
+            if status in ("processing", "needs_review"):
+                raise QueueError("게시 결과를 확인해야 하는 작업은 거절할 수 없습니다. 플랫폼에서 게시 여부를 먼저 확인하세요.")
+            if status not in ("scheduled", "failed", "rejected"):
+                raise QueueError("현재 상태의 작업은 거절할 수 없습니다.")
             item.update(status="rejected", updated_at=_iso(now))
             _write(self.path, data)
             return item

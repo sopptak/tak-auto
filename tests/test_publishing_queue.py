@@ -76,6 +76,30 @@ class PublishingQueueTests(unittest.TestCase):
         self.assertEqual(self.queue.run_due(publisher, enabled=True, now=due), [])
         self.assertEqual(len(calls), 1)
 
+    def test_reject_cannot_hide_inflight_or_uncertain_publish_state(self):
+        item = self.enqueue()
+        for status in ("processing", "needs_review"):
+            with self.subTest(status=status):
+                data = self.queue.snapshot()
+                data["items"][0]["status"] = status
+                self.path.write_text(json.dumps(data), encoding="utf-8")
+                with self.assertRaisesRegex(QueueError, "게시 결과를 확인"):
+                    self.queue.reject(item["id"], now=self.now + timedelta(minutes=2))
+                self.assertEqual(self.queue.snapshot()["items"][0]["status"], status)
+
+    def test_reject_marks_scheduled_work_as_rejected(self):
+        item = self.enqueue()
+        rejected = self.queue.reject(item["id"], now=self.now + timedelta(seconds=1))
+        self.assertEqual(rejected["status"], "rejected")
+
+    def test_reject_fails_closed_for_malformed_state(self):
+        item = self.enqueue()
+        data = self.queue.snapshot()
+        data["items"][0]["status"] = ["scheduled"]
+        self.path.write_text(json.dumps(data), encoding="utf-8")
+        with self.assertRaisesRegex(QueueError, "현재 상태"):
+            self.queue.reject(item["id"], now=self.now + timedelta(seconds=1))
+
     def test_published_history_retains_knowledge_source_and_title(self):
         self.enqueue(platform="facebook", payload={
             "title": "Facebook 제목", "body": "승인된 본문",
