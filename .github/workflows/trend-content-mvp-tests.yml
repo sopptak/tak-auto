@@ -25,6 +25,9 @@ on:
       - "content_engine/performance/instagram.py"
       - "content_engine/performance/facebook.py"
       - "content_engine/performance/tiktok.py"
+      - "content_engine/performance/store.py"
+      - "content_engine/performance/threads.py"
+      - "content_engine/performance/youtube.py"
       - "content_engine/performance/models.py"
       - "content_engine/performance/store.py"
       - "content_engine/performance_insight.py"
@@ -32,6 +35,9 @@ on:
       - "tests/test_instagram_performance.py"
       - "tests/test_collect_performance_live_gate.py"
       - "tests/test_performance_models.py"
+      - "tests/test_performance_store.py"
+      - "tests/test_performance_threads.py"
+      - "tests/test_performance_youtube.py"
       - "tests/test_6_63_game_factory_doc.py"
       - "docs/performance_operations.md"
       - "tests/test_facebook_performance.py"
@@ -89,6 +95,9 @@ jobs:
           python -m unittest discover -s tests -p "test_tiktok_performance.py" -v
           python -m unittest discover -s tests -p "test_performance_oauth_permissions.py" -v
           python -m unittest discover -s tests -p "test_performance_models.py" -v
+          python -m unittest discover -s tests -p "test_performance_store.py" -v
+          python -m unittest discover -s tests -p "test_performance_threads.py" -v
+          python -m unittest discover -s tests -p "test_performance_youtube.py" -v
           python -m unittest discover -s tests -p "test_6_63_game_factory_doc.py" -v
           python -m unittest discover -s tests -p "test_performance_dashboard.py" -v
           python -m unittest discover -s tests -p "test_publishing_connections.py" -v
