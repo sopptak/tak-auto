@@ -1,5 +1,6 @@
 import io
 from concurrent.futures import ThreadPoolExecutor
+from email.message import Message
 import json
 import os
 from pathlib import Path
@@ -151,6 +152,34 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         for raw in ("1000000000", "9" * 10000):
             with self.subTest(raw=raw[:20]), self.assertRaises(OverflowError):
                 run_trend_content_mvp._parse_content_length(raw)
+
+    def test_request_body_length_rejects_ambiguous_http_framing(self):
+        headers = Message()
+        headers.add_header("Content-Length", "12")
+        self.assertEqual(run_trend_content_mvp._request_body_content_length(headers), 12)
+
+        duplicate_length = Message()
+        duplicate_length.add_header("Content-Length", "12")
+        duplicate_length.add_header("Content-Length", "12")
+        with self.assertRaisesRegex(ValueError, "한 번만"):
+            run_trend_content_mvp._request_body_content_length(duplicate_length)
+
+        conflicting_length = Message()
+        conflicting_length.add_header("Content-Length", "12")
+        conflicting_length.add_header("Content-Length", "13")
+        with self.assertRaisesRegex(ValueError, "한 번만"):
+            run_trend_content_mvp._request_body_content_length(conflicting_length)
+
+        chunked_body = Message()
+        chunked_body.add_header("Transfer-Encoding", "chunked")
+        with self.assertRaisesRegex(ValueError, "지원하지 않습니다"):
+            run_trend_content_mvp._request_body_content_length(chunked_body)
+
+        conflicting_framing = Message()
+        conflicting_framing.add_header("Content-Length", "12")
+        conflicting_framing.add_header("Transfer-Encoding", "chunked")
+        with self.assertRaisesRegex(ValueError, "지원하지 않습니다"):
+            run_trend_content_mvp._request_body_content_length(conflicting_framing)
 
     def test_request_body_reader_requires_exact_length_and_valid_utf8(self):
         payload = "keyword=생성형+AI".encode("utf-8")

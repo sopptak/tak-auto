@@ -175,6 +175,16 @@ def _parse_content_length(value: object) -> int:
     return int(digits)
 
 
+def _request_body_content_length(headers) -> int:
+    """Reject ambiguous HTTP body framing before reading a request body."""
+    if headers.get_all("Transfer-Encoding", []):
+        raise ValueError("Transfer-Encoding 요청 본문은 지원하지 않습니다.")
+    content_lengths = headers.get_all("Content-Length", [])
+    if len(content_lengths) > 1:
+        raise ValueError("Content-Length 헤더는 한 번만 지정해야 합니다.")
+    return _parse_content_length(content_lengths[0] if content_lengths else None)
+
+
 def _read_utf8_request_body(stream, length: int) -> str:
     """Read exactly the declared number of request bytes and decode them as UTF-8."""
     body = stream.read(length)
@@ -1801,9 +1811,9 @@ def create_handler():
                 return
             if urlparse(self.path).path == "/media/assets/upload":
                 try:
-                    length = _parse_content_length(self.headers.get("Content-Length", "0"))
+                    length = _request_body_content_length(self.headers)
                 except ValueError:
-                    self._respond(json.dumps({"error": "Content-Length가 올바르지 않습니다."}), 400, "application/json; charset=utf-8")
+                    self._respond(json.dumps({"error": "요청 본문 구성이 올바르지 않습니다."}), 400, "application/json; charset=utf-8")
                     return
                 except OverflowError:
                     self._respond(json.dumps({"error": "Content-Length가 허용 범위를 초과했습니다."}), 413, "application/json; charset=utf-8")
@@ -1826,9 +1836,9 @@ def create_handler():
                     self._respond(json.dumps({"error": "영상 파일을 저장하지 못했습니다. 저장 공간을 확인하세요."}, ensure_ascii=False), 507, "application/json; charset=utf-8")
                 return
             try:
-                length = _parse_content_length(self.headers.get("Content-Length", "0"))
+                length = _request_body_content_length(self.headers)
             except ValueError:
-                self._respond(_page(_read_json(TREND_PATH, {}), [], "Content-Length가 올바르지 않습니다."), 400)
+                self._respond(_page(_read_json(TREND_PATH, {}), [], "요청 본문 구성이 올바르지 않습니다."), 400)
                 return
             except OverflowError:
                 self._respond(_page(_read_json(TREND_PATH, {}), [], "요청이 너무 큽니다."), 413)
