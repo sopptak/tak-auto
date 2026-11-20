@@ -197,7 +197,7 @@ class DashboardMultiTurnHttpTests(unittest.TestCase):
 
     def _post(self, path: str, data: dict[str, str] | None = None) -> tuple[int, str]:
         body = urlencode(data or {}).encode()
-        request = urllib.request.Request(self._url(path), data=body, method="POST")
+        request = urllib.request.Request(self._url(path), data=body, headers={"Origin": f"http://127.0.0.1:{self.port}"}, method="POST")
         with urllib.request.urlopen(request, timeout=5) as response:
             return response.status, response.read().decode("utf-8")
 
@@ -324,7 +324,7 @@ class DashboardMultiTurnHttpTests(unittest.TestCase):
         self._get(f"/candidate/{scout_id}")
 
         request = urllib.request.Request(
-            self._url(f"/candidate/{scout_id}/answer"), data=urlencode({"option": "Z"}).encode(), method="POST"
+            self._url(f"/candidate/{scout_id}/answer"), data=urlencode({"option": "Z"}).encode(), headers={"Origin": f"http://127.0.0.1:{self.port}"}, method="POST"
         )
         with self.assertRaises(HTTPError) as ctx:
             urllib.request.urlopen(request, timeout=5)
@@ -342,7 +342,7 @@ class DashboardMultiTurnHttpTests(unittest.TestCase):
         self._get(f"/candidate/{scout_id}")
 
         request = urllib.request.Request(
-            self._url(f"/candidate/{scout_id}/answer"), data=urlencode({"option": "D"}).encode(), method="POST"
+            self._url(f"/candidate/{scout_id}/answer"), data=urlencode({"option": "D"}).encode(), headers={"Origin": f"http://127.0.0.1:{self.port}"}, method="POST"
         )
         with self.assertRaises(HTTPError) as ctx:
             urllib.request.urlopen(request, timeout=5)
@@ -424,7 +424,7 @@ class DashboardMultiTurnHttpTests(unittest.TestCase):
             ctx.exception.close()
 
         for suffix in ("/finalize", "/restart"):
-            request = urllib.request.Request(self._url(f"/candidate/does-not-exist{suffix}"), data=b"", method="POST")
+            request = urllib.request.Request(self._url(f"/candidate/does-not-exist{suffix}"), data=b"", headers={"Origin": f"http://127.0.0.1:{self.port}"}, method="POST")
             with self.assertRaises(HTTPError) as ctx:
                 urllib.request.urlopen(request, timeout=5)
             self.assertEqual(ctx.exception.code, 404)
@@ -559,7 +559,7 @@ class DashboardLLMIntegrationTests(unittest.TestCase):
 
     def _post(self, path: str, data: dict[str, str] | None = None) -> tuple[int, str]:
         body = urlencode(data or {}).encode()
-        request = urllib.request.Request(self._url(path), data=body, method="POST")
+        request = urllib.request.Request(self._url(path), data=body, headers={"Origin": f"http://127.0.0.1:{self.port}"}, method="POST")
         with urllib.request.urlopen(request, timeout=5) as response:
             return response.status, response.read().decode("utf-8")
 

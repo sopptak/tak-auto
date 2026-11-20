@@ -19,9 +19,11 @@ from __future__ import annotations
 
 from contextlib import redirect_stdout
 import io
+import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from content_engine.performance.store import load_snapshots
 from scripts.collect_performance import main as collect_performance_main
@@ -38,6 +40,95 @@ class CollectPerformanceCLITests(unittest.TestCase):
         with redirect_stdout(buffer):
             exit_code = collect_performance_main(argv)
         return exit_code, buffer.getvalue()
+
+    def _write_queue_history(self, platform="threads", **overrides):
+        queue_path = Path(self.tmp_dir.name) / "queue.json"
+        row = {
+            "content_id": "trend-content-threads-1",
+            "platform": platform,
+            "remote_id": "threads-post-123",
+            "published_at": "2026-11-17T12:00:00+00:00",
+            "knowledge_id": "trend-preview-k123",
+            "title": "트렌드 제목",
+        }
+        row.update(overrides)
+        queue_path.write_text(json.dumps({"version": 1, "items": [], "history": [row]}), encoding="utf-8")
+        return queue_path
+
+    def test_queue_content_id_resolves_threads_lineage_without_manual_ids(self):
+        queue_path = self._write_queue_history()
+        exit_code, output = self._run([
+            "--queue-content-id", "trend-content-threads-1",
+            "--queue-history", str(queue_path),
+            "--store", str(self.store_path),
+            "--dry-run",
+        ])
+        self.assertEqual(exit_code, 0)
+        self.assertIn("content_id=trend-content-threads-1", output)
+        self.assertIn("media_id=threads-post-123", output)
+        self.assertFalse(self.store_path.exists())
+
+    def test_queue_content_id_still_requires_explicit_live_confirmation(self):
+        queue_path = self._write_queue_history()
+        with patch("content_engine.threads_publisher.ThreadsClient.from_environment") as client_factory:
+            exit_code, _output = self._run([
+                "--queue-content-id", "trend-content-threads-1",
+                "--queue-history", str(queue_path),
+                "--store", str(self.store_path),
+            ])
+        self.assertEqual(exit_code, 1)
+        client_factory.assert_not_called()
+        self.assertFalse(self.store_path.exists())
+
+    def test_queue_content_id_maps_youtube_shorts_to_youtube_performance(self):
+        queue_path = self._write_queue_history(
+            platform="youtube_shorts", remote_id="youtube-video-456",
+            content_id="trend-content-youtube-1",
+        )
+        exit_code, output = self._run([
+            "--queue-content-id", "trend-content-youtube-1",
+            "--queue-history", str(queue_path),
+            "--store", str(self.store_path),
+            "--dry-run",
+        ])
+        self.assertEqual(exit_code, 0)
+        self.assertIn("content_id=trend-content-youtube-1", output)
+        self.assertIn("video_id=youtube-video-456", output)
+        self.assertFalse(self.store_path.exists())
+
+    def test_queue_content_id_maps_instagram_reels_to_instagram_performance(self):
+        queue_path = self._write_queue_history(
+            platform="instagram_reels", remote_id="17890000000000001",
+            content_id="trend-content-instagram-1",
+        )
+        exit_code, output = self._run([
+            "--queue-content-id", "trend-content-instagram-1",
+            "--queue-history", str(queue_path),
+            "--store", str(self.store_path),
+            "--dry-run",
+        ])
+        self.assertEqual(exit_code, 0)
+        self.assertIn("content_id=trend-content-instagram-1", output)
+        self.assertIn("media_id=17890000000000001", output)
+        self.assertFalse(self.store_path.exists())
+
+    def test_queue_content_id_maps_facebook_and_tiktok_to_performance(self):
+        cases = (
+            ("facebook", "123456789_987654321", "post_id=123456789_987654321"),
+            ("tiktok", "1234567890123456789", "video_id=1234567890123456789"),
+        )
+        for platform, remote_id, output_hint in cases:
+            with self.subTest(platform=platform):
+                queue_path = self._write_queue_history(
+                    platform=platform, remote_id=remote_id, content_id=f"trend-content-{platform}-1",
+                )
+                exit_code, output = self._run([
+                    "--queue-content-id", f"trend-content-{platform}-1",
+                    "--queue-history", str(queue_path), "--store", str(self.store_path), "--dry-run",
+                ])
+                self.assertEqual(exit_code, 0)
+                self.assertIn(output_hint, output)
+                self.assertFalse(self.store_path.exists())
 
     # --- G. Blog manual metric import 저장 -------------------------------------
 

@@ -263,7 +263,7 @@ class ImportPerformanceSnapshotsCliTests(unittest.TestCase):
         self._write_input(
             [
                 {
-                    "content_id": "c1", "knowledge_id": "k1", "platform": "tiktok",
+                    "content_id": "c1", "knowledge_id": "k1", "platform": "unknown",
                     "published_at": "2026-01-01T00:00:00Z", "metric_collected_at": "2026-01-02T00:00:00Z",
                     "metrics": {},
                 }

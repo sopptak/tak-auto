@@ -1,5 +1,7 @@
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 import json
+import os
 import tempfile
 import unittest
 
@@ -110,11 +112,43 @@ class PublishHistoryStorageTests(unittest.TestCase):
         )
 
         self.assertTrue(self.history_path.exists())
+        # POSIX file modes are enforced by the storage implementation. Windows
+        # exposes compatibility mode bits that do not represent ACL permissions.
+        if os.name == "posix":
+            self.assertEqual(self.history_path.stat().st_mode & 0o777, 0o600)
         records = history.load()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["content_id"], "content-abc123")
         self.assertEqual(records[0]["threads_post_id"], "th_post_1")
         self.assertIn("published_at", records[0])
+
+    def test_concurrent_history_appends_preserve_every_record(self):
+        history = PublishHistory(self.history_path)
+        def append_one(index):
+            history.append(PublishRecord(
+                content_id=f"content-{index}",
+                published_at="2026-11-18T00:00:00+00:00",
+                threads_post_id=f"remote-{index}",
+            ))
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            list(executor.map(append_one, range(24)))
+        records = history.load()
+        self.assertEqual(len(records), 24)
+        self.assertEqual({row["content_id"] for row in records}, {f"content-{i}" for i in range(24)})
+
+    def test_facebook_history_uses_generic_remote_id(self):
+        history = PublishHistory(self.history_path)
+        history.append(PublishRecord(
+            content_id="facebook-content-1",
+            published_at="2026-11-18T08:00:00+00:00",
+            threads_post_id="",
+            platform="facebook",
+            remote_id="123_456",
+        ))
+        record = history.load()[0]
+        self.assertEqual(record["platform"], "facebook")
+        self.assertEqual(record["remote_id"], "123_456")
+        self.assertEqual(record["threads_post_id"], "")
 
     def test_append_preserves_existing_records(self):
         history = PublishHistory(self.history_path)

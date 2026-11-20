@@ -60,6 +60,30 @@ class HostedDashboardSecurityTests(unittest.TestCase):
             self.assertIn(required, config)
         self.assertIn("ln -sfn /var/data data", config)
 
+    def test_trend_factory_configures_adapter_but_keeps_posting_disabled(self):
+        config = (ROOT / "render.yaml").read_text(encoding="utf-8")
+        trend_service = config.split("name: tak-auto-trend-factory", 1)[1]
+        self.assertIn("TAK_AUTO_PUBLISHING_ENABLED\n        value: false", trend_service)
+        self.assertIn("TAK_AUTO_PUBLISHER\n        value: content_engine.trend_publishers:publish", trend_service)
+
+    def test_trend_factory_data_directory_matches_persistent_disk_mount(self):
+        config = (ROOT / "render.yaml").read_text(encoding="utf-8")
+        trend_service = config.split("name: tak-auto-trend-factory", 1)[1].split("\n  - type:", 1)[0]
+        disk_mount = trend_service.split("mountPath: ", 1)[1].splitlines()[0].strip()
+        configured_data_dir = (
+            trend_service.split("key: TAK_AUTO_DATA_DIR", 1)[1]
+            .split("value: ", 1)[1].splitlines()[0].strip()
+        )
+        self.assertEqual(configured_data_dir, disk_mount)
+        self.assertIn("plan: starter", trend_service)
+        self.assertIn("healthCheckPath: /health", trend_service)
+        self.assertIn("sizeGB: 1", trend_service)
+        for secret in (
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY", "TAK_AUTO_MEDIA_SIGNING_KEY",
+            "TAK_WEB_USERNAME", "TAK_WEB_PASSWORD", "TAK_SCOUT_PERPLEXITY_API_KEY",
+        ):
+            self.assertIn(f"key: {secret}\n        sync: false", trend_service)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -125,7 +125,7 @@ class MediaDashboardHttpTests(unittest.TestCase):
 
     def _post(self, path: str, data: dict[str, str] | None = None) -> tuple[int, str]:
         body = urlencode(data or {}).encode()
-        request = urllib.request.Request(self._url(path), data=body, method="POST")
+        request = urllib.request.Request(self._url(path), data=body, headers={"Origin": f"http://127.0.0.1:{self.port}"}, method="POST")
         with urllib.request.urlopen(request, timeout=5) as response:
             return response.status, response.read().decode("utf-8")
 
@@ -485,7 +485,7 @@ class MediaEditAndDismissHttpTests(unittest.TestCase):
 
     def _post(self, path: str, data: dict[str, str] | None = None) -> tuple[int, str]:
         body = urlencode(data or {}).encode()
-        request = urllib.request.Request(self._url(path), data=body, method="POST")
+        request = urllib.request.Request(self._url(path), data=body, headers={"Origin": f"http://127.0.0.1:{self.port}"}, method="POST")
         with urllib.request.urlopen(request, timeout=5) as response:
             return response.status, response.read().decode("utf-8")
 
@@ -740,7 +740,7 @@ class MediaDownstreamStatusHttpTests(unittest.TestCase):
 
     def _post(self, path: str, data: dict[str, str] | None = None) -> tuple[int, str]:
         body = urlencode(data or {}).encode()
-        request = urllib.request.Request(self._url(path), data=body, method="POST")
+        request = urllib.request.Request(self._url(path), data=body, headers={"Origin": f"http://127.0.0.1:{self.port}"}, method="POST")
         with urllib.request.urlopen(request, timeout=5) as response:
             return response.status, response.read().decode("utf-8")
 

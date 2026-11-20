@@ -135,6 +135,48 @@ class PerformanceDashboardHttpTests(unittest.TestCase):
         self.assertIn("content-perf-1", body)
         self.assertIn("AI 재작성 제목", body)  # archive의 final_title이 채워졌는지
 
+    def test_performance_list_filters_by_knowledge_id_without_merging_platforms(self):
+        append_snapshot(self.performance_path, _perf_record(
+            content_id="content-perf-threads", platform="threads",
+            knowledge_id="trend-preview-abc", metrics={"views": 120, "likes": 8},
+        ))
+        append_snapshot(self.performance_path, _perf_record(
+            content_id="content-perf-youtube", platform="youtube",
+            knowledge_id="trend-preview-abc", metrics={"views": 950, "likes": 30},
+        ))
+        append_snapshot(self.performance_path, _perf_record(
+            content_id="content-other", platform="threads",
+            knowledge_id="trend-preview-other", metrics={"views": 9999},
+        ))
+
+        status, body = self._get("/performance?knowledge_id=trend-preview-abc")
+        self.assertEqual(status, 200)
+        self.assertIn("KNOWLEDGE ID: trend-preview-abc", body)
+        self.assertIn("content-perf-threads", body)
+        self.assertIn("content-perf-youtube", body)
+        self.assertNotIn("content-other", body)
+        self.assertIn("총 2건", body)
+
+    def test_instagram_engagement_metrics_render_without_inventing_views(self):
+        upsert_archive(self.archive_path, [_archive_record(platform="shorts")])
+        append_snapshot(self.performance_path, _perf_record(
+            platform="instagram", source="instagram_api",
+            metrics={"likes": 26, "comments": 3},
+            unavailable_metrics=("views",),
+        ))
+
+        status, body = self._get("/performance")
+        self.assertEqual(status, 200)
+        self.assertIn("instagram", body)
+        self.assertIn("최근 metrics: comments 3 · likes 26", body)
+        self.assertNotIn("views 0", body)
+
+    def test_performance_list_shows_empty_state_for_uncollected_knowledge(self):
+        status, body = self._get("/performance?knowledge_id=trend-preview-not-collected")
+        self.assertEqual(status, 200)
+        self.assertIn("trend-preview-not-collected", body)
+        self.assertIn("아직 수집된 성과가 없습니다", body)
+
     def test_performance_list_single_snapshot_shows_no_delta_or_previous(self):
         upsert_archive(self.archive_path, [_archive_record()])
         append_snapshot(self.performance_path, _perf_record(metric_collected_at="2026-09-15T00:00:00+00:00", metrics={"views": 100}))
@@ -169,7 +211,8 @@ class PerformanceDashboardHttpTests(unittest.TestCase):
         request = urllib.request.Request(self._url("/performance"), data=b"", method="POST")
         with self.assertRaises(HTTPError) as ctx:
             urllib.request.urlopen(request, timeout=5)
-        self.assertEqual(ctx.exception.code, 404)
+        # Global request protection rejects POST without a valid CSRF token before routing.
+        self.assertEqual(ctx.exception.code, 403)
 
     def test_performance_view_does_not_modify_archive_or_store(self):
         upsert_archive(self.archive_path, [_archive_record()])

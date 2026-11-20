@@ -182,7 +182,7 @@ def normalize_item(platform: str, item: dict, *, run_id: str, collected_at: str)
 
 # ---- 저장 ------------------------------------------------------------------------------------
 
-def load_staging(path: Path | str) -> dict:
+def _load_staging_unlocked(path: Path | str) -> dict:
     path = Path(path)
     if not path.exists():
         return {"schema": STAGING_SCHEMA, "runs": [], "requests": []}
@@ -195,11 +195,17 @@ def load_staging(path: Path | str) -> dict:
     return {"schema": STAGING_SCHEMA, "runs": data.get("runs") or [], "requests": data.get("requests") or []}
 
 
+def load_staging(path: Path | str) -> dict:
+    """Read a staging snapshot without racing this process's atomic writes."""
+    with money._LOCK:
+        return _load_staging_unlocked(path)
+
+
 def request_scout(staging_path: Path | str, *, now: datetime | None = None) -> dict:
     """화면의 [🔎 지금 수익기회 찾기]: 실행 요청을 남긴다. 실제 읽기는 브라우저 에이전트가 plan()대로 하고 ingest()로 넘긴다."""
     now = now or money._now()
     with money._LOCK:
-        staging = load_staging(staging_path)
+        staging = _load_staging_unlocked(staging_path)
         pending = next((r for r in staging["requests"] if r["status"] == "pending"), None)
         if pending:
             return pending
@@ -306,7 +312,7 @@ def ingest(raw: dict, *, tasks_path: Path | str, staging_path: Path | str, now: 
         run["promotion"] = (promote(run["items"], tasks_path, run_id=run_id, ok_platforms=ok, now=now) if promote_items
                             else {"created": 0, "updated": 0, "unchanged": 0, "disappeared": 0})
     with money._LOCK:
-        staging = load_staging(staging_path)
+        staging = _load_staging_unlocked(staging_path)
         for req in staging["requests"]:
             if req["status"] in ("pending", "running") and (raw.get("request_id") in (None, req["id"]) if isinstance(raw, dict) else False):
                 req.update(status="done", scout_run_id=run_id, done_at=collected_at)
@@ -382,7 +388,7 @@ def today_money(tasks: list[dict], log: list[dict], config: dict, now: datetime 
 def set_request(staging_path: Path | str, req_id: str, status: str, message: str = "", *, now: datetime | None = None) -> None:
     """버튼 실행 상태 기록(pending -> running -> done/failed)."""
     with money._LOCK:
-        staging = load_staging(staging_path)
+        staging = _load_staging_unlocked(staging_path)
         for req in staging["requests"]:
             if req["id"] == req_id:
                 req.update(status=status, message=message[:200], updated_at=(now or money._now()).isoformat(timespec="seconds"))

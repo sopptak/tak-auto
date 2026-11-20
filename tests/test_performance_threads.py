@@ -35,6 +35,16 @@ class NormalizeThreadsInsightsTests(unittest.TestCase):
         }
         self.assertEqual(normalize_threads_insights(raw), {"views": 10})
 
+    def test_ignores_negative_and_boolean_counts(self):
+        raw = {
+            "data": [
+                {"name": "views", "values": [{"value": -1}]},
+                {"name": "likes", "values": [{"value": True}]},
+                {"name": "replies", "values": [{"value": 0}]},
+            ]
+        }
+        self.assertEqual(normalize_threads_insights(raw), {"replies": 0})
+
     def test_non_dict_response_returns_empty(self):
         self.assertEqual(normalize_threads_insights(None), {})
         self.assertEqual(normalize_threads_insights("oops"), {})

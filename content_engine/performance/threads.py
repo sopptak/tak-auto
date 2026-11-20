@@ -45,7 +45,7 @@ def normalize_threads_insights(raw_response: Any) -> dict[str, int]:
         if not isinstance(first_value, dict):
             continue
         value = first_value.get("value")
-        if isinstance(value, bool) or not isinstance(value, int):
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             continue
         metrics[str(name)] = value
     return metrics

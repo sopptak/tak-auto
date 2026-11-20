@@ -58,6 +58,24 @@ def _sample_script(**overrides) -> ShortsScript:
     return ShortsScript(**defaults)
 
 
+NOTO_SANS_CJK = Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc")
+
+
+@unittest.skipUnless(NOTO_SANS_CJK.exists(), "Linux Noto CJK 폰트가 없는 환경입니다.")
+class LinuxKoreanFontFallbackTests(unittest.TestCase):
+    def test_legacy_renderer_finds_noto_cjk_font(self):
+        from content_engine.shorts_renderer import SANS_FONT_CANDIDATES, _find_font
+
+        font = _find_font(SANS_FONT_CANDIDATES, 36)
+        self.assertGreater(font.getbbox("한글 테스트")[2], 0)
+
+    def test_modern_renderer_loads_static_noto_font_without_variable_axes(self):
+        from content_engine.shorts_v2_renderer import SANS_VF, _font
+
+        font = _font(SANS_VF, 36, weight=800)
+        self.assertGreater(font.getbbox("한글 테스트")[2], 0)
+
+
 # --- 1. 줄바꿈 로직(6-40 1차 렌더링에서 발견한 실제 버그의 회귀 테스트) -------------
 
 

@@ -205,7 +205,8 @@ class GuardTests(StudioCase):
         self.assertEqual(len(frames["frames"]), len(d["document"]["scenes"]) + 1)  # + 엔드카드
         self.assertTrue(frames["frames"][-1]["end_card"])
         png = self.store._dir(d["draft_id"]) / "frames" / frames["frames"][0]["file"]
-        self.assertEqual(Image.open(png).size, (360, 640))
+        with Image.open(png) as frame:
+            self.assertEqual(frame.size, (360, 640))
         self.assertEqual(studio.scene_frames(self.store, d["draft_id"]), frames)  # 캐시
         self.edit({"s0_layout": "image_top", "s0_image_path": str(self.dir / "없음.png")})
         self.assertIsNone(studio.scene_frames(self.store, d["draft_id"])["error"])  # 없는 이미지는 빈 틀로 그려 위치를 보여준다(렌더는 게이트가 막음)
@@ -293,7 +294,10 @@ class EditorHttpTests(StudioCase):
         self.addCleanup(lambda: (self.server.shutdown(), self.server.server_close(), thread.join(5)))
 
     def req(self, path: str, data: bytes | None = None, headers: dict | None = None) -> tuple[int, str, bytes, dict]:
-        request = urllib.request.Request(f"http://127.0.0.1:{self.server.server_address[1]}{path}", data=data, headers=headers or {})
+        request_headers = dict(headers or {})
+        if data is not None:
+            request_headers["Origin"] = f"http://127.0.0.1:{self.server.server_address[1]}"
+        request = urllib.request.Request(f"http://127.0.0.1:{self.server.server_address[1]}{path}", data=data, headers=request_headers)
         try:
             with urllib.request.urlopen(request, timeout=180) as resp:
                 return resp.status, resp.geturl(), resp.read(), dict(resp.headers)
