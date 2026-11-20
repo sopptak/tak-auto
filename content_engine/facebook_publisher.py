@@ -109,10 +109,10 @@ class FacebookClient:
             raise FacebookAPIError(
                 f"Facebook이 게시 요청을 거부했습니다. (오류 코드: {code or 'unknown'})"
             )
-        post_id = str(response.get("id") or "").strip()
-        if not post_id:
-            raise FacebookAPIError("Facebook 게시 응답에 게시물 ID가 없습니다.")
-        return FacebookPublishResult(post_id=post_id)
+        post_id = response.get("id")
+        if not isinstance(post_id, str) or not post_id.strip():
+            raise FacebookAPIError("Facebook 게시 응답에 유효한 게시물 ID가 없습니다.")
+        return FacebookPublishResult(post_id=post_id.strip())
 
     def get_post_insights(self, post_id: str) -> Mapping[str, object]:
         """Read the supported lifetime insights for one post on this Page."""

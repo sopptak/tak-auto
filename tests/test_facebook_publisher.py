@@ -62,14 +62,16 @@ class FacebookClientTests(unittest.TestCase):
         self.assertNotIn("secret-token", str(caught.exception))
         self.assertNotIn("private details", str(caught.exception))
 
-    def test_missing_remote_post_id_is_not_success(self):
-        client = FacebookClient(
-            access_token="token",
-            page_id="123",
-            transport=lambda *args, **kwargs: {},
-        )
-        with self.assertRaises(FacebookAPIError):
-            client.publish_text("게시 본문")
+    def test_missing_or_malformed_remote_post_id_is_not_success(self):
+        for response in ({}, {"id": "   "}, {"id": True}, {"id": ["unexpected"]}):
+            with self.subTest(response=response):
+                client = FacebookClient(
+                    access_token="token",
+                    page_id="123",
+                    transport=lambda *args, **kwargs: response,
+                )
+                with self.assertRaises(FacebookAPIError):
+                    client.publish_text("게시 본문")
 
 
 class FacebookTrendPublisherTests(unittest.TestCase):

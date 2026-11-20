@@ -128,6 +128,15 @@ class ThreadsPublisherTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             client.publish_text("   \n\t  ")
 
+    def test_publish_text_rejects_malformed_post_id(self):
+        for post_id in ("   ", True, {"unexpected": "id"}):
+            with self.subTest(post_id=post_id):
+                client = ThreadsClient(
+                    access_token="test-token", transport=lambda *args: {"id": post_id},
+                )
+                with self.assertRaises(ThreadsAPIError):
+                    client.publish_text("검토된 문안")
+
     def test_publish_text_exceeding_500_chars_raises_value_error(self):
         client = ThreadsClient(access_token="test-token")
         long_text = "가" * 501
@@ -180,7 +189,7 @@ class ThreadsPublisherTests(unittest.TestCase):
         client = ThreadsClient(access_token="test-token", transport=transport)
         with self.assertRaises(ThreadsAPIError) as raised:
             client.publish_text("테스트 본문")
-        self.assertIn("게시물 id가 누락", str(raised.exception))
+        self.assertIn("유효한 게시물 id가 없습니다", str(raised.exception))
 
     def test_cli_dry_run_executes_without_network_or_token(self):
         sample_batch_data = {

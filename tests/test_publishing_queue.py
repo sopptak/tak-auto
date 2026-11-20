@@ -150,6 +150,25 @@ class PublishingQueueTests(unittest.TestCase):
         self.assertEqual(second["attempts"], 0)
         self.assertEqual([row["remote_id"] for row in persisted["history"]], ["post-123"])
 
+    def test_windows_sharing_conflict_retries_the_write_without_reposting(self):
+        self.enqueue()
+        replace = os.replace
+        conflict = PermissionError("temporary Windows sharing conflict")
+        conflict.winerror = 32
+        publisher = Mock(return_value="post-123")
+
+        def replace_with_one_conflict(source, target):
+            if replace_mock.call_count == 2:
+                raise conflict
+            replace(source, target)
+
+        with patch.object(os, "replace", side_effect=replace_with_one_conflict) as replace_mock:
+            self.queue.run_due(publisher, enabled=True, now=self.now + timedelta(minutes=2))
+
+        self.assertEqual(replace_mock.call_count, 3)
+        publisher.assert_called_once()
+        self.assertEqual(self.queue.snapshot()["history"][0]["remote_id"], "post-123")
+
     def test_retry_backoff_stops_after_three_attempts(self):
         self.enqueue()
         first_time = self.now + timedelta(minutes=2)

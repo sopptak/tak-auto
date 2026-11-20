@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -45,6 +46,23 @@ class TrendPublisherTests(unittest.TestCase):
 
         self.assertEqual(remote_id, "threads-post-1")
         self.client.publish_text.assert_called_once_with("첫 게시")
+
+    def test_malformed_history_id_requires_review_without_reposting(self):
+        history_path = self.data_dir / "threads_publish_log.json"
+        for platform in ("threads", "facebook"):
+            with self.subTest(platform=platform):
+                history = json.dumps([{
+                    "platform": platform, "content_id": "same-content", "remote_id": {"invalid": "id"},
+                }])
+                history_path.write_text(history, encoding="utf-8")
+                with patch.dict("os.environ", {"TAK_AUTO_DATA_DIR": str(self.data_dir)}, clear=True), \
+                        patch("content_engine.trend_publishers._threads_client") as threads_client, \
+                        patch("content_engine.trend_publishers.FacebookClient") as facebook_client:
+                    with self.assertRaises(PublishUncertainError):
+                        publish(platform, {"body": "검토된 문안", "_content_id": "same-content"}, "queue-key")
+                    threads_client.assert_not_called()
+                    facebook_client.assert_not_called()
+                self.assertEqual(history_path.read_text(encoding="utf-8"), history)
 
     def test_youtube_shorts_uploads_mp4_as_private_and_returns_video_id(self):
         video = self.data_dir / "approved-short.mp4"

@@ -316,9 +316,9 @@ def _publish_facebook_page_post(payload: Mapping[str, object], idempotency_key: 
     )
     if existing:
         remote_id = existing.get("threads_post_id") or existing.get("remote_id")
-        if not remote_id:
+        if not isinstance(remote_id, str) or not remote_id.strip():
             raise PublishUncertainError("기존 Facebook 게시 이력에 게시 ID가 없습니다. 페이지를 확인하세요.")
-        return str(remote_id)
+        return remote_id.strip()
     encryption_key = os.getenv("TAK_AUTO_OAUTH_ENCRYPTION_KEY", "").strip()
     if not encryption_key:
         raise PermanentPublishError("Facebook 게시용 암호화 인증 저장소 설정이 없습니다.")
@@ -426,11 +426,11 @@ def publish(platform: str, payload: Mapping[str, object], idempotency_key: str) 
     )
     if existing:
         remote_id = existing.get("threads_post_id") or existing.get("remote_id")
-        if not remote_id:
+        if not isinstance(remote_id, str) or not remote_id.strip():
             raise PublishUncertainError(
                 "기존 Threads 이력에 게시 ID가 없습니다. 계정을 확인하세요."
             )
-        return str(remote_id)
+        return remote_id.strip()
 
     client = _threads_client()
 

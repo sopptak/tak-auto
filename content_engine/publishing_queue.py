@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import tempfile
 import threading
+import time
 from typing import Any
 
 MAX_ATTEMPTS = 3
@@ -85,7 +86,14 @@ def _write(path: Path, data: dict[str, Any]) -> None:
             os.chmod(temporary_path, 0o600)
         except OSError:
             pass
-        os.replace(temporary_path, path)
+        for attempt in range(6):
+            try:
+                os.replace(temporary_path, path)
+                break
+            except PermissionError as error:
+                if getattr(error, "winerror", None) not in (5, 32) or attempt == 5:
+                    raise
+                time.sleep(0.01 * (attempt + 1))
         temporary_path = None
         try:
             directory_fd = os.open(path.parent, os.O_RDONLY)
