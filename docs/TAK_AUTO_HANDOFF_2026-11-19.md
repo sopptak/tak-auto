@@ -206,6 +206,7 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 
 - 성과 JSON 저장소의 append read-modify-write 구간에 프로세스 내부 잠금을 추가했다. 대시보드 요청 스레드의 동시 저장이 서로의 스냅샷을 덮어쓰지 않도록 하는 회귀 테스트를 포함한다. 이 잠금은 프로세스 간 동시성을 제공하지 않으므로 운영은 기존처럼 단일 인스턴스를 유지한다.
 - Threads/YouTube 성과 정규화는 음수·불리언 카운트를 버린다. YouTube는 API 응답의 영상 ID가 요청한 ID와 일치하지 않으면 저장을 거부한다.
+- 성과 레코드 역직렬화는 불리언·분수형 지표와 객체가 아닌 `metrics` 컨테이너를 거부한다. 정수 문자열은 호환 지원하며, `metrics` 누락/null은 빈 dict로 처리한다.
 - 집중 PR CI에 `test_performance_store`, `test_performance_threads`, `test_performance_youtube`를 추가해 해당 모듈 변경 때 빠른 회귀 검증을 수행한다.
-- 최종 확인 head `7bd07653f6248134ff85195793c13c500d9cc31b`에서 Python 전체 회귀 2,248개 통과, 118개 skip. TAK AUTO 집중 회귀 403개 테스트 및 TAK SCOUT 테스트도 모두 통과했다. [Python 전체](https://github.com/sopptak/tak-auto/actions/runs/44744320406), [TAK AUTO 집중](https://github.com/sopptak/tak-auto/actions/runs/44744320365), [TAK SCOUT](https://github.com/sopptak/tak-auto/actions/runs/44744320364).
+- 확인 head `597e923769c5beb6b589d07675daf4a900986a57`에서 Python 전체 회귀 2,252개 통과, 118개 skip. TAK AUTO 집중 회귀 407개 테스트 및 TAK SCOUT 테스트도 모두 통과했다. [Python 전체](https://github.com/sopptak/tak-auto/actions/runs/44746138231), [TAK AUTO 집중](https://github.com/sopptak/tak-auto/actions/runs/44746138162), [TAK SCOUT](https://github.com/sopptak/tak-auto/actions/runs/44746138287).
 - PR #3은 Draft/Open 상태이며 base는 `feature/perplexity-research-provider`다. 이 작업은 코드와 GitHub CI 검증만 수행했다. Render 배포, 실계정 OAuth/API 호출, 실제 SNS 게시 및 PR 병합은 수행하지 않았다.
