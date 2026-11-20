@@ -125,6 +125,30 @@ class PerformanceRecordRoundTripTests(unittest.TestCase):
         )
         self.assertEqual(restored.metrics["views"], 850)
 
+    def test_from_dict_rejects_boolean_metric_values(self):
+        with self.assertRaisesRegex(PerformanceRecordError, "정수 또는 정수 문자열"):
+            PerformanceRecord.from_dict(
+                {
+                    "content_id": "content-x",
+                    "knowledge_id": "knowledge-x",
+                    "platform": "blog",
+                    "metric_collected_at": "2026-09-16T00:00:00+00:00",
+                    "metrics": {"views": True},
+                }
+            )
+
+    def test_from_dict_rejects_fractional_metric_values(self):
+        with self.assertRaisesRegex(PerformanceRecordError, "정수 또는 정수 문자열"):
+            PerformanceRecord.from_dict(
+                {
+                    "content_id": "content-x",
+                    "knowledge_id": "knowledge-x",
+                    "platform": "blog",
+                    "metric_collected_at": "2026-09-16T00:00:00+00:00",
+                    "metrics": {"views": 1.5},
+                }
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
