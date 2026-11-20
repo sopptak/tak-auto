@@ -35,7 +35,7 @@ from content_engine.publishing_connections import (
     VERIFY_PLATFORMS, connection_dashboard, publishing_connection_statuses,
     verify_publishing_connection,
 )
-from content_engine.publishing_queue import PublishingQueue, queue_dashboard
+from content_engine.publishing_queue import PublishingQueue, QueueError, queue_dashboard
 from content_engine.performance_insight import load_insights, STATUS_ACCEPTED
 from content_engine.social_oauth import (
     FLOW_TTL_SECONDS, OAuthFlowRegistry, OAuthTokenVault, PROVIDERS, SocialOAuthClient,
@@ -2000,6 +2000,15 @@ def create_handler():
                         now=current,
                     )
                     self._respond(_page(report, previews, "미게시 확인을 기록하고 제한된 재시도를 예약했습니다.", queue.snapshot()))
+                    return
+                if self.path == "/queue/close-unpublished":
+                    if form.get("confirmed_unpublished", [""])[0] != "yes":
+                        raise QueueError("플랫폼에 게시되지 않았음을 먼저 확인하세요.")
+                    queue.close_unpublished(
+                        form.get("item_id", [""])[0],
+                        reviewed_by=os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user",
+                    )
+                    self._respond(_page(report, previews, "미게시 확인을 기록하고 재시도 없이 종료했습니다.", queue.snapshot()))
                     return
                 self._respond(_page(report, previews, "지원하지 않는 요청입니다."), 404)
             except Exception as error:

@@ -180,6 +180,8 @@ class PublishingQueue:
             item = self._find(data, item_id)
             if item["status"] == "published":
                 raise QueueError("이미 게시된 작업은 거절할 수 없습니다.")
+            if item["status"] in {"processing", "needs_review"}:
+                raise QueueError("플랫폼 게시 여부를 먼저 확인하세요.")
             item.update(status="rejected", updated_at=_iso(now))
             _write(self.path, data)
             return item
@@ -235,6 +237,31 @@ class PublishingQueue:
                 status="scheduled", scheduled_at=_iso(scheduled), next_attempt_at=_iso(scheduled),
                 updated_at=_iso(current), last_error="",
                 last_review={"decision": "confirmed_not_published", "reviewed_by": reviewed_by.strip(), "reviewed_at": _iso(current)},
+            )
+            _write(self.path, data)
+            return item
+
+    def close_unpublished(
+        self, item_id: str, *, reviewed_by: str, now: datetime | None = None
+    ) -> dict[str, Any]:
+        """Close an uncertain job after an operator confirms it was not published."""
+        if not reviewed_by.strip():
+            raise QueueError("확인한 운영자 이름이 필요합니다.")
+        reviewed_at = _iso(now)
+        with _QUEUE_LOCK:
+            data = _read(self.path)
+            item = self._find(data, item_id)
+            if item.get("status") != "needs_review":
+                raise QueueError("수동 검토 상태인 작업만 미게시로 종료할 수 있습니다.")
+            key = item["idempotency_key"]
+            if any(row.get("idempotency_key") == key for row in data["history"]):
+                raise QueueError("이 작업의 게시 이력이 이미 존재합니다.")
+            item.update(
+                status="rejected", updated_at=reviewed_at, next_attempt_at="",
+                last_review={
+                    "decision": "closed_unpublished", "reviewed_by": reviewed_by.strip(),
+                    "reviewed_at": reviewed_at,
+                },
             )
             _write(self.path, data)
             return item
@@ -388,8 +415,13 @@ def queue_dashboard(
         title = payload.get("title") or payload.get("keyword") or item.get("content_id", "")
         attempts = _attempt_count(item.get("attempts", 0))
         attempts_label = str(attempts) if attempts is not None else "확인 필요"
+        status = item.get("status", "")
+        review = item.get("last_review")
+        status_label = status
+        if status == "rejected" and isinstance(review, Mapping) and review.get("decision") == "closed_unpublished":
+            status_label = "미게시 확인 후 종료"
         actions = ""
-        if item.get("status") == "needs_review":
+        if status == "needs_review":
             item_id = _html(item.get("id", ""))
             if item.get("approved") is not True:
                 retry_action = "<span>게시 승인 기록 확인 필요</span>"
@@ -397,10 +429,11 @@ def queue_dashboard(
                 retry_action = f'<form method="post" action="/queue/retry"><input type="hidden" name="item_id" value="{item_id}"><button type="submit" class="secondary">미게시 확인 후 재시도</button></form>'
             else:
                 retry_action = "<span>최대 시도 횟수 도달</span>"
-            actions = f'''<form method="post" action="/queue/confirm-published" class="queue-form"><input type="hidden" name="item_id" value="{item_id}"><label>외부 게시 ID<input name="remote_id" required></label><button type="submit">게시 완료로 기록</button></form>{retry_action}'''
+            actions = f'''<form method="post" action="/queue/confirm-published" class="queue-form"><input type="hidden" name="item_id" value="{item_id}"><label>외부 게시 ID<input name="remote_id" required></label><button type="submit">게시 완료로 기록</button></form>{retry_action}
+<form method="post" action="/queue/close-unpublished" class="queue-form"><input type="hidden" name="item_id" value="{item_id}"><label><input type="checkbox" name="confirmed_unpublished" value="yes" required>플랫폼에 게시되지 않았음을 확인했습니다</label><button type="submit" class="secondary">재시도 없이 종료</button></form>'''
         cards.append(
             "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td></tr>".format(
-                _html(title), _html(item.get("platform", "")), _html(item.get("status", "")),
+                _html(title), _html(item.get("platform", "")), _html(status_label),
                 _html(item.get("scheduled_at", "")), _html(attempts_label), MAX_ATTEMPTS,
                 _html(item.get("last_error", "")), actions,
             )

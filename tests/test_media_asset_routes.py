@@ -1,5 +1,6 @@
 import base64
 from contextlib import ExitStack
+from datetime import datetime, timedelta, timezone
 import json
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
@@ -10,10 +11,11 @@ import threading
 from types import SimpleNamespace
 import unittest
 from urllib.error import HTTPError
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 from unittest.mock import patch
 
+from content_engine.publishing_queue import PublishUncertainError, PublishingQueue
 from scripts import run_trend_content_mvp as app
 
 
@@ -58,6 +60,44 @@ class MediaAssetRouteTests(unittest.TestCase):
             headers["Authorization"] = self.auth
         request = Request(self.base_url + "/media/assets/upload", data=payload, headers=headers, method="POST")
         return payload, request
+
+    def test_closing_unpublished_requires_auth_same_origin_and_confirmation(self):
+        path = self.data_dir / "queue.json"
+        queue = PublishingQueue(path)
+        now = datetime.now(timezone.utc)
+        item = queue.enqueue_approved(
+            content_id="review-job", platform="threads", payload={"body": "문안"},
+            scheduled_at=now + timedelta(seconds=10), approved_by="operator", now=now,
+        )
+
+        def uncertain(*_args):
+            raise PublishUncertainError("response lost")
+
+        queue.run_due(uncertain, enabled=True, now=now + timedelta(seconds=11))
+
+        def post(confirmed="yes", *, auth=self.auth, origin="https://tak-auto.example.test"):
+            headers = {"Origin": origin, "Content-Type": "application/x-www-form-urlencoded"}
+            if auth:
+                headers["Authorization"] = auth
+            data = urlencode({"item_id": item["id"], "confirmed_unpublished": confirmed}).encode()
+            request = Request(self.base_url + "/queue/close-unpublished", data=data, headers=headers)
+            with urlopen(request, timeout=5) as response:
+                return response.status
+
+        with patch.object(app, "QUEUE_PATH", path), patch.object(app, "TREND_PATH", self.data_dir / "trends.json"), \
+                patch.object(app, "PREVIEW_PATH", self.data_dir / "previews.json"):
+            for expected, kwargs in ((401, {"auth": ""}), (403, {"origin": "https://wrong.example.test"}),
+                                     (400, {"confirmed": ""})):
+                with self.subTest(expected=expected), self.assertRaises(HTTPError) as caught:
+                    post(**kwargs)
+                self.assertEqual(caught.exception.code, expected)
+                caught.exception.close()
+                self.assertEqual(queue.snapshot()["items"][0]["status"], "needs_review")
+            self.assertEqual(post(), 200)
+
+        saved = queue.snapshot()["items"][0]
+        self.assertEqual(saved["status"], "rejected")
+        self.assertEqual(saved["last_review"]["reviewed_by"], "operator")
 
     def test_authenticated_upload_and_signed_public_get_work_end_to_end(self):
         payload, request = self._upload()

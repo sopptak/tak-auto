@@ -341,7 +341,30 @@ class PublishingQueueTests(unittest.TestCase):
         html = queue_dashboard(data, publishing_enabled=False)
         self.assertIn("/queue/confirm-published", html)
         self.assertIn("/queue/retry", html)
+        self.assertIn("/queue/close-unpublished", html)
         self.assertIn(item["id"], html)
+
+    def test_close_unpublished_requires_review_and_prevents_future_attempts(self):
+        item = self.enqueue()
+        due = self.now + timedelta(minutes=2)
+        with self.assertRaisesRegex(QueueError, "수동 검토"):
+            self.queue.close_unpublished(item["id"], reviewed_by="operator", now=due)
+        publisher = Mock(side_effect=PublishUncertainError("response lost"))
+        self.queue.run_due(publisher, enabled=True, now=due)
+        with self.assertRaisesRegex(QueueError, "게시 여부"):
+            self.queue.reject(item["id"], now=due)
+        closed = self.queue.close_unpublished(item["id"], reviewed_by="operator", now=due)
+        self.assertEqual(closed["status"], "rejected")
+        self.assertEqual(closed["last_review"], {
+            "decision": "closed_unpublished", "reviewed_by": "operator",
+            "reviewed_at": due.isoformat(),
+        })
+        self.assertEqual(self.queue.snapshot()["history"], [])
+        self.assertEqual(self.queue.run_due(publisher, enabled=True, now=due + timedelta(days=1)), [])
+        publisher.assert_called_once()
+        html = queue_dashboard(self.queue.snapshot(), publishing_enabled=True)
+        self.assertIn("미게시 확인 후 종료", html)
+        self.assertNotIn("/queue/close-unpublished", html)
 
     def test_platforms_have_separate_idempotency_and_history(self):
         self.enqueue(platform="blog")
