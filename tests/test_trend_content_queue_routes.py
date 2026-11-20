@@ -141,6 +141,28 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         self.assertIn(stored["writer"], range(24))
         self.assertEqual(list(self.data_dir.glob(".concurrent-state.json.*.tmp")), [])
 
+    def test_content_length_parser_accepts_only_bounded_ascii_decimal_values(self):
+        for raw, expected in (("0", 0), ("42", 42), ("00042", 42)):
+            with self.subTest(raw=raw):
+                self.assertEqual(run_trend_content_mvp._parse_content_length(raw), expected)
+        for raw in ("", "-1", "+1", "1.0", "1e3", "１２"):
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                run_trend_content_mvp._parse_content_length(raw)
+        for raw in ("1000000000", "9" * 10000):
+            with self.subTest(raw=raw[:20]), self.assertRaises(OverflowError):
+                run_trend_content_mvp._parse_content_length(raw)
+
+    def test_request_body_reader_requires_exact_length_and_valid_utf8(self):
+        payload = "keyword=생성형+AI".encode("utf-8")
+        self.assertEqual(
+            run_trend_content_mvp._read_utf8_request_body(io.BytesIO(payload), len(payload)),
+            "keyword=생성형+AI",
+        )
+        with self.assertRaisesRegex(ValueError, "Content-Length"):
+            run_trend_content_mvp._read_utf8_request_body(io.BytesIO(payload[:-1]), len(payload))
+        with self.assertRaisesRegex(ValueError, "UTF-8"):
+            run_trend_content_mvp._read_utf8_request_body(io.BytesIO(b"\xff"), 1)
+
     def test_generated_preview_carries_stable_knowledge_identity(self):
         package = self._valid_package()
         provider = Mock()

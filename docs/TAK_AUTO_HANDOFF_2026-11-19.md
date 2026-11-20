@@ -210,3 +210,10 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - 집중 PR CI에 `test_performance_store`, `test_performance_threads`, `test_performance_youtube`를 추가해 해당 모듈 변경 때 빠른 회귀 검증을 수행한다.
 - 확인 head `597e923769c5beb6b589d07675daf4a900986a57`에서 Python 전체 회귀 2,252개 통과, 118개 skip. TAK AUTO 집중 회귀 407개 테스트 및 TAK SCOUT 테스트도 모두 통과했다. [Python 전체](https://github.com/sopptak/tak-auto/actions/runs/44746138231), [TAK AUTO 집중](https://github.com/sopptak/tak-auto/actions/runs/44746138162), [TAK SCOUT](https://github.com/sopptak/tak-auto/actions/runs/44746138287).
 - PR #3은 Draft/Open 상태이며 base는 `feature/perplexity-research-provider`다. 이 작업은 코드와 GitHub CI 검증만 수행했다. Render 배포, 실계정 OAuth/API 호출, 실제 SNS 게시 및 PR 병합은 수행하지 않았다.
+
+## HTTP 요청 본문 입력 검증 — 2026-11-20
+
+- POST `Content-Length`는 ASCII 숫자만 허용하고, 숫자 변환 전에 크기를 제한한다. 폼 본문은 선언한 바이트 수와 실제 읽은 길이가 일치하고 UTF-8로 해석될 때만 처리한다. MP4 업로드와 일반 폼 요청의 상한은 각각 100MB와 16KB로 유지한다.
+- `tests.test_trend_content_queue_routes` 52개가 Python 3.12에서 통과했고 `git diff --check`도 통과했다.
+- 로컬 전체 회귀는 2,254개 테스트 실행 후 실패 8개, 오류 173개, skip 40개였다. 로그에는 Windows 관리 환경의 loopback `WinError 10013`, 임시 파일 원자 교체 `WinError 5`, 실제 아카이브 fixture 개수 차이가 포함됐다. 이 결과는 CI와 분리해 기록하며, 이 과정에서 데이터 아카이브나 보안 검사를 변경하지 않았다.
+- 이 변경은 요청 파싱에만 적용한다. 게시 승인 게이트와 `TAK_AUTO_PUBLISHING_ENABLED=false`는 유지한다. Render 배포, OAuth 연결, 실계정 API, 외부 게시 및 PR 병합은 수행하지 않았다.
