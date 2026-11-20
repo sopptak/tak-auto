@@ -8,7 +8,7 @@
 ## 1. 배포 전 승인 게이트
 
 - [ ] PR #3의 최신 head SHA와 변경 파일을 확인한다.
-- 저장소 코드/CI 확인(운영 체크리스트 완료 아님, 2026-11-21): 코드 head `e3eafc1a000676a378d1a810f61e7139c44a80e1`에서 TAK SCOUT [#44826463516](https://github.com/sopptak/tak-auto/actions/runs/44826463516), TAK AUTO trend content MVP [#44826463589](https://github.com/sopptak/tak-auto/actions/runs/44826463589), Python 전체 테스트 [#44826463528](https://github.com/sopptak/tak-auto/actions/runs/44826463528)가 모두 성공했다. 집중 테스트는 TAK AUTO 413개, TAK SCOUT 345개이며 전체 Python 2,258개 실행, 118개 skip, 실패 0이다. PR #3은 `feature/perplexity-research-provider`를 대상으로 하는 Draft/Open이며 미병합이고, 선행 PR #1은 `main`을 대상으로 하는 Draft/Open이다.
+- 저장소 코드/CI 확인(운영 체크리스트 완료 아님, 2026-11-21): 코드 head `10ead2eef3fa8dbe31d5d54edd53b3810d7dcbe9`에서 TAK SCOUT [#44828115706](https://github.com/sopptak/tak-auto/actions/runs/44828115706), TAK AUTO trend content MVP [#44828115858](https://github.com/sopptak/tak-auto/actions/runs/44828115858), Python 전체 테스트 [#44828115909](https://github.com/sopptak/tak-auto/actions/runs/44828115909)가 모두 성공했다. 집중 테스트는 TAK AUTO 416개, TAK SCOUT 345개이며 전체 Python 2,261개 실행, 118개 skip, 실패 0이다. PR #3은 `feature/perplexity-research-provider`를 대상으로 하는 Draft/Open이며 미병합이고, 선행 PR #1은 `main`을 대상으로 하는 Draft/Open이다.
 - [ ] PR의 base 브랜치와 병합 대상이 의도한 구조인지 검토한다. 현재 PR은 `feature/perplexity-research-provider`를 base로 하는 Draft이므로, main 배포용 PR로 오인하지 않는다.
 - [ ] Render 계정 소유자가 새 서비스 생성 및 Starter 플랜·Persistent Disk 비용을 승인한다.
 - [ ] 게시 기능은 계속 `TAK_AUTO_PUBLISHING_ENABLED=false`로 둔다.
@@ -184,6 +184,7 @@ SNS 연결을 준비할 경우에만 추가:
 - 게시 대기열은 작업 시작 전 `processing` 상태를 영속 저장하고, 불확실한 응답이나 장시간 중단은 `needs_review`로 전환해 자동 중복 게시를 막는다.
 - 재시도 횟수 기록이 손상되었거나 모호한 작업도 `needs_review`로 격리하며 자동 게시와 재시도를 막는다. 운영자는 플랫폼 게시 여부를 확인하고 이력을 정리해야 한다.
 - `processing` 또는 `needs_review` 작업은 거절 상태로 바꿀 수 없다. 게시 결과가 불확실한 작업은 먼저 플랫폼에서 게시 여부를 확인하고 확인 완료 또는 미게시 재시도 경로로만 정리한다.
+- 각 수동 확인 결정은 대기열 항목의 `review_history`에 누적되며 대시보드의 펼침 영역에서 최근 20건까지 확인할 수 있다. 운영자, 결정, 시각과 가능한 경우 외부 게시 ID 또는 재시도 예약 시각을 표시한다.
 - 현재 JSON 대기열 및 자산 인덱스의 동시성 제어는 단일 프로세스/인스턴스 기준이다. 다중 인스턴스 운영은 공유 DB 및 원자적 claim 구조로 이전하기 전까지 금지한다.
 - 위 점검은 저장소 코드와 CI에 대한 검토다. Render 실제 배포, Persistent Disk 연결, 백업/복구, SNS 실계정 인증 및 게시 성공은 확인하지 않았다.
 

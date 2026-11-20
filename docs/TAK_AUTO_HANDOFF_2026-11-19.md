@@ -234,3 +234,11 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - Python 3.12 로컬 검증: 게시 대기열 22개, 발행 어댑터 34개, 트렌드 라우트 53개 통과. `git diff --check` 통과.
 - 코드 head `e3eafc1a000676a378d1a810f61e7139c44a80e1`에서 TAK AUTO 413개 [#44826463589](https://github.com/sopptak/tak-auto/actions/runs/44826463589), TAK SCOUT 345개 [#44826463516](https://github.com/sopptak/tak-auto/actions/runs/44826463516), Python 전체 2,258개 실행/118개 skip/실패 0 [#44826463528](https://github.com/sopptak/tak-auto/actions/runs/44826463528)가 모두 성공했다.
 - PR #3은 Draft/Open이며 미병합이다. `TAK_AUTO_PUBLISHING_ENABLED=false` 유지; Render 배포, 실계정 OAuth, 라이브 API, 외부 게시 및 PR 병합은 수행하지 않았다.
+
+## 수동 검토 이력 대시보드 — 2026-11-21
+
+- `confirm_published` 및 `retry_after_review` 결정은 대기열 항목의 `review_history`에 누적된다. 기존 소비자 호환을 위해 최신 항목을 `last_review`에도 유지한다. 손상된 검토 이력은 조정 요청을 거부하고 게시 상태를 변경하지 않는다.
+- 대기열 대시보드에서 항목별 확인 이력을 펼쳐 볼 수 있다. 최근 20건까지 결정, 운영자, 시각, 외부 게시 ID 또는 재시도 예약 시각을 표시하며 사용자 입력은 HTML 이스케이프한다.
+- Python 3.12 로컬 테스트: 대기열 25개, 발행 어댑터 34개, 트렌드 라우트 53개 통과. `git diff --check` 통과.
+- 코드 head `10ead2eef3fa8dbe31d5d54edd53b3810d7dcbe9`에서 TAK AUTO 416개 [#44828115858](https://github.com/sopptak/tak-auto/actions/runs/44828115858), TAK SCOUT 345개 [#44828115706](https://github.com/sopptak/tak-auto/actions/runs/44828115706), 전체 Python 2,261개 실행/118개 skip/실패 0 [#44828115909](https://github.com/sopptak/tak-auto/actions/runs/44828115909)가 모두 성공했다.
+- PR #3은 Draft/Open이며 병합하지 않았다. 게시 전역 비활성화 설정을 유지했고 실제 Render 배포, SNS 실계정 연결, 라이브 API 및 외부 게시는 하지 않았다.
