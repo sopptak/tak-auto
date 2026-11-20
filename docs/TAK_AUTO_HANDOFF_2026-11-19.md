@@ -227,3 +227,10 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - 이전 전체 Python 실행 [#44396321404](https://github.com/sopptak/tak-auto/actions/runs/44396321404)도 성공했으며 2,155개 실행, 118개 skip, 실패 0이다. 최신 실행은 테스트 총 100개가 더 포함된 head 기준이다.
 - PR #3은 Draft/Open이며 base `feature/perplexity-research-provider`다. 현재 로컬에는 운영 아카이브 회귀가 참조하는 과거 커밋 `0547065b4f9b65ada8af6a3c33cc636d97b43345`가 없어 해당 fixture 의존 테스트를 로컬에서 재현할 수 없다. 이 제한과 앞선 로컬 전체 실행의 환경 오류는 GitHub 전체 회귀 성공 결과와 구분한다.
 - Render 서비스 설정은 읽지 않았다. 저장소 `render.yaml`은 게시 비활성화(`TAK_AUTO_PUBLISHING_ENABLED=false`)를 유지하지만, 연결된 서비스의 Auto-Deploy가 Off인지 운영자 확인이 남아 있다. 이 세션에서는 Render 배포, SNS OAuth 연결, 라이브 API, 외부 게시, PR 병합을 수행하지 않았다.
+
+## 불확실한 게시 작업 상태 보호 — 2026-11-21
+
+- 대기열 `reject()`는 `processing` 또는 `needs_review` 작업을 거절 처리하지 않는다. 외부 플랫폼에 게시됐을 가능성이 있는 작업을 일반 거절로 숨기지 못하게 하고, 운영자가 게시 여부를 확인한 뒤 완료 기록 또는 미게시 확인 재시도를 선택하게 한다. 잘못된 상태 형식도 거절 처리하지 않는다.
+- Python 3.12 로컬 검증: 게시 대기열 22개, 발행 어댑터 34개, 트렌드 라우트 53개 통과. `git diff --check` 통과.
+- 코드 head `e3eafc1a000676a378d1a810f61e7139c44a80e1`에서 TAK AUTO 413개 [#44826463589](https://github.com/sopptak/tak-auto/actions/runs/44826463589), TAK SCOUT 345개 [#44826463516](https://github.com/sopptak/tak-auto/actions/runs/44826463516), Python 전체 2,258개 실행/118개 skip/실패 0 [#44826463528](https://github.com/sopptak/tak-auto/actions/runs/44826463528)가 모두 성공했다.
+- PR #3은 Draft/Open이며 미병합이다. `TAK_AUTO_PUBLISHING_ENABLED=false` 유지; Render 배포, 실계정 OAuth, 라이브 API, 외부 게시 및 PR 병합은 수행하지 않았다.
