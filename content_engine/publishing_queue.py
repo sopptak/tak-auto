@@ -104,6 +104,20 @@ def _identity(content_id: str, platform: str, payload: Mapping[str, Any]) -> str
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _history_record(item: Mapping[str, Any], remote_id: str, current: datetime) -> dict[str, Any]:
+    payload = item.get("payload")
+    if not isinstance(payload, Mapping):
+        payload = {}
+    return {
+        "content_id": item["content_id"], "platform": item["platform"],
+        "remote_id": remote_id, "published_at": _iso(current),
+        "idempotency_key": item["idempotency_key"],
+        "knowledge_id": str(payload.get("_knowledge_id") or ""),
+        "source_url": str(payload.get("_source_url") or ""),
+        "title": str(payload.get("title") or payload.get("keyword") or ""),
+    }
+
+
 class PublishingQueue:
     """JSON-backed queue with deterministic idempotency and per-platform history."""
 
@@ -178,11 +192,8 @@ class PublishingQueue:
             existing = next((row for row in data["history"] if row.get("idempotency_key") == key), None)
             if existing:
                 raise QueueError("이 작업의 게시 이력이 이미 존재합니다.")
-            record = {
-                "content_id": item["content_id"], "platform": item["platform"],
-                "remote_id": remote_id.strip(), "published_at": _iso(current),
-                "idempotency_key": key, "reconciled_by": reviewed_by.strip(),
-            }
+            record = _history_record(item, remote_id.strip(), current)
+            record["reconciled_by"] = reviewed_by.strip()
             data["history"].append(record)
             item.update(
                 status="published", remote_id=remote_id.strip(), published_at=record["published_at"],
@@ -296,11 +307,11 @@ class PublishingQueue:
                 continue
             item["attempts"] = attempts + 1
             item.update(status="processing", updated_at=_iso(current))
-            changed = True
             # Persist the in-flight marker before calling a platform. If the process
             # dies after the platform accepts a post, the next run will require a
             # human check instead of blindly posting the same content again.
             _write(self.path, data)
+            changed = False
             try:
                 # Give built-in adapters the queue's stable content identity while
                 # keeping this internal field out of the stored/editor payload.
@@ -312,17 +323,13 @@ class PublishingQueue:
                     raise PublishUncertainError(
                         "게시 응답에 외부 게시 ID가 없습니다. 플랫폼 게시 여부를 확인하세요."
                     )
-                record = {
-                    "content_id": item["content_id"], "platform": item["platform"],
-                    "remote_id": normalized_remote_id, "published_at": _iso(current),
-                    "idempotency_key": key,
-                    "knowledge_id": str(item["payload"].get("_knowledge_id") or ""),
-                    "source_url": str(item["payload"].get("_source_url") or ""),
-                    "title": str(item["payload"].get("title") or item["payload"].get("keyword") or ""),
-                }
+                record = _history_record(item, normalized_remote_id, current)
                 data["history"].append(record)
                 published_keys.add(key)
-                item.update(status="published", last_error="", updated_at=_iso(current), published_at=record["published_at"])
+                item.update(
+                    status="published", remote_id=normalized_remote_id, last_error="",
+                    updated_at=_iso(current), published_at=record["published_at"],
+                )
             except PublishUncertainError as error:
                 item.update(
                     status="needs_review", last_error=f"{type(error).__name__}: {error}"[:500],
@@ -340,6 +347,8 @@ class PublishingQueue:
                     last_error=f"{type(error).__name__}: {error}"[:500], updated_at=_iso(current),
                     next_attempt_at=_iso(retry_at),
                 )
+            # Save this outcome before moving on to the next queue item.
+            _write(self.path, data)
             results.append(item)
         if changed:
             _write(self.path, data)

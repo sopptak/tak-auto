@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
+from content_engine import publishing_queue
 from content_engine.publishing_queue import (
     MAX_ATTEMPTS, PermanentPublishError, PublishUncertainError, PublishingQueue,
     QueueError, queue_dashboard,
@@ -90,6 +91,33 @@ class PublishingQueueTests(unittest.TestCase):
         self.assertEqual(history["knowledge_id"], "trend-preview-k123")
         self.assertEqual(history["source_url"], "https://example.test/source")
         self.assertEqual(history["title"], "Facebook 제목")
+
+    def test_publish_outcome_survives_failure_to_save_next_job(self):
+        self.enqueue(platform="threads")
+        self.enqueue(platform="facebook")
+        calls = []
+        write_queue = publishing_queue._write
+
+        def fail_second_claim(path, data):
+            if data["items"][1]["status"] == "processing":
+                raise OSError("could not persist second job")
+            write_queue(path, data)
+
+        with patch.object(publishing_queue, "_write", side_effect=fail_second_claim):
+            with self.assertRaisesRegex(OSError, "could not persist second job"):
+                self.queue.run_due(
+                    lambda platform, *_args: calls.append(platform) or "post-123",
+                    enabled=True, now=self.now + timedelta(minutes=2),
+                )
+
+        persisted = PublishingQueue(self.path).snapshot()
+        first, second = persisted["items"]
+        self.assertEqual(calls, ["threads"])
+        self.assertEqual(first["status"], "published")
+        self.assertEqual(first["remote_id"], "post-123")
+        self.assertEqual(second["status"], "scheduled")
+        self.assertEqual(second["attempts"], 0)
+        self.assertEqual([row["remote_id"] for row in persisted["history"]], ["post-123"])
 
     def test_retry_backoff_stops_after_three_attempts(self):
         self.enqueue()
@@ -216,7 +244,11 @@ class PublishingQueueTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
 
     def test_operator_can_confirm_uncertain_post_and_record_remote_history(self):
-        item = self.enqueue()
+        item = self.enqueue(payload={
+            "keyword": "검토된 주제",
+            "_knowledge_id": "trend-preview-k123",
+            "_source_url": "https://example.test/source",
+        })
         due = self.now + timedelta(minutes=2)
         self.queue.run_due(
             lambda *_args: (_ for _ in ()).throw(PublishUncertainError("response lost")),
@@ -227,7 +259,12 @@ class PublishingQueueTests(unittest.TestCase):
         )
         self.assertEqual(resolved["status"], "published")
         self.assertEqual(resolved["last_review"]["decision"], "confirmed_published")
-        self.assertEqual(self.queue.snapshot()["history"][0]["remote_id"], "https://threads.example/post/123")
+        history = self.queue.snapshot()["history"][0]
+        self.assertEqual(history["remote_id"], "https://threads.example/post/123")
+        self.assertEqual(history["knowledge_id"], "trend-preview-k123")
+        self.assertEqual(history["source_url"], "https://example.test/source")
+        self.assertEqual(history["title"], "검토된 주제")
+        self.assertEqual(history["reconciled_by"], "operator")
 
     def test_operator_can_retry_only_after_confirming_not_published(self):
         item = self.enqueue()
