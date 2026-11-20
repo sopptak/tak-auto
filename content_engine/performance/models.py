@@ -124,7 +124,9 @@ class PerformanceRecord:
     def from_dict(cls, data: dict[str, Any]) -> "PerformanceRecord":
         if not isinstance(data, dict):
             raise PerformanceRecordError("성과 레코드는 객체(dict)여야 합니다.")
-        metrics = data.get("metrics") or {}
+        metrics = data.get("metrics", {})
+        if metrics is None:
+            metrics = {}
         if not isinstance(metrics, dict):
             raise PerformanceRecordError("metrics는 dict 구조여야 합니다.")
         normalized_metrics: dict[str, int] = {}
