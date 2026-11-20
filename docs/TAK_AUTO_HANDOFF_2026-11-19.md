@@ -218,3 +218,12 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - 로컬 전체 회귀는 2,254개 테스트 실행 후 실패 8개, 오류 173개, skip 40개였다. 로그에는 Windows 관리 환경의 loopback `WinError 10013`, 임시 파일 원자 교체 `WinError 5`, 실제 아카이브 fixture 개수 차이가 포함됐다. 이 결과는 CI와 분리해 기록하며, 이 과정에서 데이터 아카이브나 보안 검사를 변경하지 않았다.
 - 이 변경은 요청 파싱에만 적용한다. 게시 승인 게이트와 `TAK_AUTO_PUBLISHING_ENABLED=false`는 유지한다. Render 배포, OAuth 연결, 실계정 API, 외부 게시 및 PR 병합은 수행하지 않았다.
 - 코드 head `f0dbea1d16d6e5681cad32721149462efa0ed256`에서 GitHub CI 전체가 통과했다. TAK AUTO 집중 409개 [#44750141522](https://github.com/sopptak/tak-auto/actions/runs/44750141522), TAK SCOUT [#44750142368](https://github.com/sopptak/tak-auto/actions/runs/44750142368), Python 전체 2,254개 통과/118개 skip [#44750141563](https://github.com/sopptak/tak-auto/actions/runs/44750141563).
+
+## HTTP 본문 프레이밍 및 최신 CI — 2026-11-20
+
+- HTTP 요청 경계 검증을 추가로 강화했다. `Content-Length`가 중복되거나 `Transfer-Encoding`이 포함되면 POST 본문을 읽거나 상태를 바꾸기 전에 400으로 거부한다. 기존 ASCII 숫자, 본문 길이 일치, UTF-8, 폼 16KB 및 MP4 100MB 상한 검사는 유지한다.
+- Python 3.12에서 라우트 테스트 53개와 배포 보안 테스트 10개가 통과했고 `git diff --check`도 통과했다.
+- 커밋 `b7ad26ff72b4ab6eb47f4ba752e8733e6f6c494f`에서 TAK AUTO 410개 [#44753876002](https://github.com/sopptak/tak-auto/actions/runs/44753876002), TAK SCOUT 345개 [#44753876022](https://github.com/sopptak/tak-auto/actions/runs/44753876022), Python 전체 2,255개 실행/118개 skip/실패 0 [#44753875987](https://github.com/sopptak/tak-auto/actions/runs/44753875987)가 모두 성공했다.
+- 이전 전체 Python 실행 [#44396321404](https://github.com/sopptak/tak-auto/actions/runs/44396321404)도 성공했으며 2,155개 실행, 118개 skip, 실패 0이다. 최신 실행은 테스트 총 100개가 더 포함된 head 기준이다.
+- PR #3은 Draft/Open이며 base `feature/perplexity-research-provider`다. 현재 로컬에는 운영 아카이브 회귀가 참조하는 과거 커밋 `0547065b4f9b65ada8af6a3c33cc636d97b43345`가 없어 해당 fixture 의존 테스트를 로컬에서 재현할 수 없다. 이 제한과 앞선 로컬 전체 실행의 환경 오류는 GitHub 전체 회귀 성공 결과와 구분한다.
+- Render 서비스 설정은 읽지 않았다. 저장소 `render.yaml`은 게시 비활성화(`TAK_AUTO_PUBLISHING_ENABLED=false`)를 유지하지만, 연결된 서비스의 Auto-Deploy가 Off인지 운영자 확인이 남아 있다. 이 세션에서는 Render 배포, SNS OAuth 연결, 라이브 API, 외부 게시, PR 병합을 수행하지 않았다.

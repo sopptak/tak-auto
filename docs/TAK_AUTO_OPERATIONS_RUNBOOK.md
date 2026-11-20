@@ -8,7 +8,7 @@
 ## 1. 배포 전 승인 게이트
 
 - [ ] PR #3의 최신 head SHA와 변경 파일을 확인한다.
-- 저장소 코드/CI 확인(운영 체크리스트 완료 아님, 2026-11-20): 코드 head `f0dbea1d16d6e5681cad32721149462efa0ed256`에서 TAK SCOUT [#44750142368](https://github.com/sopptak/tak-auto/actions/runs/44750142368), TAK AUTO trend content MVP [#44750141522](https://github.com/sopptak/tak-auto/actions/runs/44750141522), Python 전체 테스트 [#44750141563](https://github.com/sopptak/tak-auto/actions/runs/44750141563)가 모두 성공했다. 집중 테스트 409개, 전체 Python 2,254개 통과 및 118개 skip이다. PR #3은 `feature/perplexity-research-provider`를 대상으로 하는 Draft/Open이며 미병합이고, 선행 PR #1은 `main`을 대상으로 하는 Draft/Open이다.
+- 저장소 코드/CI 확인(운영 체크리스트 완료 아님, 2026-11-20): 코드 head `b7ad26ff72b4ab6eb47f4ba752e8733e6f6c494f`에서 TAK SCOUT [#44753876022](https://github.com/sopptak/tak-auto/actions/runs/44753876022), TAK AUTO trend content MVP [#44753876002](https://github.com/sopptak/tak-auto/actions/runs/44753876002), Python 전체 테스트 [#44753875987](https://github.com/sopptak/tak-auto/actions/runs/44753875987)가 모두 성공했다. 집중 테스트는 TAK AUTO 410개, TAK SCOUT 345개이며 전체 Python 2,255개 실행, 118개 skip, 실패 0이다. PR #3은 `feature/perplexity-research-provider`를 대상으로 하는 Draft/Open이며 미병합이고, 선행 PR #1은 `main`을 대상으로 하는 Draft/Open이다.
 - [ ] PR의 base 브랜치와 병합 대상이 의도한 구조인지 검토한다. 현재 PR은 `feature/perplexity-research-provider`를 base로 하는 Draft이므로, main 배포용 PR로 오인하지 않는다.
 - [ ] Render 계정 소유자가 새 서비스 생성 및 Starter 플랜·Persistent Disk 비용을 승인한다.
 - [ ] 게시 기능은 계속 `TAK_AUTO_PUBLISHING_ENABLED=false`로 둔다.
@@ -43,7 +43,8 @@ SNS 연결을 준비할 경우에만 추가:
 - [ ] Persistent Disk가 실제로 `/var/data/trend-factory`에 연결됐는지 확인한다.
 - [ ] 데이터 경로와 mountPath가 정확히 일치하는지 확인한다.
 - [ ] 서비스 인스턴스는 단일 인스턴스로 유지한다. 현재 JSON 대기열은 프로세스 내부 잠금이므로 다중 인스턴스 확장은 금지한다.
-- 웹 폼 요청은 ASCII 숫자 Content-Length, 16KB 상한, 선언 길이만큼의 UTF-8 본문을 확인한 뒤 처리한다. MP4 업로드는 별도 경로에서 100MB 상한을 적용한다.
+- 웹 폼 요청은 중복 Content-Length와 Transfer-Encoding을 거부하고, ASCII 숫자 Content-Length, 16KB 상한, 선언 길이만큼의 UTF-8 본문을 확인한 뒤 처리한다. MP4 업로드는 별도 경로에서 100MB 상한을 적용한다.
+- Render Auto-Deploy의 실제 서비스 설정은 이 검증에서 열람하지 않았으므로, 배포 전에 서비스 소유자가 Off 상태를 확인해야 한다.
 
 ## 3. 배포 후 최소 검증
 
