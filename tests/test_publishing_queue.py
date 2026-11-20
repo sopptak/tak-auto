@@ -4,7 +4,7 @@ import unittest
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from content_engine import publishing_queue
 from content_engine.publishing_queue import (
@@ -60,6 +60,37 @@ class PublishingQueueTests(unittest.TestCase):
         self.assertEqual(result, [])
         self.assertEqual(called, [])
         self.assertEqual(self.queue.snapshot()["items"][0]["attempts"], 0)
+
+    def test_scheduled_jobs_require_a_boolean_approval(self):
+        for approval in ("false", 1, False, None):
+            with self.subTest(approval=approval):
+                self.enqueue()
+                data = self.queue.snapshot()
+                data["items"][0]["approved"] = approval
+                self.path.write_text(json.dumps(data), encoding="utf-8")
+                publisher = Mock()
+                self.queue.run_due(publisher, enabled=True, now=self.now + timedelta(minutes=2))
+                publisher.assert_not_called()
+                item = self.queue.snapshot()["items"][0]
+                self.assertEqual(item["status"], "failed")
+                self.assertEqual(item["attempts"], 0)
+                self.assertIn("게시 승인 기록", item["last_error"])
+                self.path.unlink()
+
+    def test_review_retry_requires_a_valid_approval(self):
+        item = self.enqueue()
+        data = self.queue.snapshot()
+        data["items"][0].update(status="needs_review", approved="false")
+        self.path.write_text(json.dumps(data), encoding="utf-8")
+        with self.assertRaisesRegex(QueueError, "게시 승인 기록"):
+            self.queue.retry_after_review(
+                item["id"], scheduled_at=self.now + timedelta(minutes=3),
+                reviewed_by="operator", now=self.now + timedelta(minutes=2),
+            )
+        self.assertEqual(self.queue.snapshot(), data)
+        html = queue_dashboard(data, publishing_enabled=True)
+        self.assertNotIn("/queue/retry", html)
+        self.assertIn("/queue/confirm-published", html)
 
     def test_future_job_waits_and_success_records_platform_history(self):
         item = self.enqueue()
@@ -211,8 +242,8 @@ class PublishingQueueTests(unittest.TestCase):
                     self.queue.snapshot()
                 self.path.unlink(missing_ok=True)
 
-    def test_empty_remote_id_is_uncertain_and_requires_human_review(self):
-        for remote_id in ("", "   ", None):
+    def test_invalid_remote_id_is_uncertain_and_requires_human_review(self):
+        for remote_id in ("", "   ", None, True, {"id": "unexpected"}):
             with self.subTest(remote_id=remote_id):
                 self.enqueue(payload={"title": f"콘텐츠 {remote_id!r}"})
                 result = self.queue.run_due(

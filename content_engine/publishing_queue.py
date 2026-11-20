@@ -218,6 +218,8 @@ class PublishingQueue:
             item = self._find(data, item_id)
             if item.get("status") != "needs_review":
                 raise QueueError("수동 검토 상태인 작업만 다시 예약할 수 있습니다.")
+            if item.get("approved") is not True:
+                raise QueueError("게시 승인 기록이 올바르지 않아 다시 예약할 수 없습니다.")
             attempts = _attempt_count(item.get("attempts", 0))
             if attempts is None or attempts >= MAX_ATTEMPTS:
                 raise QueueError("최대 시도 횟수에 도달해 다시 예약할 수 없습니다.")
@@ -283,7 +285,15 @@ class PublishingQueue:
                     changed = True
                     results.append(item)
                 continue
-            if item.get("status") != "scheduled" or not item.get("approved"):
+            if item.get("status") != "scheduled":
+                continue
+            if item.get("approved") is not True:
+                item.update(
+                    status="failed", last_error="게시 승인 기록이 올바르지 않습니다.",
+                    updated_at=_iso(current),
+                )
+                changed = True
+                results.append(item)
                 continue
             try:
                 scheduled = datetime.fromisoformat(item.get("next_attempt_at") or item["scheduled_at"])
@@ -318,7 +328,7 @@ class PublishingQueue:
                 payload_for_adapter = dict(item["payload"])
                 payload_for_adapter["_content_id"] = item["content_id"]
                 remote_id = publisher(item["platform"], payload_for_adapter, key)
-                normalized_remote_id = str(remote_id or "").strip()
+                normalized_remote_id = remote_id.strip() if isinstance(remote_id, str) else ""
                 if not normalized_remote_id:
                     raise PublishUncertainError(
                         "게시 응답에 외부 게시 ID가 없습니다. 플랫폼 게시 여부를 확인하세요."
@@ -373,7 +383,9 @@ def queue_dashboard(
         actions = ""
         if item.get("status") == "needs_review":
             item_id = _html(item.get("id", ""))
-            if attempts is not None and attempts < MAX_ATTEMPTS:
+            if item.get("approved") is not True:
+                retry_action = "<span>게시 승인 기록 확인 필요</span>"
+            elif attempts is not None and attempts < MAX_ATTEMPTS:
                 retry_action = f'<form method="post" action="/queue/retry"><input type="hidden" name="item_id" value="{item_id}"><button type="submit" class="secondary">미게시 확인 후 재시도</button></form>'
             else:
                 retry_action = "<span>최대 시도 횟수 도달</span>"
