@@ -8,7 +8,7 @@
 ## 1. 배포 전 승인 게이트
 
 - [ ] PR #3의 최신 head SHA와 변경 파일을 확인한다.
-- 저장소 코드/CI 확인(운영 체크리스트 완료 아님, 2026-11-20): PR #3 코드 head `597e923769c5beb6b589d07675daf4a900986a57`에서 TAK SCOUT [#44746138287](https://github.com/sopptak/tak-auto/actions/runs/44746138287), TAK AUTO trend content MVP [#44746138162](https://github.com/sopptak/tak-auto/actions/runs/44746138162), Python 전체 테스트 [#44746138231](https://github.com/sopptak/tak-auto/actions/runs/44746138231)가 모두 성공했다. 전체 Python은 2,252개 통과, 118개 환경상 skip이다. PR #3은 `feature/perplexity-research-provider`를 대상으로 하는 Draft/Open이며 미병합이고, 선행 PR #1은 `main`을 대상으로 하는 Draft/Open이다.
+- 저장소 코드/CI 확인(운영 체크리스트 완료 아님, 2026-11-20): 코드 head `f0dbea1d16d6e5681cad32721149462efa0ed256`에서 TAK SCOUT [#44750142368](https://github.com/sopptak/tak-auto/actions/runs/44750142368), TAK AUTO trend content MVP [#44750141522](https://github.com/sopptak/tak-auto/actions/runs/44750141522), Python 전체 테스트 [#44750141563](https://github.com/sopptak/tak-auto/actions/runs/44750141563)가 모두 성공했다. 집중 테스트 409개, 전체 Python 2,254개 통과 및 118개 skip이다. PR #3은 `feature/perplexity-research-provider`를 대상으로 하는 Draft/Open이며 미병합이고, 선행 PR #1은 `main`을 대상으로 하는 Draft/Open이다.
 - [ ] PR의 base 브랜치와 병합 대상이 의도한 구조인지 검토한다. 현재 PR은 `feature/perplexity-research-provider`를 base로 하는 Draft이므로, main 배포용 PR로 오인하지 않는다.
 - [ ] Render 계정 소유자가 새 서비스 생성 및 Starter 플랜·Persistent Disk 비용을 승인한다.
 - [ ] 게시 기능은 계속 `TAK_AUTO_PUBLISHING_ENABLED=false`로 둔다.
@@ -39,6 +39,7 @@ SNS 연결을 준비할 경우에만 추가:
 - [ ] 비밀값은 Render Secret Environment Variable에만 입력한다.
 - [ ] GitHub 저장소, 커밋, 로그, 화면 캡처, 채팅에 비밀값이 없는지 확인한다.
 - [ ] Render 서비스가 Starter 플랜인지 확인한다.
+- [ ] Render Settings의 Auto-Deploy가 Off인지 확인한다. On Commit이면 서비스에 연결된 브랜치의 push가 자동 배포를 시작할 수 있다([Render 안내](https://render.com/docs/blueprint-spec#autodeploytrigger)).
 - [ ] Persistent Disk가 실제로 `/var/data/trend-factory`에 연결됐는지 확인한다.
 - [ ] 데이터 경로와 mountPath가 정확히 일치하는지 확인한다.
 - [ ] 서비스 인스턴스는 단일 인스턴스로 유지한다. 현재 JSON 대기열은 프로세스 내부 잠금이므로 다중 인스턴스 확장은 금지한다.

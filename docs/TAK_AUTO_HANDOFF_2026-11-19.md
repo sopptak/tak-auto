@@ -217,3 +217,4 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 - `tests.test_trend_content_queue_routes` 52개가 Python 3.12에서 통과했고 `git diff --check`도 통과했다.
 - 로컬 전체 회귀는 2,254개 테스트 실행 후 실패 8개, 오류 173개, skip 40개였다. 로그에는 Windows 관리 환경의 loopback `WinError 10013`, 임시 파일 원자 교체 `WinError 5`, 실제 아카이브 fixture 개수 차이가 포함됐다. 이 결과는 CI와 분리해 기록하며, 이 과정에서 데이터 아카이브나 보안 검사를 변경하지 않았다.
 - 이 변경은 요청 파싱에만 적용한다. 게시 승인 게이트와 `TAK_AUTO_PUBLISHING_ENABLED=false`는 유지한다. Render 배포, OAuth 연결, 실계정 API, 외부 게시 및 PR 병합은 수행하지 않았다.
+- 코드 head `f0dbea1d16d6e5681cad32721149462efa0ed256`에서 GitHub CI 전체가 통과했다. TAK AUTO 집중 409개 [#44750141522](https://github.com/sopptak/tak-auto/actions/runs/44750141522), TAK SCOUT [#44750142368](https://github.com/sopptak/tak-auto/actions/runs/44750142368), Python 전체 2,254개 통과/118개 skip [#44750141563](https://github.com/sopptak/tak-auto/actions/runs/44750141563).
