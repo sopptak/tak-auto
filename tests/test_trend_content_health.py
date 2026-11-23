@@ -72,5 +72,52 @@ class TrendContentHealthTests(unittest.TestCase):
         self.assertTrue(payload["ready"])
 
 
+    def test_health_revision_is_exposed_only_for_valid_commit_hash(self):
+        environ = {
+            "TAK_SCOUT_PERPLEXITY_API_KEY": "configured",
+            "TAK_WEB_USERNAME": "operator",
+            "TAK_WEB_PASSWORD": "configured",
+            "TAK_AUTO_PUBLISHING_ENABLED": "false",
+        }
+        with patch("scripts.run_trend_content_mvp.USING_EPHEMERAL_STORAGE", False):
+            valid = _health_payload({**environ, "RENDER_GIT_COMMIT": "A" * 40})
+            invalid = _health_payload({**environ, "RENDER_GIT_COMMIT": "not-a-commit"})
+        self.assertEqual(valid["revision"], "a" * 12)
+        self.assertIsNone(invalid["revision"])
+
+    def test_health_never_exposes_authentication_or_provider_secrets(self):
+        secrets = {
+            "TAK_SCOUT_PERPLEXITY_API_KEY": "perplexity-secret-value",
+            "TAK_WEB_USERNAME": "operator-secret-value",
+            "TAK_WEB_PASSWORD": "password-secret-value",
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "encryption-secret-value",
+            "TAK_AUTO_MEDIA_SIGNING_KEY": "signing-secret-value",
+            "TAK_AUTO_PUBLISHING_ENABLED": "false",
+        }
+        with patch("scripts.run_trend_content_mvp.USING_EPHEMERAL_STORAGE", False):
+            payload = _health_payload(secrets)
+        import json
+        serialized = json.dumps(payload, ensure_ascii=False)
+        for value in secrets.values():
+            if value != "false":
+                self.assertNotIn(value, serialized)
+        self.assertTrue(payload["ready"])
+
+    def test_only_explicit_true_enables_publishing_readiness_requirement(self):
+        base = {
+            "TAK_SCOUT_PERPLEXITY_API_KEY": "configured",
+            "TAK_WEB_USERNAME": "operator",
+            "TAK_WEB_PASSWORD": "configured",
+        }
+        with patch("scripts.run_trend_content_mvp.USING_EPHEMERAL_STORAGE", False):
+            for setting in ("false", "0", "yes", "TRUE-ish", ""):
+                with self.subTest(setting=setting):
+                    payload = _health_payload({**base, "TAK_AUTO_PUBLISHING_ENABLED": setting})
+                    self.assertFalse(payload["publishing_enabled"])
+                    self.assertTrue(payload["ready"])
+            enabled = _health_payload({**base, "TAK_AUTO_PUBLISHING_ENABLED": " TRUE "})
+        self.assertTrue(enabled["publishing_enabled"])
+        self.assertFalse(enabled["ready"])
+
 if __name__ == "__main__":
     unittest.main()
