@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from content_engine.publishing_queue import PublishingQueue
+from content_engine.postgres_queue_store import open_publishing_queue
 
 
 def load_publisher(spec: str):
@@ -33,8 +33,9 @@ def run_once(queue_path: Path | str, *, enabled: bool, publisher_spec: str = "",
         return []
     if not publisher_spec:
         raise RuntimeError("게시 기능이 켜졌지만 플랫폼 게시 어댑터가 설정되지 않았습니다. 작업은 실행하지 않았습니다.")
+    queue = open_publishing_queue(queue_path)
     publisher = load_publisher(publisher_spec)
-    return PublishingQueue(queue_path).run_due(publisher, enabled=True, now=now)
+    return queue.run_due(publisher, enabled=True, now=now)
 
 
 def start_scheduler(queue_path: Path | str, *, interval_seconds: int = 30, stop_event=None):

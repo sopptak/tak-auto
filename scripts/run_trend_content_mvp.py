@@ -35,7 +35,8 @@ from content_engine.publishing_connections import (
     VERIFY_PLATFORMS, connection_dashboard, publishing_connection_statuses,
     verify_publishing_connection,
 )
-from content_engine.publishing_queue import PublishingQueue, QueueError, queue_dashboard
+from content_engine.postgres_queue_store import open_publishing_queue, queue_backend
+from content_engine.publishing_queue import QueueError, QueueStoreError, queue_dashboard
 from content_engine.performance_insight import load_insights, STATUS_ACCEPTED
 from content_engine.social_oauth import (
     FLOW_TTL_SECONDS, OAuthFlowRegistry, OAuthTokenVault, PROVIDERS, SocialOAuthClient,
@@ -328,13 +329,24 @@ def _health_payload(environ=None) -> dict[str, object]:
     )
     publishing_enabled = str(values.get("TAK_AUTO_PUBLISHING_ENABLED", "")).strip().lower() == "true"
     publisher_configured = bool(str(values.get("TAK_AUTO_PUBLISHER", "")).strip())
+    backend = queue_backend(values)
+    queue_ready = backend == "file"
+    if backend == "postgres":
+        try:
+            queue_ready = open_publishing_queue(QUEUE_PATH, values).storage_ready()
+        except QueueStoreError:
+            pass
     return {
         "status": "ok", "perplexity_configured": perplexity_ready,
         "web_auth_configured": auth_ready, "publishing_enabled": publishing_enabled,
         "publisher_adapter_configured": publisher_configured,
         "storage_persistent": not USING_EPHEMERAL_STORAGE,
         "storage_mode": "persistent_disk" if not USING_EPHEMERAL_STORAGE else "ephemeral_fallback",
-        "ready": perplexity_ready and auth_ready and not USING_EPHEMERAL_STORAGE and (not publishing_enabled or publisher_configured), "revision": revision,
+        "queue_backend": backend if backend in {"file", "postgres"} else "invalid",
+        "queue_ready": queue_ready,
+        "ready": perplexity_ready and auth_ready and not USING_EPHEMERAL_STORAGE and queue_ready
+        and (not publishing_enabled or publisher_configured),
+        "revision": revision,
     }
 
 
@@ -1731,6 +1743,12 @@ def create_handler():
                 self._respond(build_callback_error_page(platform, safe_message), 400, cookie=clear_cookie)
 
         def do_GET(self):
+            try:
+                self._dispatch_get()
+            except QueueStoreError as error:
+                self._respond(str(error), 503, "text/plain; charset=utf-8")
+
+        def _dispatch_get(self):
             if self.path == "/health":
                 self._respond(json.dumps(_health_payload()), content_type="application/json; charset=utf-8")
                 return
@@ -1751,10 +1769,16 @@ def create_handler():
                 return
             report = _read_json(TREND_PATH, {})
             previews = _read_json(PREVIEW_PATH, [])
-            queue_snapshot = PublishingQueue(QUEUE_PATH).snapshot()
+            queue_snapshot = open_publishing_queue(QUEUE_PATH).snapshot()
             self._respond(_page(report, previews, queue_snapshot=queue_snapshot))
 
         def do_POST(self):
+            try:
+                self._dispatch_post()
+            except QueueStoreError as error:
+                self._respond(str(error), 503, "text/plain; charset=utf-8")
+
+        def _dispatch_post(self):
             # Serialize state-changing form requests so read-modify-write flows
             # cannot overwrite each other's JSON snapshots. Large media uploads
             # use their own asset-store path and do not hold this lock.
@@ -1780,7 +1804,7 @@ def create_handler():
                         _page(
                             report, previews,
                             "다른 AI 요청이 진행 중입니다. 완료된 뒤 다시 시도하세요.",
-                            PublishingQueue(QUEUE_PATH).snapshot(),
+                            open_publishing_queue(QUEUE_PATH).snapshot(),
                         ),
                         429,
                     )
@@ -1886,7 +1910,7 @@ def create_handler():
                 return
             report = _read_json(TREND_PATH, {})
             previews = _read_json(PREVIEW_PATH, [])
-            queue = PublishingQueue(QUEUE_PATH)
+            queue = open_publishing_queue(QUEUE_PATH)
             try:
                 if self.path == "/connections/disconnect":
                     platform = form.get("platform", [""])[0]
@@ -2060,6 +2084,8 @@ def create_handler():
                     self._respond(_page(report, previews, "미게시 확인을 기록하고 재시도 없이 종료했습니다.", queue.snapshot()))
                     return
                 self._respond(_page(report, previews, "지원하지 않는 요청입니다."), 404)
+            except QueueStoreError:
+                raise
             except Exception as error:
                 # Never print request credentials or full exception payloads into the page.
                 message = str(error) if isinstance(error, (ValueError, RuntimeError)) else type(error).__name__

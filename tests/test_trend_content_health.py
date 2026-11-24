@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch
 
+from content_engine.publishing_queue import QueueStoreError
 from scripts import run_trend_content_mvp
 from scripts.run_trend_content_mvp import _health_payload
 
@@ -118,6 +119,30 @@ class TrendContentHealthTests(unittest.TestCase):
             enabled = _health_payload({**base, "TAK_AUTO_PUBLISHING_ENABLED": " TRUE "})
         self.assertTrue(enabled["publishing_enabled"])
         self.assertFalse(enabled["ready"])
+
+    def test_postgres_readiness_reports_queue_outage_without_exposing_credentials(self):
+        env = {
+            "TAK_AUTO_QUEUE_BACKEND": "postgres",
+            "TAK_AUTO_QUEUE_DSN": "test-private-database-string",
+            "TAK_WEB_USERNAME": "operator",
+            "TAK_WEB_PASSWORD": "configured",
+            "TAK_SCOUT_PERPLEXITY_API_KEY": "configured",
+        }
+        with patch.object(run_trend_content_mvp, "USING_EPHEMERAL_STORAGE", False), \
+                patch.object(run_trend_content_mvp, "open_publishing_queue") as open_queue:
+            queue = open_queue.return_value
+            queue.storage_ready.side_effect = QueueStoreError("database unavailable")
+            unavailable = _health_payload(env)
+            queue.storage_ready.side_effect = None
+            queue.storage_ready.return_value = True
+            available = _health_payload(env)
+
+        self.assertFalse(unavailable["ready"])
+        self.assertFalse(unavailable["queue_ready"])
+        self.assertEqual(available["queue_backend"], "postgres")
+        self.assertTrue(available["queue_ready"])
+        self.assertTrue(available["ready"])
+        self.assertNotIn(env["TAK_AUTO_QUEUE_DSN"], str(available))
 
 if __name__ == "__main__":
     unittest.main()

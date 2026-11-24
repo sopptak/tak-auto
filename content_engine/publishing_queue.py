@@ -5,7 +5,8 @@ point remains disabled unless TAK_AUTO_PUBLISHING_ENABLED=true is explicit.
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -14,7 +15,7 @@ from pathlib import Path
 import tempfile
 import threading
 import time
-from typing import Any
+from typing import Any, Protocol
 
 MAX_ATTEMPTS = 3
 PLATFORMS = ("blog", "youtube_shorts", "threads", "facebook", "instagram_reels", "tiktok")
@@ -23,6 +24,18 @@ _QUEUE_LOCK = threading.RLock()
 
 class QueueError(ValueError):
     """Invalid queue state or operation."""
+
+
+class QueueStoreError(QueueError):
+    """Shared queue storage is unavailable or a concurrent write took precedence."""
+
+
+class QueueStore(Protocol):
+    def ready(self) -> bool: ...
+
+    def read(self) -> tuple[int, dict[str, Any]]: ...
+
+    def write(self, revision: int, state: dict[str, Any]) -> int: ...
 
 
 class PermanentPublishError(RuntimeError):
@@ -55,6 +68,10 @@ def _read(path: Path) -> dict[str, Any]:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise QueueError(f"게시 대기열 파일을 읽을 수 없습니다: {path}") from error
+    return _validate_state(data)
+
+
+def _validate_state(data: Any) -> dict[str, Any]:
     if not isinstance(data, dict) or not isinstance(data.get("items"), list) or not isinstance(data.get("history"), list):
         raise QueueError("게시 대기열 파일의 형식이 올바르지 않습니다.")
     if not all(isinstance(item, dict) for item in data["items"]) or not all(
@@ -137,14 +154,39 @@ def _history_record(item: Mapping[str, Any], remote_id: str, current: datetime) 
 
 
 class PublishingQueue:
-    """JSON-backed queue with deterministic idempotency and per-platform history."""
+    """Approval-gated queue with deterministic idempotency and per-platform history."""
 
-    def __init__(self, path: Path | str) -> None:
+    def __init__(self, path: Path | str, *, store: QueueStore | None = None) -> None:
         self.path = Path(path)
+        self._store = store
+
+    @contextmanager
+    def _edit(self) -> Iterator[tuple[dict[str, Any], Callable[[], None]]]:
+        with _QUEUE_LOCK:
+            if self._store is None:
+                data = _read(self.path)
+                yield data, lambda: _write(self.path, data)
+                return
+
+            store = self._store
+            revision, state = store.read()
+            try:
+                data = _validate_state(state)
+            except QueueError:
+                raise QueueStoreError("Postgres 게시 대기열의 저장 형식이 올바르지 않습니다.") from None
+
+            def save() -> None:
+                nonlocal revision
+                revision = store.write(revision, data)
+
+            yield data, save
 
     def snapshot(self) -> dict[str, Any]:
-        with _QUEUE_LOCK:
-            return _read(self.path)
+        with self._edit() as (data, _save):
+            return data
+
+    def storage_ready(self) -> bool:
+        return self._store is None or self._store.ready()
 
     def enqueue_approved(
         self,
@@ -166,8 +208,7 @@ class PublishingQueue:
             raise QueueError("예약 시각은 현재보다 뒤여야 합니다.")
         if not isinstance(payload, Mapping) or not payload:
             raise QueueError("게시할 콘텐츠가 비어 있습니다.")
-        with _QUEUE_LOCK:
-            data = _read(self.path)
+        with self._edit() as (data, save):
             key = _identity(content_id, platform, payload)
             for item in data["items"]:
                 if item.get("idempotency_key") == key:
@@ -181,12 +222,11 @@ class PublishingQueue:
                 "created_at": _iso(current), "updated_at": _iso(current),
             }
             data["items"].append(item)
-            _write(self.path, data)
+            save()
             return item
 
     def reject(self, item_id: str, *, now: datetime | None = None) -> dict[str, Any]:
-        with _QUEUE_LOCK:
-            data = _read(self.path)
+        with self._edit() as (data, save):
             item = self._find(data, item_id)
             status = item.get("status")
             if status == "published":
@@ -196,7 +236,7 @@ class PublishingQueue:
             if status not in ("scheduled", "failed", "rejected"):
                 raise QueueError("현재 상태의 작업은 거절할 수 없습니다.")
             item.update(status="rejected", updated_at=_iso(now))
-            _write(self.path, data)
+            save()
             return item
 
     def confirm_published(
@@ -206,8 +246,7 @@ class PublishingQueue:
         if not remote_id.strip() or not reviewed_by.strip():
             raise QueueError("외부 게시 ID와 확인한 운영자 이름이 필요합니다.")
         current = _utc(now)
-        with _QUEUE_LOCK:
-            data = _read(self.path)
+        with self._edit() as (data, save):
             item = self._find(data, item_id)
             if item.get("status") != "needs_review":
                 raise QueueError("수동 검토 상태인 작업만 게시 완료로 확인할 수 있습니다.")
@@ -227,7 +266,7 @@ class PublishingQueue:
                 status="published", remote_id=remote_id.strip(), published_at=record["published_at"],
                 updated_at=_iso(current), last_error="",
             )
-            _write(self.path, data)
+            save()
             return item
 
     def retry_after_review(
@@ -240,8 +279,7 @@ class PublishingQueue:
         scheduled = _utc(scheduled_at)
         if scheduled <= current:
             raise QueueError("재시도 예약 시각은 현재보다 뒤여야 합니다.")
-        with _QUEUE_LOCK:
-            data = _read(self.path)
+        with self._edit() as (data, save):
             item = self._find(data, item_id)
             if item.get("status") != "needs_review":
                 raise QueueError("수동 검토 상태인 작업만 다시 예약할 수 있습니다.")
@@ -259,7 +297,7 @@ class PublishingQueue:
                 status="scheduled", scheduled_at=_iso(scheduled), next_attempt_at=_iso(scheduled),
                 updated_at=_iso(current), last_error="",
             )
-            _write(self.path, data)
+            save()
             return item
 
     def close_unpublished(
@@ -269,8 +307,7 @@ class PublishingQueue:
         if not reviewed_by.strip():
             raise QueueError("확인한 운영자 이름이 필요합니다.")
         reviewed_at = _iso(now)
-        with _QUEUE_LOCK:
-            data = _read(self.path)
+        with self._edit() as (data, save):
             item = self._find(data, item_id)
             if item.get("status") != "needs_review":
                 raise QueueError("수동 검토 상태인 작업만 미게시로 종료할 수 있습니다.")
@@ -282,7 +319,7 @@ class PublishingQueue:
                 "reviewed_at": reviewed_at,
             })
             item.update(status="rejected", updated_at=reviewed_at, next_attempt_at="")
-            _write(self.path, data)
+            save()
             return item
 
     @staticmethod
@@ -303,11 +340,10 @@ class PublishingQueue:
         if not enabled:
             return []
         current = _utc(now)
-        with _QUEUE_LOCK:
-            return self._run_due_locked(publisher, current)
+        with self._edit() as (data, save):
+            return self._run_due_locked(publisher, current, data, save)
 
-    def _run_due_locked(self, publisher, current: datetime) -> list[dict[str, Any]]:
-        data = _read(self.path)
+    def _run_due_locked(self, publisher, current: datetime, data, save) -> list[dict[str, Any]]:
         changed = False
         results = []
         published_keys = {record.get("idempotency_key") for record in data["history"]}
@@ -374,7 +410,7 @@ class PublishingQueue:
             # Persist the in-flight marker before calling a platform. If the process
             # dies after the platform accepts a post, the next run will require a
             # human check instead of blindly posting the same content again.
-            _write(self.path, data)
+            save()
             changed = False
             try:
                 # Give built-in adapters the queue's stable content identity while
@@ -412,10 +448,10 @@ class PublishingQueue:
                     next_attempt_at=_iso(retry_at),
                 )
             # Save this outcome before moving on to the next queue item.
-            _write(self.path, data)
+            save()
             results.append(item)
         if changed:
-            _write(self.path, data)
+            save()
         return results
 
 
