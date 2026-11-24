@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 import json
+import os
 import tempfile
 import unittest
 from unittest import mock
@@ -23,6 +24,7 @@ from content_engine.media_archive import (
     MediaArchiveRecord,
     archive_report,
     load_archive,
+    save_archive,
     upsert_archive,
 )
 from content_engine.models import ContentDraft
@@ -66,6 +68,34 @@ class MediaArchiveTests(unittest.TestCase):
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp_dir.cleanup)
         self.tmp_path = Path(self.tmp_dir.name)
+
+    def test_save_retries_temporary_windows_replace_conflict(self):
+        path = self.tmp_path / "archive.json"
+        path.write_text("original", encoding="utf-8")
+        original_replace = os.replace
+        error = PermissionError("simulated Windows sharing conflict")
+        error.winerror = 5
+
+        def replace_after_conflict(source, destination):
+            if replacement.call_count == 1:
+                raise error
+            original_replace(source, destination)
+
+        with mock.patch.object(os, "replace", side_effect=replace_after_conflict) as replacement:
+            save_archive([], path)
+        self.assertEqual(replacement.call_count, 2)
+        self.assertEqual(path.read_text(encoding="utf-8"), "[]\n")
+        self.assertEqual(list(self.tmp_path.iterdir()), [path])
+
+    def test_save_cleans_temporary_file_on_non_windows_replace_failure(self):
+        path = self.tmp_path / "archive.json"
+        path.write_text("original", encoding="utf-8")
+        with mock.patch.object(os, "replace", side_effect=PermissionError("permanent")) as replacement:
+            with self.assertRaisesRegex(PermissionError, "permanent"):
+                save_archive([], path)
+        replacement.assert_called_once()
+        self.assertEqual(path.read_text(encoding="utf-8"), "original")
+        self.assertEqual(list(self.tmp_path.iterdir()), [path])
 
     # --- A. valid/rejected/error가 섞여도 9개 전부 archive에 저장되는지 -------------
 

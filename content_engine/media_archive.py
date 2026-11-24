@@ -57,6 +57,7 @@ from pathlib import Path
 import tempfile
 from typing import Any
 
+from .atomic_file import replace_file
 from .pipeline import MediaBatchItem, MediaBatchReport
 from .publish_history import compute_content_id
 
@@ -357,11 +358,17 @@ def save_archive(records: list[MediaArchiveRecord], path: Path | str) -> None:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = [record.to_dict() for record in records]
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=target.parent, delete=False) as handle:
-        json.dump(payload, handle, ensure_ascii=False, indent=2)
-        handle.write("\n")
-        temp_path = Path(handle.name)
-    temp_path.replace(target)
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=target.parent, delete=False) as handle:
+            temp_path = Path(handle.name)
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+        replace_file(temp_path, target)
+        temp_path = None
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 def upsert_archive(path: Path | str, records: list[MediaArchiveRecord]) -> list[MediaArchiveRecord]:

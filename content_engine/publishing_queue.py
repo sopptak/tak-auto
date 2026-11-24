@@ -14,8 +14,9 @@ import os
 from pathlib import Path
 import tempfile
 import threading
-import time
 from typing import Any, Protocol
+
+from .atomic_file import replace_file
 
 MAX_ATTEMPTS = 3
 PLATFORMS = ("blog", "youtube_shorts", "threads", "facebook", "instagram_reels", "tiktok")
@@ -113,14 +114,7 @@ def _write(path: Path, data: dict[str, Any]) -> None:
             os.chmod(temporary_path, 0o600)
         except OSError:
             pass
-        for attempt in range(6):
-            try:
-                os.replace(temporary_path, path)
-                break
-            except PermissionError as error:
-                if getattr(error, "winerror", None) not in (5, 32) or attempt == 5:
-                    raise
-                time.sleep(0.01 * (attempt + 1))
+        replace_file(temporary_path, path)
         temporary_path = None
         try:
             directory_fd = os.open(path.parent, os.O_RDONLY)
