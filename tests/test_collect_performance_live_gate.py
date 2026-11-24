@@ -250,7 +250,9 @@ class CollectPerformanceLiveGateCLITests(unittest.TestCase):
             client_secret="secret",
             refresh_token="rtoken",
             token_transport=lambda *a: {"access_token": "t"},
-            stats_transport=lambda *a: {"items": [{"statistics": {"viewCount": "10"}}]},
+            stats_transport=lambda *a: {
+                "items": [{"id": "h2X1fFMDffc", "statistics": {"viewCount": "10"}}]
+            },
         )
         with mock.patch.dict("os.environ", {}, clear=True), mock.patch.object(
             YouTubeClient, "from_environment_or_oauth", return_value=fake_client

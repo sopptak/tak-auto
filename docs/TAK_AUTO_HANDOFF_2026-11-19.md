@@ -201,3 +201,44 @@ Android ChatGPT 앱에서 기존 탁자동 개발 대화방을 열면 앱이 즉
 
 - `restore_backup`은 archive manifest 검증 후 목적 파일시스템 여유 공간을 총 복구 바이트와 비교한다. 여유 공간이 부족하거나 용량 조회에 실패하면 staging 디렉터리 없이 중단한다.
 - 공간 부족/조회 실패 경로 회귀를 추가했다. 백업 및 관련 성과 경로 134개 집중 테스트를 실행했다.
+
+## 2026-11-20 성과 수집 무결성 및 동시성 보완
+
+- 성과 JSON 저장소의 append read-modify-write 구간에 프로세스 내부 잠금을 추가했다. 대시보드 요청 스레드의 동시 저장이 서로의 스냅샷을 덮어쓰지 않도록 하는 회귀 테스트를 포함한다. 이 잠금은 프로세스 간 동시성을 제공하지 않으므로 운영은 기존처럼 단일 인스턴스를 유지한다.
+- Threads/YouTube 성과 정규화는 음수·불리언 카운트를 버린다. YouTube는 API 응답의 영상 ID가 요청한 ID와 일치하지 않으면 저장을 거부한다.
+- 성과 레코드 역직렬화는 불리언·분수형 지표와 객체가 아닌 `metrics` 컨테이너를 거부한다. 정수 문자열은 호환 지원하며, `metrics` 누락/null은 빈 dict로 처리한다.
+- 집중 PR CI에 `test_performance_store`, `test_performance_threads`, `test_performance_youtube`를 추가해 해당 모듈 변경 때 빠른 회귀 검증을 수행한다.
+- 확인 head `597e923769c5beb6b589d07675daf4a900986a57`에서 Python 전체 회귀 2,252개 통과, 118개 skip. TAK AUTO 집중 회귀 407개 테스트 및 TAK SCOUT 테스트도 모두 통과했다. [Python 전체](https://github.com/sopptak/tak-auto/actions/runs/44746138231), [TAK AUTO 집중](https://github.com/sopptak/tak-auto/actions/runs/44746138162), [TAK SCOUT](https://github.com/sopptak/tak-auto/actions/runs/44746138287).
+- PR #3은 Draft/Open 상태이며 base는 `feature/perplexity-research-provider`다. 이 작업은 코드와 GitHub CI 검증만 수행했다. Render 배포, 실계정 OAuth/API 호출, 실제 SNS 게시 및 PR 병합은 수행하지 않았다.
+
+## HTTP 요청 본문 입력 검증 — 2026-11-20
+
+- POST `Content-Length`는 ASCII 숫자만 허용하고, 숫자 변환 전에 크기를 제한한다. 폼 본문은 선언한 바이트 수와 실제 읽은 길이가 일치하고 UTF-8로 해석될 때만 처리한다. MP4 업로드와 일반 폼 요청의 상한은 각각 100MB와 16KB로 유지한다.
+- `tests.test_trend_content_queue_routes` 52개가 Python 3.12에서 통과했고 `git diff --check`도 통과했다.
+- 로컬 전체 회귀는 2,254개 테스트 실행 후 실패 8개, 오류 173개, skip 40개였다. 로그에는 Windows 관리 환경의 loopback `WinError 10013`, 임시 파일 원자 교체 `WinError 5`, 실제 아카이브 fixture 개수 차이가 포함됐다. 이 결과는 CI와 분리해 기록하며, 이 과정에서 데이터 아카이브나 보안 검사를 변경하지 않았다.
+- 이 변경은 요청 파싱에만 적용한다. 게시 승인 게이트와 `TAK_AUTO_PUBLISHING_ENABLED=false`는 유지한다. Render 배포, OAuth 연결, 실계정 API, 외부 게시 및 PR 병합은 수행하지 않았다.
+- 코드 head `f0dbea1d16d6e5681cad32721149462efa0ed256`에서 GitHub CI 전체가 통과했다. TAK AUTO 집중 409개 [#44750141522](https://github.com/sopptak/tak-auto/actions/runs/44750141522), TAK SCOUT [#44750142368](https://github.com/sopptak/tak-auto/actions/runs/44750142368), Python 전체 2,254개 통과/118개 skip [#44750141563](https://github.com/sopptak/tak-auto/actions/runs/44750141563).
+
+## HTTP 본문 프레이밍 및 최신 CI — 2026-11-20
+
+- HTTP 요청 경계 검증을 추가로 강화했다. `Content-Length`가 중복되거나 `Transfer-Encoding`이 포함되면 POST 본문을 읽거나 상태를 바꾸기 전에 400으로 거부한다. 기존 ASCII 숫자, 본문 길이 일치, UTF-8, 폼 16KB 및 MP4 100MB 상한 검사는 유지한다.
+- Python 3.12에서 라우트 테스트 53개와 배포 보안 테스트 10개가 통과했고 `git diff --check`도 통과했다.
+- 커밋 `b7ad26ff72b4ab6eb47f4ba752e8733e6f6c494f`에서 TAK AUTO 410개 [#44753876002](https://github.com/sopptak/tak-auto/actions/runs/44753876002), TAK SCOUT 345개 [#44753876022](https://github.com/sopptak/tak-auto/actions/runs/44753876022), Python 전체 2,255개 실행/118개 skip/실패 0 [#44753875987](https://github.com/sopptak/tak-auto/actions/runs/44753875987)가 모두 성공했다.
+- 이전 전체 Python 실행 [#44396321404](https://github.com/sopptak/tak-auto/actions/runs/44396321404)도 성공했으며 2,155개 실행, 118개 skip, 실패 0이다. 최신 실행은 테스트 총 100개가 더 포함된 head 기준이다.
+- PR #3은 Draft/Open이며 base `feature/perplexity-research-provider`다. 현재 로컬에는 운영 아카이브 회귀가 참조하는 과거 커밋 `0547065b4f9b65ada8af6a3c33cc636d97b43345`가 없어 해당 fixture 의존 테스트를 로컬에서 재현할 수 없다. 이 제한과 앞선 로컬 전체 실행의 환경 오류는 GitHub 전체 회귀 성공 결과와 구분한다.
+- Render 서비스 설정은 읽지 않았다. 저장소 `render.yaml`은 게시 비활성화(`TAK_AUTO_PUBLISHING_ENABLED=false`)를 유지하지만, 연결된 서비스의 Auto-Deploy가 Off인지 운영자 확인이 남아 있다. 이 세션에서는 Render 배포, SNS OAuth 연결, 라이브 API, 외부 게시, PR 병합을 수행하지 않았다.
+
+## 불확실한 게시 작업 상태 보호 — 2026-11-21
+
+- 대기열 `reject()`는 `processing` 또는 `needs_review` 작업을 거절 처리하지 않는다. 외부 플랫폼에 게시됐을 가능성이 있는 작업을 일반 거절로 숨기지 못하게 하고, 운영자가 게시 여부를 확인한 뒤 완료 기록 또는 미게시 확인 재시도를 선택하게 한다. 잘못된 상태 형식도 거절 처리하지 않는다.
+- Python 3.12 로컬 검증: 게시 대기열 22개, 발행 어댑터 34개, 트렌드 라우트 53개 통과. `git diff --check` 통과.
+- 코드 head `e3eafc1a000676a378d1a810f61e7139c44a80e1`에서 TAK AUTO 413개 [#44826463589](https://github.com/sopptak/tak-auto/actions/runs/44826463589), TAK SCOUT 345개 [#44826463516](https://github.com/sopptak/tak-auto/actions/runs/44826463516), Python 전체 2,258개 실행/118개 skip/실패 0 [#44826463528](https://github.com/sopptak/tak-auto/actions/runs/44826463528)가 모두 성공했다.
+- PR #3은 Draft/Open이며 미병합이다. `TAK_AUTO_PUBLISHING_ENABLED=false` 유지; Render 배포, 실계정 OAuth, 라이브 API, 외부 게시 및 PR 병합은 수행하지 않았다.
+
+## 수동 검토 이력 대시보드 — 2026-11-21
+
+- `confirm_published` 및 `retry_after_review` 결정은 대기열 항목의 `review_history`에 누적된다. 기존 소비자 호환을 위해 최신 항목을 `last_review`에도 유지한다. 손상된 검토 이력은 조정 요청을 거부하고 게시 상태를 변경하지 않는다.
+- 대기열 대시보드에서 항목별 확인 이력을 펼쳐 볼 수 있다. 최근 20건까지 결정, 운영자, 시각, 외부 게시 ID 또는 재시도 예약 시각을 표시하며 사용자 입력은 HTML 이스케이프한다.
+- Python 3.12 로컬 테스트: 대기열 25개, 발행 어댑터 34개, 트렌드 라우트 53개 통과. `git diff --check` 통과.
+- 코드 head `10ead2eef3fa8dbe31d5d54edd53b3810d7dcbe9`에서 TAK AUTO 416개 [#44828115858](https://github.com/sopptak/tak-auto/actions/runs/44828115858), TAK SCOUT 345개 [#44828115706](https://github.com/sopptak/tak-auto/actions/runs/44828115706), 전체 Python 2,261개 실행/118개 skip/실패 0 [#44828115909](https://github.com/sopptak/tak-auto/actions/runs/44828115909)가 모두 성공했다.
+- PR #3은 Draft/Open이며 병합하지 않았다. 게시 전역 비활성화 설정을 유지했고 실제 Render 배포, SNS 실계정 연결, 라이브 API 및 외부 게시는 하지 않았다.

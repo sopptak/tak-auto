@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from content_engine.youtube_publisher import YouTubeClient
+from content_engine.youtube_publisher import YouTubeAPIError, YouTubeClient
 
 from .models import PerformanceRecord
 
@@ -36,12 +36,17 @@ def normalize_youtube_statistics(raw_item: Any) -> dict[str, int]:
     metrics: dict[str, int] = {}
     for api_field, metric_name in _STATISTICS_FIELD_MAP.items():
         value = statistics.get(api_field)
-        if value is None:
+        if isinstance(value, bool) or value is None:
             continue
-        try:
-            metrics[metric_name] = int(value)
-        except (TypeError, ValueError):
+        if isinstance(value, int):
+            numeric = value
+        elif isinstance(value, str) and value.strip().isdigit():
+            numeric = int(value.strip())
+        else:
             continue
+        if numeric < 0:
+            continue
+        metrics[metric_name] = numeric
     return metrics
 
 
@@ -62,7 +67,15 @@ def collect_youtube_performance(
     """
     raw = client.get_video_statistics([video_id])
     items = raw.get("items") if isinstance(raw, dict) else None
-    item = items[0] if isinstance(items, list) and items else {}
+    item = {}
+    if isinstance(items, list) and items:
+        item = next(
+            (candidate for candidate in items
+             if isinstance(candidate, dict) and str(candidate.get("id") or "") == video_id),
+            None,
+        )
+        if item is None:
+            raise YouTubeAPIError("YouTube 성과 응답에서 요청한 영상 ID를 찾지 못했습니다.")
     normalized = normalize_youtube_statistics(item)
     return PerformanceRecord(
         content_id=content_id,

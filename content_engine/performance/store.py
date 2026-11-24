@@ -18,11 +18,13 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import tempfile
+import threading
 
 from .models import PerformanceRecord
 
 
 DEFAULT_STORE_FILENAME = "tak_performance.json"
+_STORE_LOCK = threading.RLock()
 
 
 class PerformanceStoreError(ValueError):
@@ -130,19 +132,23 @@ def append_snapshots(path: Path | str, records: list[PerformanceRecord]) -> int:
 
     실제로 새로 추가된 건수를 반환한다(이미 존재하는 스냅샷은 건너뛴다).
     """
-    existing = load_snapshots(path)
-    existing_keys = {_snapshot_key(item) for item in existing}
-    added = 0
-    for record in records:
-        key = _snapshot_key(record)
-        if key in existing_keys:
-            continue
-        existing.append(record)
-        existing_keys.add(key)
-        added += 1
-    if added:
-        _save(existing, path)
-    return added
+    # The atomic replace protects readers from partial JSON, but without a lock
+    # two dashboard request threads can both read the same old snapshot and the
+    # later replace silently drops the earlier append.
+    with _STORE_LOCK:
+        existing = load_snapshots(path)
+        existing_keys = {_snapshot_key(item) for item in existing}
+        added = 0
+        for record in records:
+            key = _snapshot_key(record)
+            if key in existing_keys:
+                continue
+            existing.append(record)
+            existing_keys.add(key)
+            added += 1
+        if added:
+            _save(existing, path)
+        return added
 
 
 def snapshots_for_content(path: Path | str, content_id: str) -> list[PerformanceRecord]:

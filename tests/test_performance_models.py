@@ -112,6 +112,18 @@ class PerformanceRecordRoundTripTests(unittest.TestCase):
         self.assertEqual(restored.title, "")
         self.assertIsNone(restored.raw)
 
+    def test_from_dict_treats_null_metrics_as_empty(self):
+        restored = PerformanceRecord.from_dict(
+            {
+                "content_id": "content-x",
+                "knowledge_id": "knowledge-x",
+                "platform": "blog",
+                "metric_collected_at": "2026-09-16T00:00:00+00:00",
+                "metrics": None,
+            }
+        )
+        self.assertEqual(restored.metrics, {})
+
     def test_from_dict_converts_string_metric_values_to_int(self):
         # JSON에는 정수/문자열 구분이 있지만 사람이 실수로 문자열을 넣는 경우도 방어한다.
         restored = PerformanceRecord.from_dict(
@@ -124,6 +136,45 @@ class PerformanceRecordRoundTripTests(unittest.TestCase):
             }
         )
         self.assertEqual(restored.metrics["views"], 850)
+
+    def test_from_dict_rejects_boolean_metric_values(self):
+        with self.assertRaisesRegex(PerformanceRecordError, "정수 또는 정수 문자열"):
+            PerformanceRecord.from_dict(
+                {
+                    "content_id": "content-x",
+                    "knowledge_id": "knowledge-x",
+                    "platform": "blog",
+                    "metric_collected_at": "2026-09-16T00:00:00+00:00",
+                    "metrics": {"views": True},
+                }
+            )
+
+    def test_from_dict_rejects_fractional_metric_values(self):
+        with self.assertRaisesRegex(PerformanceRecordError, "정수 또는 정수 문자열"):
+            PerformanceRecord.from_dict(
+                {
+                    "content_id": "content-x",
+                    "knowledge_id": "knowledge-x",
+                    "platform": "blog",
+                    "metric_collected_at": "2026-09-16T00:00:00+00:00",
+                    "metrics": {"views": 1.5},
+                }
+            )
+
+    def test_from_dict_rejects_malformed_metrics_containers(self):
+        for invalid_metrics in ([], False, "100"):
+            with self.subTest(metrics=invalid_metrics), self.assertRaisesRegex(
+                PerformanceRecordError, "metrics는 dict"
+            ):
+                PerformanceRecord.from_dict(
+                    {
+                        "content_id": "content-x",
+                        "knowledge_id": "knowledge-x",
+                        "platform": "blog",
+                        "metric_collected_at": "2026-09-16T00:00:00+00:00",
+                        "metrics": invalid_metrics,
+                    }
+                )
 
 
 if __name__ == "__main__":

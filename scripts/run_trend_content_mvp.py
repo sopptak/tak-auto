@@ -162,6 +162,40 @@ def _read_json(path: Path, default):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _parse_content_length(value: object) -> int:
+    """Parse an HTTP Content-Length without accepting signs or oversized integers."""
+    raw = str("0" if value is None else value).strip()
+    if not raw or not raw.isascii() or not raw.isdecimal():
+        raise ValueError("Content-Length가 올바르지 않습니다.")
+    digits = raw.lstrip("0") or "0"
+    # Any ten-digit decimal length exceeds both supported request-body limits.
+    # Bound conversion work as well, even if a malformed header is unusually long.
+    if len(digits) > 9:
+        raise OverflowError("Content-Length가 허용 범위를 초과했습니다.")
+    return int(digits)
+
+
+def _request_body_content_length(headers) -> int:
+    """Reject ambiguous HTTP body framing before reading a request body."""
+    if headers.get_all("Transfer-Encoding", []):
+        raise ValueError("Transfer-Encoding 요청 본문은 지원하지 않습니다.")
+    content_lengths = headers.get_all("Content-Length", [])
+    if len(content_lengths) > 1:
+        raise ValueError("Content-Length 헤더는 한 번만 지정해야 합니다.")
+    return _parse_content_length(content_lengths[0] if content_lengths else None)
+
+
+def _read_utf8_request_body(stream, length: int) -> str:
+    """Read exactly the declared number of request bytes and decode them as UTF-8."""
+    body = stream.read(length)
+    if len(body) != length:
+        raise ValueError("요청 본문이 Content-Length와 일치하지 않습니다.")
+    try:
+        return body.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ValueError("요청 본문은 UTF-8이어야 합니다.") from error
+
+
 def _write_json(path: Path, payload) -> None:
     """Durably replace a JSON file using a unique same-directory temporary file."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1777,9 +1811,12 @@ def create_handler():
                 return
             if urlparse(self.path).path == "/media/assets/upload":
                 try:
-                    length = int(self.headers.get("Content-Length", "0"))
-                except (TypeError, ValueError):
-                    self._respond(json.dumps({"error": "Content-Length가 올바르지 않습니다."}), 400, "application/json; charset=utf-8")
+                    length = _request_body_content_length(self.headers)
+                except ValueError:
+                    self._respond(json.dumps({"error": "요청 본문 구성이 올바르지 않습니다."}), 400, "application/json; charset=utf-8")
+                    return
+                except OverflowError:
+                    self._respond(json.dumps({"error": "Content-Length가 허용 범위를 초과했습니다."}), 413, "application/json; charset=utf-8")
                     return
                 if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "video/mp4":
                     self._respond(json.dumps({"error": "video/mp4 형식으로 전송해야 합니다."}), 415, "application/json; charset=utf-8")
@@ -1798,11 +1835,23 @@ def create_handler():
                 except OSError:
                     self._respond(json.dumps({"error": "영상 파일을 저장하지 못했습니다. 저장 공간을 확인하세요."}, ensure_ascii=False), 507, "application/json; charset=utf-8")
                 return
-            length = int(self.headers.get("Content-Length", "0"))
+            try:
+                length = _request_body_content_length(self.headers)
+            except ValueError:
+                self._respond(_page(_read_json(TREND_PATH, {}), [], "요청 본문 구성이 올바르지 않습니다."), 400)
+                return
+            except OverflowError:
+                self._respond(_page(_read_json(TREND_PATH, {}), [], "요청이 너무 큽니다."), 413)
+                return
             if length > 16_384:
                 self._respond(_page(_read_json(TREND_PATH, {}), [], "요청이 너무 큽니다."), 413)
                 return
-            form = parse_qs(self.rfile.read(length).decode("utf-8"))
+            try:
+                decoded_body = _read_utf8_request_body(self.rfile, length)
+            except ValueError as error:
+                self._respond(_page(_read_json(TREND_PATH, {}), [], str(error)), 400)
+                return
+            form = parse_qs(decoded_body)
             if self.path == "/connections/oauth/facebook/select":
                 selection_id = form.get("selection_id", [""])[0]
                 cookie_id = _cookie_value(self.headers.get("Cookie", ""), "tak_facebook_selection")

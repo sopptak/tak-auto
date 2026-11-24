@@ -71,6 +71,16 @@ def _attempt_count(value: Any) -> int | None:
     return value
 
 
+def _record_review(item: dict[str, Any], review: dict[str, Any]) -> None:
+    history = item.get("review_history", [])
+    if not isinstance(history, list) or not all(isinstance(entry, dict) for entry in history):
+        raise QueueError("게시 작업의 수동 검토 이력 형식이 올바르지 않습니다.")
+    history.append(review)
+    item["review_history"] = history
+    # Keep the most recent decision available to older dashboard consumers.
+    item["last_review"] = review
+
+
 def _write(path: Path, data: dict[str, Any]) -> None:
     """Atomically persist queue state and flush it before acknowledging the mutation."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -178,10 +188,13 @@ class PublishingQueue:
         with _QUEUE_LOCK:
             data = _read(self.path)
             item = self._find(data, item_id)
-            if item["status"] == "published":
+            status = item.get("status")
+            if status == "published":
                 raise QueueError("이미 게시된 작업은 거절할 수 없습니다.")
-            if item["status"] in {"processing", "needs_review"}:
-                raise QueueError("플랫폼 게시 여부를 먼저 확인하세요.")
+            if status in ("processing", "needs_review"):
+                raise QueueError("게시 결과를 확인해야 하는 작업은 거절할 수 없습니다. 플랫폼에서 게시 여부를 먼저 확인하세요.")
+            if status not in ("scheduled", "failed", "rejected"):
+                raise QueueError("현재 상태의 작업은 거절할 수 없습니다.")
             item.update(status="rejected", updated_at=_iso(now))
             _write(self.path, data)
             return item
@@ -204,11 +217,15 @@ class PublishingQueue:
                 raise QueueError("이 작업의 게시 이력이 이미 존재합니다.")
             record = _history_record(item, remote_id.strip(), current)
             record["reconciled_by"] = reviewed_by.strip()
+            review = {
+                "decision": "confirmed_published", "reviewed_by": reviewed_by.strip(),
+                "reviewed_at": _iso(current), "remote_id": remote_id.strip(),
+            }
+            _record_review(item, review)
             data["history"].append(record)
             item.update(
                 status="published", remote_id=remote_id.strip(), published_at=record["published_at"],
                 updated_at=_iso(current), last_error="",
-                last_review={"decision": "confirmed_published", "reviewed_by": reviewed_by.strip(), "reviewed_at": _iso(current)},
             )
             _write(self.path, data)
             return item
@@ -233,10 +250,14 @@ class PublishingQueue:
             attempts = _attempt_count(item.get("attempts", 0))
             if attempts is None or attempts >= MAX_ATTEMPTS:
                 raise QueueError("최대 시도 횟수에 도달해 다시 예약할 수 없습니다.")
+            review = {
+                "decision": "confirmed_not_published", "reviewed_by": reviewed_by.strip(),
+                "reviewed_at": _iso(current), "scheduled_at": _iso(scheduled),
+            }
+            _record_review(item, review)
             item.update(
                 status="scheduled", scheduled_at=_iso(scheduled), next_attempt_at=_iso(scheduled),
                 updated_at=_iso(current), last_error="",
-                last_review={"decision": "confirmed_not_published", "reviewed_by": reviewed_by.strip(), "reviewed_at": _iso(current)},
             )
             _write(self.path, data)
             return item
@@ -256,13 +277,11 @@ class PublishingQueue:
             key = item["idempotency_key"]
             if any(row.get("idempotency_key") == key for row in data["history"]):
                 raise QueueError("이 작업의 게시 이력이 이미 존재합니다.")
-            item.update(
-                status="rejected", updated_at=reviewed_at, next_attempt_at="",
-                last_review={
-                    "decision": "closed_unpublished", "reviewed_by": reviewed_by.strip(),
-                    "reviewed_at": reviewed_at,
-                },
-            )
+            _record_review(item, {
+                "decision": "closed_unpublished", "reviewed_by": reviewed_by.strip(),
+                "reviewed_at": reviewed_at,
+            })
+            item.update(status="rejected", updated_at=reviewed_at, next_attempt_at="")
             _write(self.path, data)
             return item
 
@@ -431,6 +450,30 @@ def queue_dashboard(
                 retry_action = "<span>최대 시도 횟수 도달</span>"
             actions = f'''<form method="post" action="/queue/confirm-published" class="queue-form"><input type="hidden" name="item_id" value="{item_id}"><label>외부 게시 ID<input name="remote_id" required></label><button type="submit">게시 완료로 기록</button></form>{retry_action}
 <form method="post" action="/queue/close-unpublished" class="queue-form"><input type="hidden" name="item_id" value="{item_id}"><label><input type="checkbox" name="confirmed_unpublished" value="yes" required>플랫폼에 게시되지 않았음을 확인했습니다</label><button type="submit" class="secondary">재시도 없이 종료</button></form>'''
+        review_history = item.get("review_history", [])
+        if isinstance(review_history, list) and review_history:
+            labels = {
+                "confirmed_published": "게시 완료 확인",
+                "confirmed_not_published": "미게시 확인 후 재시도 예약",
+                "closed_unpublished": "미게시 확인 후 종료",
+            }
+            review_rows = []
+            for review in review_history[-20:]:
+                if not isinstance(review, Mapping):
+                    continue
+                decision = labels.get(str(review.get("decision") or ""), str(review.get("decision") or "확인 기록"))
+                parts = [f"<strong>{_html(decision)}</strong>", _html(review.get("reviewed_by", "")), _html(review.get("reviewed_at", ""))]
+                if review.get("remote_id"):
+                    parts.append("외부 게시 ID: " + _html(review["remote_id"]))
+                if review.get("scheduled_at"):
+                    parts.append("재시도 예약: " + _html(review["scheduled_at"]))
+                review_rows.append("<li>" + " · ".join(parts) + "</li>")
+            if review_rows:
+                omitted = f"<p>최근 20건만 표시합니다. 전체 {len(review_history)}건.</p>" if len(review_history) > 20 else ""
+                actions += (
+                    '<details class="queue-review-history"><summary>운영자 확인 기록 '
+                    f'({len(review_history)})</summary>{omitted}<ol>{"".join(review_rows)}</ol></details>'
+                )
         cards.append(
             "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td></tr>".format(
                 _html(title), _html(item.get("platform", "")), _html(status_label),

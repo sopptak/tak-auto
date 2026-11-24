@@ -8,7 +8,7 @@
 ## 1. 배포 전 승인 게이트
 
 - [ ] PR #3의 최신 head SHA와 변경 파일을 확인한다.
-- 저장소 코드/CI 확인(운영 체크리스트 완료 아님, 2026-11-20): PR #3 head `1e4b2fecc028ec5fdca2c98a08bacb83831e147b`의 TAK SCOUT [#668](https://github.com/sopptak/tak-auto/actions/runs/44625499818), TAK AUTO trend content MVP [#754](https://github.com/sopptak/tak-auto/actions/runs/44625499764), Python 전체 테스트 [#644](https://github.com/sopptak/tak-auto/actions/runs/44625499866)가 모두 성공했다. PR #3은 `feature/perplexity-research-provider`를 대상으로 하는 Draft/Open이며 미병합이고, 선행 PR #1도 Draft/Open이다.
+- 저장소 코드/CI 확인(운영 체크리스트 완료 아님, 2026-11-21): 코드 head `10ead2eef3fa8dbe31d5d54edd53b3810d7dcbe9`에서 TAK SCOUT [#44828115706](https://github.com/sopptak/tak-auto/actions/runs/44828115706), TAK AUTO trend content MVP [#44828115858](https://github.com/sopptak/tak-auto/actions/runs/44828115858), Python 전체 테스트 [#44828115909](https://github.com/sopptak/tak-auto/actions/runs/44828115909)가 모두 성공했다. 집중 테스트는 TAK AUTO 416개, TAK SCOUT 345개이며 전체 Python 2,261개 실행, 118개 skip, 실패 0이다. PR #3은 `feature/perplexity-research-provider`를 대상으로 하는 Draft/Open이며 미병합이고, 선행 PR #1은 `main`을 대상으로 하는 Draft/Open이다.
 - [ ] PR의 base 브랜치와 병합 대상이 의도한 구조인지 검토한다. 현재 PR은 `feature/perplexity-research-provider`를 base로 하는 Draft이므로, main 배포용 PR로 오인하지 않는다.
 - [ ] Render 계정 소유자가 새 서비스 생성 및 Starter 플랜·Persistent Disk 비용을 승인한다.
 - [ ] 게시 기능은 계속 `TAK_AUTO_PUBLISHING_ENABLED=false`로 둔다.
@@ -39,9 +39,12 @@ SNS 연결을 준비할 경우에만 추가:
 - [ ] 비밀값은 Render Secret Environment Variable에만 입력한다.
 - [ ] GitHub 저장소, 커밋, 로그, 화면 캡처, 채팅에 비밀값이 없는지 확인한다.
 - [ ] Render 서비스가 Starter 플랜인지 확인한다.
+- [ ] Render Settings의 Auto-Deploy가 Off인지 확인한다. On Commit이면 서비스에 연결된 브랜치의 push가 자동 배포를 시작할 수 있다([Render 안내](https://render.com/docs/blueprint-spec#autodeploytrigger)).
 - [ ] Persistent Disk가 실제로 `/var/data/trend-factory`에 연결됐는지 확인한다.
 - [ ] 데이터 경로와 mountPath가 정확히 일치하는지 확인한다.
 - [ ] 서비스 인스턴스는 단일 인스턴스로 유지한다. 현재 JSON 대기열은 프로세스 내부 잠금이므로 다중 인스턴스 확장은 금지한다.
+- 웹 폼 요청은 중복 Content-Length와 Transfer-Encoding을 거부하고, ASCII 숫자 Content-Length, 16KB 상한, 선언 길이만큼의 UTF-8 본문을 확인한 뒤 처리한다. MP4 업로드는 별도 경로에서 100MB 상한을 적용한다.
+- Render Auto-Deploy의 실제 서비스 설정은 이 검증에서 열람하지 않았으므로, 배포 전에 서비스 소유자가 Off 상태를 확인해야 한다.
 
 ## 3. 배포 후 최소 검증
 
@@ -180,6 +183,8 @@ SNS 연결을 준비할 경우에만 추가:
 - 게시 승인 요청은 인증 및 same-origin 확인을 통과해야 하며, TikTok은 공개 범위를 필수로 지정한다. 네이버 블로그는 수동 게시만 지원한다.
 - 게시 대기열은 작업 시작 전 `processing` 상태를 영속 저장하고, 불확실한 응답이나 장시간 중단은 `needs_review`로 전환해 자동 중복 게시를 막는다.
 - 재시도 횟수 기록이 손상되었거나 모호한 작업도 `needs_review`로 격리하며 자동 게시와 재시도를 막는다. 운영자는 플랫폼 게시 여부를 확인하고 이력을 정리해야 한다.
+- `processing` 또는 `needs_review` 작업은 거절 상태로 바꿀 수 없다. 게시 결과가 불확실한 작업은 먼저 플랫폼에서 게시 여부를 확인하고 확인 완료 또는 미게시 재시도 경로로만 정리한다.
+- 각 수동 확인 결정은 대기열 항목의 `review_history`에 누적되며 대시보드의 펼침 영역에서 최근 20건까지 확인할 수 있다. 운영자, 결정, 시각과 가능한 경우 외부 게시 ID 또는 재시도 예약 시각을 표시한다.
 - 현재 JSON 대기열 및 자산 인덱스의 동시성 제어는 단일 프로세스/인스턴스 기준이다. 다중 인스턴스 운영은 공유 DB 및 원자적 claim 구조로 이전하기 전까지 금지한다.
 - 위 점검은 저장소 코드와 CI에 대한 검토다. Render 실제 배포, Persistent Disk 연결, 백업/복구, SNS 실계정 인증 및 게시 성공은 확인하지 않았다.
 

@@ -124,13 +124,25 @@ class PerformanceRecord:
     def from_dict(cls, data: dict[str, Any]) -> "PerformanceRecord":
         if not isinstance(data, dict):
             raise PerformanceRecordError("성과 레코드는 객체(dict)여야 합니다.")
-        metrics = data.get("metrics") or {}
+        metrics = data.get("metrics", {})
+        if metrics is None:
+            metrics = {}
         if not isinstance(metrics, dict):
             raise PerformanceRecordError("metrics는 dict 구조여야 합니다.")
-        try:
-            normalized_metrics = {str(key): int(value) for key, value in metrics.items()}
-        except (TypeError, ValueError) as error:
-            raise PerformanceRecordError(f"metrics 값은 정수로 변환 가능해야 합니다: {metrics!r}") from error
+        normalized_metrics: dict[str, int] = {}
+        for key, value in metrics.items():
+            # bool is an int subclass, and int(1.5) silently truncates. Neither
+            # should turn malformed persisted data into a plausible count.
+            if isinstance(value, bool) or not isinstance(value, (int, str)):
+                raise PerformanceRecordError(
+                    f"metrics[{key!r}]는 정수 또는 정수 문자열이어야 합니다: {value!r}"
+                )
+            try:
+                normalized_metrics[str(key)] = int(value)
+            except ValueError as error:
+                raise PerformanceRecordError(
+                    f"metrics[{key!r}]는 정수 문자열이어야 합니다: {value!r}"
+                ) from error
 
         raw = data.get("raw")
         return cls(

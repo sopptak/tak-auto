@@ -1,5 +1,6 @@
 import io
 from concurrent.futures import ThreadPoolExecutor
+from email.message import Message
 import json
 import os
 from pathlib import Path
@@ -140,6 +141,56 @@ class TrendContentQueueRouteTests(unittest.TestCase):
         stored = json.loads(path.read_text(encoding="utf-8"))
         self.assertIn(stored["writer"], range(24))
         self.assertEqual(list(self.data_dir.glob(".concurrent-state.json.*.tmp")), [])
+
+    def test_content_length_parser_accepts_only_bounded_ascii_decimal_values(self):
+        for raw, expected in (("0", 0), ("42", 42), ("00042", 42)):
+            with self.subTest(raw=raw):
+                self.assertEqual(run_trend_content_mvp._parse_content_length(raw), expected)
+        for raw in ("", "-1", "+1", "1.0", "1e3", "１２"):
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                run_trend_content_mvp._parse_content_length(raw)
+        for raw in ("1000000000", "9" * 10000):
+            with self.subTest(raw=raw[:20]), self.assertRaises(OverflowError):
+                run_trend_content_mvp._parse_content_length(raw)
+
+    def test_request_body_length_rejects_ambiguous_http_framing(self):
+        headers = Message()
+        headers.add_header("Content-Length", "12")
+        self.assertEqual(run_trend_content_mvp._request_body_content_length(headers), 12)
+
+        duplicate_length = Message()
+        duplicate_length.add_header("Content-Length", "12")
+        duplicate_length.add_header("Content-Length", "12")
+        with self.assertRaisesRegex(ValueError, "한 번만"):
+            run_trend_content_mvp._request_body_content_length(duplicate_length)
+
+        conflicting_length = Message()
+        conflicting_length.add_header("Content-Length", "12")
+        conflicting_length.add_header("Content-Length", "13")
+        with self.assertRaisesRegex(ValueError, "한 번만"):
+            run_trend_content_mvp._request_body_content_length(conflicting_length)
+
+        chunked_body = Message()
+        chunked_body.add_header("Transfer-Encoding", "chunked")
+        with self.assertRaisesRegex(ValueError, "지원하지 않습니다"):
+            run_trend_content_mvp._request_body_content_length(chunked_body)
+
+        conflicting_framing = Message()
+        conflicting_framing.add_header("Content-Length", "12")
+        conflicting_framing.add_header("Transfer-Encoding", "chunked")
+        with self.assertRaisesRegex(ValueError, "지원하지 않습니다"):
+            run_trend_content_mvp._request_body_content_length(conflicting_framing)
+
+    def test_request_body_reader_requires_exact_length_and_valid_utf8(self):
+        payload = "keyword=생성형+AI".encode("utf-8")
+        self.assertEqual(
+            run_trend_content_mvp._read_utf8_request_body(io.BytesIO(payload), len(payload)),
+            "keyword=생성형+AI",
+        )
+        with self.assertRaisesRegex(ValueError, "Content-Length"):
+            run_trend_content_mvp._read_utf8_request_body(io.BytesIO(payload[:-1]), len(payload))
+        with self.assertRaisesRegex(ValueError, "UTF-8"):
+            run_trend_content_mvp._read_utf8_request_body(io.BytesIO(b"\xff"), 1)
 
     def test_generated_preview_carries_stable_knowledge_identity(self):
         package = self._valid_package()
