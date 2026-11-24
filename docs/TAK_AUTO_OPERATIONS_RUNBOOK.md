@@ -139,7 +139,7 @@ SNS 연결을 준비할 경우에만 추가:
 
 - 게시 대기열과 게시 결과·운영자 확인 이력만 PostgreSQL에 저장할 수 있다. 기본값은 파일 저장이다. 미리보기, MP4, OAuth 토큰, 플랫폼별 로컬 이력에는 기존 영구 디스크와 암호화 백업이 계속 필요하다. 웹과 게시 작업자는 같은 저장 설정을 사용하고 서버는 단일 인스턴스로 운영한다.
 - Supabase 연결은 서버 전용 PostgreSQL DSN과 인증서 검증을 사용한다. 직접 연결 또는 Session pooler를 사용한다. 필요한 경우 Supabase의 CA 인증서 파일 경로를 `TAK_AUTO_QUEUE_SSL_ROOT_CERT`에 지정한다. DSN과 비밀번호는 비밀 설정에 보관한다.
-- 마이그레이션 `20261124003459_publishing_queue.sql`은 비공개 스키마에 빈 테이블과 RLS 정책을 만든다. DBA가 별도의 로그인에 `tak_auto_queue_importer`와 `tak_auto_queue_runtime` 역할을 각각 부여한다. 가져오기 로그인에는 읽기·최초 삽입 권한, 앱 로그인에는 읽기·갱신 권한이 있다. 앱에 관리자 비밀번호나 Data API 키를 사용하지 않는다.
+- 마이그레이션 `20261124013841_publishing_queue.sql`은 비공개 스키마에 빈 테이블과 RLS 정책을 만든다. 수파베이스 `tak-auto`에는 이 버전이 이미 적용됐다. DBA가 별도의 로그인에 `tak_auto_queue_importer`와 `tak_auto_queue_runtime` 역할을 각각 부여한다. 가져오기 로그인에는 읽기·최초 삽입 권한, 앱 로그인에는 읽기·갱신 권한이 있다. 앱에 관리자 비밀번호나 Data API 키를 사용하지 않는다.
 - 전환 전 실제 게시를 끄고 모든 대기열 쓰기를 중단한 뒤, 암호화 백업과 대기열 JSON 복사본을 만든다. `processing` 상태가 남아 있으면 플랫폼 게시 여부를 먼저 확인한다.
   1. `python scripts/transfer_publishing_queue.py --source <대기열 복사본>`으로 파일을 검증한다. 기존 대기열이 없는 신규 설치는 `--empty`로 빈 상태를 명시한다.
   2. 승인된 전환에서만 가져오기용 비밀 설정 `TAK_AUTO_QUEUE_IMPORT_DSN`을 사용해 같은 명령에 `--apply`를 붙인다. 같은 자료의 반복 적용은 유지되고, 다른 데이터가 이미 들어 있으면 중단한다.
