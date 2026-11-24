@@ -8,10 +8,16 @@ from pathlib import Path
 import tempfile
 import unittest
 from contextlib import redirect_stderr
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 import zipfile
 
+from cryptography.fernet import Fernet
+
+from content_engine.media_assets import MediaAssetStore
+from content_engine.publishing_queue import PublishUncertainError, PublishingQueue, queue_dashboard
+from content_engine.social_oauth import OAuthTokenVault
 from content_engine.trend_data_backup import (
     ENCRYPTED_HEADER_BYTES,
     ENCRYPTED_MAGIC,
@@ -46,6 +52,48 @@ class TrendDataBackupTests(unittest.TestCase):
         self.assertEqual(result, manifest)
         for relative in ("queue.json", "media_assets/approved.mp4", "social_oauth_tokens.enc"):
             self.assertEqual((restored / relative).read_bytes(), (self.source / relative).read_bytes())
+
+    def test_encrypted_restore_reopens_queue_media_and_oauth_stores(self):
+        source = self.root / "rehearsal"
+        queue_name = "tak_auto_publishing_queue.json"
+        vault_name = "social_oauth_tokens.enc"
+        media_key = "test-media-signing-key-at-least-32-chars"
+        oauth_key = Fernet.generate_key().decode("ascii")
+        passphrase = "test rehearsal backup passphrase"
+        media_bytes = b"\x00\x00\x00\x18ftypmp42\x00test-media"
+        asset = MediaAssetStore(source, media_key).save_stream(
+            io.BytesIO(media_bytes), len(media_bytes), "approved.mp4",
+        )
+        OAuthTokenVault(source / vault_name, oauth_key).save(
+            "threads", {"access_token": "test-token"}, {"account_id": "test-account"},
+        )
+        now = datetime(2026, 11, 24, tzinfo=timezone.utc)
+        queue = PublishingQueue(source / queue_name)
+        item = queue.enqueue_approved(
+            content_id="review-job", platform="threads", payload={"body": "검토한 문안"},
+            scheduled_at=now + timedelta(seconds=1), approved_by="operator", now=now,
+        )
+
+        def uncertain(*_args):
+            raise PublishUncertainError("simulated response loss")
+
+        queue.run_due(uncertain, enabled=True, now=now + timedelta(seconds=2))
+        queue.close_unpublished(item["id"], reviewed_by="operator", now=now + timedelta(seconds=3))
+
+        manifest = create_backup(source, self.archive, passphrase=passphrase)
+        self.assertEqual(verify_backup(self.archive, passphrase=passphrase), manifest)
+        destination = self.root / "rehearsal-restored"
+        self.assertEqual(restore_backup(self.archive, destination, passphrase=passphrase), manifest)
+
+        restored_queue = PublishingQueue(destination / queue_name)
+        snapshot = restored_queue.snapshot()
+        self.assertEqual(snapshot, queue.snapshot())
+        self.assertIn("미게시 확인 후 종료", queue_dashboard(snapshot, publishing_enabled=False))
+        self.assertEqual(restored_queue.run_due(uncertain, now=now + timedelta(days=1)), [])
+        restored_asset = MediaAssetStore(destination, media_key).get_asset(asset.asset_id)
+        self.assertEqual(restored_asset.path.read_bytes(), media_bytes)
+        restored_token = OAuthTokenVault(destination / vault_name, oauth_key).get("threads")
+        self.assertEqual(restored_token["access_token"], "test-token")
 
     def test_encrypted_archive_verifies_and_restores_with_passphrase(self):
         passphrase = "correct horse battery staple"
