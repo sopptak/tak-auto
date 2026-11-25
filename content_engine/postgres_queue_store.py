@@ -63,7 +63,7 @@ class PostgresQueueStore:
                 connection.execute("SET LOCAL statement_timeout = '5s'")
                 connection.execute("SET LOCAL lock_timeout = '2s'")
                 yield connection
-        except (psycopg.Error, ValueError, OSError) as error:
+        except Exception as error:
             # Do not expose server messages, credentials, or the queue payload.
             _LOGGER.warning("Postgres queue connection check failed (%s)", _failure_category(error))
             raise QueueStoreError("게시 대기열 데이터베이스 요청을 완료하지 못했습니다.") from None

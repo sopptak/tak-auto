@@ -31,6 +31,17 @@ class QueueBackendTests(unittest.TestCase):
             self.assertNotIn(secret, str(raised.exception))
             self.assertNotIn(secret, captured.output[0])
 
+    def test_unexpected_connection_failure_is_sanitized(self):
+        error = RuntimeError("connect failed for private.example; password=private-token")
+        store = PostgresQueueStore("unused", connect=Mock(side_effect=error))
+        with self.assertLogs("content_engine.postgres_queue_store", level="WARNING") as captured:
+            with self.assertRaises(QueueStoreError) as raised:
+                store.ready()
+        self.assertIn("(database_unavailable)", captured.output[0])
+        for secret in ("private-token", "private.example"):
+            self.assertNotIn(secret, str(raised.exception))
+            self.assertNotIn(secret, captured.output[0])
+
     def test_postgres_configuration_never_falls_back_to_json(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "queue.json"
