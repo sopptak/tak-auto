@@ -43,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--performance", type=Path, required=True, help="Performance 스냅샷 저장소 경로(읽기 전용)")
     parser.add_argument("--scope", required=True, choices=SCOPES)
     parser.add_argument("--scope-id", required=True, help="scope에 해당하는 값(content_id/generation_id/knowledge_id/platform)")
-    parser.add_argument("--platform", required=True, help="이 분석의 platform(threads/youtube/blog)")
+    parser.add_argument("--platform", required=True, help="이 분석의 platform(threads/youtube/instagram/blog)")
     parser.add_argument("--metric", default="views")
     parser.add_argument("--analysis-window", default="all")
     parser.add_argument("--type", choices=("trend", "anomaly"), default="trend")

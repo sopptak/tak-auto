@@ -155,11 +155,11 @@ class RunScoutScoreBasedSelectionTests(unittest.TestCase):
             self.assertIn("은행 대출 금리 급등 경고", output)
             self.assertIn("Source: 테스트 소스", output)
             self.assertIn("URL: https://example.test/high-score", output)
-            self.assertIn("A: ", output)
-            self.assertIn("B: ", output)
-            self.assertIn("C: ", output)
-            self.assertIn("D: ", output)
-            self.assertIn("E: ", output)
+            self.assertIn("최신성: ", output)
+            self.assertIn("주목 표현: ", output)
+            self.assertIn("토론 가능성: ", output)
+            self.assertIn("구체성: ", output)
+            self.assertIn("출처 정보: ", output)
 
             # TOP 블록의 순서가 실제 JSON에 저장된 순위(점수 내림차순)와 일치해야 한다.
             candidates = load_daily_pack(output_json)
@@ -266,16 +266,17 @@ class RunScoutProductionEntrypointTests(unittest.TestCase):
                 self.assertIn("1. [총점", result.stdout)
                 self.assertIn("은행 대출 금리 급등 경고", result.stdout)
                 self.assertIn("Source: 테스트 소스", result.stdout)
-                self.assertIn("A: ", result.stdout)
-                self.assertIn("B: ", result.stdout)
-                self.assertIn("C: ", result.stdout)
-                self.assertIn("D: ", result.stdout)
-                self.assertIn("E: ", result.stdout)
+                self.assertIn("최신성: ", result.stdout)
+                self.assertIn("주목 표현: ", result.stdout)
+                self.assertIn("토론 가능성: ", result.stdout)
+                self.assertIn("구체성: ", result.stdout)
+                self.assertIn("출처 정보: ", result.stdout)
                 self.assertTrue(output_json.exists())
                 self.assertTrue(output_md.exists())
         finally:
             server.shutdown()
             server_thread.join(timeout=5)
+            server.server_close()
 
     @staticmethod
     def _run_cli(sources_path: Path, output_json: Path, output_md: Path) -> subprocess.CompletedProcess[str]:

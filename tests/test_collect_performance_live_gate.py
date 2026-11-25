@@ -4,7 +4,7 @@
 환경변수로 이미 존재한다)에 대한 직접적인 대응이다. 이 파일은 다음을 증명한다:
 
     1. credential 환경변수가 있어도 --dry-run/--confirm-live 둘 다 없는
-       "기본 실행"은 threads/youtube 클라이언트를 절대 생성하지 않는다.
+       "기본 실행"은 외부 성과 API 클라이언트를 절대 생성하지 않는다.
     2. --confirm-live 없이는 어떤 경우에도 네트워크에 접근하지 않는다.
     3. --confirm-live를 명시하면(GitHub Actions가 아닌 한) 정상적으로
        진행된다 - 단 여기서도 실제 네트워크는 mock으로 대체해 검증한다.
@@ -28,7 +28,10 @@ import unittest
 from unittest import mock
 
 from content_engine.performance.store import load_snapshots
+from content_engine.instagram_publisher import InstagramClient
+from content_engine.facebook_publisher import FacebookClient
 from content_engine.threads_publisher import ThreadsClient
+from content_engine.tiktok_publisher import TikTokClient
 from content_engine.youtube_publisher import YouTubeClient
 from scripts.collect_performance import _guard_live_network_call, main as collect_performance_main
 
@@ -45,6 +48,12 @@ class GuardLiveNetworkCallPureFunctionTests(unittest.TestCase):
         self.assertIsNotNone(error)
         self.assertIn("--dry-run", error)
         self.assertIn("--confirm-live", error)
+
+    def test_new_platform_collectors_also_require_explicit_live_confirmation(self):
+        for platform in ("facebook", "tiktok"):
+            with self.subTest(platform=platform):
+                self.assertIn("--confirm-live", _guard_live_network_call(platform, False, False) or "")
+                self.assertIsNone(_guard_live_network_call(platform, True, False))
 
     def test_confirm_live_without_github_actions_is_allowed(self):
         with mock.patch.dict("os.environ", {}, clear=True):
@@ -71,6 +80,13 @@ class GuardLiveNetworkCallPureFunctionTests(unittest.TestCase):
             error = _guard_live_network_call("youtube", dry_run=False, confirm_live=True)
         self.assertIsNotNone(error)
 
+    def test_instagram_confirm_live_is_gated_like_other_network_collectors(self):
+        error = _guard_live_network_call("instagram", dry_run=False, confirm_live=False, environ={})
+        self.assertIn("--confirm-live", error)
+        self.assertIsNone(
+            _guard_live_network_call("instagram", dry_run=False, confirm_live=True, environ={})
+        )
+
 
 class CollectPerformanceLiveGateCLITests(unittest.TestCase):
     def setUp(self):
@@ -85,8 +101,13 @@ class CollectPerformanceLiveGateCLITests(unittest.TestCase):
         return exit_code, stdout.getvalue(), stderr.getvalue()
 
     def _assert_client_never_created(self, client_cls, argv: list[str]) -> tuple[int, str, str]:
+        factory_name = (
+            "from_environment_or_oauth"
+            if client_cls in {YouTubeClient, InstagramClient}
+            else "from_environment"
+        )
         with mock.patch.object(
-            client_cls, "from_environment", side_effect=AssertionError("실제 API가 호출되면 안 됩니다")
+            client_cls, factory_name, side_effect=AssertionError("실제 API가 호출되면 안 됩니다")
         ) as mocked:
             exit_code, stdout, stderr = self._run(argv)
         mocked.assert_not_called()
@@ -126,6 +147,76 @@ class CollectPerformanceLiveGateCLITests(unittest.TestCase):
         self.assertFalse(self.store_path.exists())
         self.assertIn("--confirm-live", stderr)
 
+    def test_instagram_without_any_flag_never_creates_client(self):
+        exit_code, _stdout, stderr = self._assert_client_never_created(
+            InstagramClient,
+            ["--platform", "instagram", "--content-id", "content-ig-1",
+             "--knowledge-id", "knowledge-ig-1", "--published-at", "2026-09-10T00:00:00+00:00",
+             "--external-id", "17890000000000001", "--store", str(self.store_path)],
+        )
+        self.assertEqual(exit_code, 1)
+        self.assertFalse(self.store_path.exists())
+        self.assertIn("--confirm-live", stderr)
+
+    def test_facebook_without_flag_never_creates_client(self):
+        with mock.patch("scripts.collect_performance._facebook_insights_client") as client_factory:
+            exit_code, _stdout, stderr = self._run([
+                "--platform", "facebook", "--content-id", "content-fb",
+                "--knowledge-id", "knowledge-fb", "--published-at", "2026-09-10T00:00:00+00:00",
+                "--external-id", "123_456", "--store", str(self.store_path),
+            ])
+        self.assertEqual(exit_code, 1)
+        client_factory.assert_not_called()
+        self.assertFalse(self.store_path.exists())
+        self.assertIn("--confirm-live", stderr)
+
+    def test_tiktok_without_flag_never_creates_client(self):
+        with mock.patch("scripts.collect_performance._tiktok_video_client") as client_factory:
+            exit_code, _stdout, stderr = self._run([
+                "--platform", "tiktok", "--content-id", "content-tt",
+                "--knowledge-id", "knowledge-tt", "--published-at", "2026-09-10T00:00:00+00:00",
+                "--external-id", "123456", "--store", str(self.store_path),
+            ])
+        self.assertEqual(exit_code, 1)
+        client_factory.assert_not_called()
+        self.assertFalse(self.store_path.exists())
+        self.assertIn("--confirm-live", stderr)
+
+    def test_facebook_dry_run_never_creates_client_or_store(self):
+        with mock.patch("scripts.collect_performance._facebook_insights_client") as client_factory:
+            exit_code, stdout, _stderr = self._run([
+                "--platform", "facebook", "--content-id", "content-fb",
+                "--knowledge-id", "knowledge-fb", "--published-at", "2026-09-10T00:00:00+00:00",
+                "--external-id", "123_456", "--store", str(self.store_path), "--dry-run",
+            ])
+        self.assertEqual(exit_code, 0)
+        self.assertIn("실제 API 호출하지 않음", stdout)
+        client_factory.assert_not_called()
+        self.assertFalse(self.store_path.exists())
+
+    def test_tiktok_dry_run_never_creates_client_or_store(self):
+        with mock.patch("scripts.collect_performance._tiktok_video_client") as client_factory:
+            exit_code, stdout, _stderr = self._run([
+                "--platform", "tiktok", "--content-id", "content-tt",
+                "--knowledge-id", "knowledge-tt", "--published-at", "2026-09-10T00:00:00+00:00",
+                "--external-id", "123456", "--store", str(self.store_path), "--dry-run",
+            ])
+        self.assertEqual(exit_code, 0)
+        self.assertIn("실제 API 호출하지 않음", stdout)
+        client_factory.assert_not_called()
+        self.assertFalse(self.store_path.exists())
+
+    def test_instagram_dry_run_never_creates_client(self):
+        exit_code, stdout, _stderr = self._assert_client_never_created(
+            InstagramClient,
+            ["--platform", "instagram", "--content-id", "content-ig-1",
+             "--knowledge-id", "knowledge-ig-1", "--published-at", "2026-09-10T00:00:00+00:00",
+             "--external-id", "17890000000000001", "--store", str(self.store_path), "--dry-run"],
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertIn("likes/comments", stdout)
+        self.assertFalse(self.store_path.exists())
+
     # --- 3. --confirm-live면 진행된다(단, from_environment는 mock으로 대체) -------
 
     def test_threads_confirm_live_proceeds_with_mocked_client(self):
@@ -159,11 +250,13 @@ class CollectPerformanceLiveGateCLITests(unittest.TestCase):
             client_secret="secret",
             refresh_token="rtoken",
             token_transport=lambda *a: {"access_token": "t"},
-            stats_transport=lambda *a: {"items": [{"statistics": {"viewCount": "10"}}]},
+            stats_transport=lambda *a: {
+                "items": [{"id": "h2X1fFMDffc", "statistics": {"viewCount": "10"}}]
+            },
         )
         with mock.patch.dict("os.environ", {}, clear=True), mock.patch.object(
-            YouTubeClient, "from_environment", return_value=fake_client
-        ):
+            YouTubeClient, "from_environment_or_oauth", return_value=fake_client
+        ) as client_factory:
             exit_code, output, _stderr = self._run(
                 [
                     "--platform", "youtube",
@@ -176,9 +269,79 @@ class CollectPerformanceLiveGateCLITests(unittest.TestCase):
                 ]
             )
         self.assertEqual(exit_code, 0)
+        client_factory.assert_called_once_with(required_scope="https://www.googleapis.com/auth/youtube.readonly")
         self.assertIn("성공", output)
         snapshots = load_snapshots(self.store_path)
         self.assertEqual(snapshots[0].metrics, {"views": 10})
+
+    def test_instagram_confirm_live_uses_mocked_client_and_stores_metrics(self):
+        fake_client = InstagramClient(
+            access_token="fake-token", instagram_user_id="17840000000000000",
+            transport=lambda method, url, **kwargs: {
+                "id": "17890000000000001", "media_type": "REELS",
+                "like_count": 8, "comments_count": 3,
+            },
+        )
+        with mock.patch.dict("os.environ", {}, clear=True), mock.patch.object(
+            InstagramClient, "from_environment_or_oauth", return_value=fake_client
+        ) as client_factory:
+            exit_code, output, _stderr = self._run([
+                "--platform", "instagram", "--content-id", "content-ig-1",
+                "--knowledge-id", "knowledge-ig-1", "--published-at", "2026-09-10T00:00:00+00:00",
+                "--external-id", "17890000000000001", "--store", str(self.store_path), "--confirm-live",
+            ])
+        self.assertEqual(exit_code, 0)
+        client_factory.assert_called_once_with()
+        self.assertIn("성공", output)
+        snapshot = load_snapshots(self.store_path)[0]
+        self.assertEqual(snapshot.platform, "instagram")
+        self.assertEqual(snapshot.metrics, {"likes": 8, "comments": 3})
+        self.assertEqual(snapshot.source, "instagram_api")
+
+    def test_facebook_confirm_live_uses_mocked_client_and_stores_metrics(self):
+        fake_client = FacebookClient(
+            access_token="fake-token", page_id="123",
+            transport=lambda *args, **kwargs: {"data": [
+                {"name": "post_media_view", "values": [{"value": 8}]},
+                {"name": "post_reactions_by_type_total", "values": [{"value": {"like": 2}}]},
+            ]},
+        )
+        with mock.patch.dict("os.environ", {}, clear=True), mock.patch(
+            "scripts.collect_performance._facebook_insights_client", return_value=fake_client,
+        ) as client_factory:
+            exit_code, output, _stderr = self._run([
+                "--platform", "facebook", "--content-id", "content-fb", "--knowledge-id", "knowledge-fb",
+                "--published-at", "2026-09-10T00:00:00+00:00", "--external-id", "123_456",
+                "--store", str(self.store_path), "--confirm-live",
+            ])
+        self.assertEqual(exit_code, 0)
+        client_factory.assert_called_once()
+        self.assertIn("성공", output)
+        snapshot = load_snapshots(self.store_path)[0]
+        self.assertEqual(snapshot.metrics, {"views": 8, "reactions": 2})
+        self.assertEqual(snapshot.source, "facebook_api")
+
+    def test_tiktok_confirm_live_uses_mocked_client_and_stores_metrics(self):
+        fake_client = TikTokClient(
+            access_token="fake-token", open_id="open-id",
+            json_transport=lambda *args, **kwargs: {"data": {"videos": [
+                {"id": "123456", "view_count": 17, "like_count": 3},
+            ]}, "error": {"code": "ok"}},
+        )
+        with mock.patch.dict("os.environ", {}, clear=True), mock.patch(
+            "scripts.collect_performance._tiktok_video_client", return_value=fake_client,
+        ) as client_factory:
+            exit_code, output, _stderr = self._run([
+                "--platform", "tiktok", "--content-id", "content-tt", "--knowledge-id", "knowledge-tt",
+                "--published-at", "2026-09-10T00:00:00+00:00", "--external-id", "123456",
+                "--store", str(self.store_path), "--confirm-live",
+            ])
+        self.assertEqual(exit_code, 0)
+        client_factory.assert_called_once()
+        self.assertIn("성공", output)
+        snapshot = load_snapshots(self.store_path)[0]
+        self.assertEqual(snapshot.metrics, {"views": 17, "likes": 3})
+        self.assertEqual(snapshot.source, "tiktok_api")
 
     # --- 4. GitHub Actions에서는 --confirm-live도 거부된다 -----------------------
 

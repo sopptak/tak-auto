@@ -161,9 +161,9 @@ class ThreadsClient:
 
         response = self.transport("POST", url, self._headers(), payload, self.timeout_seconds)
         thread_id = response.get("id")
-        if not thread_id:
-            raise ThreadsAPIError("Threads 게시 응답에 게시물 id가 누락되었습니다.")
-        return ThreadsPublishResult(id=str(thread_id))
+        if not isinstance(thread_id, str) or not thread_id.strip():
+            raise ThreadsAPIError("Threads 게시 응답에 유효한 게시물 id가 없습니다.")
+        return ThreadsPublishResult(id=thread_id.strip())
 
     def get_media_insights(
         self, media_id: str, metrics: Sequence[str] = DEFAULT_INSIGHTS_METRICS

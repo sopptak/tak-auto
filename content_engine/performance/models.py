@@ -21,16 +21,19 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-PLATFORMS = ("threads", "youtube", "blog")
+PLATFORMS = ("threads", "youtube", "instagram", "facebook", "tiktok", "blog")
 
 # collector가 성과를 어떻게 얻었는지 - "이 숫자를 얼마나 신뢰할 것인가" 판단에 쓴다.
-#   threads_api / youtube_api : 공식 API 응답을 그대로 정규화한 값
+#   *_api                    : 공식 API 응답을 그대로 정규화한 값
 #   manual                    : 사람이 직접 입력한 값(Naver Blog처럼 공개 조회 API가
 #                                없는 채널, 또는 API 실패 시 수동 보정)
 #   migration_baseline        : 기존 발행 이력(threads_publish_log.json 등)에서
 #                                옮겨온 "발행 사실"일 뿐 실제 성과 지표가 아니다.
 #                                metrics가 비어 있을 수 있다.
-SOURCES = ("threads_api", "youtube_api", "manual", "migration_baseline")
+SOURCES = (
+    "threads_api", "youtube_api", "instagram_api", "facebook_api", "tiktok_api",
+    "manual", "migration_baseline",
+)
 MEASUREMENT_WINDOWS = ("initial", "24h", "72h")
 COLLECTION_STATUSES = ("collected",)
 
@@ -51,7 +54,7 @@ class PerformanceRecord:
     metrics: dict[str, int] = field(default_factory=dict)
     source: str = "manual"
     title: str = ""
-    # 플랫폼별 원본 식별자: threads post id / youtube video id / blog url 등.
+    # 플랫폼별 원본 식별자: Threads/Instagram media id, YouTube video id, blog url 등.
     external_id: str = ""
     # collector가 실제로 받은 원본 응답(정규화 이전) - 감사/디버깅용. 저장하지
     # 않아도(None) 기능상 문제 없다.
@@ -121,13 +124,25 @@ class PerformanceRecord:
     def from_dict(cls, data: dict[str, Any]) -> "PerformanceRecord":
         if not isinstance(data, dict):
             raise PerformanceRecordError("성과 레코드는 객체(dict)여야 합니다.")
-        metrics = data.get("metrics") or {}
+        metrics = data.get("metrics", {})
+        if metrics is None:
+            metrics = {}
         if not isinstance(metrics, dict):
             raise PerformanceRecordError("metrics는 dict 구조여야 합니다.")
-        try:
-            normalized_metrics = {str(key): int(value) for key, value in metrics.items()}
-        except (TypeError, ValueError) as error:
-            raise PerformanceRecordError(f"metrics 값은 정수로 변환 가능해야 합니다: {metrics!r}") from error
+        normalized_metrics: dict[str, int] = {}
+        for key, value in metrics.items():
+            # bool is an int subclass, and int(1.5) silently truncates. Neither
+            # should turn malformed persisted data into a plausible count.
+            if isinstance(value, bool) or not isinstance(value, (int, str)):
+                raise PerformanceRecordError(
+                    f"metrics[{key!r}]는 정수 또는 정수 문자열이어야 합니다: {value!r}"
+                )
+            try:
+                normalized_metrics[str(key)] = int(value)
+            except ValueError as error:
+                raise PerformanceRecordError(
+                    f"metrics[{key!r}]는 정수 문자열이어야 합니다: {value!r}"
+                ) from error
 
         raw = data.get("raw")
         return cls(

@@ -83,6 +83,9 @@ jobs:
       - name: Show Python version
         run: python3 --version
 
+      - name: Install application dependencies
+        run: python3 -m pip install --disable-pip-version-check -r requirements.txt
+
       # 테스트가 실패하면 이후 단계(준비 작업, commit 스텝)로 진행하지 않는다
       # (기존 daily-scout.yml/daily-threads-post.yml 등과 동일한 안전장치).
       - name: Run existing test suite

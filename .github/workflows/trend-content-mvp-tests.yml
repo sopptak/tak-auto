@@ -1,0 +1,126 @@
+name: TAK AUTO trend content MVP tests
+
+on:
+  pull_request:
+    paths:
+      - "tak_scout/perplexity_research.py"
+      - "tak_scout/trend_discovery.py"
+      - "scripts/run_trend_content_mvp.py"
+      - "scripts/start_free_trend_factory.ps1"
+      - "tests/test_trend_free_factory_launcher.ps1"
+      - "scripts/backup_trend_factory_data.py"
+      - "content_engine/trend_data_backup.py"
+      - "tests/test_trend_content_health.py"
+      - "tests/test_trend_content_queue_routes.py"
+      - "tests/test_trend_data_backup.py"
+      - "docs/TAK_AUTO_OPERATIONS_RUNBOOK.md"
+      - "tests/test_perplexity_research.py"
+      - "tests/test_trend_discovery.py"
+      - "content_engine/generator.py"
+      - "tak_brain/models.py"
+      - "render.yaml"
+      - "docs/trend_content_factory_mvp.md"
+      - "content_engine/publishing_queue.py"
+      - "scripts/run_publishing_queue.py"
+      - "scripts/collect_performance.py"
+      - "content_engine/instagram_publisher.py"
+      - "content_engine/performance/instagram.py"
+      - "content_engine/performance/facebook.py"
+      - "content_engine/performance/tiktok.py"
+      - "content_engine/performance/threads.py"
+      - "content_engine/performance/youtube.py"
+      - "content_engine/performance/models.py"
+      - "content_engine/performance/store.py"
+      - "content_engine/performance_insight.py"
+      - "scripts/analyze_performance.py"
+      - "tests/test_instagram_performance.py"
+      - "tests/test_collect_performance_live_gate.py"
+      - "tests/test_performance_models.py"
+      - "tests/test_performance_store.py"
+      - "tests/test_performance_threads.py"
+      - "tests/test_performance_youtube.py"
+      - "tests/test_6_63_game_factory_doc.py"
+      - "docs/performance_operations.md"
+      - "tests/test_facebook_performance.py"
+      - "tests/test_tiktok_performance.py"
+      - "tests/test_performance_oauth_permissions.py"
+      - "content_engine/tiktok_publisher.py"
+      - "scripts/run_scout_dashboard.py"
+      - "tests/test_performance_dashboard.py"
+      - "tests/test_collect_performance_cli.py"
+      - "tests/test_collect_performance_live_gate.py"
+      - "tests/test_publishing_queue.py"
+      - "content_engine/publishing_connections.py"
+      - "tests/test_publishing_connections.py"
+      - "tests/test_publishing_connection_routes.py"
+      - "content_engine/instagram_publisher.py"
+      - "content_engine/facebook_publisher.py"
+      - "tests/test_facebook_publisher.py"
+      - "content_engine/publish_history.py"
+      - "tests/test_publish_history.py"
+      - "content_engine/media_assets.py"
+      - "tests/test_media_assets.py"
+      - "tests/test_media_asset_routes.py"
+      - "content_engine/trend_publishers.py"
+      - "tests/test_trend_publishers.py"
+      - "content_engine/youtube_publisher.py"
+      - "tests/test_youtube_performance_client.py"
+      - "content_engine/social_oauth.py"
+      - "tests/test_social_oauth.py"
+      - "tests/test_social_oauth_routes.py"
+      - "docs/social_account_oauth_setup.md"
+      - "requirements.txt"
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  trend-content-mvp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install OAuth token encryption dependency
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+      - name: Test Perplexity Agent API and trend discovery
+        run: |
+          python -m unittest discover -s tests -p "test_social_oauth.py" -v
+          python -m unittest discover -s tests -p "test_social_oauth_routes.py" -v
+          python -m unittest discover -s tests -p "test_publishing_queue.py" -v
+          python -m unittest discover -s tests -p "test_collect_performance_cli.py" -v
+          python -m unittest discover -s tests -p "test_collect_performance_live_gate.py" -v
+          python -m unittest discover -s tests -p "test_instagram_performance.py" -v
+          python -m unittest discover -s tests -p "test_facebook_performance.py" -v
+          python -m unittest discover -s tests -p "test_tiktok_performance.py" -v
+          python -m unittest discover -s tests -p "test_performance_oauth_permissions.py" -v
+          python -m unittest discover -s tests -p "test_performance_models.py" -v
+          python -m unittest discover -s tests -p "test_performance_store.py" -v
+          python -m unittest discover -s tests -p "test_performance_threads.py" -v
+          python -m unittest discover -s tests -p "test_performance_youtube.py" -v
+          python -m unittest discover -s tests -p "test_6_63_game_factory_doc.py" -v
+          python -m unittest discover -s tests -p "test_performance_dashboard.py" -v
+          python -m unittest discover -s tests -p "test_publishing_connections.py" -v
+          python -m unittest discover -s tests -p "test_publishing_connection_routes.py" -v
+          python -m unittest discover -s tests -p "test_publish_history.py" -v
+          python -m unittest discover -s tests -p "test_trend_publishers.py" -v
+          python -m unittest discover -s tests -p "test_facebook_publisher.py" -v
+          python -m unittest discover -s tests -p "test_trend_content_queue_routes.py" -v
+          python -m unittest discover -s tests -p "test_trend_data_backup.py" -v
+          python -m unittest discover -s tests -p "test_trend_content_health.py" -v
+          python -m unittest discover -s tests -p "test_media_assets.py" -v
+          python -m unittest discover -s tests -p "test_media_asset_routes.py" -v
+          python -m unittest discover -s tests -p "test_youtube_performance_client.py" -v
+          python -m unittest discover -s tests -p "test_perplexity_research.py" -v
+          python -m unittest discover -s tests -p "test_trend_discovery.py" -v
+
+  free-launcher-windows:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise the free launcher Python fallback
+        shell: pwsh
+        run: ./tests/test_trend_free_factory_launcher.ps1

@@ -25,10 +25,14 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import statistics
+import threading
 import tempfile
 from typing import Any
+
+_INSIGHT_LOCK = threading.RLock()
 
 from content_engine.performance.models import PerformanceRecord
 from content_engine.performance.window import classify_measurement_window
@@ -88,7 +92,7 @@ BASELINE_TOLERANCE_RATIO = 0.2
 OUTLIER_RATIO = 3.0
 
 # MediaArchiveRecord.platform(콘텐츠 생성 단위: "blog"/"shorts"/"threads")과
-# PerformanceRecord.platform(실제 게시 채널: "blog"/"youtube"/"threads")은
+# PerformanceRecord.platform(실제 게시 채널: "blog"/"youtube"/"instagram"/"threads")은
 # 이름이 다르다 - "shorts"로 생성된 콘텐츠가 YouTube에 업로드되기
 # 때문이다(content_engine/performance/youtube.py, migration.py가 이미
 # platform="youtube"를 하드코딩하고 있다 - 6-35에서 처음 발견, 이 모듈이
@@ -467,14 +471,39 @@ def _save(records: list[InsightRecord], path: Path | str) -> None:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = [record.to_dict() for record in records]
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=target.parent, delete=False) as handle:
-        json.dump(payload, handle, ensure_ascii=False, indent=2)
-        handle.write("\n")
-        temp_path = Path(handle.name)
-    temp_path.replace(target)
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=target.parent, delete=False) as handle:
+            temporary_path = Path(handle.name)
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.chmod(temporary_path, 0o600)
+        except OSError:
+            pass
+        os.replace(temporary_path, target)
+        temporary_path = None
+        try:
+            directory_fd = os.open(target.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except OSError:
+            pass
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def append_insights(path: Path | str, records: list[InsightRecord]) -> int:
+    with _INSIGHT_LOCK:
+        return _append_insights_locked(path, records)
+
+
+def _append_insights_locked(path: Path | str, records: list[InsightRecord]) -> int:
     """여러 건을 한 번에 추가한다 - insight_id가 같으면(즉 같은 입력
     데이터로 재분석한 결과라면) 건너뛴다(23장 idempotency). status는
     새 레코드로 덮어쓰지 않는다 - 이미 사람이 accepted/rejected로
@@ -502,6 +531,11 @@ def insights_for_scope(path: Path | str, scope: str, scope_id: str) -> list[Insi
 
 
 def set_insight_status(path: Path | str, insight_id: str, new_status: str) -> InsightRecord:
+    with _INSIGHT_LOCK:
+        return _set_insight_status_locked(path, insight_id, new_status)
+
+
+def _set_insight_status_locked(path: Path | str, insight_id: str, new_status: str) -> InsightRecord:
     """사람의 검토 결과(19장: CANDIDATE -> ACCEPTED/REJECTED)를 반영한다.
     status 외의 어떤 필드도 바꾸지 않는다(분석 결과 자체는 불변) - accepted
     되어도 KNOWLEDGE/MEDIA를 자동으로 바꾸는 코드는 이 함수 어디에도

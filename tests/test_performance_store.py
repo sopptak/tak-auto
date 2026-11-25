@@ -8,7 +8,10 @@ from __future__ import annotations
 
 from pathlib import Path
 import tempfile
+import threading
+import time
 import unittest
+from unittest.mock import patch
 
 from content_engine.performance.models import PerformanceRecord
 from content_engine.performance.store import (
@@ -18,6 +21,7 @@ from content_engine.performance.store import (
     load_snapshots,
     snapshots_for_content,
 )
+import content_engine.performance.store as performance_store
 
 
 def _record(content_id="content-1", collected_at="2026-09-15T00:00:00+00:00", views=100, **overrides):
@@ -150,6 +154,44 @@ class PerformanceStoreTests(unittest.TestCase):
         added_again = append_snapshots(self.path, more_records)
         self.assertEqual(added_again, 1)
         self.assertEqual(len(load_snapshots(self.path)), 3)
+
+    def test_concurrent_appends_from_dashboard_threads_do_not_lose_snapshots(self):
+        records = [
+            _record(
+                content_id=f"content-{index}",
+                collected_at=f"2026-09-15T00:00:{index:02d}+00:00",
+                views=index,
+            )
+            for index in range(12)
+        ]
+        start = threading.Barrier(len(records))
+        errors = []
+        original_save = performance_store._save
+
+        def slow_save(items, path):
+            # Widen the read/modify/write window so an unlocked implementation
+            # would commonly let every worker replace the same stale snapshot.
+            time.sleep(0.01)
+            original_save(items, path)
+
+        def append(record):
+            try:
+                start.wait(timeout=5)
+                append_snapshot(self.path, record)
+            except BaseException as error:
+                errors.append(error)
+
+        with patch.object(performance_store, "_save", side_effect=slow_save):
+            workers = [threading.Thread(target=append, args=(record,)) for record in records]
+            for worker in workers:
+                worker.start()
+            for worker in workers:
+                worker.join(timeout=10)
+
+        self.assertFalse(any(worker.is_alive() for worker in workers), "append workers did not finish")
+        self.assertEqual(errors, [])
+        saved = load_snapshots(self.path)
+        self.assertEqual({record.content_id for record in saved}, {record.content_id for record in records})
 
     def test_load_rejects_non_list_json(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)

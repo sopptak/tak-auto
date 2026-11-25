@@ -18,11 +18,13 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import tempfile
+import threading
 
 from .models import PerformanceRecord
 
 
 DEFAULT_STORE_FILENAME = "tak_performance.json"
+_STORE_LOCK = threading.RLock()
 
 
 class PerformanceStoreError(ValueError):
@@ -97,7 +99,7 @@ def _snapshot_key(record: PerformanceRecord) -> tuple[str, str, str]:
     """Scheduled windows dedupe by post/window; legacy snapshots keep their old key.
 
     (content_id, metric_collected_at)이 같다는 것은 "같은 콘텐츠를 같은 순간에
-    측정했다"는 뜻이다 - source(threads_api/youtube_api/manual/migration_baseline)가
+    측정했다"는 뜻이다 - source(threads_api/youtube_api/instagram_api/manual/migration_baseline)가
     다르더라도 같은 순간의 측정치라면 저장소 입장에서는 여전히 "이미 가진 값"으로
     취급하는 것이 맞다고 판단했다: 두 값이 서로 다르면 어느 쪽이 맞는지 이 모듈이
     판단할 근거가 없고, 조용히 나중 값으로 덮어쓰는 것도(정확한 값을 잃을 위험)
@@ -130,19 +132,23 @@ def append_snapshots(path: Path | str, records: list[PerformanceRecord]) -> int:
 
     실제로 새로 추가된 건수를 반환한다(이미 존재하는 스냅샷은 건너뛴다).
     """
-    existing = load_snapshots(path)
-    existing_keys = {_snapshot_key(item) for item in existing}
-    added = 0
-    for record in records:
-        key = _snapshot_key(record)
-        if key in existing_keys:
-            continue
-        existing.append(record)
-        existing_keys.add(key)
-        added += 1
-    if added:
-        _save(existing, path)
-    return added
+    # The atomic replace protects readers from partial JSON, but without a lock
+    # two dashboard request threads can both read the same old snapshot and the
+    # later replace silently drops the earlier append.
+    with _STORE_LOCK:
+        existing = load_snapshots(path)
+        existing_keys = {_snapshot_key(item) for item in existing}
+        added = 0
+        for record in records:
+            key = _snapshot_key(record)
+            if key in existing_keys:
+                continue
+            existing.append(record)
+            existing_keys.add(key)
+            added += 1
+        if added:
+            _save(existing, path)
+        return added
 
 
 def snapshots_for_content(path: Path | str, content_id: str) -> list[PerformanceRecord]:

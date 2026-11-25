@@ -201,7 +201,7 @@ class LoopHttpTests(LoopCase):
     def req(self, path: str, form: dict | None = None) -> tuple[int, str, str]:
         data = urllib.parse.urlencode(form).encode() if form is not None else None
         try:
-            with urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{self.server.server_address[1]}{path}", data=data), timeout=30) as r:
+            with urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{self.server.server_address[1]}{path}", data=data, headers={"Origin": f"http://127.0.0.1:{self.server.server_address[1]}"} if data is not None else {}), timeout=30) as r:
                 return r.status, r.geturl(), r.read().decode("utf-8")
         except urllib.error.HTTPError as error:
             return error.code, path, error.read().decode("utf-8")
@@ -242,7 +242,7 @@ class LoopHttpTests(LoopCase):
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler_class(dataclasses.replace(self.cfg, money_scout_agent_enabled=True)))
         thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         thread.start()
-        self.addCleanup(lambda s=self.server: (s.shutdown(), s.server_close()))
+        self.addCleanup(lambda s=self.server: (s.shutdown(), s.server_close(), thread.join(5)))
         started = threading.Event()
 
         def fake_run_scout(**kw):
@@ -259,9 +259,18 @@ class LoopHttpTests(LoopCase):
                 if money_scout.load_staging(self.staging)["requests"][-1]["status"] == "done":
                     break
                 time.sleep(0.1)
-        self.assertEqual(money_scout.load_staging(self.staging)["requests"][-1]["status"], "done")
+        completed_request = money_scout.load_staging(self.staging)["requests"][-1]
+        self.assertEqual(completed_request["status"], "done", completed_request.get("message", ""))
         self.assertEqual(len(self.store.tasks()), 5)
-        self.assertTrue(money_web._RUN_LOCK.acquire(blocking=False))
+        # The worker records "done" just before its finally block releases the
+        # process-wide lock, so allow that tiny handoff window to finish.
+        lock_released = False
+        for _ in range(100):
+            if money_web._RUN_LOCK.acquire(blocking=False):
+                lock_released = True
+                break
+            time.sleep(0.01)
+        self.assertTrue(lock_released)
         money_web._RUN_LOCK.release()
 
 

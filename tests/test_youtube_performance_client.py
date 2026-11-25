@@ -17,17 +17,86 @@ import json
 from unittest import mock
 import unittest
 
-from content_engine.youtube_publisher import YouTubeClient, _default_stats_transport
+from content_engine.youtube_publisher import (
+    YouTubeAPIError, YouTubeClient, YouTubeChannelProfile,
+    _default_channel_transport, _default_stats_transport,
+)
+
+
+class YouTubeOAuthClientResolutionTests(unittest.TestCase):
+    def test_encrypted_oauth_connection_builds_client_with_required_scope(self):
+        environ = {
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "vault-key",
+            "TAK_AUTO_DATA_DIR": "/tmp/tak-auto-test",
+            "YOUTUBE_OAUTH_CLIENT_ID": "web-client-id",
+            "YOUTUBE_OAUTH_CLIENT_SECRET": "web-client-secret",
+        }
+        with mock.patch.dict("os.environ", environ, clear=True):
+            with mock.patch("content_engine.social_oauth.OAuthTokenVault") as vault_type:
+                vault_type.return_value.get.return_value = {
+                    "refresh_token": "vault-refresh-token",
+                    "granted_scopes": "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload",
+                }
+                client = YouTubeClient.from_environment_or_oauth(
+                    required_scope="https://www.googleapis.com/auth/youtube.upload",
+                )
+        self.assertEqual(client.client_id, "web-client-id")
+        self.assertEqual(client.client_secret, "web-client-secret")
+        self.assertEqual(client.refresh_token, "vault-refresh-token")
+        vault_type.return_value.get.assert_called_once_with("youtube_shorts")
+
+    def test_encrypted_oauth_connection_rejects_missing_required_scope(self):
+        with mock.patch.dict("os.environ", {
+            "TAK_AUTO_OAUTH_ENCRYPTION_KEY": "vault-key",
+            "YOUTUBE_OAUTH_CLIENT_ID": "web-client-id",
+            "YOUTUBE_OAUTH_CLIENT_SECRET": "web-client-secret",
+        }, clear=True):
+            with mock.patch("content_engine.social_oauth.OAuthTokenVault") as vault_type:
+                vault_type.return_value.get.return_value = {
+                    "refresh_token": "vault-refresh-token",
+                    "granted_scopes": "https://www.googleapis.com/auth/youtube.readonly",
+                }
+                with self.assertRaisesRegex(ValueError, "youtube.upload"):
+                    YouTubeClient.from_environment_or_oauth(
+                        required_scope="https://www.googleapis.com/auth/youtube.upload",
+                    )
 
 
 class YouTubeVideoStatisticsTests(unittest.TestCase):
-    def _client(self, token_transport=None, stats_transport=None):
+    def _client(self, token_transport=None, stats_transport=None, channel_transport=None):
         kwargs = {}
         if token_transport is not None:
             kwargs["token_transport"] = token_transport
         if stats_transport is not None:
             kwargs["stats_transport"] = stats_transport
+        if channel_transport is not None:
+            kwargs["channel_transport"] = channel_transport
         return YouTubeClient(client_id="cid", client_secret="secret", refresh_token="rtoken", **kwargs)
+
+    def test_get_channel_profile_refreshes_token_and_returns_authenticated_identity(self):
+        token_calls = []
+        channel_calls = []
+
+        def token_transport(client_id, client_secret, refresh_token, timeout):
+            token_calls.append((client_id, client_secret, refresh_token))
+            return {"access_token": "fresh-access-token"}
+
+        def channel_transport(access_token, timeout):
+            channel_calls.append((access_token, timeout))
+            return {"items": [{"id": "channel-123", "snippet": {"title": "TAK AUTO"}}]}
+
+        profile = self._client(token_transport=token_transport, channel_transport=channel_transport).get_channel_profile()
+        self.assertEqual(profile, YouTubeChannelProfile(channel_id="channel-123", title="TAK AUTO"))
+        self.assertEqual(token_calls, [("cid", "secret", "rtoken")])
+        self.assertEqual(channel_calls[0][0], "fresh-access-token")
+
+    def test_get_channel_profile_fails_when_authorized_account_has_no_channel(self):
+        client = self._client(
+            token_transport=lambda *a: {"access_token": "t"},
+            channel_transport=lambda *a: {"items": []},
+        )
+        with self.assertRaisesRegex(YouTubeAPIError, "인증된 YouTube 채널을 찾을 수 없습니다"):
+            client.get_channel_profile()
 
     def test_get_video_statistics_refreshes_token_and_calls_stats_transport(self):
         token_calls = []
@@ -97,6 +166,35 @@ class YouTubeVideoStatisticsTests(unittest.TestCase):
         self.assertIn("videos?", request.full_url)
         self.assertIn("part=statistics", request.full_url)
         self.assertIn("id=vid1", request.full_url)
+        self.assertEqual(request.headers["Authorization"], "Bearer access-token")
+
+    def test_default_channel_transport_sends_authenticated_mine_query(self):
+        response_body = json.dumps({"items": [{"id": "channel-123", "snippet": {"title": "TAK AUTO"}}]}).encode("utf-8")
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def read(self):
+                return response_body
+
+        captured_requests = []
+
+        def fake_urlopen(request, timeout):
+            captured_requests.append(request)
+            return FakeResponse()
+
+        with mock.patch("content_engine.youtube_publisher.urlopen", side_effect=fake_urlopen):
+            data = _default_channel_transport("access-token", 30.0)
+
+        self.assertEqual(data["items"][0]["id"], "channel-123")
+        request = captured_requests[0]
+        self.assertIn("channels?", request.full_url)
+        self.assertIn("part=snippet", request.full_url)
+        self.assertIn("mine=true", request.full_url)
         self.assertEqual(request.headers["Authorization"], "Bearer access-token")
 
 

@@ -225,7 +225,7 @@ class DashboardApprovalRouteTests(unittest.TestCase):
         self.thread.join(timeout=5)
 
     def _post(self, path: str) -> tuple[int, str]:
-        request = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", data=b"", method="POST")
+        request = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", data=b"", headers={"Origin": f"http://127.0.0.1:{self.port}"}, method="POST")
         try:
             with urllib.request.urlopen(request, timeout=5) as response:
                 return response.status, response.read().decode("utf-8")
@@ -420,7 +420,7 @@ class GenerationEditRouteTests(unittest.TestCase):
 
     def _post_form(self, path: str, data: dict[str, str]) -> tuple[int, str]:
         body = urlencode(data).encode()
-        request = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", data=body, method="POST")
+        request = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", data=body, headers={"Origin": f"http://127.0.0.1:{self.port}"}, method="POST")
         try:
             with urllib.request.urlopen(request, timeout=5) as response:
                 return response.status, response.read().decode("utf-8")
@@ -987,7 +987,7 @@ class EditApprovePromotionIntegrationTests(unittest.TestCase):
 
     def _post(self, path: str, data: dict[str, str] | None = None) -> tuple[int, str]:
         body = urlencode(data).encode() if data is not None else b""
-        request = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", data=body, method="POST")
+        request = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", data=body, headers={"Origin": f"http://127.0.0.1:{self.port}"}, method="POST")
         try:
             with urllib.request.urlopen(request, timeout=5) as response:
                 return response.status, response.read().decode("utf-8")

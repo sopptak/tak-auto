@@ -345,3 +345,28 @@ NOT_IMPLEMENTED, 표시 레이어의 읽기 전용 조인만 IMPLEMENTED"로
 정확히 구분했다 - 스키마를 깨뜨리지 않았다. 전체 1275개 테스트가
 failed=0/errors=0으로 통과했고, 실제 `data/` 운영 디렉터리는
 어디에서도 생성/수정되지 않았다.
+
+
+## 28. Human-approved insight to next content (explicit opt-in)
+
+Trend Content Factory can now use an accepted Insight as optional editorial
+guidance, but acceptance alone never triggers generation. The operator must
+select one or more Insight checkboxes on a trend card and submit that specific
+`/generate` request.
+
+- Only `status=accepted` records are eligible. Candidate, rejected, unknown,
+  and `INSUFFICIENT_SAMPLE` records are rejected server-side.
+- At most five Insights can be selected for one generation request.
+- The prompt labels these records as historical observations, not factual
+  sources. They may inform hook/format/structure only; they cannot supply facts,
+  statistics, quotations, or claims about the current trend.
+- The current trend's verified source URLs remain the only factual source set.
+- The preview stores the selected Insight IDs and a bounded summary, then
+  displays which references were used. This makes the feedback lineage
+  reviewable without changing Performance, KNOWLEDGE, MEDIA, or Insight status.
+- No selection is required. Existing content generation remains unchanged when
+  the operator leaves all checkboxes empty.
+
+The selection is validated again at POST time, so a stale page cannot use an
+Insight that has since been rejected. This is an explicit human-controlled
+feedback path, not an automatic strategy optimizer.

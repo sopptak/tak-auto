@@ -8,9 +8,9 @@ scheduled Threads collection은 `--scheduled`로 기존 publish history, Perform
 store, Threads Insights collector를 재사용한다. GitHub Actions live 호출에는 전용
 opt-in 환경변수와 `--confirm-live`가 모두 필요하다.
 
-6-02 안전장치: platform=threads/youtube는 ``--dry-run``도 ``--confirm-live``도
-주지 않으면 **아무 것도 하지 않고 거부한다**(에러 메시지만 출력하고 종료 코드
-1). 6-01에서 이 Codespace 환경에 실제 THREADS_ACCESS_TOKEN/YOUTUBE_*가 이미
+6-02 안전장치: platform=threads/youtube/instagram/facebook/tiktok은 ``--dry-run``도
+``--confirm-live``도 주지 않으면 **아무 것도 하지 않고 거부한다**(에러 메시지만
+출력하고 종료 코드 1). 6-01에서 이 Codespace 환경에 실제 THREADS_ACCESS_TOKEN/YOUTUBE_*가 이미
 존재한다는 사실이 확인됐기 때문에, "--dry-run을 깜빡 빼먹은 실행"이 곧바로
 실제 API 호출로 이어지는 위험을 막기 위함이다. 실제 호출을 원하면 명시적으로
 ``--confirm-live``를 줘야 한다. GitHub Actions 환경(``GITHUB_ACTIONS=true``)에서는
@@ -50,6 +50,7 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = Path(os.getenv("TAK_AUTO_DATA_DIR", str(ROOT / "data"))).expanduser()
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -57,12 +58,20 @@ from content_engine.performance.blog import build_manual_blog_performance_record
 from content_engine.media_archive import load_archive
 from content_engine.performance.schedule import select_due_threads_targets
 from content_engine.performance.store import append_snapshot, load_snapshots
+from content_engine.performance.instagram import collect_instagram_performance
+from content_engine.performance.facebook import collect_facebook_performance
 from content_engine.performance.threads import collect_threads_performance
+from content_engine.performance.tiktok import collect_tiktok_performance
 from content_engine.performance.youtube import collect_youtube_performance
 from content_engine.publish_history import PublishHistory
+from content_engine.publishing_queue import PublishingQueue
+from content_engine.instagram_publisher import InstagramAPIError, InstagramConfigurationError, InstagramClient
+from content_engine.facebook_publisher import FacebookAPIError, FacebookClient, FacebookConfigurationError
 from content_engine.threads_publisher import ThreadsAPIError, ThreadsConfigurationError, ThreadsClient
+from content_engine.tiktok_publisher import TikTokAPIError, TikTokClient, TikTokConfigurationError
 from content_engine.threads_review import load_pending
 from content_engine.youtube_publisher import YouTubeConfigurationError, YouTubeClient
+from content_engine.social_oauth import OAuthTokenVault, SocialOAuthError, TOKEN_FILE_NAME
 
 
 def _parse_metric(raw: str) -> tuple[str, int]:
@@ -88,14 +97,24 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="publish history에서 lineage가 확인된 Threads 게시물의 due 24h/72h snapshot을 수집합니다.",
     )
-    parser.add_argument("--platform", choices=("threads", "youtube", "blog"))
+    parser.add_argument("--platform", choices=("threads", "youtube", "instagram", "facebook", "tiktok", "blog"))
+    parser.add_argument(
+        "--queue-content-id",
+        help="TAK AUTO 게시 대기열의 content_id로 발행 이력을 찾아 성과 수집 대상을 자동 지정합니다.",
+    )
+    parser.add_argument(
+        "--queue-history",
+        type=Path,
+        default=DATA_DIR / "tak_auto_publishing_queue.json",
+        help="게시 대기열 경로 (--queue-content-id 사용 시)",
+    )
     parser.add_argument("--content-id", help="archive/발행 이력의 content_id")
     parser.add_argument("--knowledge-id", help="원본 KNOWLEDGE ID")
     parser.add_argument("--published-at", help="원본 발행 시각(ISO 8601)")
     parser.add_argument(
         "--external-id",
         default="",
-        help="platform별 원본 식별자: threads media id / youtube video id / blog url",
+        help="platform별 원본 식별자: Threads/Instagram media id / YouTube video id / blog url",
     )
     parser.add_argument("--title", default="", help="콘텐츠 제목(선택, 기록용)")
     parser.add_argument(
@@ -115,37 +134,37 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--store",
         type=Path,
-        default=ROOT / "data" / "tak_performance.json",
+        default=DATA_DIR / "tak_performance.json",
         help="성과 저장소 경로 (기본값: data/tak_performance.json)",
     )
     parser.add_argument(
         "--publish-history",
         type=Path,
-        default=ROOT / "data" / "threads_publish_log.json",
+        default=DATA_DIR / "threads_publish_log.json",
         help="scheduled 모드의 실제 Threads 발행 이력 경로",
     )
     parser.add_argument(
         "--production-archive",
         type=Path,
-        default=ROOT / "data" / "tak_media_archive.json",
+        default=DATA_DIR / "tak_media_archive.json",
         help="scheduled 모드의 Production Archive 경로",
     )
     parser.add_argument(
         "--threads-pending",
         type=Path,
-        default=ROOT / "data" / "tak_threads_pending.json",
+        default=DATA_DIR / "tak_threads_pending.json",
         help="scheduled 모드의 Threads 게시 완료 상태 경로",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="실제 API 호출(threads/youtube)과 저장을 하지 않고, 무엇을 할지만 출력한다.",
+        help="실제 API 호출(threads/youtube/instagram/facebook/tiktok)과 저장을 하지 않고, 무엇을 할지만 출력한다.",
     )
     parser.add_argument(
         "--confirm-live",
         action="store_true",
-        help="platform=threads/youtube에서 실제 API를 호출하겠다는 명시적 동의(6-02). "
-        "--dry-run도 이 플래그도 없으면 threads/youtube는 아무 것도 하지 않고 거부한다.",
+        help="platform=threads/youtube/instagram/facebook/tiktok에서 실제 API를 호출하겠다는 명시적 동의. "
+        "--dry-run도 이 플래그도 없으면 아무 것도 하지 않고 거부한다.",
     )
     return parser
 
@@ -161,7 +180,7 @@ def _guard_live_network_call(
     confirm_live: bool,
     environ: Mapping[str, str] | None = None,
 ) -> str | None:
-    """threads/youtube 실제 API 호출을 시도해도 되는지 판단한다.
+    """지원 네트워크 플랫폼의 실제 API 호출을 시도해도 되는지 판단한다.
 
     문제가 없으면 None, 거부해야 하면 사람이 읽을 오류 메시지를 반환한다 - 이
     함수는 어떤 네트워크 호출도, 어떤 클라이언트 생성도 하지 않는다(순수 판단
@@ -182,6 +201,71 @@ def _guard_live_network_call(
             "막기 위한 안전장치입니다."
         )
     return None
+
+
+def _oauth_connection(platform: str, environ: Mapping[str, str]) -> Mapping[str, object] | None:
+    encryption_key = str(environ.get("TAK_AUTO_OAUTH_ENCRYPTION_KEY", "")).strip()
+    if not encryption_key:
+        return None
+    path = Path(environ.get("TAK_AUTO_DATA_DIR", str(DATA_DIR))) / TOKEN_FILE_NAME
+    return OAuthTokenVault(path, encryption_key).get(platform)
+
+
+def _connection_not_expired(connection: Mapping[str, object]) -> None:
+    expiry = str(connection.get("expires_at") or "").strip()
+    if not expiry:
+        return
+    try:
+        expires_at = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+    except ValueError:
+        raise ValueError("OAuth 토큰 만료일 형식이 올바르지 않습니다. 계정을 다시 연결하세요.") from None
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at.astimezone(timezone.utc) <= datetime.now(timezone.utc):
+        raise ValueError("OAuth 액세스 토큰이 만료되었습니다. 계정을 다시 연결하세요.")
+
+
+def _facebook_insights_client(environ: Mapping[str, str]) -> FacebookClient:
+    connection = _oauth_connection("facebook", environ)
+    if connection:
+        scopes = {scope for scope in str(connection.get("granted_scopes", "")).replace(",", " ").split() if scope}
+        required_scopes = {"read_insights", "pages_read_engagement"}
+        if not required_scopes.issubset(scopes):
+            missing = ", ".join(sorted(required_scopes - scopes))
+            raise FacebookConfigurationError(f"Facebook 성과 권한({missing})이 없습니다. 계정을 다시 연결하세요.")
+        tasks = connection.get("tasks", [])
+        if not isinstance(tasks, list) or "ANALYZE" not in tasks:
+            raise FacebookConfigurationError("선택한 Facebook 페이지에 ANALYZE 작업 권한이 없습니다.")
+        _connection_not_expired(connection)
+        token = str(connection.get("access_token", "")).strip()
+        page_id = str(connection.get("account_id", "")).strip()
+    else:
+        token = str(environ.get("FACEBOOK_ACCESS_TOKEN", "")).strip()
+        page_id = str(environ.get("FACEBOOK_PAGE_ID", "")).strip()
+    if not token or not page_id:
+        raise FacebookConfigurationError("Facebook 페이지 성과 수집에 페이지 액세스 토큰과 페이지 ID가 필요합니다.")
+    return FacebookClient(
+        access_token=token,
+        page_id=page_id,
+        api_version=str(environ.get("META_GRAPH_API_VERSION", "v27.0")).strip(),
+    )
+
+
+def _tiktok_video_client(environ: Mapping[str, str]) -> TikTokClient:
+    connection = _oauth_connection("tiktok", environ)
+    if connection:
+        scopes = {scope for scope in str(connection.get("granted_scopes", "")).replace(",", " ").split() if scope}
+        if "video.list" not in scopes:
+            raise TikTokConfigurationError("TikTok 영상 조회 권한(video.list)이 없습니다. 계정을 다시 연결하세요.")
+        _connection_not_expired(connection)
+        token = str(connection.get("access_token", "")).strip()
+        open_id = str(connection.get("account_id", "")).strip()
+    else:
+        token = str(environ.get("TIKTOK_ACCESS_TOKEN", "")).strip()
+        open_id = str(environ.get("TIKTOK_OPEN_ID", "")).strip()
+    if not token or not open_id:
+        raise TikTokConfigurationError("TikTok 성과 수집에 액세스 토큰과 Open ID가 필요합니다.")
+    return TikTokClient(access_token=token, open_id=open_id)
 
 
 def _run_scheduled(args: argparse.Namespace) -> int:
@@ -268,9 +352,62 @@ def _run_scheduled(args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def _resolve_queue_history_target(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    """Populate platform/content lineage from one confirmed published queue record."""
+    if not args.queue_content_id:
+        return
+    if args.scheduled:
+        parser.error("--queue-content-id는 --scheduled와 함께 사용할 수 없습니다.")
+    if any((args.platform, args.content_id, args.knowledge_id, args.published_at, args.external_id, args.title, args.metrics)):
+        parser.error("--queue-content-id 사용 시 개별 콘텐츠 입력 옵션은 지정하지 마세요.")
+    try:
+        history = PublishingQueue(args.queue_history).snapshot().get("history", [])
+    except (OSError, ValueError) as error:
+        parser.error(f"게시 대기열 이력을 읽을 수 없습니다: {error}")
+    matches = [
+        row for row in history
+        if isinstance(row, dict) and row.get("content_id") == args.queue_content_id
+    ]
+    if len(matches) != 1:
+        parser.error(
+            f"게시 대기열에서 content_id={args.queue_content_id!r} 이력이 "
+            f"정확히 1건이어야 합니다(현재 {len(matches)}건)."
+        )
+    row = matches[0]
+    platform_map = {
+        "threads": "threads", "youtube_shorts": "youtube", "instagram_reels": "instagram",
+        "facebook": "facebook", "tiktok": "tiktok",
+    }
+    platform = platform_map.get(str(row.get("platform") or ""))
+    if platform is None:
+        parser.error(
+            f"플랫폼 {row.get('platform')!r}은 아직 성과 API 수집 대상이 아닙니다. "
+            "현재 자동 연결은 Threads, YouTube Shorts, Instagram Reels, Facebook 페이지, TikTok을 지원합니다."
+        )
+    required = {
+        "content_id": str(row.get("content_id") or ""),
+        "knowledge_id": str(row.get("knowledge_id") or ""),
+        "published_at": str(row.get("published_at") or ""),
+        "external_id": str(row.get("remote_id") or ""),
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        parser.error(
+            "게시 이력에 성과 추적 필수 정보가 없습니다: " + ", ".join(missing)
+            + ". 게시 당시의 KNOWLEDGE 연결과 원격 게시 ID를 확인하세요."
+        )
+    args.platform = platform
+    args.content_id = required["content_id"]
+    args.knowledge_id = required["knowledge_id"]
+    args.published_at = required["published_at"]
+    args.external_id = required["external_id"]
+    args.title = str(row.get("title") or "")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
+    _resolve_queue_history_target(args, parser)
 
     if args.scheduled:
         if any(
@@ -347,6 +484,85 @@ def main(argv: list[str] | None = None) -> int:
         _print_result(added, record, args.store)
         return 0
 
+    if args.platform == "instagram":
+        guard_error = _guard_live_network_call("instagram", args.dry_run, args.confirm_live)
+        if guard_error is not None:
+            print(f"오류: {guard_error}", file=sys.stderr)
+            return 1
+        if args.dry_run:
+            print(
+                f"[dry-run] Instagram media stats 조회 예정: content_id={args.content_id}, "
+                f"media_id={args.external_id} (실제 API 호출하지 않음; likes/comments만 수집)"
+            )
+            return 0
+        try:
+            client = InstagramClient.from_environment_or_oauth()
+            record = collect_instagram_performance(
+                client,
+                media_id=args.external_id,
+                content_id=args.content_id,
+                knowledge_id=args.knowledge_id,
+                published_at=args.published_at,
+                metric_collected_at=collected_at,
+                title=args.title,
+            )
+        except (InstagramAPIError, InstagramConfigurationError, OSError, ValueError) as error:
+            print(f"오류: Instagram 성과를 수집하지 못했습니다: {type(error).__name__}: {error}", file=sys.stderr)
+            return 1
+        added = append_snapshot(args.store, record)
+        _print_result(added, record, args.store)
+        return 0
+
+    if args.platform == "facebook":
+        guard_error = _guard_live_network_call("facebook", args.dry_run, args.confirm_live)
+        if guard_error is not None:
+            print(f"오류: {guard_error}", file=sys.stderr)
+            return 1
+        if args.dry_run:
+            print(
+                f"[dry-run] Facebook Page post insights 조회 예정: content_id={args.content_id}, "
+                f"post_id={args.external_id} (실제 API 호출하지 않음; views/reactions만 수집)"
+            )
+            return 0
+        try:
+            client = _facebook_insights_client(os.environ)
+            record = collect_facebook_performance(
+                client, post_id=args.external_id, content_id=args.content_id,
+                knowledge_id=args.knowledge_id, published_at=args.published_at,
+                metric_collected_at=collected_at, title=args.title,
+            )
+        except (FacebookAPIError, FacebookConfigurationError, SocialOAuthError, OSError, ValueError) as error:
+            print(f"오류: Facebook 성과를 수집하지 못했습니다: {type(error).__name__}: {error}", file=sys.stderr)
+            return 1
+        added = append_snapshot(args.store, record)
+        _print_result(added, record, args.store)
+        return 0
+
+    if args.platform == "tiktok":
+        guard_error = _guard_live_network_call("tiktok", args.dry_run, args.confirm_live)
+        if guard_error is not None:
+            print(f"오류: {guard_error}", file=sys.stderr)
+            return 1
+        if args.dry_run:
+            print(
+                f"[dry-run] TikTok video/query 조회 예정: content_id={args.content_id}, "
+                f"video_id={args.external_id} (실제 API 호출하지 않음)"
+            )
+            return 0
+        try:
+            client = _tiktok_video_client(os.environ)
+            record = collect_tiktok_performance(
+                client, video_id=args.external_id, content_id=args.content_id,
+                knowledge_id=args.knowledge_id, published_at=args.published_at,
+                metric_collected_at=collected_at, title=args.title,
+            )
+        except (TikTokAPIError, TikTokConfigurationError, SocialOAuthError, OSError, ValueError) as error:
+            print(f"오류: TikTok 성과를 수집하지 못했습니다: {type(error).__name__}: {error}", file=sys.stderr)
+            return 1
+        added = append_snapshot(args.store, record)
+        _print_result(added, record, args.store)
+        return 0
+
     # platform == "youtube"
     guard_error = _guard_live_network_call("youtube", args.dry_run, args.confirm_live)
     if guard_error is not None:
@@ -359,7 +575,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     try:
-        client = YouTubeClient.from_environment()
+        client = YouTubeClient.from_environment_or_oauth(
+            required_scope="https://www.googleapis.com/auth/youtube.readonly",
+        )
     except YouTubeConfigurationError as error:
         print(f"오류: {error}", file=sys.stderr)
         return 1
