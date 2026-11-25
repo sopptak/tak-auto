@@ -33,7 +33,7 @@ try {
     if ($env:TAK_AUTO_FREE_MODE -ne "true" -or $env:TAK_AUTO_PUBLISHING_ENABLED -ne "false") {
         throw "The launcher must enable free mode and keep publishing disabled."
     }
-    $expectedData = [IO.Path]::GetFullPath((Join-Path $testRoot "data/free-trend-factory"))
+    $expectedData = [IO.Path]::GetFullPath((Join-Path $repoRoot "data/free-trend-factory"))
     if ([IO.Path]::GetFullPath($env:TAK_AUTO_DATA_DIR) -ne $expectedData) {
         throw "The launcher selected an unexpected data directory."
     }
