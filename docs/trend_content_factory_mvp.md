@@ -16,6 +16,18 @@ py scripts/run_trend_content_mvp.py
 ```
 브라우저에서 `http://127.0.0.1:8765`를 엽니다.
 
+## Perplexity API 없이 로컬 무료 템플릿 모드
+
+Perplexity 키가 없거나 API 호출을 원하지 않으면 Windows PowerShell에서 다음을 실행합니다.
+
+```powershell
+powershell -File scripts/start_free_trend_factory.ps1
+```
+
+브라우저에서 `http://127.0.0.1:8080`을 엽니다. 화면의 **자료 직접 입력 · 무료**에서 주제, 출처 URL, 직접 확인한 근거 3개 이상(각 근거 12자 이상)을 입력하면 규칙 기반 템플릿 초안을 저장합니다. 자료를 입력하지 않으면 웹 조사를 수행하지 않습니다.
+
+이 모드의 런처는 `TAK_AUTO_FREE_MODE=true` 및 `TAK_AUTO_PUBLISHING_ENABLED=false`를 설정하고 데이터를 `data/free-trend-factory`에 저장합니다. Perplexity 조사와 AI 수정은 유료 API를 호출하지 않고 사용할 수 없다는 안내를 표시합니다. 템플릿은 출처를 열어 보거나 사실을 검증하지 않으므로, 게시 전 사람이 원문을 확인해야 합니다. 이 로컬 경로는 Render 서비스를 만들거나 배포하지 않습니다.
+
 ## 사용
 1. **Perplexity 최신 트렌드 TOP 20 조사**를 누릅니다.
 2. 분야가 섞인 최근 7일 트렌드 후보와 출처, 독자 질문, 콘텐츠 관점을 확인합니다.
