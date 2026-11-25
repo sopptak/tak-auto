@@ -1,4 +1,5 @@
 import base64
+from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPConnection
 from urllib.parse import urlencode
 import json
@@ -212,6 +213,39 @@ class SocialOAuthRouteTests(unittest.TestCase):
                 server.shutdown()
                 server.server_close()
                 worker.join(timeout=3)
+
+
+    def test_facebook_page_selection_cap_and_single_use_are_thread_safe(self):
+        with app._PENDING_FACEBOOK_CHOICES_LOCK:
+            previous = dict(app._PENDING_FACEBOOK_CHOICES)
+            app._PENDING_FACEBOOK_CHOICES.clear()
+
+        def restore_pending_choices():
+            with app._PENDING_FACEBOOK_CHOICES_LOCK:
+                app._PENDING_FACEBOOK_CHOICES.clear()
+                app._PENDING_FACEBOOK_CHOICES.update(previous)
+
+        self.addCleanup(restore_pending_choices)
+
+        def create_selection(_):
+            try:
+                return app._store_pending_facebook_choices(
+                    [{"account_id": "page-1"}], "pages_show_list",
+                )
+            except app.SocialOAuthError:
+                return None
+
+        with ThreadPoolExecutor(max_workers=32) as pool:
+            selection_ids = list(pool.map(create_selection, range(160)))
+
+        accepted = [selection_id for selection_id in selection_ids if selection_id]
+        self.assertEqual(len(accepted), app.MAX_PENDING_FACEBOOK_CHOICES)
+        with app._PENDING_FACEBOOK_CHOICES_LOCK:
+            self.assertEqual(len(app._PENDING_FACEBOOK_CHOICES), app.MAX_PENDING_FACEBOOK_CHOICES)
+
+        selection_id = accepted[0]
+        self.assertIsNotNone(app._consume_pending_facebook_choices(selection_id))
+        self.assertIsNone(app._consume_pending_facebook_choices(selection_id))
 
 
 if __name__ == "__main__":
