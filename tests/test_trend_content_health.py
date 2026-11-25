@@ -61,13 +61,13 @@ class TrendContentHealthTests(unittest.TestCase):
             ("운영자", "비밀번호🔒", "운영자", "비밀번호🔒", True),
             ("운영자", "비밀번호🔒", "operator", "secret", False),
             ("운영자", "틀린암호", "운영자", "비밀번호🔒", False),
-            ("operator", "secret", "operator", " \\t ", False),
+            ("operator", "secret", "operator", " \t ", False),
         ):
             header = "Basic " + base64.b64encode(f"{user}:{password}".encode("utf-8")).decode("ascii")
             self.assertEqual(run_trend_content_mvp._basic_auth_valid(header, configured_user, configured_password), expected)
 
     def test_local_bind_rejects_partial_auth_configuration(self):
-        for username, password in (("operator", ""), ("operator", " \\t "), ("", "secret")):
+        for username, password in (("operator", ""), ("operator", " \t "), ("", "secret")):
             with self.subTest(username=username, password=password), patch.dict("os.environ", {
                 "TAK_WEB_USERNAME": username,
                 "TAK_WEB_PASSWORD": password,
