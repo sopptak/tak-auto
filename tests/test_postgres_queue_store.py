@@ -18,6 +18,19 @@ from scripts.run_publishing_queue import run_once
 
 
 class QueueBackendTests(unittest.TestCase):
+    def test_connection_failure_logs_category_without_secret_or_hostname(self):
+        import psycopg
+
+        error = psycopg.OperationalError("certificate verify failed for private.example; password=private-token")
+        store = PostgresQueueStore("unused", connect=Mock(side_effect=error))
+        with self.assertLogs("content_engine.postgres_queue_store", level="WARNING") as captured:
+            with self.assertRaises(QueueStoreError) as raised:
+                store.ready()
+        self.assertIn("(tls)", captured.output[0])
+        for secret in ("private-token", "private.example"):
+            self.assertNotIn(secret, str(raised.exception))
+            self.assertNotIn(secret, captured.output[0])
+
     def test_postgres_configuration_never_falls_back_to_json(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "queue.json"

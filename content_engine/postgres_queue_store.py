@@ -4,11 +4,32 @@ from __future__ import annotations
 from collections.abc import Mapping
 from contextlib import contextmanager
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 from .publishing_queue import PublishingQueue, QueueStoreError
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _failure_category(error: Exception) -> str:
+    code = getattr(error, "sqlstate", None)
+    message = str(error).lower()
+    if code in {"28000", "28P01"} or "password authentication failed" in message or "tenant or user not found" in message:
+        return "authentication"
+    if "certificate" in message or "ssl error" in message:
+        return "tls"
+    if code == "42501":
+        return "permissions"
+    if code in {"42P01", "3F000"}:
+        return "schema"
+    if "timeout" in message or "timed out" in message or code in {"55P03", "57014"}:
+        return "timeout"
+    if isinstance(error, ValueError):
+        return "configuration"
+    return "database_unavailable"
 
 
 def _encode_state(state: dict[str, Any]) -> str:
@@ -42,8 +63,9 @@ class PostgresQueueStore:
                 connection.execute("SET LOCAL statement_timeout = '5s'")
                 connection.execute("SET LOCAL lock_timeout = '2s'")
                 yield connection
-        except (psycopg.Error, ValueError, OSError):
+        except (psycopg.Error, ValueError, OSError) as error:
             # Do not expose server messages, credentials, or the queue payload.
+            _LOGGER.warning("Postgres queue connection check failed (%s)", _failure_category(error))
             raise QueueStoreError("게시 대기열 데이터베이스 요청을 완료하지 못했습니다.") from None
 
     def read(self) -> tuple[int, dict[str, Any]]:
