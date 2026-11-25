@@ -24,6 +24,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 CALLBACK_PATH = "/connections/oauth/callback/"
 TOKEN_FILE_NAME = "social_oauth_tokens.enc"
 FLOW_TTL_SECONDS = 900
+MAX_PENDING_OAUTH_FLOWS = 100
 ALLOWED_HOSTS = frozenset({
     "accounts.google.com", "oauth2.googleapis.com", "youtube.googleapis.com",
     "www.tiktok.com", "open.tiktokapis.com",
@@ -164,6 +165,8 @@ class OAuthFlowRegistry:
         }
         with self._lock:
             self._prune_locked()
+            if len(self._flows) >= MAX_PENDING_OAUTH_FLOWS:
+                raise SocialOAuthError("OAuth 연결 요청이 너무 많이 대기 중입니다. 잠시 후 다시 시도하세요.")
             self._flows[state] = entry
         return state, entry
 

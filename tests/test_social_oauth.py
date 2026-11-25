@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, urlsplit
 from cryptography.fernet import Fernet
 
 from content_engine.social_oauth import (
-    OAuthFlowRegistry, OAuthTokenVault, PROVIDERS, SocialOAuthClient, SocialOAuthError,
+    MAX_PENDING_OAUTH_FLOWS, OAuthFlowRegistry, OAuthTokenVault, PROVIDERS, SocialOAuthClient, SocialOAuthError,
     callback_uri, setup_status,
 )
 
@@ -103,6 +103,18 @@ class SocialOAuthTests(unittest.TestCase):
         self.assertEqual(registry.consume("youtube_shorts", state, state)["platform"], "youtube_shorts")
         with self.assertRaisesRegex(SocialOAuthError, "만료되었거나 이미 사용"):
             registry.consume("youtube_shorts", state, state)
+
+    def test_pending_oauth_flows_are_bounded_and_consumed_slots_can_be_reused(self):
+        registry = OAuthFlowRegistry(now=lambda: datetime(2026, 11, 17, tzinfo=timezone.utc))
+        states = [
+            registry.create("threads", "https://example.test/callback")[0]
+            for _ in range(MAX_PENDING_OAUTH_FLOWS)
+        ]
+        with self.assertRaisesRegex(SocialOAuthError, "너무 많이 대기"):
+            registry.create("threads", "https://example.test/callback")
+        registry.consume("threads", states[0], states[0])
+        replacement, _ = registry.create("threads", "https://example.test/callback")
+        self.assertNotIn(replacement, states)
 
     def test_vault_encrypts_tokens_returns_only_public_profile_and_disconnects(self):
         with tempfile.TemporaryDirectory() as directory:
