@@ -2,9 +2,11 @@ import io
 import os
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
-from content_engine.media_assets import MediaAssetError, MediaAssetStore, is_public_https_origin
+from content_engine.media_assets import MIN_REMAINING_MEDIA_BYTES, MediaAssetError, MediaAssetStore, is_public_https_origin
 
 
 def mp4_bytes():
@@ -45,6 +47,38 @@ class MediaAssetStoreTests(unittest.TestCase):
             self.store.save_stream(io.BytesIO(payload), len(payload), "video.mov")
         with self.assertRaisesRegex(MediaAssetError, "길이가 Content-Length"):
             self.store.save_stream(io.BytesIO(payload[:-1]), len(payload), "video.mp4")
+
+    def test_upload_reserves_disk_headroom_before_reading_or_writing(self):
+        payload = mp4_bytes()
+        stream = io.BytesIO(payload)
+        low_space = SimpleNamespace(
+            total=1024**3, used=1024**3,
+            free=MIN_REMAINING_MEDIA_BYTES + len(payload) - 1,
+        )
+        with patch("content_engine.media_assets.shutil.disk_usage", return_value=low_space):
+            with self.assertRaisesRegex(OSError, "insufficient media storage"):
+                self.store.save_stream(stream, len(payload), "approved.mp4")
+        self.assertEqual(stream.tell(), 0)
+        self.assertEqual(self.store.list_assets(), [])
+        self.assertEqual(list(self.store.asset_dir.iterdir()), [])
+
+    def test_upload_can_use_exactly_the_space_above_reserved_headroom(self):
+        payload = mp4_bytes()
+        enough_space = SimpleNamespace(
+            total=1024**3, used=1024**3,
+            free=MIN_REMAINING_MEDIA_BYTES + len(payload),
+        )
+        with patch("content_engine.media_assets.shutil.disk_usage", return_value=enough_space):
+            asset = self.store.save_stream(io.BytesIO(payload), len(payload), "approved.mp4")
+        self.assertEqual(asset.path.read_bytes(), payload)
+
+    def test_malformed_signature_is_rejected_before_asset_lookup(self):
+        for signature in ("한글", "é" * 64, "0" * 63, "g" * 64, None, b"0" * 64):
+            with self.subTest(signature=signature):
+                with patch.object(self.store, "get_asset") as lookup:
+                    with self.assertRaisesRegex(MediaAssetError, "서명"):
+                        self.store.resolve_signed("a" * 32, "4600", signature, now=2000)
+                    lookup.assert_not_called()
 
     def test_signed_url_resolves_only_with_matching_signature_and_expiry(self):
         payload = mp4_bytes()

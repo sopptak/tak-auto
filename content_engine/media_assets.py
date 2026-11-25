@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import tempfile
 import threading
 from typing import BinaryIO
@@ -22,8 +23,10 @@ from urllib.parse import urlencode, urlsplit
 
 ASSET_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
 DEFAULT_MAX_BYTES = 100 * 1024 * 1024
+MIN_REMAINING_MEDIA_BYTES = 64 * 1024 * 1024
 MAX_SIGNED_URL_TTL_SECONDS = 30 * 24 * 60 * 60
 _INDEX_LOCK = threading.Lock()
+_UPLOAD_LOCK = threading.Lock()
 
 
 def is_public_https_origin(value: str) -> bool:
@@ -156,6 +159,13 @@ class MediaAssetStore:
 
     def save_stream(self, stream: BinaryIO, content_length: int, filename: str,
                     *, max_bytes: int = DEFAULT_MAX_BYTES) -> MediaAsset:
+        # Serialize the headroom check with uploads so concurrent requests cannot
+        # all allocate against the same free-space snapshot.
+        with _UPLOAD_LOCK:
+            return self._save_stream_locked(stream, content_length, filename, max_bytes=max_bytes)
+
+    def _save_stream_locked(self, stream: BinaryIO, content_length: int, filename: str,
+                            *, max_bytes: int) -> MediaAsset:
         if content_length <= 0 or content_length > max_bytes:
             raise MediaAssetError(f"MP4 파일 크기는 1~{max_bytes // (1024 * 1024)}MB 범위여야 합니다.")
         safe_name = Path(str(filename or "video.mp4").replace("\\", "/")).name
@@ -163,6 +173,9 @@ class MediaAssetStore:
         if not safe_name.lower().endswith(".mp4"):
             raise MediaAssetError("MP4 파일만 등록할 수 있습니다.")
         self.asset_dir.mkdir(parents=True, exist_ok=True)
+        free_bytes = shutil.disk_usage(self.asset_dir).free
+        if free_bytes - content_length < MIN_REMAINING_MEDIA_BYTES:
+            raise OSError("insufficient media storage space")
         asset_id = os.urandom(16).hex()
         final_path = self.asset_dir / f"{asset_id}.mp4"
         written = 0
@@ -238,7 +251,9 @@ class MediaAssetStore:
         current = int(datetime.now(timezone.utc).timestamp()) if now is None else int(now)
         if expires_at <= current or expires_at > current + MAX_SIGNED_URL_TTL_SECONDS:
             raise MediaAssetError("미디어 URL이 만료되었거나 유효기간이 올바르지 않습니다.")
+        if not isinstance(signature, str) or re.fullmatch(r"[0-9a-f]{64}", signature) is None:
+            raise MediaAssetError("미디어 URL 서명을 확인할 수 없습니다.")
         expected = self._signature(asset_id, expires_at)
-        if not signature or not hmac.compare_digest(expected, signature):
+        if not hmac.compare_digest(expected, signature):
             raise MediaAssetError("미디어 URL 서명을 확인할 수 없습니다.")
         return self.get_asset(asset_id)
