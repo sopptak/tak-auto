@@ -23,6 +23,66 @@ PLATFORMS = ("blog", "youtube_shorts", "threads", "facebook", "instagram_reels",
 _QUEUE_LOCK = threading.RLock()
 
 
+_PROCESS_LOCK_STATE = threading.local()
+
+
+@contextmanager
+def _cross_process_lock(queue_path: Path):
+    """Serialize file-backed queue operations across local worker processes."""
+    lock_path = queue_path.with_name(f".{queue_path.name}.lock")
+    lock_key = str(lock_path.resolve())
+    held_paths = getattr(_PROCESS_LOCK_STATE, "held_paths", None)
+    if held_paths is None:
+        held_paths = set()
+        _PROCESS_LOCK_STATE.held_paths = held_paths
+    if lock_key in held_paths:
+        yield
+        return
+
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    handle = lock_path.open("a+b")
+    try:
+        try:
+            os.chmod(lock_path, 0o600)
+        except OSError:
+            pass
+        if os.name == "nt":
+            import errno
+            import msvcrt
+            import time
+
+            # Locking beyond EOF is supported by Windows. Keep the lock file
+            # empty so simultaneous initialization cannot race on a seed write.
+            handle.seek(0)
+            while True:
+                try:
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError as error:
+                    if error.errno not in {errno.EACCES, errno.EDEADLK}:
+                        raise
+                    time.sleep(0.05)
+            held_paths.add(lock_key)
+            try:
+                yield
+            finally:
+                held_paths.remove(lock_key)
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            held_paths.add(lock_key)
+            try:
+                yield
+            finally:
+                held_paths.remove(lock_key)
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    finally:
+        handle.close()
+
+
 class QueueError(ValueError):
     """Invalid queue state or operation."""
 
@@ -133,6 +193,22 @@ def _identity(content_id: str, platform: str, payload: Mapping[str, Any]) -> str
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _matches_approved_content(item: Mapping[str, Any]) -> bool:
+    """Reject content that no longer matches the identity approved by the operator."""
+    content_id, platform, payload = item.get("content_id"), item.get("platform"), item.get("payload")
+    if not isinstance(content_id, str) or not content_id.strip():
+        return False
+    if not isinstance(platform, str) or platform not in PLATFORMS:
+        return False
+    if not isinstance(payload, dict) or not payload:
+        return False
+    try:
+        key = _identity(content_id, platform, payload)
+    except (TypeError, ValueError):
+        return False
+    return item.get("idempotency_key") == key and item.get("id") == key[:24]
+
+
 def _history_record(item: Mapping[str, Any], remote_id: str, current: datetime) -> dict[str, Any]:
     payload = item.get("payload")
     if not isinstance(payload, Mapping):
@@ -158,8 +234,9 @@ class PublishingQueue:
     def _edit(self) -> Iterator[tuple[dict[str, Any], Callable[[], None]]]:
         with _QUEUE_LOCK:
             if self._store is None:
-                data = _read(self.path)
-                yield data, lambda: _write(self.path, data)
+                with _cross_process_lock(self.path):
+                    data = _read(self.path)
+                    yield data, lambda: _write(self.path, data)
                 return
 
             store = self._store
@@ -375,6 +452,14 @@ class PublishingQueue:
                 item.update(
                     status="failed", last_error="게시 승인 기록이 올바르지 않습니다.",
                     updated_at=_iso(current),
+                )
+                changed = True
+                results.append(item)
+                continue
+            if not _matches_approved_content(item):
+                item.update(
+                    status="failed", updated_at=_iso(current),
+                    last_error="승인 당시 콘텐츠와 저장된 작업이 일치하지 않습니다. 원고와 플랫폼을 다시 확인하세요.",
                 )
                 changed = True
                 results.append(item)

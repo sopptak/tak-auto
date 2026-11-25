@@ -1,4 +1,5 @@
 import json
+import multiprocessing
 import tempfile
 import unittest
 import os
@@ -12,6 +13,26 @@ from content_engine.publishing_queue import (
     QueueError, queue_dashboard,
 )
 from scripts.run_publishing_queue import run_once
+
+
+
+def _publish_with_gate(queue_path, due_time, entered, release):
+    queue = PublishingQueue(queue_path)
+
+    def publisher(*_args):
+        entered.set()
+        if not release.wait(timeout=15):
+            raise TimeoutError("publisher test gate was not released")
+        return "remote-process-lock-test"
+
+    queue.run_due(publisher, enabled=True, now=datetime.fromisoformat(due_time))
+
+
+def _snapshot_queue(queue_path, started, finished, status_queue):
+    started.set()
+    snapshot = PublishingQueue(queue_path).snapshot()
+    status_queue.put(snapshot["items"][0]["status"])
+    finished.set()
 
 
 class PublishingQueueTests(unittest.TestCase):
@@ -91,6 +112,65 @@ class PublishingQueueTests(unittest.TestCase):
         html = queue_dashboard(data, publishing_enabled=True)
         self.assertNotIn("/queue/retry", html)
         self.assertIn("/queue/confirm-published", html)
+
+    def test_process_lock_serializes_worker_publish_and_other_process_reads(self):
+        self.enqueue()
+        context = multiprocessing.get_context("spawn")
+        publisher_entered = context.Event()
+        release_publisher = context.Event()
+        snapshot_started = context.Event()
+        snapshot_finished = context.Event()
+        statuses = context.Queue()
+        due_time = (self.now + timedelta(minutes=2)).isoformat()
+        worker = context.Process(
+            target=_publish_with_gate,
+            args=(str(self.path), due_time, publisher_entered, release_publisher),
+        )
+        reader = context.Process(
+            target=_snapshot_queue,
+            args=(str(self.path), snapshot_started, snapshot_finished, statuses),
+        )
+        worker.start()
+        try:
+            self.assertTrue(publisher_entered.wait(timeout=10))
+            reader.start()
+            self.assertTrue(snapshot_started.wait(timeout=10))
+            self.assertFalse(snapshot_finished.wait(timeout=0.25))
+        finally:
+            release_publisher.set()
+            worker.join(timeout=15)
+            if reader.pid is not None:
+                reader.join(timeout=15)
+        self.assertFalse(worker.is_alive())
+        self.assertFalse(reader.is_alive())
+        self.assertEqual(worker.exitcode, 0)
+        self.assertEqual(reader.exitcode, 0)
+        self.assertEqual(statuses.get(timeout=2), "published")
+
+    def test_changed_approved_content_is_blocked_before_provider_call(self):
+        for field, value in (
+            ("payload", {"body": "승인 후 바뀐 원고"}),
+            ("payload", ["not a content object"]),
+            ("content_id", "different-content"),
+            ("platform", "threads"),
+            ("idempotency_key", "invalid-key"),
+            ("id", "different-job"),
+        ):
+            with self.subTest(field=field):
+                self.path.unlink(missing_ok=True)
+                self.enqueue()
+                data = self.queue.snapshot()
+                data["items"][0][field] = value
+                self.path.write_text(json.dumps(data), encoding="utf-8")
+                publisher = Mock(return_value="must-not-publish")
+                result = self.queue.run_due(
+                    publisher, enabled=True, now=self.now + timedelta(minutes=2),
+                )
+                publisher.assert_not_called()
+                self.assertEqual(result[0]["status"], "failed")
+                self.assertEqual(result[0]["attempts"], 0)
+                self.assertIn("다시 확인", result[0]["last_error"])
+                self.assertEqual(self.queue.snapshot()["history"], [])
 
     def test_future_job_waits_and_success_records_platform_history(self):
         item = self.enqueue()
