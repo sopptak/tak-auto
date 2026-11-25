@@ -68,13 +68,15 @@ class TrendContentHealthTests(unittest.TestCase):
 
     def test_local_bind_rejects_partial_auth_configuration(self):
         for username, password in (("operator", ""), ("operator", " \t "), ("", "secret")):
-            with self.subTest(username=username, password=password), patch.dict("os.environ", {
-                "TAK_WEB_USERNAME": username,
-                "TAK_WEB_PASSWORD": password,
-            }, clear=False):
-                with self.assertRaises(SystemExit) as error:
-                    run_trend_content_mvp.main(["--host", "127.0.0.1", "--port", "8765"])
-            self.assertEqual(error.exception.code, 2)
+            with self.subTest(username=username, password=password):
+                with patch.dict("os.environ", {
+                    "TAK_WEB_USERNAME": username,
+                    "TAK_WEB_PASSWORD": password,
+                }, clear=False), patch.object(run_trend_content_mvp, "ThreadingHTTPServer") as server:
+                    with self.assertRaises(SystemExit) as error:
+                        run_trend_content_mvp.main(["--host", "127.0.0.1", "--port", "8765"])
+                    server.assert_not_called()
+                self.assertEqual(error.exception.code, 2)
 
     def test_readiness_requires_persistent_storage(self):
         environ = {
