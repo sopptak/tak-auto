@@ -2188,10 +2188,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--host", default=os.getenv("TAK_AUTO_HOST", "127.0.0.1"), help="바인딩 주소 (클라우드: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=int(os.getenv("PORT", "8765")))
     args = parser.parse_args(argv)
-    if args.host not in {"127.0.0.1", "localhost"} and not (
-        os.getenv("TAK_WEB_USERNAME", "").strip() and os.getenv("TAK_WEB_PASSWORD", "").strip()
-    ):
+    username = os.getenv("TAK_WEB_USERNAME", "").strip()
+    password = os.getenv("TAK_WEB_PASSWORD", "")
+    auth_configured = bool(username and password.strip())
+    auth_partial = bool(username) != bool(password.strip())
+    is_loopback = args.host in {"127.0.0.1", "localhost"}
+    if not is_loopback and not auth_configured:
         parser.error("외부 공개 서버는 TAK_WEB_USERNAME과 TAK_WEB_PASSWORD 인증 설정이 필수입니다.")
+    if is_loopback and auth_partial:
+        parser.error("웹 인증을 사용하려면 TAK_WEB_USERNAME과 TAK_WEB_PASSWORD를 모두 설정하세요. 미설정 시 로컬 개발 모드로 실행됩니다.")
     if not 1 <= args.port <= 65535:
         parser.error("--port는 1~65535 범위여야 합니다.")
     print("TAK AUTO Trend Content Factory")
@@ -2199,7 +2204,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"데이터 디렉터리: {DATA_DIR}")
     if USING_EPHEMERAL_STORAGE:
         print("주의: 설정된 저장 경로를 쓸 수 없어 임시 저장소(/tmp)를 사용합니다. 재시작·재배포 시 데이터가 사라질 수 있습니다.")
-    print("웹 인증: 설정됨" if os.getenv("TAK_WEB_USERNAME") and os.getenv("TAK_WEB_PASSWORD") else "웹 인증: 로컬 개발 모드")
+    print("웹 인증: 설정됨" if auth_configured else "웹 인증: 로컬 개발 모드")
     print("Perplexity API 키: 설정됨" if os.getenv("TAK_SCOUT_PERPLEXITY_API_KEY") else "Perplexity API 키: 미설정")
     print("종료: Ctrl+C")
     server = ThreadingHTTPServer((args.host, args.port), create_handler())
