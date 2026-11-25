@@ -51,6 +51,8 @@ py -m unittest discover -s tests -p "test_trend_discovery.py" -v
 
 ## 클라우드 웹 실행 (PC 상시 실행 불필요)
 
+> **비용 주의:** `render.yaml`은 Starter 웹 서비스 2개와 Trend Factory용 1GB Persistent Disk를 선언합니다. Blueprint에서 리소스를 만들면 반복 비용이 발생할 수 있습니다. 생성 전에 Render 계정에서 현재 요금과 적용될 리소스를 확인하고 계정 소유자가 비용을 승인해야 합니다. 이 저장소 작업에서는 Render 서비스를 생성하거나 배포하지 않았습니다. 클라우드 비용 없이 먼저 확인하려면 위의 로컬 무료 템플릿 모드를 사용하세요.
+
 이 브랜치의 `render.yaml`에는 기존 서비스 설정을 유지하면서 별도 웹 서비스 `tak-auto-trend-factory`를 추가했습니다. Render의 Persistent Disk에 조사 결과와 콘텐츠 초안을 저장합니다.
 
 ### 최초 배포
