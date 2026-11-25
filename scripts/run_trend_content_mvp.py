@@ -89,6 +89,41 @@ MEDIA_ASSETS_DIR = DATA_DIR / "media_assets"
 MEDIA_ASSETS_PATH = DATA_DIR / "tak_auto_media_assets.json"
 OAUTH_FLOW_REGISTRY = OAuthFlowRegistry()
 _PENDING_FACEBOOK_CHOICES: dict[str, dict[str, object]] = {}
+_PENDING_FACEBOOK_CHOICES_LOCK = threading.Lock()
+MAX_PENDING_FACEBOOK_CHOICES = 100
+
+
+def _store_pending_facebook_choices(
+    choices: list[dict[str, object]],
+    scopes: str,
+    *,
+    now: datetime | None = None,
+) -> str:
+    """Atomically prune expired selections and enforce the pending-choice cap."""
+    created_at = now or datetime.now(timezone.utc)
+    with _PENDING_FACEBOOK_CHOICES_LOCK:
+        for key, value in list(_PENDING_FACEBOOK_CHOICES.items()):
+            try:
+                pending_at = datetime.fromisoformat(str(value.get("created_at", "")))
+                if created_at - pending_at > timedelta(seconds=FLOW_TTL_SECONDS):
+                    _PENDING_FACEBOOK_CHOICES.pop(key, None)
+            except (TypeError, ValueError):
+                _PENDING_FACEBOOK_CHOICES.pop(key, None)
+        if len(_PENDING_FACEBOOK_CHOICES) >= MAX_PENDING_FACEBOOK_CHOICES:
+            raise SocialOAuthError("페이지 선택이 너무 많이 대기 중입니다. 잠시 후 다시 시도하세요.")
+        selection_id = secrets.token_urlsafe(32)
+        _PENDING_FACEBOOK_CHOICES[selection_id] = {
+            "choices": choices,
+            "scopes": scopes,
+            "created_at": created_at.isoformat(),
+        }
+        return selection_id
+
+
+def _consume_pending_facebook_choices(selection_id: str) -> dict[str, object] | None:
+    """Remove a selection atomically so simultaneous submissions remain single-use."""
+    with _PENDING_FACEBOOK_CHOICES_LOCK:
+        return _PENDING_FACEBOOK_CHOICES.pop(selection_id, None)
 
 
 def _basic_auth_valid(header: str, username: str, password: str) -> bool:
@@ -1773,21 +1808,9 @@ def create_handler():
                     choices = result.get("choices", [])
                     if not isinstance(choices, list) or not choices:
                         raise SocialOAuthError("연결할 Facebook 페이지가 없습니다.")
-                    now = datetime.now(timezone.utc)
-                    for key, value in list(_PENDING_FACEBOOK_CHOICES.items()):
-                        try:
-                            created = datetime.fromisoformat(str(value.get("created_at", "")))
-                            if now - created > timedelta(seconds=FLOW_TTL_SECONDS):
-                                _PENDING_FACEBOOK_CHOICES.pop(key, None)
-                        except (TypeError, ValueError):
-                            _PENDING_FACEBOOK_CHOICES.pop(key, None)
-                    if len(_PENDING_FACEBOOK_CHOICES) >= 100:
-                        raise SocialOAuthError("페이지 선택이 너무 많이 대기 중입니다. 잠시 후 다시 시도하세요.")
-                    selection_id = secrets.token_urlsafe(32)
-                    _PENDING_FACEBOOK_CHOICES[selection_id] = {
-                        "choices": choices, "scopes": str(result.get("scopes", "")),
-                        "created_at": now.isoformat(),
-                    }
+                    selection_id = _store_pending_facebook_choices(
+                        choices, str(result.get("scopes", "")),
+                    )
                     select_cookie = _oauth_cookie("tak_facebook_selection", selection_id, secure=secure)
                     self._respond(facebook_page_selection_page(selection_id, choices), cookie=[clear_cookie, select_cookie])
                     return
@@ -1958,7 +1981,7 @@ def create_handler():
                 if not selection_id or not cookie_id or not hmac.compare_digest(selection_id, cookie_id):
                     self._respond(_page(_read_json(TREND_PATH, {}), [], "Facebook 페이지 선택 요청이 만료되었습니다. 다시 연결하세요."), 400)
                     return
-                pending = _PENDING_FACEBOOK_CHOICES.pop(selection_id, None)
+                pending = _consume_pending_facebook_choices(selection_id)
                 if not pending:
                     self._respond(_page(_read_json(TREND_PATH, {}), [], "Facebook 페이지 선택 시간이 만료되었습니다. 다시 연결하세요."), 400)
                     return
