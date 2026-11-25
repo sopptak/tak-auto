@@ -64,7 +64,11 @@ py -m unittest discover -s tests -p "test_trend_discovery.py" -v
    - `TAK_WEB_USERNAME`: 웹 로그인 아이디
    - `TAK_WEB_PASSWORD`: 충분히 길고 추측하기 어려운 웹 로그인 비밀번호
    - `TAK_SCOUT_PERPLEXITY_API_KEY`: Perplexity API 키
-6. 저장 후 배포가 끝나면 Render가 제공하는 `https://...onrender.com` 주소로 접속합니다. 브라우저의 인증 창에 위 아이디와 비밀번호를 입력합니다.
+6. 위 3개 값은 트렌드 조사와 텍스트 초안의 기본 설정입니다. 추가 기능은 다음 비밀값을 별도로 설정해야 합니다.
+   - SNS OAuth 계정 연결을 사용할 경우 `TAK_AUTO_OAUTH_ENCRYPTION_KEY`와 해당 플랫폼의 OAuth 앱 자격증명을 설정합니다.
+   - MP4 영상 업로드와 서명된 공개 영상 URL을 사용할 경우 `TAK_AUTO_MEDIA_SIGNING_KEY`를 설정합니다.
+   - 키 생성 방법과 공급자별 OAuth 설정은 [SNS 계정 연결 안내](social_account_oauth_setup.md)를 참고하세요. 비밀값은 로컬에서 생성해 Render Secret Environment Variable에만 입력하고 저장소나 채팅에 기록하지 않습니다.
+7. 저장 후 배포가 끝나면 Render가 제공하는 `https://...onrender.com` 주소로 접속합니다. 브라우저의 인증 창에 위 아이디와 비밀번호를 입력합니다.
 
 ### 운영 방식
 - Render가 GitHub 브랜치의 코드를 받아 빌드하고 웹 서버를 실행합니다.
