@@ -92,14 +92,18 @@ _PENDING_FACEBOOK_CHOICES: dict[str, dict[str, object]] = {}
 
 def _basic_auth_valid(header: str, username: str, password: str) -> bool:
     """Constant-time Basic Auth check; never logs credentials."""
-    if not username or not password or not header.startswith("Basic "):
+    if not username.strip() or not password.strip() or not header.startswith("Basic "):
         return False
     try:
         decoded = base64.b64decode(header[6:], validate=True).decode("utf-8")
     except (ValueError, UnicodeDecodeError):
         return False
     supplied_user, separator, supplied_password = decoded.partition(":")
-    return bool(separator) and hmac.compare_digest(supplied_user, username) and hmac.compare_digest(supplied_password, password)
+    # compare_digest requires bytes for non-ASCII values. Compare both fields
+    # without ever placing credentials in errors or logs.
+    user_matches = hmac.compare_digest(supplied_user.encode("utf-8"), username.encode("utf-8"))
+    password_matches = hmac.compare_digest(supplied_password.encode("utf-8"), password.encode("utf-8"))
+    return bool(separator) and user_matches and password_matches
 
 
 def _origin_key(value: str, *, allow_root_path: bool = False) -> tuple[str, str, int] | None:
@@ -1215,10 +1219,20 @@ def _queue_payload_for_platform(
     raise ValueError("지원하지 않는 게시 플랫폼입니다.")
 
 
+class _CSPNonceHTML(str):
+    """HTML returned only by the fixed dashboard renderer with its script nonce."""
+
+    def __new__(cls, value: str, nonce: str):
+        instance = super().__new__(cls, value)
+        instance.nonce = nonce
+        return instance
+
+
 def _page(
     report: dict | None, previews: list[dict], error: str = "",
     queue_snapshot: dict | None = None, connection_checks: dict | None = None,
-) -> str:
+) -> _CSPNonceHTML:
+    script_nonce = secrets.token_urlsafe(18)
     if connection_checks is None:
         connection_checks = _read_connection_checks()
     oauth_connections, oauth_storage_error = _read_oauth_connections()
@@ -1458,7 +1472,7 @@ def _page(
   </details>
 </section>""")
     generated = escape(str(report.get("researched_at", "아직 조사 전")))
-    return f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
+    rendered_page = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>TAK AUTO Trend Factory</title>
 <style>
 :root{{--bg:#f3f5f9;--ink:#182235;--muted:#65728a;--line:#dfe5ee;--accent:#3157c8}}
@@ -1492,7 +1506,7 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 {media_upload_html}
 <h2>생성한 콘텐츠 패키지 {len(previews)}개</h2>{''.join(preview_cards) or '<p>트렌드를 선택해 콘텐츠 패키지를 생성하세요.</p>'}
 {queue_dashboard(queue_snapshot or {"items": [], "history": []}, publishing_enabled=os.getenv("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true", pending_approvals=len(previews))}
-</main><script>
+</main><script nonce="{script_nonce}">
 document.querySelectorAll('form[action="/discover"], form[action="/generate"], form[action="/editorial/revise"]').forEach((form) => {{
   form.addEventListener("submit", (event) => {{
     if (form.dataset.submitting === "true") {{ event.preventDefault(); return; }}
@@ -1559,6 +1573,7 @@ if (publishForm) {{
   syncPrivacyRequirement();
 }}
 </script></body></html>"""
+    return _CSPNonceHTML(rendered_page, script_nonce)
 
 
 def create_handler():
@@ -1566,12 +1581,13 @@ def create_handler():
         def _respond(self, body: str, status: int = 200, content_type: str = "text/html; charset=utf-8", *, cookie: str | list[str] = ""):
             security_policy = "default-src 'none'; frame-ancestors 'none'"
             if content_type.lower().startswith("text/html"):
-                nonce = secrets.token_urlsafe(18)
-                body = body.replace("<script>", f'<script nonce="{nonce}">')
+                script_policy = "script-src 'none'"
+                if isinstance(body, _CSPNonceHTML):
+                    script_policy = f"script-src 'nonce-{body.nonce}'"
                 security_policy = (
                     "default-src 'none'; base-uri 'none'; connect-src 'self'; "
                     "form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; "
-                    "object-src 'none'; script-src 'nonce-" + nonce + "'; style-src 'unsafe-inline'"
+                    "object-src 'none'; " + script_policy + "; style-src 'unsafe-inline'"
                 )
             encoded = body.encode("utf-8")
             self.send_response(status)
