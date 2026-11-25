@@ -37,6 +37,7 @@ from content_engine.publishing_connections import (
 )
 from content_engine.postgres_queue_store import open_publishing_queue, queue_backend
 from content_engine.publishing_queue import QueueError, QueueStoreError, queue_dashboard
+from content_engine.publishing_queue_audit import audit_queue_file, audit_queue_snapshot, queue_audit_page
 from content_engine.performance_insight import load_insights, STATUS_ACCEPTED
 from content_engine.social_oauth import (
     FLOW_TTL_SECONDS, OAuthFlowRegistry, OAuthTokenVault, PROVIDERS, SocialOAuthClient,
@@ -1543,7 +1544,7 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 <h2>발굴된 트렌드 {len(trends)}개</h2><div class="grid">{''.join(cards) or '<p>아직 조사 결과가 없습니다. 위 버튼으로 첫 조사를 실행하세요.</p>'}</div>
 {media_upload_html}
 <h2>생성한 콘텐츠 패키지 {len(previews)}개</h2>{''.join(preview_cards) or '<p>트렌드를 선택해 콘텐츠 패키지를 생성하세요.</p>'}
-{queue_dashboard(queue_snapshot or {"items": [], "history": []}, publishing_enabled=os.getenv("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true", pending_approvals=len(previews))}
+<p><a href="/queue/diagnostics">게시 대기열 상태 진단</a> · 저장된 승인 정보와 게시 이력을 읽기 전용으로 확인합니다.</p>\n{queue_dashboard(queue_snapshot or {"items": [], "history": []}, publishing_enabled=os.getenv("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true", pending_approvals=len(previews))}
 </main><script nonce="{script_nonce}">
 document.querySelectorAll('form[action="/discover"], form[action="/generate"], form[action="/editorial/revise"]').forEach((form) => {{
   form.addEventListener("submit", (event) => {{
@@ -1817,13 +1818,34 @@ def create_handler():
                 return
             if not self._require_auth():
                 return
+            if request_path in {"/queue/diagnostics", "/queue/diagnostics.json"}:
+                backend = queue_backend(os.environ)
+                if backend == "file":
+                    diagnostic = audit_queue_file(QUEUE_PATH)
+                else:
+                    diagnostic = audit_queue_snapshot(open_publishing_queue(QUEUE_PATH).snapshot())
+                if request_path.endswith(".json"):
+                    self._respond(json.dumps(diagnostic, ensure_ascii=False), content_type="application/json; charset=utf-8")
+                else:
+                    self._respond(queue_audit_page(diagnostic))
+                return
             oauth_prefix = "/connections/oauth/"
             if request_path.startswith(oauth_prefix):
                 self._start_oauth(request_path[len(oauth_prefix):])
                 return
             report = _read_json(TREND_PATH, {})
             previews = _read_json(PREVIEW_PATH, [])
-            queue_snapshot = open_publishing_queue(QUEUE_PATH).snapshot()
+            try:
+                queue_snapshot = open_publishing_queue(QUEUE_PATH).snapshot()
+            except (QueueError, OSError, UnicodeDecodeError):
+                if queue_backend(os.environ) != "file":
+                    raise
+                self._respond(queue_audit_page(audit_queue_file(QUEUE_PATH)), 503)
+                return
+            diagnostic = audit_queue_snapshot(queue_snapshot)
+            if diagnostic["status"] == "blocked":
+                self._respond(queue_audit_page(diagnostic), 503)
+                return
             self._respond(_page(report, previews, queue_snapshot=queue_snapshot))
 
         def do_POST(self):
