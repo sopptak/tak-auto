@@ -7,6 +7,7 @@
 TAK AUTO 1은 공개 RSS 기반으로 오늘의 반복 키워드, 직전 관측일 대비 증가 키워드, 콘텐츠 기회 후보를 찾는 범용 콘텐츠 기획 도구입니다. 경매 전용 기능은 후속 제품 TAK AUTO 2의 영역으로 분리하며 기존 코드는 호환성을 위해 보존합니다.
 
 - [트렌드 MVP 실행·운영 안내](docs/tak_auto_trend_mvp.md)
+- **웹 콘텐츠공장 MVP:** [실행·운영 안내](docs/trend_content_factory_mvp.md); API 없이 로컬에서 시작하려면 `powershell -File scripts/start_free_trend_factory.ps1`을 실행합니다.
 - **Notebook 2 원클릭 시작:** `py scripts/start_tak_auto_mvp.py`
 - [기능 브랜치의 작업 현황 및 코드](https://github.com/sopptak/tak-auto/tree/feature/perplexity-research-provider)
 - GitHub Actions에서 **TAK AUTO Daily Trend Discovery**를 수동 실행할 수 있습니다.
