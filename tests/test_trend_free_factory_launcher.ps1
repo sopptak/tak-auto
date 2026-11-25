@@ -17,7 +17,7 @@ try {
     $launcher = Join-Path $repoRoot "scripts/start_free_trend_factory.ps1"
     & $launcher
 
-    $expectedScript = [IO.Path]::GetFullPath((Join-Path $scriptDirectory "run_trend_content_mvp.py"))
+    $expectedScript = [IO.Path]::GetFullPath((Join-Path (Split-Path $launcher -Parent) "run_trend_content_mvp.py"))
     if ($global:TakAutoLauncherArguments.Count -ne 6) {
         throw "The launcher did not forward the expected six Python arguments."
     }
