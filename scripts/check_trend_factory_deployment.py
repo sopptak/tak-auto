@@ -39,7 +39,7 @@ def validate_health(payload: object, *, expected_revision: str = "") -> list[str
         failures.append("Persistent storage is not confirmed.")
     if payload.get("web_auth_configured") is not True:
         failures.append("Web authentication is not configured.")
-    if payload.get("perplexity_configured") is not True:
+    if payload.get("perplexity_configured") is not True and payload.get("generation_mode") != "free_template":
         failures.append("Research API key is not configured.")
     if payload.get("publishing_enabled") is not False:
         failures.append("Public publishing must remain disabled.")

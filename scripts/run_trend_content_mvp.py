@@ -322,6 +322,36 @@ def _oauth_cookie_is_secure(platform: str) -> bool:
         return False
 
 
+def _free_mode(environ=None) -> bool:
+    values = os.environ if environ is None else environ
+    return str(values.get("TAK_AUTO_FREE_MODE", "")).strip().lower() == "true"
+
+
+def _paid_research_provider():
+    if _free_mode():
+        raise ValueError("무료 모드에서는 유료 AI 요청을 사용할 수 없습니다. 직접 자료를 입력해 주세요.")
+    return PerplexityResearchProvider.from_environment()
+
+
+def _manual_trend(form: dict) -> dict:
+    keyword = str(form.get("keyword", [""])[0]).strip()
+    source = str(form.get("source_url", [""])[0]).strip()
+    points = list(dict.fromkeys(
+        line.strip() for line in form.get("facts", [""])[0].splitlines() if line.strip()
+    ))
+    if not keyword or len(keyword) > 200:
+        raise ValueError("주제를 1~200자로 입력하세요.")
+    if not _safe_http_urls([source]):
+        raise ValueError("확인 가능한 HTTP 또는 HTTPS 출처 URL을 입력하세요.")
+    if len(points) < 3 or any(len(point) < 12 for point in points) or sum(map(len, points)) > 12000:
+        raise ValueError("서로 다른 근거를 3줄 이상, 각 12자 이상 입력하세요. 전체 12,000자 이하입니다.")
+    return {
+        "keyword": keyword, "summary": points[0], "key_points": points,
+        "source_urls": [source], "category": "직접 입력", "why_now": "",
+        "audience_question": "", "content_angle": "",
+    }
+
+
 def _health_payload(environ=None) -> dict[str, object]:
     values = os.environ if environ is None else environ
     raw_revision = str(values.get("RENDER_GIT_COMMIT", "")).strip().lower()
@@ -342,13 +372,14 @@ def _health_payload(environ=None) -> dict[str, object]:
             pass
     return {
         "status": "ok", "perplexity_configured": perplexity_ready,
+        "generation_mode": "free_template" if _free_mode(values) else "perplexity",
         "web_auth_configured": auth_ready, "publishing_enabled": publishing_enabled,
         "publisher_adapter_configured": publisher_configured,
         "storage_persistent": not USING_EPHEMERAL_STORAGE,
         "storage_mode": "persistent_disk" if not USING_EPHEMERAL_STORAGE else "ephemeral_fallback",
         "queue_backend": backend if backend in {"file", "postgres"} else "invalid",
         "queue_ready": queue_ready,
-        "ready": perplexity_ready and auth_ready and not USING_EPHEMERAL_STORAGE and queue_ready
+        "ready": (perplexity_ready or _free_mode(values)) and auth_ready and not USING_EPHEMERAL_STORAGE and queue_ready
         and (not publishing_enabled or publisher_configured),
         "revision": revision,
     }
@@ -1041,7 +1072,7 @@ def _make_preview(
         summary=str(item.get("summary") or facts)[:500],
         key_points=tuple(points),
         factual_information=facts,
-        current_validity="Perplexity 조사 시점 기준. 발행 전 원문과 최신성 재검증 필요.",
+        current_validity="제공 자료 기준. 발행 전 원문과 최신성 재검증 필요.",
         verification_required=True,
     )
     if provider is not None:
@@ -1087,7 +1118,7 @@ def _make_preview(
             "content_model": result.model,
         }
 
-    # Offline fallback is retained for deterministic tests and local template preview only.
+    # Deterministic template generation makes no external API requests.
     bundle = generate_content_bundle(knowledge)
     offline_package = {
         "blog": asdict(bundle.blog) if bundle.blog else {},
@@ -1498,6 +1529,13 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 {"<p>임시 저장소 사용 중: 영속 저장 경로를 사용할 수 없어 임시 저장소를 사용 중입니다. 재시작·재배포 시 데이터가 사라질 수 있습니다.</p>" if USING_EPHEMERAL_STORAGE else ""}</header>
 {error_html}
 {connection_dashboard(verification_cache=connection_checks, oauth_connections=oauth_connections, oauth_setup=oauth_setup, oauth_storage_error=oauth_storage_error)}
+<section class="toolbar"><h2>자료 직접 입력 · 무료</h2>
+<p>{"무료 모드: 외부 AI 요청 없이 템플릿 초안을 만듭니다." if _free_mode() else "현재 AI 모드: 조사·생성·자동 수정은 API 이용료가 발생할 수 있습니다."}</p>
+<form method="post" action="/manual">
+<label>주제 <input name="keyword" maxlength="200" required></label>
+<label>출처 URL <input name="source_url" type="url" required></label>
+<label>확인한 근거 (각 12자 이상, 3줄 이상)<textarea name="facts" maxlength="12000" rows="5" required></textarea></label>
+<button type="submit">자료 저장</button></form></section>
 <section class="toolbar"><h2>최신 트렌드 조사</h2>
 <p>Perplexity가 최근 7일 공개 웹 자료를 바탕으로 여러 분야의 키워드 최대 20개를 발굴합니다. 선택 키워드 콘텐츠 생성에도 Perplexity API를 한 번 더 사용합니다.</p>
 <form method="post" action="/discover"><button type="submit">Perplexity 최신 트렌드 TOP 20 조사</button></form>
@@ -1933,8 +1971,18 @@ def create_handler():
                     _oauth_vault().disconnect(platform)
                     self._redirect("/?disconnected=" + platform)
                     return
+                if self.path == "/manual":
+                    item = _manual_trend(form)
+                    report = {
+                        "researched_at": utc_now(), "model": "manual-input",
+                        "citations": item["source_urls"],
+                        "trends": [item] + (report.get("trends") or [])[:19],
+                    }
+                    _write_json(TREND_PATH, report)
+                    self._respond(_page(report, previews, queue_snapshot=queue.snapshot()))
+                    return
                 if self.path == "/discover":
-                    provider = PerplexityResearchProvider.from_environment()
+                    provider = _paid_research_provider()
                     discovered = discover_trends(provider)
                     report = discovered.to_dict()
                     _write_json(TREND_PATH, report)
@@ -1949,7 +1997,7 @@ def create_handler():
                     selected_insights = _select_accepted_strategy_insights(
                         form.get("insight_id", []),
                     )
-                    provider = PerplexityResearchProvider.from_environment()
+                    provider = None if _free_mode() else _paid_research_provider()
                     preview = _make_preview(
                         report["trends"][index], report, provider=provider,
                         strategy_insights=selected_insights,
@@ -1981,7 +2029,7 @@ def create_handler():
                     original_text = _read_editorial_target(preview, target)
                     if not original_text:
                         raise ValueError("수정 대상 원문이 비어 있어 진행할 수 없습니다.")
-                    provider = PerplexityResearchProvider.from_environment()
+                    provider = _paid_research_provider()
                     result = provider.search(
                         _build_editorial_revision_prompt(preview, recommendation, target, original_text),
                         system_prompt=(
