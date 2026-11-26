@@ -56,9 +56,15 @@ jobs:
       - name: Show Python version
         run: python3 --version
 
-      # 테스트가 실패하면 이후 단계(실제 RSS 수집/결과 commit)로 진행하지 않는다.
-      - name: Run existing test suite
-        run: python3 -m unittest discover -s tests -p 'test*.py'
+      # Check the collection path before reading RSS or changing daily files.
+      # Full application tests run in pull-request CI.
+      - name: Test TAK SCOUT collection
+        run: |
+          python3 -m unittest discover -s tests -p 'test_scout_rss.py'
+          python3 -m unittest discover -s tests -p 'test_scout_collector.py'
+          python3 -m unittest discover -s tests -p 'test_scout_pipeline_e2e.py'
+          python3 -m unittest discover -s tests -p 'test_run_scout_cli.py'
+
 
       # 실제 공개 RSS만 읽는다(로그인/크롤링 없음, scripts/run_scout.py docstring
       # 그대로). LLM/게시 API Secrets은 필요 없다 - 여기서 쓰지 않는다.
