@@ -369,6 +369,49 @@ def _paid_research_provider():
     return PerplexityResearchProvider.from_environment()
 
 
+_MAX_SCOUT_PACK_BYTES = 2 * 1024 * 1024
+
+
+def _scout_trends(raw: str, previous: dict) -> dict:
+    try:
+        pack = json.loads(raw)
+    except (ValueError, RecursionError):
+        raise ValueError("탁스카우트 JSON을 읽을 수 없습니다.") from None
+    rows = pack.get("candidates") if isinstance(pack, dict) else None
+    if not isinstance(rows, list):
+        raise ValueError("탁스카우트 일일 후보 JSON의 candidates 목록이 필요합니다.")
+    items = []
+    seen = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        url = _safe_http_url(row.get("source_url"))
+        title = row.get("title")
+        summary = row.get("summary")
+        if not url or url in seen or not isinstance(title, str) or not isinstance(summary, str):
+            continue
+        title, summary = title.strip()[:200], summary.strip()[:1200]
+        if not title or len(summary) < 12:
+            continue
+        seen.add(url)
+        items.append({
+            "keyword": title, "summary": summary, "source_urls": [url], "key_points": [summary],
+            "category": "탁스카우트", "origin": "tak-scout",
+            "source_name": str(row.get("source_name") or "수집 피드")[:100],
+            "published_at": str(row.get("published_at") or "")[:64],
+        })
+        if len(items) == 20:
+            break
+    if not items:
+        raise ValueError("원문 URL과 요약이 있는 탁스카우트 후보가 없습니다.")
+    kept = [item for item in previous.get("trends", []) if item.get("origin") != "tak-scout"]
+    generated_at = pack.get("generated_at")
+    return {
+        **previous, "model": "tak-scout", "researched_at": generated_at[:64] if isinstance(generated_at, str) else "",
+        "trends": (items + kept)[:20],
+    }
+
+
 def _manual_trend(form: dict) -> dict:
     keyword = str(form.get("keyword", [""])[0]).strip()
     source = str(form.get("source_url", [""])[0]).strip()
@@ -1058,6 +1101,43 @@ def _revert_editorial_revision(preview: dict, revision_id: str) -> None:
     _refresh_preview_editorial_checks(preview)
 
 
+def _make_scout_preview(item: dict, report: dict, knowledge: KnowledgeRecord) -> dict:
+    title = knowledge.title
+    summary = item["summary"]
+    source = item["source_urls"][0]
+    attribution = item["source_name"]
+    published = item.get("published_at")
+    source_note = f"출처: {attribution}" + (f" · 발행 시각: {published}" if published else "") + f"\n{source}"
+    blog = {
+        "title": title,
+        "body": f"{title}\n\n{attribution}에서 다룬 소식입니다.\n\n수집 요약\n{summary}\n\n{source_note}",
+    }
+    hook = "오늘 탁스카우트에서 고른 소식입니다."
+    short = {
+        "title": title, "hook": hook,
+        "body": (
+            f"[도입] {hook}\n"
+            f"[화면 제목] {title}\n"
+            f"[출처 소개] {attribution}에서 전한 내용입니다.\n"
+            f"[핵심 요약] {summary}\n"
+            "[마무리] 자세한 내용은 원문에서 확인해 보세요."
+        ),
+    }
+    short.update(dict.fromkeys(("youtube_description", "instagram_caption", "tiktok_caption"), f"{title}\n\n{source_note}"))
+    package = {"blog": blog, "shorts": {"hook": hook}, "threads": []}
+    quality = _evaluate_content_quality(package, title, item)
+    coverage = _evaluate_claim_citation_coverage(package, [source])
+    return {
+        "keyword": title, "knowledge_id": knowledge.id, "created_at": utc_now(),
+        "status": "preview_only_not_approved", "content_model": "tak-scout-template",
+        "warning": "탁스카우트 수집 요약 기반입니다. 수동 게시 전에 원문과 최신성을 확인하고, 외국어 요약은 번역을 검토하세요.",
+        "blog": blog, "shorts": [short], "source_urls": [source],
+        "quality_report": quality, "claim_coverage": coverage,
+        "source_integrity": _evaluate_source_integrity(item, report),
+        "editorial_recommendations": _build_editorial_recommendations(quality, coverage),
+    }
+
+
 def _make_preview(
     item: dict, trend_report: dict, provider=None,
     strategy_insights: list[dict] | None = None,
@@ -1075,7 +1155,7 @@ def _make_preview(
         str(item.get("content_angle") or ""),
     ])
     points = list(dict.fromkeys(value for value in points if len(value) >= 12))
-    if len(points) < 3:
+    if len(points) < 3 and not (item.get("origin") == "tak-scout" and provider is None and points):
         raise ValueError("콘텐츠 생성에 필요한 독립 근거가 3개 미만입니다.")
     facts = "\n".join([
         f"트렌드 키워드: {keyword}",
@@ -1153,6 +1233,9 @@ def _make_preview(
             "source_urls": list(dict.fromkeys(urls + list(result.citations))),
             "content_model": result.model,
         }
+
+    if item.get("origin") == "tak-scout":
+        return _make_scout_preview(item, trend_report, knowledge)
 
     # Deterministic template generation makes no external API requests.
     bundle = generate_content_bundle(knowledge)
@@ -1355,9 +1438,9 @@ def _page(
   <p class="hook">쇼츠 후킹: {escape(str(item.get('shorts_hook', '')))}</p>
   <p class="meta">{sources}</p>
   <form method="post" action="/generate"><input type="hidden" name="index" value="{index}">
-    {''.join(f'<label class="meta"><input type="checkbox" name="insight_id" value="{escape(row.insight_id, quote=True)}"> 성과 참고: {escape(row.platform)} · {escape(row.metric)} · {escape(row.result)} · 표본 {row.sample_size}건</label>' for row in accepted_insights)}
+    {''.join(f'<label class="meta"><input type="checkbox" name="insight_id" value="{escape(row.insight_id, quote=True)}"> 성과 참고: {escape(row.platform)} · {escape(row.metric)} · {escape(row.result)} · 표본 {row.sample_size}건</label>' for row in accepted_insights if item.get("origin") != "tak-scout")}
     <p class="meta">사람이 승인한 과거 성과를 선택하면 후킹·구성 참고자료로만 반영합니다. 선택하지 않아도 생성할 수 있습니다. 최대 5개.</p>
-    <button type="submit">선택한 참고자료로 콘텐츠 패키지 생성</button></form>
+    <button type="submit">{"블로그·쇼츠 초안 생성" if item.get("origin") == "tak-scout" else "선택한 참고자료로 콘텐츠 패키지 생성"}</button></form>
 </article>""")
     preview_cards = []
     for preview_index, preview in enumerate(previews):
@@ -1559,12 +1642,16 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 @media(max-width:560px){{h1{{font-size:22px}}.grid{{display:block}}}}
 </style></head><body><main>
 <header><h1>TAK AUTO · TREND CONTENT FACTORY</h1>
-<p>최신 트렌드 발견 → Perplexity 조사 → 블로그·쇼츠·Threads 제작 → 트래픽 유도</p>
+<p>탁스카우트 트렌드로 블로그 글과 쇼츠 대본 만들기</p>
 <p><a href="/performance" style="color:#d4def0">📈 전체 콘텐츠 성과 대시보드</a> · <a href="/performance/insights" style="color:#d4def0">성과 인사이트</a></p>
 <div>마지막 조사: {generated} · 모델: {escape(str(report.get('model', '미연결')))}</div>
 {"<p>임시 저장소 사용 중: 영속 저장 경로를 사용할 수 없어 임시 저장소를 사용 중입니다. 재시작·재배포 시 데이터가 사라질 수 있습니다.</p>" if USING_EPHEMERAL_STORAGE else ""}</header>
 {error_html}
-{connection_dashboard(verification_cache=connection_checks, oauth_connections=oauth_connections, oauth_setup=oauth_setup, oauth_storage_error=oauth_storage_error)}
+<section class="toolbar"><h2>탁스카우트 트렌드</h2>
+<form method="post" action="/scout/import"><button type="submit">이 컴퓨터의 탁스카우트 일일 후보 불러오기</button></form>
+<label>다른 곳에서 받은 탁스카우트 JSON <input id="scout-pack" type="file" accept=".json,application/json"></label>
+<button type="button" id="scout-import">파일 불러오기</button><p id="scout-import-status" role="status"></p>
+<p>후보를 선택하면 외부 AI 호출 없이 블로그 초안과 쇼츠 대본을 만듭니다.</p></section>
 <section class="toolbar"><h2>자료 직접 입력 · 무료</h2>
 <p>{"무료 모드: 외부 AI 요청 없이 템플릿 초안을 만듭니다." if _free_mode() else "현재 AI 모드: 조사·생성·자동 수정은 API 이용료가 발생할 수 있습니다."}</p>
 <form method="post" action="/manual">
@@ -1577,10 +1664,32 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 <form method="post" action="/discover"><button type="submit">Perplexity 최신 트렌드 TOP 20 조사</button></form>
 <p class="meta">검색량 순위가 아니라 최신 근거·한국 독자 관련성·콘텐츠 설명 가치에 따른 편집 후보입니다.</p></section>
 <h2>발굴된 트렌드 {len(trends)}개</h2><div class="grid">{''.join(cards) or '<p>아직 조사 결과가 없습니다. 위 버튼으로 첫 조사를 실행하세요.</p>'}</div>
+{connection_dashboard(verification_cache=connection_checks, oauth_connections=oauth_connections, oauth_setup=oauth_setup, oauth_storage_error=oauth_storage_error)}
 {media_upload_html}
 <h2>생성한 콘텐츠 패키지 {len(previews)}개</h2>{''.join(preview_cards) or '<p>트렌드를 선택해 콘텐츠 패키지를 생성하세요.</p>'}
 <p><a href="/queue/diagnostics">게시 대기열 상태 진단</a> · 저장된 승인 정보와 게시 이력을 읽기 전용으로 확인합니다.</p>\n{queue_dashboard(queue_snapshot or {"items": [], "history": []}, publishing_enabled=os.getenv("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true", pending_approvals=len(previews))}
 </main><script nonce="{script_nonce}">
+document.getElementById("scout-import").addEventListener("click", async () => {{
+  const button = document.getElementById("scout-import");
+  const status = document.getElementById("scout-import-status");
+  const file = document.getElementById("scout-pack").files[0];
+  if (!file || file.size > {_MAX_SCOUT_PACK_BYTES}) {{
+    status.textContent = "2MiB 이하의 탁스카우트 JSON 파일을 선택하세요.";
+    return;
+  }}
+  button.disabled = true;
+  try {{
+    const response = await fetch("/scout/import", {{
+      method: "POST", headers: {{"Content-Type": "application/json"}}, body: file
+    }});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "탁스카우트 파일을 불러오지 못했습니다.");
+    window.location.reload();
+  }} catch (error) {{
+    status.textContent = error.message;
+    button.disabled = false;
+  }}
+}});
 document.querySelectorAll('form[action="/discover"], form[action="/generate"], form[action="/editorial/revise"]').forEach((form) => {{
   form.addEventListener("submit", (event) => {{
     if (form.dataset.submitting === "true") {{ event.preventDefault(); return; }}
@@ -1958,6 +2067,38 @@ def create_handler():
                 except OSError:
                     self._respond(json.dumps({"error": "영상 파일을 저장하지 못했습니다. 저장 공간을 확인하세요."}, ensure_ascii=False), 507, "application/json; charset=utf-8")
                 return
+            if self.path == "/scout/import":
+                upload = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() == "application/json"
+                try:
+                    length = _request_body_content_length(self.headers)
+                    if length > _MAX_SCOUT_PACK_BYTES or (length and not upload):
+                        raise ValueError("2MiB 이하의 탁스카우트 JSON 파일만 불러올 수 있습니다.")
+                    if upload:
+                        raw = _read_utf8_request_body(self.rfile, length)
+                    else:
+                        path = Path(os.getenv("TAK_SCOUT_DAILY_PACK", str(ROOT / "data" / "tak_scout_daily.json")))
+                        with path.open("rb") as source:
+                            data = source.read(_MAX_SCOUT_PACK_BYTES + 1)
+                        if len(data) > _MAX_SCOUT_PACK_BYTES:
+                            raise ValueError("탁스카우트 일일 후보 파일이 2MiB를 초과했습니다.")
+                        raw = data.decode("utf-8")
+                    report = _scout_trends(raw, _read_json(TREND_PATH, {}))
+                    _write_json(TREND_PATH, report)
+                except (OSError, UnicodeError, OverflowError):
+                    message = "탁스카우트 파일을 읽거나 저장할 수 없습니다. 일일 후보 JSON을 확인하세요."
+                except ValueError as error:
+                    message = str(error)
+                else:
+                    if upload:
+                        self._respond('{"ok":true}', content_type="application/json; charset=utf-8")
+                    else:
+                        self._redirect("/")
+                    return
+                if upload:
+                    self._respond(json.dumps({"error": message}, ensure_ascii=False), 400, "application/json; charset=utf-8")
+                else:
+                    self._respond(_page(_read_json(TREND_PATH, {}), _read_json(PREVIEW_PATH, []), message), 400)
+                return
             try:
                 length = _request_body_content_length(self.headers)
             except ValueError:
@@ -2042,9 +2183,10 @@ def create_handler():
                     selected_insights = _select_accepted_strategy_insights(
                         form.get("insight_id", []),
                     )
-                    provider = None if _free_mode() else _paid_research_provider()
+                    item = report["trends"][index]
+                    provider = None if _free_mode() or item.get("origin") == "tak-scout" else _paid_research_provider()
                     preview = _make_preview(
-                        report["trends"][index], report, provider=provider,
+                        item, report, provider=provider,
                         strategy_insights=selected_insights,
                     )
                     previews = [row for row in previews if row.get("keyword") != preview["keyword"]]

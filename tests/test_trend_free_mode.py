@@ -1,3 +1,4 @@
+import json
 import unittest
 from unittest.mock import patch
 from scripts import run_trend_content_mvp as app
@@ -69,6 +70,32 @@ class FreeModeTests(unittest.TestCase):
                         post("/discover", {})
                     self.assertEqual(error.exception.code, 400)
                     error.exception.close()
+                    scout_pack = {"generated_at": "2026-11-26T00:00:00Z", "candidates": [
+                        {"title": "탁스카우트 검증 주제", "summary": "수집 피드에 포함된 원본 요약입니다.",
+                         "source_url": "https://example.com/scout", "source_name": "검증 피드"},
+                        {"title": "잘못된 주소", "summary": "선택지에 나타나지 않아야 하는 후보입니다.",
+                         "source_url": "javascript:alert(1)"},
+                    ]}
+                    scout_path = root / "tak_scout_daily.json"
+                    scout_path.write_text(json.dumps(scout_pack), encoding="utf-8")
+                    with patch.dict("os.environ", {"TAK_SCOUT_DAILY_PACK": str(scout_path)}):
+                        html = post("/scout/import", {})
+                    self.assertIn("탁스카우트 검증 주제", html)
+                    self.assertNotIn("잘못된 주소", html)
+                    upload = Request(origin + "/scout/import", data=json.dumps(scout_pack).encode(), headers={
+                        "Origin": origin, "Content-Type": "application/json",
+                    })
+                    with urlopen(upload, timeout=5) as reply:
+                        self.assertEqual(json.load(reply), {"ok": True})
+                    html = post("/generate", {"index": "0"})
+                    self.assertIn("블로그 원고 복사", html)
+                    self.assertIn("쇼츠 대본 복사", html)
+                    scout_draft = app._read_json(app.PREVIEW_PATH, [])[0]
+                    self.assertEqual(scout_draft["source_urls"], ["https://example.com/scout"])
+                    self.assertIn("원본 요약", scout_draft["blog"]["body"])
+                    self.assertIn("원본 요약", scout_draft["shorts"][0]["body"])
+                    self.assertEqual(scout_draft["status"], "preview_only_not_approved")
+                    self.assertEqual(len(PublishingQueue(app.QUEUE_PATH).snapshot()["items"]), len(preview["threads"]))
                     provider.assert_not_called()
                     self.assertFalse(app._health_payload()["publishing_enabled"])
                 finally:
