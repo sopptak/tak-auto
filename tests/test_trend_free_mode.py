@@ -70,6 +70,11 @@ class FreeModeTests(unittest.TestCase):
                         post("/discover", {})
                     self.assertEqual(error.exception.code, 400)
                     error.exception.close()
+                    from tak_scout.models import ScoutCandidate
+                    fresh = ScoutCandidate("scout-fresh", "오늘 수집한 주제", "오늘 확인할 수 있는 원본 요약입니다.", "https://example.com/fresh", "2026-11-26T00:00:00Z", "검증 피드", "general")
+                    with patch.object(app, "collect_all", return_value=([fresh], [])):
+                        post("/scout/refresh", {})
+                    self.assertIn("오늘 수집한 주제", app._read_json(app.TREND_PATH, {})["trends"][0]["keyword"])
                     scout_pack = {"generated_at": "2026-11-26T00:00:00Z", "candidates": [
                         {"title": "탁스카우트 검증 주제", "summary": "수집 피드에 포함된 원본 요약입니다.",
                          "source_url": "https://example.com/scout", "source_name": "검증 피드"},

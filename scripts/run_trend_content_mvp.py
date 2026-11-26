@@ -30,6 +30,8 @@ if str(ROOT) not in sys.path:
 
 from blog_importer.models import utc_now
 from content_engine.generator import generate_content_bundle
+from tak_scout.collector import collect_all, dedupe_candidates, load_sources
+from tak_scout.trend_scoring import rank_trend_candidates
 from content_engine.media_assets import MediaAssetError, MediaAssetStore, is_public_https_origin
 from content_engine.publishing_connections import (
     VERIFY_PLATFORMS, connection_dashboard, publishing_connection_statuses,
@@ -370,6 +372,19 @@ def _paid_research_provider():
 
 
 _MAX_SCOUT_PACK_BYTES = 2 * 1024 * 1024
+
+
+def _refresh_scout_trends(previous: dict) -> dict:
+    sources = load_sources(ROOT / "data" / "scout_sources.json")
+    collected, results = collect_all(sources, timeout=12)
+    selected = [candidate.to_dict() for candidate, _ in rank_trend_candidates(dedupe_candidates(collected))[:10]]
+    if not selected:
+        raise ValueError("수집 가능한 탁스카우트 후보가 없습니다. RSS 출처 상태를 확인하세요.")
+    pack = {"generated_at": utc_now(), "candidates": selected}
+    report = _scout_trends(json.dumps(pack, ensure_ascii=False), previous)
+    report["scout_sources_checked"] = len(results)
+    report["scout_sources_succeeded"] = sum(result.error is None for result in results)
+    return report
 
 
 def _scout_trends(raw: str, previous: dict) -> dict:
@@ -1648,7 +1663,8 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 {"<p>임시 저장소 사용 중: 영속 저장 경로를 사용할 수 없어 임시 저장소를 사용 중입니다. 재시작·재배포 시 데이터가 사라질 수 있습니다.</p>" if USING_EPHEMERAL_STORAGE else ""}</header>
 {error_html}
 <section class="toolbar"><h2>탁스카우트 트렌드</h2>
-<form method="post" action="/scout/import"><button type="submit">이 컴퓨터의 탁스카우트 일일 후보 불러오기</button></form>
+<form method="post" action="/scout/refresh"><button type="submit">탁스카우트 최신 후보 수집</button></form>
+<form method="post" action="/scout/import"><button type="submit">저장된 탁스카우트 후보 불러오기</button></form>
 <label>다른 곳에서 받은 탁스카우트 JSON <input id="scout-pack" type="file" accept=".json,application/json"></label>
 <button type="button" id="scout-import">파일 불러오기</button><p id="scout-import-status" role="status"></p>
 <p>후보를 선택하면 외부 AI 호출 없이 블로그 초안과 쇼츠 대본을 만듭니다.</p></section>
@@ -1995,7 +2011,7 @@ def create_handler():
             if request_path == "/media/assets/upload":
                 self._do_post_impl()
                 return
-            if self.path in {"/discover", "/generate", "/editorial/revise"}:
+            if self.path in {"/discover", "/generate", "/editorial/revise", "/scout/refresh"}:
                 if not self._validate_post_security():
                     return
                 with _AI_PROVIDER_ACTION_LOCK:
@@ -2066,6 +2082,15 @@ def create_handler():
                     self._respond(json.dumps({"error": str(error)}, ensure_ascii=False), 400, "application/json; charset=utf-8")
                 except OSError:
                     self._respond(json.dumps({"error": "영상 파일을 저장하지 못했습니다. 저장 공간을 확인하세요."}, ensure_ascii=False), 507, "application/json; charset=utf-8")
+                return
+            if self.path == "/scout/refresh":
+                try:
+                    report = _refresh_scout_trends(_read_json(TREND_PATH, {}))
+                    _write_json(TREND_PATH, report)
+                except (OSError, ValueError) as error:
+                    self._respond(_page(_read_json(TREND_PATH, {}), _read_json(PREVIEW_PATH, []), str(error)), 400)
+                else:
+                    self._redirect("/")
                 return
             if self.path == "/scout/import":
                 upload = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() == "application/json"
