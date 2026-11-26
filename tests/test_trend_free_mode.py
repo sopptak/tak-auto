@@ -12,6 +12,25 @@ class FreeModeTests(unittest.TestCase):
                 app._paid_research_provider()
             provider.assert_not_called()
 
+    def test_refresh_keeps_recent_articles_and_preserves_previous_on_stale_feeds(self):
+        from datetime import datetime, timedelta, timezone
+        from tak_scout.models import ScoutCandidate
+        now = datetime(2026, 11, 26, tzinfo=timezone.utc)
+        def candidate(name, age):
+            return ScoutCandidate(name, name, "충분한 길이의 출처 요약입니다.", f"https://example.com/{name}",
+                                  (now - age).isoformat(), "검증 피드", "general")
+        previous = {"trends": [{"keyword": "기존 후보", "origin": "manual"}]}
+        with patch.object(app, "load_sources", return_value=[{"url": "https://example.com/rss"}]), \
+                patch.object(app, "collect_all", return_value=([candidate("today", timedelta(days=1)),
+                    candidate("old", timedelta(days=8))], [])):
+            report = app._refresh_scout_trends(previous, now=now)
+        self.assertEqual([row["keyword"] for row in report["trends"]], ["today", "기존 후보"])
+        with patch.object(app, "load_sources", return_value=[]), \
+                patch.object(app, "collect_all", return_value=([candidate("old", timedelta(days=8))], [])):
+            with self.assertRaisesRegex(ValueError, "최근 7일"):
+                app._refresh_scout_trends(previous, now=now)
+        self.assertEqual(previous["trends"][0]["keyword"], "기존 후보")
+
     def test_manual_input_to_template_and_queue_payload(self):
         item = app._manual_trend({"keyword": ["생활 정보"], "source_url": ["https://example.com/source"], "facts": ["첫 번째 확인한 근거 자료입니다.\n두 번째 확인한 근거 자료입니다.\n세 번째 확인한 근거 자료입니다."]})
         with patch.object(app.PerplexityResearchProvider, "from_environment") as provider:
@@ -39,7 +58,7 @@ class FreeModeTests(unittest.TestCase):
         import tempfile
         import threading
         from pathlib import Path
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
         from http.server import ThreadingHTTPServer
         from urllib.parse import urlencode
         from urllib.request import Request, urlopen
@@ -71,7 +90,7 @@ class FreeModeTests(unittest.TestCase):
                     self.assertEqual(error.exception.code, 400)
                     error.exception.close()
                     from tak_scout.models import ScoutCandidate
-                    fresh = ScoutCandidate("scout-fresh", "오늘 수집한 주제", "오늘 확인할 수 있는 원본 요약입니다.", "https://example.com/fresh", "2026-11-26T00:00:00Z", "검증 피드", "general")
+                    fresh = ScoutCandidate("scout-fresh", "오늘 수집한 주제", "오늘 확인할 수 있는 원본 요약입니다.", "https://example.com/fresh", datetime.now(timezone.utc).isoformat(), "검증 피드", "general")
                     with patch.object(app, "collect_all", return_value=([fresh], [])):
                         post("/scout/refresh", {})
                     self.assertIn("오늘 수집한 주제", app._read_json(app.TREND_PATH, {})["trends"][0]["keyword"])

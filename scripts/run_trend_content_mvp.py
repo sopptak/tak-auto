@@ -374,13 +374,22 @@ def _paid_research_provider():
 _MAX_SCOUT_PACK_BYTES = 2 * 1024 * 1024
 
 
-def _refresh_scout_trends(previous: dict) -> dict:
+def _refresh_scout_trends(previous: dict, *, now: datetime | None = None) -> dict:
+    current = now or datetime.now(timezone.utc)
     sources = load_sources(ROOT / "data" / "scout_sources.json")
     collected, results = collect_all(sources, timeout=12)
-    selected = [candidate.to_dict() for candidate, _ in rank_trend_candidates(dedupe_candidates(collected))[:10]]
+    recent = []
+    for candidate in dedupe_candidates(collected):
+        try:
+            published = datetime.fromisoformat(candidate.published_at.replace("Z", "+00:00"))
+            if published.tzinfo is not None and timedelta(0) <= current - published <= timedelta(days=7):
+                recent.append(candidate)
+        except (TypeError, ValueError, OverflowError):
+            continue
+    selected = [candidate.to_dict() for candidate, _ in rank_trend_candidates(recent)[:10]]
     if not selected:
-        raise ValueError("수집 가능한 탁스카우트 후보가 없습니다. RSS 출처 상태를 확인하세요.")
-    pack = {"generated_at": utc_now(), "candidates": selected}
+        raise ValueError("최근 7일의 탁스카우트 후보가 없습니다. RSS 출처 상태를 확인하세요.")
+    pack = {"generated_at": current.isoformat(), "candidates": selected}
     report = _scout_trends(json.dumps(pack, ensure_ascii=False), previous)
     report["scout_sources_checked"] = len(results)
     report["scout_sources_succeeded"] = sum(result.error is None for result in results)
@@ -1444,7 +1453,7 @@ def _page(
         )
         cards.append(f"""
 <article class="trend">
-  <div class="meta">#{index + 1} · {escape(str(item.get('category', '기타')))}</div>
+  <div class="meta">#{index + 1} · {escape(str(item.get('category', '기타')))} · {escape(str(item.get('published_at', '')))}</div>
   <h3>{escape(str(item.get('keyword', '')))}</h3>
   <p>{escape(str(item.get('summary', '')))}</p>
   <p><b>왜 지금?</b> {escape(str(item.get('why_now', '')))}</p>
