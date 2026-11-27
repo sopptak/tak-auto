@@ -7,6 +7,7 @@ on:
       - "tak_scout/trend_discovery.py"
       - "scripts/run_trend_content_mvp.py"
       - "scripts/start_free_trend_factory.ps1"
+      - "scripts/start_free_trend_factory.cmd"
       - "tests/test_trend_free_factory_launcher.ps1"
       - "scripts/backup_trend_factory_data.py"
       - "content_engine/trend_data_backup.py"
