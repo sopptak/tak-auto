@@ -1711,7 +1711,7 @@ def _page(
         preview_cards.append(f"""
 <section class="preview">
   <h2>{escape(str(preview.get('keyword', '')))} 콘텐츠 미리보기</h2>
-  <p class="meta">KNOWLEDGE ID: {escape(str(preview.get('knowledge_id') or ''))} · <a href="/performance?knowledge_id={escape(str(preview.get('knowledge_id') or ''), quote=True)}">이 주제의 플랫폼별 성과 보기</a></p>
+  <p class="meta stage-two">KNOWLEDGE ID: {escape(str(preview.get('knowledge_id') or ''))} · <a href="/performance?knowledge_id={escape(str(preview.get('knowledge_id') or ''), quote=True)}">이 주제의 플랫폼별 성과 보기</a></p>
   <p class="warning">{escape(str(preview.get('warning', '')))}</p>
   {quality_feedback_html}
   {search_intent_html}
@@ -1726,6 +1726,7 @@ def _page(
   <pre id="blog-{len(preview_cards)}">{escape(str(blog.get('body', '')))}</pre>
   <h3>유튜브 쇼츠 · {len(shorts)}편</h3>
   {"".join(f'<div class="draft"><b>{escape(str(row.get("title", "")))}</b><p><b>첫 3초 후킹</b>: {escape(str(row.get("hook", "")))}</p><button type="button" class="secondary copy" data-copy="short-{len(preview_cards)}-{i}">쇼츠 대본 복사</button><pre id="short-{len(preview_cards)}-{i}">{escape(str(row.get("body", "")))}</pre></div>' for i, row in enumerate(shorts))}
+  <div class="stage-two">
   {"".join(f'<div class="draft"><b>{label}</b><button type="button" class="secondary copy" data-copy="caption-{len(preview_cards)}-{i}">문안 복사</button><pre id="caption-{len(preview_cards)}-{i}">{escape(str(shorts[i].get(field, "")))}</pre></div>' for i in range(len(shorts)) for label, field in [("YouTube 설명란", "youtube_description"), ("Instagram 릴스 문안", "instagram_caption"), ("TikTok 설명문", "tiktok_caption")])}
   {"".join(f'<p class="meta">해시태그: {escape(" ".join("#" + str(tag).lstrip("#") for tag in shorts[i].get("hashtags", [])))}</p>' for i in range(len(shorts)))}
   <h3>Threads · {len(threads)}편</h3>
@@ -1733,8 +1734,9 @@ def _page(
   <h3>Facebook 페이지 게시문 · {escape(str(facebook_post.get("title") or ""))}</h3>
   <button type="button" class="secondary copy" data-copy="facebook-{len(preview_cards)}">Facebook 글 복사</button>
   <pre id="facebook-{len(preview_cards)}">{escape(facebook_message)}</pre>
+  </div>
   <p class="meta">{" ".join(f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener">원문 출처</a>' for url in _safe_http_urls(preview.get("source_urls", [])))}</p>
-  <details><summary>플랫폼 게시 예약 및 승인</summary>
+  <details class="stage-two"><summary>플랫폼 게시 예약 및 승인</summary>
     <p class="warning">승인 후에도 실제 게시 기능은 기본 비활성 상태입니다.</p>
     <form method="post" action="/queue/approve" class="queue-form">
       <input type="hidden" name="preview_index" value="{preview_index}">
@@ -1764,23 +1766,26 @@ button.secondary{{background:#475569}}.error{{background:#fee;border:1px solid #
 .warning{{background:#fff4d9;padding:12px;border-radius:9px}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.7 inherit;background:#f7f8fb;padding:14px;border-radius:9px}}
 a{{color:#3157c8}}.draft{{border-top:1px solid var(--line);padding:10px 0}}
 .copy{{margin:6px 0}}.copy.done{{background:#16794b}}
+.free-mode .stage-two{{display:none}}
+.free-only{{display:none}}.free-mode .free-only{{display:block}}
 table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;border-bottom:1px solid var(--line);text-align:left;overflow-wrap:anywhere}}.queue-form{{display:flex;flex-wrap:wrap;gap:12px;align-items:end}}label{{display:grid;gap:4px}}
 .connection-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-top:16px}}.connection-card{{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fbfcfe}}.connection-heading{{display:flex;align-items:center;gap:9px;flex-wrap:wrap}}.connection-icon{{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#e7edf8;color:#3157c8;font-weight:800}}.connection-login-icon{{position:relative;text-decoration:none;transition:transform .15s,box-shadow .15s}}.connection-login-icon:hover,.connection-login-icon:focus-visible{{transform:translateY(-1px);box-shadow:0 0 0 3px #dbe7ff;outline:none}}.connection-external-mark{{position:absolute;right:-4px;bottom:-4px;display:grid;place-items:center;width:13px;height:13px;border:1px solid white;border-radius:50%;background:#3157c8;color:white;font:10px/1 system-ui}}.connection-login-note{{font-size:13px;color:var(--muted);margin:8px 0 0}}.connection-state{{margin-left:auto;font-size:12px;font-weight:700}}.connection-account{{font-size:18px;font-weight:700;margin:10px 0 2px}}.connection-expiry{{font-size:13px;font-weight:700;color:#956500;margin:2px 0}}.connection-note{{font-size:13px;margin:8px 0 0}}.connection-missing{{font-size:12px;color:#9c3d39;overflow-wrap:anywhere}}.connection-verification-error{{font-size:12px;color:#b42318}}.connection-card form{{margin:8px 0}}.connection-button{{display:inline-block;padding:9px 13px;background:#3157c8;color:white;text-decoration:none;border-radius:9px;font-weight:700}}.connection-card details{{font-size:12px;overflow-wrap:anywhere}}.connection-card code{{overflow-wrap:anywhere}}.state-configured .connection-state,.state-verified .connection-state{{color:#16794b}}.state-expired .connection-state,.state-missing .connection-state,.state-verification_failed .connection-state{{color:#b42318}}.state-manual .connection-state,.state-attention .connection-state{{color:#956500}}
 @media(max-width:560px){{h1{{font-size:22px}}.grid{{display:block}}}}
-</style></head><body><main>
+</style></head><body class="{'free-mode' if _free_mode() else ''}"><main>
 <header><h1>TAK AUTO · TREND CONTENT FACTORY</h1>
 <p>탁스카우트 트렌드로 블로그 글과 쇼츠 대본 만들기</p>
-<p><a href="/performance" style="color:#d4def0">📈 전체 콘텐츠 성과 대시보드</a> · <a href="/performance/insights" style="color:#d4def0">성과 인사이트</a></p>
+<p class="free-only">무료 1단계: <a href="#scout-trends" style="color:#d4def0">후보 수집</a> → 요청문 복사·Perplexity에서 공식 원문 확인 → <a href="#free-import" style="color:#d4def0">답변 저장</a> → <a href="#saved-drafts" style="color:#d4def0">원고 검토·복사</a></p>
+<p class="stage-two"><a href="/performance" style="color:#d4def0">📈 전체 콘텐츠 성과 대시보드</a> · <a href="/performance/insights" style="color:#d4def0">성과 인사이트</a></p>
 <div>마지막 조사: {generated} · 모델: {escape(str(report.get('model', '미연결')))}</div>
 {"<p>임시 저장소 사용 중: 영속 저장 경로를 사용할 수 없어 임시 저장소를 사용 중입니다. 재시작·재배포 시 데이터가 사라질 수 있습니다.</p>" if USING_EPHEMERAL_STORAGE else ""}</header>
 {error_html}
-<section class="toolbar"><h2>탁스카우트 트렌드</h2>
+<section class="toolbar" id="scout-trends"><h2>탁스카우트 트렌드</h2>
 <form method="post" action="/scout/refresh"><button type="submit">탁스카우트 최신 후보 수집</button></form>
 <form method="post" action="/scout/import"><button type="submit">저장된 탁스카우트 후보 불러오기</button></form>
 <label>다른 곳에서 받은 탁스카우트 JSON <input id="scout-pack" type="file" accept=".json,application/json"></label>
 <button type="button" id="scout-import">파일 불러오기</button><p id="scout-import-status" role="status"></p>
-<p>후보를 선택하면 외부 AI 호출 없이 블로그 초안과 쇼츠 대본을 만듭니다.</p></section>
-<section class="toolbar"><h2>무료 Perplexity 원고 가져오기</h2>
+<p>후보를 선택하면 외부 AI 호출 없이 짧은 템플릿 초안을 만듭니다. 긴 원고는 후보의 무료 Perplexity 요청문을 사용하세요.</p></section>
+<section class="toolbar" id="free-import"><h2>무료 Perplexity 원고 가져오기</h2>
 <p>Perplexity 무료 웹 검색에서 만든 블로그 원고와 쇼츠 대본을 붙여넣어 보관합니다. 원문 URL을 직접 확인한 뒤 입력하세요. 이 화면은 Perplexity API를 호출하지 않습니다.</p>
 <form method="post" action="/perplexity/import">
 <label>원고 제목 <input name="title" maxlength="200" required></label>
@@ -1798,15 +1803,15 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 <label>출처 URL <input name="source_url" type="url" required></label>
 <label>확인한 근거 (각 12자 이상, 3줄 이상)<textarea name="facts" maxlength="12000" rows="5" required></textarea></label>
 <button type="submit">자료 저장</button></form></section>
-<section class="toolbar"><h2>최신 트렌드 조사</h2>
+<section class="toolbar stage-two"><h2>최신 트렌드 조사</h2>
 <p>Perplexity가 최근 7일 공개 웹 자료를 바탕으로 여러 분야의 키워드 최대 20개를 발굴합니다. 선택 키워드 콘텐츠 생성에도 Perplexity API를 한 번 더 사용합니다.</p>
 <form method="post" action="/discover"><button type="submit">Perplexity 최신 트렌드 TOP 20 조사</button></form>
 <p class="meta">검색량 순위가 아니라 최신 근거·한국 독자 관련성·콘텐츠 설명 가치에 따른 편집 후보입니다.</p></section>
 <h2>발굴된 트렌드 {len(trends)}개</h2><div class="grid">{''.join(cards) or '<p>아직 조사 결과가 없습니다. 위 버튼으로 첫 조사를 실행하세요.</p>'}</div>
-{connection_dashboard(verification_cache=connection_checks, oauth_connections=oauth_connections, oauth_setup=oauth_setup, oauth_storage_error=oauth_storage_error)}
-{media_upload_html}
-<h2>생성한 콘텐츠 패키지 {len(previews)}개</h2>{''.join(preview_cards) or '<p>트렌드를 선택해 콘텐츠 패키지를 생성하세요.</p>'}
-<p><a href="/queue/diagnostics">게시 대기열 상태 진단</a> · 저장된 승인 정보와 게시 이력을 읽기 전용으로 확인합니다.</p>\n{queue_dashboard(queue_snapshot or {"items": [], "history": []}, publishing_enabled=os.getenv("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true", pending_approvals=len(previews))}
+<div class="stage-two">{connection_dashboard(verification_cache=connection_checks, oauth_connections=oauth_connections, oauth_setup=oauth_setup, oauth_storage_error=oauth_storage_error)}</div>
+<div class="stage-two">{media_upload_html}</div>
+<h2 id="saved-drafts">저장한 블로그·쇼츠 원고 {len(previews)}개</h2>{''.join(preview_cards) or '<p>트렌드를 선택해 콘텐츠 패키지를 생성하세요.</p>'}
+<div class="stage-two"><p><a href="/queue/diagnostics">게시 대기열 상태 진단</a> · 저장된 승인 정보와 게시 이력을 읽기 전용으로 확인합니다.</p>\n{queue_dashboard(queue_snapshot or {"items": [], "history": []}, publishing_enabled=os.getenv("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true", pending_approvals=len(previews))}</div>
 </main><script nonce="{script_nonce}">
 document.getElementById("scout-import").addEventListener("click", async () => {{
   const button = document.getElementById("scout-import");

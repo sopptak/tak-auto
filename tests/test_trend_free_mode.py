@@ -186,6 +186,10 @@ class FreeModeTests(unittest.TestCase):
                     scout_path.write_text(json.dumps(scout_pack), encoding="utf-8")
                     with patch.dict("os.environ", {"TAK_SCOUT_DAILY_PACK": str(scout_path)}):
                         html = post("/scout/import", {})
+                    self.assertIn('<body class="free-mode">', html)
+                    self.assertIn('.free-mode .stage-two{display:none}', html)
+                    self.assertIn('href="#free-import"', html)
+                    self.assertIn('id="saved-drafts"', html)
                     self.assertIn("탁스카우트 검증 주제", html)
                     self.assertIn("요청문 복사", html)
                     self.assertIn("공식 원문을 확인할 수 없으면", html)
