@@ -1,8 +1,7 @@
-"""공개 RSS 피드에서 TAK SCOUT 후보를 만드는 최소 파서.
+"""공개 RSS/Atom 피드에서 TAK SCOUT 후보를 만드는 최소 파서.
 
-이 모듈은 RSS 2.0 XML만 읽는다. 개별 기사 페이지를 따라가거나 로그인, 캡차, 접근
-제한을 우회하지 않으며, 본문 전체를 가져오지 않고 title/description(요약)/link/
-pubDate만 사용한다.
+개별 기사 페이지를 따라가거나 로그인, 캡차, 접근
+제한을 우회하지 않으며, 본문 전체를 가져오지 않고 제목·요약·링크·발행 시각만 사용한다.
 """
 
 from __future__ import annotations
@@ -24,6 +23,7 @@ class ScoutRssError(ValueError):
 _TAG_PATTERN = re.compile(r"<[^>]+>")
 _WHITESPACE_PATTERN = re.compile(r"\s+")
 MAX_SUMMARY_LENGTH = 200
+_ATOM = "{http://www.w3.org/2005/Atom}"
 
 
 def fetch_rss(url: str, timeout: float = 20.0) -> str:
@@ -63,7 +63,7 @@ def _published_at(item: ET.Element) -> str:
 
 
 def parse_rss_items(xml_text: str, source_name: str, category: str) -> list[ScoutCandidate]:
-    """RSS 2.0 XML에서 후보 목록을 만든다.
+    """RSS 2.0 or Atom XML에서 후보 목록을 만든다.
 
     제목과 원문 URL이 없는 item은 조용히 건너뛴다(피드 하나의 일부 결함이 전체 수집을
     막지 않도록 한다). XML 자체가 깨졌을 때만 ScoutRssError를 발생시킨다.
@@ -72,6 +72,26 @@ def parse_rss_items(xml_text: str, source_name: str, category: str) -> list[Scou
         root = ET.fromstring(xml_text)
     except ET.ParseError as error:
         raise ScoutRssError(f"RSS XML 파싱 실패: {error}") from error
+
+    if root.tag == _ATOM + "feed":
+        candidates = []
+        for entry in root.findall(_ATOM + "entry"):
+            title = (entry.findtext(_ATOM + "title") or "").strip()
+            source_url = next(
+                (link.get("href", "").strip() for link in entry.findall(_ATOM + "link")
+                 if link.get("rel", "alternate") == "alternate" and link.get("href", "").strip()),
+                "",
+            )
+            if not title or not source_url:
+                continue
+            summary = _clean_summary(entry.findtext(_ATOM + "summary") or "")
+            published_at = (entry.findtext(_ATOM + "published") or entry.findtext(_ATOM + "updated") or "").strip()
+            candidates.append(ScoutCandidate(
+                scout_id=compute_scout_id(title, source_url), title=title, summary=summary,
+                source_url=source_url, published_at=published_at,
+                source_name=source_name, category=category,
+            ))
+        return candidates
 
     channel = root.find("channel")
     items = channel.findall("item") if channel is not None else root.findall(".//item")

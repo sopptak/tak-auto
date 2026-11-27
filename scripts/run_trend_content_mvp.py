@@ -30,6 +30,8 @@ if str(ROOT) not in sys.path:
 
 from blog_importer.models import utc_now
 from content_engine.generator import generate_content_bundle
+from tak_scout.collector import collect_all, dedupe_candidates, load_sources
+from tak_scout.trend_scoring import rank_trend_candidates
 from content_engine.media_assets import MediaAssetError, MediaAssetStore, is_public_https_origin
 from content_engine.publishing_connections import (
     VERIFY_PLATFORMS, connection_dashboard, publishing_connection_statuses,
@@ -369,6 +371,177 @@ def _paid_research_provider():
     return PerplexityResearchProvider.from_environment()
 
 
+_MAX_SCOUT_PACK_BYTES = 2 * 1024 * 1024
+_LOCAL_CSRF_TOKEN = secrets.token_urlsafe(32)
+
+
+def _loopback_request_host(host: str) -> bool:
+    try:
+        parsed = urlparse(f"//{host}")
+        if parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment:
+            return False
+        _ = parsed.port
+        hostname = (parsed.hostname or "").lower().rstrip(".")
+        return hostname == "localhost" or ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
+
+
+def _select_diverse_scout_candidates(candidates: list, limit: int = 10) -> list:
+    """Keep category coverage and favor publisher links over news aggregators."""
+    ranked = [item for item, _ in rank_trend_candidates(candidates)]
+    selected = []
+    categories = list(dict.fromkeys(item.category for item in ranked))
+    aggregator_hosts = {"news.google.com", "news.ycombinator.com"}
+    for category in categories:
+        options = [item for item in ranked if item.category == category]
+        original = next(
+            (item for item in options if urlparse(item.source_url).hostname not in aggregator_hosts),
+            None,
+        )
+        selected.append(original or options[0])
+        if len(selected) == limit:
+            return selected
+    selected_ids = {item.scout_id for item in selected}
+    for item in ranked:
+        if item.scout_id not in selected_ids:
+            selected.append(item)
+            selected_ids.add(item.scout_id)
+            if len(selected) == limit:
+                return selected
+    return selected
+
+
+def _refresh_scout_trends(previous: dict, *, now: datetime | None = None) -> dict:
+    current = now or datetime.now(timezone.utc)
+    sources = load_sources(ROOT / "data" / "scout_sources.json")
+    collected, results = collect_all(sources, timeout=12)
+    recent = []
+    for candidate in dedupe_candidates(collected):
+        if len(candidate.summary.strip()) < 12 or not _safe_http_url(candidate.source_url):
+            continue
+        try:
+            published = datetime.fromisoformat(candidate.published_at.replace("Z", "+00:00"))
+            if published.tzinfo is not None and timedelta(0) <= current - published <= timedelta(days=7):
+                recent.append(candidate)
+        except (TypeError, ValueError, OverflowError):
+            continue
+    selected = [candidate.to_dict() for candidate in _select_diverse_scout_candidates(recent)]
+    if not selected:
+        raise ValueError("최근 7일의 탁스카우트 후보가 없습니다. RSS 출처 상태를 확인하세요.")
+    pack = {"generated_at": current.isoformat(), "candidates": selected}
+    report = _scout_trends(json.dumps(pack, ensure_ascii=False), previous)
+    report["scout_sources_checked"] = len(results)
+    report["scout_sources_succeeded"] = sum(result.error is None for result in results)
+    return report
+
+
+def _scout_trends(raw: str, previous: dict) -> dict:
+    try:
+        pack = json.loads(raw)
+    except (ValueError, RecursionError):
+        raise ValueError("탁스카우트 JSON을 읽을 수 없습니다.") from None
+    rows = pack.get("candidates") if isinstance(pack, dict) else None
+    if not isinstance(rows, list):
+        raise ValueError("탁스카우트 일일 후보 JSON의 candidates 목록이 필요합니다.")
+    items = []
+    seen = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        url = _safe_http_url(row.get("source_url"))
+        title = row.get("title")
+        summary = row.get("summary")
+        if not url or url in seen or not isinstance(title, str) or not isinstance(summary, str):
+            continue
+        title, summary = title.strip()[:200], summary.strip()[:1200]
+        if not title or len(summary) < 12:
+            continue
+        seen.add(url)
+        items.append({
+            "keyword": title, "summary": summary, "source_urls": [url], "key_points": [summary],
+            "category": "탁스카우트", "origin": "tak-scout",
+            "source_name": str(row.get("source_name") or "수집 피드")[:100],
+            "published_at": str(row.get("published_at") or "")[:64],
+        })
+        if len(items) == 20:
+            break
+    if not items:
+        raise ValueError("원문 URL과 요약이 있는 탁스카우트 후보가 없습니다.")
+    kept = [item for item in previous.get("trends", []) if item.get("origin") != "tak-scout"]
+    generated_at = pack.get("generated_at")
+    return {
+        **previous, "model": "tak-scout", "researched_at": generated_at[:64] if isinstance(generated_at, str) else "",
+        "trends": (items + kept)[:20],
+    }
+
+
+def _scout_age_warning(item: dict, *, now: datetime | None = None) -> str:
+    """Flag Scout items whose publication time cannot establish recent coverage."""
+    if item.get("origin") != "tak-scout":
+        return ""
+    published_at = item.get("published_at")
+    if not isinstance(published_at, str) or not published_at.strip():
+        return "발행 시각이 없어 최신 소식인지 확인할 수 없습니다."
+    try:
+        published = datetime.fromisoformat(published_at.strip().replace("Z", "+00:00"))
+        if published.tzinfo is None:
+            raise ValueError("timezone missing")
+        age = (now or datetime.now(timezone.utc)) - published
+    except (ValueError, OverflowError):
+        return "발행 시각을 확인할 수 없습니다. 원문 날짜를 확인하세요."
+    if age < timedelta(0):
+        return "발행 시각이 미래입니다. 원문 날짜를 확인하세요."
+    if age > timedelta(days=7):
+        return "발행 후 7일이 지났습니다. 최신성 확인 후 초안을 만드세요."
+    return ""
+
+
+def _same_preview_topic(existing: dict, incoming: dict) -> bool:
+    """Identify a Scout article by source, rather than its potentially shared title."""
+    source_bound = {"tak-scout-template", "perplexity-free-paste"}
+    existing_source_bound = existing.get("content_model") in source_bound
+    incoming_source_bound = incoming.get("content_model") in source_bound
+    if existing_source_bound or incoming_source_bound:
+        return bool(existing_source_bound and incoming_source_bound and existing.get("source_urls") == incoming.get("source_urls"))
+    return existing.get("keyword") == incoming.get("keyword")
+
+
+def _split_pasted_draft(text: str) -> tuple[str, str]:
+    """Split a copied Perplexity answer at explicit blog and Shorts headings."""
+    heading = re.compile(
+        r"^[ \t]{0,3}(?:#{1,6}[ \t]*)?"
+        r"(?P<section>블로그[ \t]*(?:원고|글)|(?:60[ \t]*초[ \t]*)?쇼츠[ \t]*대본)"
+        r"[ \t]*[:：]?[ \t]*$", re.MULTILINE,
+    )
+    matches = list(heading.finditer(text))
+    if len(matches) != 2 or not matches[0].group("section").startswith("블로그") or "쇼츠" not in matches[1].group("section"):
+        raise ValueError("통합 원고에 '블로그 원고'와 '60초 쇼츠 대본' 제목을 순서대로 한 번씩 넣으세요.")
+    blog = text[matches[0].end():matches[1].start()].strip()
+    shorts = text[matches[1].end():].strip()
+    return blog, shorts
+
+
+def _free_perplexity_prompt(item: dict) -> str:
+    """Give the reader a grounded prompt for the free Perplexity website."""
+    sources = _safe_http_urls(item.get("source_urls", []))
+    source = next((url for url in sources if url.startswith("https://")), "")
+    if not source or not str(item.get("keyword", "")).strip():
+        return ""
+    title = str(item["keyword"]).strip()[:200]
+    return (
+        "다음 뉴스 후보를 조사해 한국어 블로그 원고와 60초 쇼츠 대본을 작성해 주세요.\n"
+        f"후보 제목: {title}\n후보 링크: {source}\n\n"
+        "후보 제목과 링크는 조사 단서일 뿐입니다. 공식 원문을 찾아 발표 날짜와 핵심 사실을 확인하고, "
+        "확인되지 않은 내용은 쓰지 마세요. 계획을 완료된 사실처럼 표현하지 마세요. "
+        "공식 원문을 확인할 수 없으면 원고 대신 그 이유를 알려 주세요.\n\n"
+        "출력 형식:\n## 블로그 원고\n제목과 소제목 3개, 본문 700자 이상. "
+        "마지막에 확인한 공식 원문 URL과 발표 날짜를 적어 주세요.\n"
+        "## 60초 쇼츠 대본\n6개 장면마다 시간, 화면, 자막, 내레이션을 적어 주세요. "
+        "추측과 출처 없는 통계는 제외해 주세요."
+    )
+
+
 def _manual_trend(form: dict) -> dict:
     keyword = str(form.get("keyword", [""])[0]).strip()
     source = str(form.get("source_url", [""])[0]).strip()
@@ -516,8 +689,8 @@ def _build_content_prompt(
         "research_date": trend_report.get("researched_at"),
         "human_accepted_performance_insights": strategy_insights or [],
     }
-    return f"""당신은 한국어 검색 유입과 영상 시청 지속시간을 설계하는 전문 콘텐츠 에디터입니다.
-아래 Perplexity 트렌드 조사 자료만 사실의 출발점으로 삼아 게시 직전 검토가 가능한 콘텐츠 패키지를 작성하세요.
+    return f"""당신은 한국어 블로그 원고와 쇼츠 대본을 작성하는 콘텐츠 에디터입니다.
+아래 Perplexity 트렌드 조사 자료만 사실의 출발점으로 삼아 사람이 검토할 두 가지 초안을 작성하세요.
 
 자료:
 {json.dumps(facts, ensure_ascii=False, indent=2)}
@@ -529,17 +702,13 @@ def _build_content_prompt(
 - 원문 출처 URL은 위 verified_source_urls만 사용하세요.
 - 블로그는 검색 의도에 답하는 충분한 본문(한국어 1,200자 이상 목표), 소제목, 체크포인트, 요약, 자연스러운 다음 행동 CTA를 포함하세요.
 - 쇼츠는 약 60초 분량으로 6~8개 장면을 구성하세요. 각 장면은 time, visual, caption, narration을 포함하고 첫 3초 후킹과 마지막 행동 유도를 포함하세요. 세로 9:16(1080x1920) 기준으로 화면 중앙 안전영역에 핵심 피사체와 자막을 배치하고, 자막은 한 화면 최대 2줄·짧은 문장으로 작성하며 화면 가장자리 잘림을 피하도록 visual에 구도를 구체적으로 지시하세요.
-- Threads는 각각 독립적으로 읽혀도 되는 후킹 중심 글 2개를 만들고 각 본문은 500자 이내로 하세요.
-- Facebook 페이지용 글은 Threads와 별도로 작성하세요. 2~4개 짧은 문단으로 맥락과 경험·실행 포인트를 설명하고, 마지막에 자연스러운 질문이나 댓글 유도 문장을 넣으세요. 확인되지 않은 개인 경험을 창작하지 마세요.
-- 같은 내용을 세 번 반복하지 말고 플랫폼별 문법에 맞게 재구성하세요.
+- 블로그 본문과 쇼츠 장면에 집중하고, 다른 SNS용 원고는 만들지 마세요.
 - human_accepted_performance_insights는 사람이 명시적으로 선택한 과거 성과 관찰입니다. 사실 근거가 아니라 형식·후킹·구성의 참고자료로만 활용하고, 이번 트렌드의 사실처럼 인용하거나 수치·성과를 보장하지 마세요.
 - 참고자료와 현재 트렌드가 맞지 않으면 참고자료를 무시하세요. 선택된 관찰을 기계적으로 복제하지 말고 현재 독자 검색 의도에 맞게 변형하세요.
 - 결과는 아래 JSON 객체 하나로만 출력하세요. 코드펜스나 설명은 붙이지 마세요.
 {{
   "blog": {{"title":"검색형 제목","meta_description":"검색 결과 설명","focus_keyword":"핵심 키워드","body":"Markdown 본문"}},
-  "shorts": {{"title":"쇼츠 제목","duration_seconds":60,"hook":"첫 3초 후킹","scenes":[{{"time":"00-05초","visual":"9:16 화면 구도와 안전영역을 포함한 화면 구성","caption":"짧은 자막","narration":"내레이션"}}],"closing_cta":"마지막 행동 유도","youtube_description":"유튜브 설명란 문안","instagram_caption":"인스타그램 릴스 설명문","tiktok_caption":"틱톡 설명문","hashtags":["해시태그1","해시태그2"]}},
-  "threads": [{{"title":"후킹 제목","body":"Threads 본문"}},{{"title":"후킹 제목","body":"Threads 본문"}}],
-  "facebook": {{"title":"Facebook 페이지 제목","body":"Facebook 페이지 전용 게시 본문"}}
+  "shorts": {{"title":"쇼츠 제목","duration_seconds":60,"hook":"첫 3초 후킹","scenes":[{{"time":"00-05초","visual":"9:16 화면 구도와 안전영역을 포함한 화면 구성","caption":"짧은 자막","narration":"내레이션"}}],"closing_cta":"마지막 행동 유도","youtube_description":"유튜브 설명란 문안","hashtags":["해시태그1","해시태그2"]}}
 }}"""
 
 
@@ -560,7 +729,7 @@ def _parse_content_package(answer: str) -> dict:
         raise ValueError("콘텐츠 패키지는 JSON 객체여야 합니다.")
     blog = package.get("blog")
     shorts = package.get("shorts")
-    threads = package.get("threads")
+    threads = package.get("threads", [])
     if not isinstance(blog, dict):
         raise ValueError("블로그 원고 구조가 올바르지 않습니다. 다시 생성하세요.")
     for field, label in (("title", "제목"), ("meta_description", "검색 설명"),
@@ -572,9 +741,7 @@ def _parse_content_package(answer: str) -> dict:
     if not isinstance(shorts, dict):
         raise ValueError("쇼츠 원고 구조가 올바르지 않습니다. 다시 생성하세요.")
     for field, label in (("title", "제목"), ("hook", "도입 문장"), ("closing_cta", "마무리 안내"),
-                         ("youtube_description", "YouTube 설명란"),
-                         ("instagram_caption", "Instagram 문안"),
-                         ("tiktok_caption", "TikTok 문안")):
+                         ("youtube_description", "YouTube 설명란")):
         if not isinstance(shorts.get(field), str) or not shorts[field].strip():
             raise ValueError(f"쇼츠 {label}이 비어 있거나 문자열이 아닙니다. 다시 생성하세요.")
     duration = shorts.get("duration_seconds")
@@ -593,8 +760,8 @@ def _parse_content_package(answer: str) -> dict:
     hashtags = shorts.get("hashtags", [])
     if not isinstance(hashtags, list) or any(not isinstance(tag, str) or not tag.strip() for tag in hashtags):
         raise ValueError("쇼츠 해시태그 형식이 올바르지 않습니다. 다시 생성하세요.")
-    if not isinstance(threads, list) or len(threads) != 2:
-        raise ValueError("Threads 초안은 정확히 2개가 필요합니다.")
+    if not isinstance(threads, list) or len(threads) not in {0, 2}:
+        raise ValueError("Threads 초안은 없거나 정확히 2개여야 합니다.")
     for index, post in enumerate(threads, 1):
         if not isinstance(post, dict):
             raise ValueError(f"Threads {index}번째 초안 구조가 올바르지 않습니다.")
@@ -604,11 +771,13 @@ def _parse_content_package(answer: str) -> dict:
             raise ValueError("Threads 본문은 비어 있지 않고 500자 이하여야 합니다.")
     facebook = package.get("facebook")
     if not isinstance(facebook, dict):
-        facebook = {"title": threads[0]["title"], "body": threads[0]["body"]}
-    if not isinstance(facebook.get("title"), str) or not facebook["title"].strip():
-        facebook["title"] = threads[0]["title"]
-    if not isinstance(facebook.get("body"), str) or not facebook["body"].strip():
-        facebook["body"] = threads[0]["body"]
+        facebook = {}
+    if threads:
+        if not isinstance(facebook.get("title"), str) or not facebook["title"].strip():
+            facebook["title"] = threads[0]["title"]
+        if not isinstance(facebook.get("body"), str) or not facebook["body"].strip():
+            facebook["body"] = threads[0]["body"]
+    package["threads"] = threads
     package["facebook"] = facebook
     return package
 
@@ -833,7 +1002,10 @@ def _evaluate_content_quality(
         ("facebook_native", "Facebook 전용 문안이 Threads와 구분됨", bool(str(facebook.get("body") or "").strip()) and str(facebook.get("body") or "").strip() not in thread_bodies, 5),
         ("hashtags", "쇼츠 해시태그 3개 이상", isinstance(shorts.get("hashtags"), list) and len(shorts["hashtags"]) >= 3, 5),
     ]
-    score = sum(weight for _, _, passed, weight in checks if passed)
+    if not threads and not facebook:
+        checks = [row for row in checks if row[0] not in {"threads_pair", "threads_distinct", "facebook_native"}]
+    total_weight = sum(weight for _, _, _, weight in checks)
+    score = round(100 * sum(weight for _, _, passed, weight in checks if passed) / total_weight)
     failed = [label for _, label, passed, _ in checks if not passed]
     return {
         "score": score,
@@ -987,6 +1159,9 @@ def _build_editorial_revision_prompt(preview: dict, recommendation: dict, target
 
 def _refresh_preview_editorial_checks(preview: dict) -> None:
     """Recompute deterministic checks after an explicit editorial change."""
+    if preview.get("content_model") == "perplexity-free-paste":
+        preview["claim_coverage"] = _evaluate_claim_citation_coverage(preview, preview.get("source_urls") or [])
+        return
     shorts = preview.get("shorts") or []
     package = {
         "blog": preview.get("blog") or {},
@@ -1058,6 +1233,49 @@ def _revert_editorial_revision(preview: dict, revision_id: str) -> None:
     _refresh_preview_editorial_checks(preview)
 
 
+def _make_scout_preview(item: dict, report: dict, knowledge: KnowledgeRecord) -> dict:
+    title = knowledge.title
+    summary = item["summary"]
+    source = item["source_urls"][0]
+    attribution = item["source_name"]
+    published = item.get("published_at")
+    source_note = f"출처: {attribution}" + (f" · 발행 시각: {published}" if published else "") + f"\n{source}"
+    blog = {
+        "title": title,
+        "body": f"{title}\n\n{attribution}에서 다룬 소식입니다.\n\n수집 요약\n{summary}\n\n{source_note}",
+    }
+    hook = "오늘 탁스카우트에서 고른 소식입니다."
+    short = {
+        "title": title, "hook": hook,
+        "body": (
+            f"[도입] {hook}\n"
+            f"[화면 제목] {title}\n"
+            f"[출처 소개] {attribution}에서 전한 내용입니다.\n"
+            f"[핵심 요약] {summary}\n"
+            "[마무리] 자세한 내용은 원문에서 확인해 보세요."
+        ),
+    }
+    short.update(dict.fromkeys(("youtube_description", "instagram_caption", "tiktok_caption"), f"{title}\n\n{source_note}"))
+    package = {"blog": blog, "shorts": {"hook": hook}, "threads": []}
+    quality = _evaluate_content_quality(package, title, item)
+    coverage = _evaluate_claim_citation_coverage(package, [source])
+    age_warning = _scout_age_warning(item)
+    relay_warning = (
+        " 구글 뉴스 중계 링크만 수집했습니다. 실제 언론사 원문 주소와 사실을 확인하세요."
+        if urlparse(source).hostname == "news.google.com" else ""
+    )
+    return {
+        "keyword": title, "knowledge_id": knowledge.id, "created_at": utc_now(),
+        "status": "preview_only_not_approved", "content_model": "tak-scout-template",
+        "warning": "탁스카우트 수집 요약 기반입니다. 수동 게시 전에 원문과 최신성을 확인하고, 외국어 요약은 번역을 검토하세요."
+                   + relay_warning + (" " + age_warning if age_warning else ""),
+        "blog": blog, "shorts": [short], "source_urls": [source],
+        "quality_report": quality, "claim_coverage": coverage,
+        "source_integrity": _evaluate_source_integrity(item, report),
+        "editorial_recommendations": _build_editorial_recommendations(quality, coverage),
+    }
+
+
 def _make_preview(
     item: dict, trend_report: dict, provider=None,
     strategy_insights: list[dict] | None = None,
@@ -1075,7 +1293,7 @@ def _make_preview(
         str(item.get("content_angle") or ""),
     ])
     points = list(dict.fromkeys(value for value in points if len(value) >= 12))
-    if len(points) < 3:
+    if len(points) < 3 and not (item.get("origin") == "tak-scout" and provider is None and points):
         raise ValueError("콘텐츠 생성에 필요한 독립 근거가 3개 미만입니다.")
     facts = "\n".join([
         f"트렌드 키워드: {keyword}",
@@ -1153,6 +1371,9 @@ def _make_preview(
             "source_urls": list(dict.fromkeys(urls + list(result.citations))),
             "content_model": result.model,
         }
+
+    if item.get("origin") == "tak-scout":
+        return _make_scout_preview(item, trend_report, knowledge)
 
     # Deterministic template generation makes no external API requests.
     bundle = generate_content_bundle(knowledge)
@@ -1340,13 +1561,28 @@ def _page(
     accepted_insights = sorted(accepted_insights, key=lambda row: row.created_at, reverse=True)[:20]
     cards = []
     for index, item in enumerate(trends):
+        scout_age_warning = _scout_age_warning(item)
+        scout_age_html = (
+            f'<p class="warning">{escape(scout_age_warning)}</p>'
+            '<label class="meta"><input type="checkbox" name="confirm_source_age" value="yes" required>'
+            '원문 날짜를 확인했고 이 후보로 초안을 만들겠습니다.</label>'
+        ) if scout_age_warning else ""
         sources = " ".join(
             f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener">출처 {i}</a>'
             for i, url in enumerate(_safe_http_urls(item.get("source_urls", [])), 1)
         )
+        prompt = _free_perplexity_prompt(item) if item.get("origin") == "tak-scout" else ""
+        prompt_html = (
+            '<details><summary>무료 Perplexity로 긴 원고 만들기</summary>'
+            f'<button type="button" class="secondary copy" data-copy="prompt-{index}">요청문 복사</button>'
+            f'<pre id="prompt-{index}">{escape(prompt)}</pre>'
+            '<p class="meta">Perplexity 무료 웹에서 붙여넣고 공식 원문을 확인한 뒤, '
+            '답변 전체를 아래 무료 원고 가져오기에 저장하세요.</p>'
+            '<a href="https://www.perplexity.ai/" target="_blank" rel="noopener noreferrer">Perplexity 열기</a></details>'
+        ) if prompt else ""
         cards.append(f"""
 <article class="trend">
-  <div class="meta">#{index + 1} · {escape(str(item.get('category', '기타')))}</div>
+  <div class="meta">#{index + 1} · {escape(str(item.get('category', '기타')))} · {escape(str(item.get('published_at', '')))}</div>
   <h3>{escape(str(item.get('keyword', '')))}</h3>
   <p>{escape(str(item.get('summary', '')))}</p>
   <p><b>왜 지금?</b> {escape(str(item.get('why_now', '')))}</p>
@@ -1354,10 +1590,12 @@ def _page(
   <p><b>콘텐츠 관점</b> {escape(str(item.get('content_angle', '')))}</p>
   <p class="hook">쇼츠 후킹: {escape(str(item.get('shorts_hook', '')))}</p>
   <p class="meta">{sources}</p>
+  {prompt_html}
   <form method="post" action="/generate"><input type="hidden" name="index" value="{index}">
-    {''.join(f'<label class="meta"><input type="checkbox" name="insight_id" value="{escape(row.insight_id, quote=True)}"> 성과 참고: {escape(row.platform)} · {escape(row.metric)} · {escape(row.result)} · 표본 {row.sample_size}건</label>' for row in accepted_insights)}
+    {scout_age_html}
+    {''.join(f'<label class="meta"><input type="checkbox" name="insight_id" value="{escape(row.insight_id, quote=True)}"> 성과 참고: {escape(row.platform)} · {escape(row.metric)} · {escape(row.result)} · 표본 {row.sample_size}건</label>' for row in accepted_insights if item.get("origin") != "tak-scout")}
     <p class="meta">사람이 승인한 과거 성과를 선택하면 후킹·구성 참고자료로만 반영합니다. 선택하지 않아도 생성할 수 있습니다. 최대 5개.</p>
-    <button type="submit">선택한 참고자료로 콘텐츠 패키지 생성</button></form>
+    <button type="submit">블로그·쇼츠 초안 생성</button></form>
 </article>""")
     preview_cards = []
     for preview_index, preview in enumerate(previews):
@@ -1499,16 +1737,32 @@ def _page(
             + "".join("<li>" + escape(str(value)) + "</li>" for value in quality_report.get("warnings", []))
             + '</ul><p class="meta">' + escape(str(quality_report.get("scope_note", ""))) + '</p></div>'
         )
+        scout_edit_html = ""
+        if preview.get("content_model") in {"tak-scout-template", "perplexity-free-paste"} and shorts:
+            edit_forms = []
+            for target, label in (("blog.body", "블로그 원고"), ("shorts.0.body", "쇼츠 대본")):
+                current = _read_editorial_target(preview, target)
+                current_hash = hashlib.sha256(current.encode("utf-8")).hexdigest()
+                edit_forms.append(
+                    f'<form method="post" action="/scout/edit">'
+                    f'<input type="hidden" name="preview_index" value="{preview_index}">'
+                    f'<input type="hidden" name="target" value="{target}">'
+                    f'<input type="hidden" name="base_hash" value="{current_hash}">'
+                    f'<label>{label} 직접 수정<textarea name="body" maxlength="8000" rows="8" required>{escape(current)}</textarea></label>'
+                    '<button type="submit">수정한 원고 저장</button></form>'
+                )
+            scout_edit_html = '<details><summary>원고 직접 수정</summary>' + "".join(edit_forms) + '</details>'
         preview_cards.append(f"""
 <section class="preview">
   <h2>{escape(str(preview.get('keyword', '')))} 콘텐츠 미리보기</h2>
-  <p class="meta">KNOWLEDGE ID: {escape(str(preview.get('knowledge_id') or ''))} · <a href="/performance?knowledge_id={escape(str(preview.get('knowledge_id') or ''), quote=True)}">이 주제의 플랫폼별 성과 보기</a></p>
+  <p class="meta stage-two">KNOWLEDGE ID: {escape(str(preview.get('knowledge_id') or ''))} · <a href="/performance?knowledge_id={escape(str(preview.get('knowledge_id') or ''), quote=True)}">이 주제의 플랫폼별 성과 보기</a></p>
   <p class="warning">{escape(str(preview.get('warning', '')))}</p>
   {quality_feedback_html}
   {search_intent_html}
   {editorial_recommendations_html}
   {editorial_revisions_html}
   {editorial_history_html}
+  {scout_edit_html}
   {source_feedback_html}\n  {claim_feedback_html}
   {strategy_feedback_html}
   <h3>네이버 블로그 · {escape(str(blog.get('title', '')))}</h3>
@@ -1516,6 +1770,7 @@ def _page(
   <pre id="blog-{len(preview_cards)}">{escape(str(blog.get('body', '')))}</pre>
   <h3>유튜브 쇼츠 · {len(shorts)}편</h3>
   {"".join(f'<div class="draft"><b>{escape(str(row.get("title", "")))}</b><p><b>첫 3초 후킹</b>: {escape(str(row.get("hook", "")))}</p><button type="button" class="secondary copy" data-copy="short-{len(preview_cards)}-{i}">쇼츠 대본 복사</button><pre id="short-{len(preview_cards)}-{i}">{escape(str(row.get("body", "")))}</pre></div>' for i, row in enumerate(shorts))}
+  <div class="stage-two">
   {"".join(f'<div class="draft"><b>{label}</b><button type="button" class="secondary copy" data-copy="caption-{len(preview_cards)}-{i}">문안 복사</button><pre id="caption-{len(preview_cards)}-{i}">{escape(str(shorts[i].get(field, "")))}</pre></div>' for i in range(len(shorts)) for label, field in [("YouTube 설명란", "youtube_description"), ("Instagram 릴스 문안", "instagram_caption"), ("TikTok 설명문", "tiktok_caption")])}
   {"".join(f'<p class="meta">해시태그: {escape(" ".join("#" + str(tag).lstrip("#") for tag in shorts[i].get("hashtags", [])))}</p>' for i in range(len(shorts)))}
   <h3>Threads · {len(threads)}편</h3>
@@ -1523,8 +1778,9 @@ def _page(
   <h3>Facebook 페이지 게시문 · {escape(str(facebook_post.get("title") or ""))}</h3>
   <button type="button" class="secondary copy" data-copy="facebook-{len(preview_cards)}">Facebook 글 복사</button>
   <pre id="facebook-{len(preview_cards)}">{escape(facebook_message)}</pre>
+  </div>
   <p class="meta">{" ".join(f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener">원문 출처</a>' for url in _safe_http_urls(preview.get("source_urls", [])))}</p>
-  <details><summary>플랫폼 게시 예약 및 승인</summary>
+  <details class="stage-two"><summary>플랫폼 게시 예약 및 승인</summary>
     <p class="warning">승인 후에도 실제 게시 기능은 기본 비활성 상태입니다.</p>
     <form method="post" action="/queue/approve" class="queue-form">
       <input type="hidden" name="preview_index" value="{preview_index}">
@@ -1540,6 +1796,7 @@ def _page(
 </section>""")
     generated = escape(str(report.get("researched_at", "아직 조사 전")))
     rendered_page = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="tak-local-csrf-token" content="{_LOCAL_CSRF_TOKEN}">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>TAK AUTO Trend Factory</title>
 <style>
 :root{{--bg:#f3f5f9;--ink:#182235;--muted:#65728a;--line:#dfe5ee;--accent:#3157c8}}
@@ -1554,17 +1811,36 @@ button.secondary{{background:#475569}}.error{{background:#fee;border:1px solid #
 .warning{{background:#fff4d9;padding:12px;border-radius:9px}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.7 inherit;background:#f7f8fb;padding:14px;border-radius:9px}}
 a{{color:#3157c8}}.draft{{border-top:1px solid var(--line);padding:10px 0}}
 .copy{{margin:6px 0}}.copy.done{{background:#16794b}}
+.free-mode .stage-two{{display:none}}
+.free-only{{display:none}}.free-mode .free-only{{display:block}}
 table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;border-bottom:1px solid var(--line);text-align:left;overflow-wrap:anywhere}}.queue-form{{display:flex;flex-wrap:wrap;gap:12px;align-items:end}}label{{display:grid;gap:4px}}
 .connection-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-top:16px}}.connection-card{{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fbfcfe}}.connection-heading{{display:flex;align-items:center;gap:9px;flex-wrap:wrap}}.connection-icon{{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#e7edf8;color:#3157c8;font-weight:800}}.connection-login-icon{{position:relative;text-decoration:none;transition:transform .15s,box-shadow .15s}}.connection-login-icon:hover,.connection-login-icon:focus-visible{{transform:translateY(-1px);box-shadow:0 0 0 3px #dbe7ff;outline:none}}.connection-external-mark{{position:absolute;right:-4px;bottom:-4px;display:grid;place-items:center;width:13px;height:13px;border:1px solid white;border-radius:50%;background:#3157c8;color:white;font:10px/1 system-ui}}.connection-login-note{{font-size:13px;color:var(--muted);margin:8px 0 0}}.connection-state{{margin-left:auto;font-size:12px;font-weight:700}}.connection-account{{font-size:18px;font-weight:700;margin:10px 0 2px}}.connection-expiry{{font-size:13px;font-weight:700;color:#956500;margin:2px 0}}.connection-note{{font-size:13px;margin:8px 0 0}}.connection-missing{{font-size:12px;color:#9c3d39;overflow-wrap:anywhere}}.connection-verification-error{{font-size:12px;color:#b42318}}.connection-card form{{margin:8px 0}}.connection-button{{display:inline-block;padding:9px 13px;background:#3157c8;color:white;text-decoration:none;border-radius:9px;font-weight:700}}.connection-card details{{font-size:12px;overflow-wrap:anywhere}}.connection-card code{{overflow-wrap:anywhere}}.state-configured .connection-state,.state-verified .connection-state{{color:#16794b}}.state-expired .connection-state,.state-missing .connection-state,.state-verification_failed .connection-state{{color:#b42318}}.state-manual .connection-state,.state-attention .connection-state{{color:#956500}}
 @media(max-width:560px){{h1{{font-size:22px}}.grid{{display:block}}}}
-</style></head><body><main>
+</style></head><body class="{'free-mode' if _free_mode() else ''}"><main>
 <header><h1>TAK AUTO · TREND CONTENT FACTORY</h1>
-<p>최신 트렌드 발견 → Perplexity 조사 → 블로그·쇼츠·Threads 제작 → 트래픽 유도</p>
-<p><a href="/performance" style="color:#d4def0">📈 전체 콘텐츠 성과 대시보드</a> · <a href="/performance/insights" style="color:#d4def0">성과 인사이트</a></p>
+<p>탁스카우트 트렌드로 블로그 글과 쇼츠 대본 만들기</p>
+<p class="free-only">무료 1단계: <a href="#scout-trends" style="color:#d4def0">후보 수집</a> → 요청문 복사·Perplexity에서 공식 원문 확인 → <a href="#free-import" style="color:#d4def0">답변 저장</a> → <a href="#saved-drafts" style="color:#d4def0">원고 검토·복사</a></p>
+<p class="stage-two"><a href="/performance" style="color:#d4def0">📈 전체 콘텐츠 성과 대시보드</a> · <a href="/performance/insights" style="color:#d4def0">성과 인사이트</a></p>
 <div>마지막 조사: {generated} · 모델: {escape(str(report.get('model', '미연결')))}</div>
 {"<p>임시 저장소 사용 중: 영속 저장 경로를 사용할 수 없어 임시 저장소를 사용 중입니다. 재시작·재배포 시 데이터가 사라질 수 있습니다.</p>" if USING_EPHEMERAL_STORAGE else ""}</header>
 {error_html}
-{connection_dashboard(verification_cache=connection_checks, oauth_connections=oauth_connections, oauth_setup=oauth_setup, oauth_storage_error=oauth_storage_error)}
+<section class="toolbar" id="scout-trends"><h2>탁스카우트 트렌드</h2>
+<form method="post" action="/scout/refresh"><button type="submit">탁스카우트 최신 후보 수집</button></form>
+<form method="post" action="/scout/import"><button type="submit">저장된 탁스카우트 후보 불러오기</button></form>
+<label>다른 곳에서 받은 탁스카우트 JSON <input id="scout-pack" type="file" accept=".json,application/json"></label>
+<button type="button" id="scout-import">파일 불러오기</button><p id="scout-import-status" role="status"></p>
+<p>후보를 선택하면 외부 AI 호출 없이 짧은 템플릿 초안을 만듭니다. 긴 원고는 후보의 무료 Perplexity 요청문을 사용하세요.</p></section>
+<section class="toolbar" id="free-import"><h2>무료 Perplexity 원고 가져오기</h2>
+<p>Perplexity 무료 웹 검색에서 만든 블로그 원고와 쇼츠 대본을 붙여넣어 보관합니다. 원문 URL을 직접 확인한 뒤 입력하세요. 이 화면은 Perplexity API를 호출하지 않습니다.</p>
+<form method="post" action="/perplexity/import">
+<label>원고 제목 <input name="title" maxlength="200" required></label>
+<label>확인한 원문 URL <input name="source_url" type="url" required></label>
+<label>Perplexity 답변 전체 <textarea name="combined_body" maxlength="16000" rows="12" placeholder="블로그 원고&#10;...&#10;60초 쇼츠 대본&#10;..."></textarea></label>
+<details><summary>블로그와 쇼츠를 따로 붙여넣기</summary>
+<label>블로그 원고 <textarea name="blog_body" maxlength="8000" rows="8"></textarea></label>
+<label>쇼츠 대본 <textarea name="shorts_body" maxlength="8000" rows="8"></textarea></label></details>
+<p class="meta">전체 답변을 붙여넣거나 두 칸에 따로 입력하세요. 원문 URL은 공식 자료를 확인해 입력합니다.</p>
+<button type="submit">미승인 초안으로 저장</button></form></section>
 <section class="toolbar"><h2>자료 직접 입력 · 무료</h2>
 <p>{"무료 모드: 외부 AI 요청 없이 템플릿 초안을 만듭니다." if _free_mode() else "현재 AI 모드: 조사·생성·자동 수정은 API 이용료가 발생할 수 있습니다."}</p>
 <form method="post" action="/manual">
@@ -1572,15 +1848,37 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 <label>출처 URL <input name="source_url" type="url" required></label>
 <label>확인한 근거 (각 12자 이상, 3줄 이상)<textarea name="facts" maxlength="12000" rows="5" required></textarea></label>
 <button type="submit">자료 저장</button></form></section>
-<section class="toolbar"><h2>최신 트렌드 조사</h2>
+<section class="toolbar stage-two"><h2>최신 트렌드 조사</h2>
 <p>Perplexity가 최근 7일 공개 웹 자료를 바탕으로 여러 분야의 키워드 최대 20개를 발굴합니다. 선택 키워드 콘텐츠 생성에도 Perplexity API를 한 번 더 사용합니다.</p>
 <form method="post" action="/discover"><button type="submit">Perplexity 최신 트렌드 TOP 20 조사</button></form>
 <p class="meta">검색량 순위가 아니라 최신 근거·한국 독자 관련성·콘텐츠 설명 가치에 따른 편집 후보입니다.</p></section>
 <h2>발굴된 트렌드 {len(trends)}개</h2><div class="grid">{''.join(cards) or '<p>아직 조사 결과가 없습니다. 위 버튼으로 첫 조사를 실행하세요.</p>'}</div>
-{media_upload_html}
-<h2>생성한 콘텐츠 패키지 {len(previews)}개</h2>{''.join(preview_cards) or '<p>트렌드를 선택해 콘텐츠 패키지를 생성하세요.</p>'}
-<p><a href="/queue/diagnostics">게시 대기열 상태 진단</a> · 저장된 승인 정보와 게시 이력을 읽기 전용으로 확인합니다.</p>\n{queue_dashboard(queue_snapshot or {"items": [], "history": []}, publishing_enabled=os.getenv("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true", pending_approvals=len(previews))}
+<div class="stage-two">{connection_dashboard(verification_cache=connection_checks, oauth_connections=oauth_connections, oauth_setup=oauth_setup, oauth_storage_error=oauth_storage_error)}</div>
+<div class="stage-two">{media_upload_html}</div>
+<h2 id="saved-drafts">저장한 블로그·쇼츠 원고 {len(previews)}개</h2>{''.join(preview_cards) or '<p>트렌드를 선택해 콘텐츠 패키지를 생성하세요.</p>'}
+<div class="stage-two"><p><a href="/queue/diagnostics">게시 대기열 상태 진단</a> · 저장된 승인 정보와 게시 이력을 읽기 전용으로 확인합니다.</p>\n{queue_dashboard(queue_snapshot or {"items": [], "history": []}, publishing_enabled=os.getenv("TAK_AUTO_PUBLISHING_ENABLED", "").strip().lower() == "true", pending_approvals=len(previews))}</div>
 </main><script nonce="{script_nonce}">
+document.getElementById("scout-import").addEventListener("click", async () => {{
+  const button = document.getElementById("scout-import");
+  const status = document.getElementById("scout-import-status");
+  const file = document.getElementById("scout-pack").files[0];
+  if (!file || file.size > {_MAX_SCOUT_PACK_BYTES}) {{
+    status.textContent = "2MiB 이하의 탁스카우트 JSON 파일을 선택하세요.";
+    return;
+  }}
+  button.disabled = true;
+  try {{
+    const response = await fetch("/scout/import", {{
+      method: "POST", headers: {{"Content-Type": "application/json", "X-TAK-CSRF": document.querySelector('meta[name="tak-local-csrf-token"]').content}}, body: file
+    }});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "탁스카우트 파일을 불러오지 못했습니다.");
+    window.location.reload();
+  }} catch (error) {{
+    status.textContent = error.message;
+    button.disabled = false;
+  }}
+}});
 document.querySelectorAll('form[action="/discover"], form[action="/generate"], form[action="/editorial/revise"]').forEach((form) => {{
   form.addEventListener("submit", (event) => {{
     if (form.dataset.submitting === "true") {{ event.preventDefault(); return; }}
@@ -1647,6 +1945,11 @@ if (publishForm) {{
   syncPrivacyRequirement();
 }}
 </script></body></html>"""
+    rendered_page = re.sub(
+        r'(<form\b[^>]*\bmethod="post"[^>]*>)',
+        lambda match: match.group(0) + f'<input type="hidden" name="_tak_csrf" value="{_LOCAL_CSRF_TOKEN}">',
+        rendered_page, flags=re.IGNORECASE,
+    )
     return _CSPNonceHTML(rendered_page, script_nonce)
 
 
@@ -1886,7 +2189,7 @@ def create_handler():
             if request_path == "/media/assets/upload":
                 self._do_post_impl()
                 return
-            if self.path in {"/discover", "/generate", "/editorial/revise"}:
+            if self.path in {"/discover", "/generate", "/editorial/revise", "/scout/refresh"}:
                 if not self._validate_post_security():
                     return
                 with _AI_PROVIDER_ACTION_LOCK:
@@ -1925,9 +2228,34 @@ def create_handler():
             origin = self.headers.get("Origin", "")
             forwarded_proto = self.headers.get("X-Forwarded-Proto", "http")
             if not _same_origin(origin, host, forwarded_proto, os.getenv("TAK_AUTO_PUBLIC_URL", "")):
-                self._respond(_page(_read_json(TREND_PATH, {}), [], "허용되지 않은 출처의 요청입니다."), 403)
-                return False
+                if not self._valid_local_null_origin(origin, host):
+                    self._respond(_page(_read_json(TREND_PATH, {}), [], "허용되지 않은 출처의 요청입니다."), 403)
+                    return False
             return True
+
+        def _valid_local_null_origin(self, origin: str, host: str) -> bool:
+            """Allow the local browser bridge's opaque origin with a page token."""
+            try:
+                client_is_loopback = ipaddress.ip_address(self.client_address[0]).is_loopback
+            except ValueError:
+                client_is_loopback = False
+            if origin != "null" or not _free_mode() or not _loopback_request_host(host) or not client_is_loopback:
+                return False
+            header_token = self.headers.get("X-TAK-CSRF", "")
+            if header_token and hmac.compare_digest(header_token, _LOCAL_CSRF_TOKEN):
+                return True
+            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/x-www-form-urlencoded":
+                return False
+            try:
+                length = _request_body_content_length(self.headers)
+                if length <= 0 or length > 160_000:
+                    return False
+                body = _read_utf8_request_body(self.rfile, length)
+            except (ValueError, OverflowError):
+                return False
+            self._prefetched_form_body = body
+            token = parse_qs(body).get("_tak_csrf", [""])[0]
+            return bool(token) and hmac.compare_digest(token, _LOCAL_CSRF_TOKEN)
 
         def _do_post_impl(self, *, request_security_checked: bool = False):
             if not request_security_checked and not self._validate_post_security():
@@ -1958,6 +2286,47 @@ def create_handler():
                 except OSError:
                     self._respond(json.dumps({"error": "영상 파일을 저장하지 못했습니다. 저장 공간을 확인하세요."}, ensure_ascii=False), 507, "application/json; charset=utf-8")
                 return
+            if self.path == "/scout/refresh":
+                try:
+                    report = _refresh_scout_trends(_read_json(TREND_PATH, {}))
+                    _write_json(TREND_PATH, report)
+                except (OSError, ValueError) as error:
+                    self._respond(_page(_read_json(TREND_PATH, {}), _read_json(PREVIEW_PATH, []), str(error)), 400)
+                else:
+                    self._redirect("/")
+                return
+            if self.path == "/scout/import":
+                upload = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() == "application/json"
+                try:
+                    length = _request_body_content_length(self.headers)
+                    if length > _MAX_SCOUT_PACK_BYTES or (length and not upload):
+                        raise ValueError("2MiB 이하의 탁스카우트 JSON 파일만 불러올 수 있습니다.")
+                    if upload:
+                        raw = _read_utf8_request_body(self.rfile, length)
+                    else:
+                        path = Path(os.getenv("TAK_SCOUT_DAILY_PACK", str(ROOT / "data" / "tak_scout_daily.json")))
+                        with path.open("rb") as source:
+                            data = source.read(_MAX_SCOUT_PACK_BYTES + 1)
+                        if len(data) > _MAX_SCOUT_PACK_BYTES:
+                            raise ValueError("탁스카우트 일일 후보 파일이 2MiB를 초과했습니다.")
+                        raw = data.decode("utf-8")
+                    report = _scout_trends(raw, _read_json(TREND_PATH, {}))
+                    _write_json(TREND_PATH, report)
+                except (OSError, UnicodeError, OverflowError):
+                    message = "탁스카우트 파일을 읽거나 저장할 수 없습니다. 일일 후보 JSON을 확인하세요."
+                except ValueError as error:
+                    message = str(error)
+                else:
+                    if upload:
+                        self._respond('{"ok":true}', content_type="application/json; charset=utf-8")
+                    else:
+                        self._redirect("/")
+                    return
+                if upload:
+                    self._respond(json.dumps({"error": message}, ensure_ascii=False), 400, "application/json; charset=utf-8")
+                else:
+                    self._respond(_page(_read_json(TREND_PATH, {}), _read_json(PREVIEW_PATH, []), message), 400)
+                return
             try:
                 length = _request_body_content_length(self.headers)
             except ValueError:
@@ -1966,11 +2335,13 @@ def create_handler():
             except OverflowError:
                 self._respond(_page(_read_json(TREND_PATH, {}), [], "요청이 너무 큽니다."), 413)
                 return
-            if length > 16_384:
+            if length > (160_000 if self.path == "/perplexity/import" else 16_384):
                 self._respond(_page(_read_json(TREND_PATH, {}), [], "요청이 너무 큽니다."), 413)
                 return
             try:
-                decoded_body = _read_utf8_request_body(self.rfile, length)
+                decoded_body = getattr(self, "_prefetched_form_body", None)
+                if decoded_body is None:
+                    decoded_body = _read_utf8_request_body(self.rfile, length)
             except ValueError as error:
                 self._respond(_page(_read_json(TREND_PATH, {}), [], str(error)), 400)
                 return
@@ -2026,6 +2397,39 @@ def create_handler():
                     _write_json(TREND_PATH, report)
                     self._respond(_page(report, previews, queue_snapshot=queue.snapshot()))
                     return
+                if self.path == "/perplexity/import":
+                    title = form.get("title", [""])[0].strip()
+                    source = _safe_http_url(form.get("source_url", [""])[0])
+                    combined_body = form.get("combined_body", [""])[0].strip()
+                    blog_body = form.get("blog_body", [""])[0].strip()
+                    shorts_body = form.get("shorts_body", [""])[0].strip()
+                    if combined_body:
+                        if blog_body or shorts_body:
+                            raise ValueError("전체 답변과 개별 원고 중 한 방식만 입력하세요.")
+                        blog_body, shorts_body = _split_pasted_draft(combined_body)
+                    if not title or len(title) > 200 or not source or not source.startswith("https://"):
+                        raise ValueError("제목과 HTTPS 원문 URL을 확인하세요.")
+                    if not 300 <= len(blog_body) <= 8000 or not 50 <= len(shorts_body) <= 8000:
+                        raise ValueError("블로그 원고는 300~8000자, 쇼츠 대본은 50~8000자로 입력하세요.")
+                    identity = hashlib.sha256((title + "\n" + source).encode("utf-8")).hexdigest()[:16]
+                    preview = {
+                        "keyword": title, "knowledge_id": "trend-preview-" + identity,
+                        "created_at": utc_now(), "status": "preview_only_not_approved",
+                        "content_model": "perplexity-free-paste",
+                        "warning": "Perplexity 무료 웹 검색에서 붙여넣은 미승인 초안입니다. 원문 사실과 최신성을 사람이 확인한 뒤 수동 게시하세요.",
+                        "blog": {"title": title, "body": blog_body},
+                        "shorts": [{"title": title, "body": shorts_body}],
+                        "threads": [], "facebook": {}, "source_urls": [source],
+                        "source_integrity": _evaluate_source_integrity({"source_urls": [source]}, {}),
+                    }
+                    preview["claim_coverage"] = _evaluate_claim_citation_coverage(preview, [source])
+                    if any(_same_preview_topic(row, preview) and row.get("editorial_history") for row in previews):
+                        raise ValueError("직접 수정한 초안이 있습니다. 기존 원고와 수정 이력을 확인하세요.")
+                    previews = [row for row in previews if not _same_preview_topic(row, preview)]
+                    previews.insert(0, preview)
+                    _write_json(PREVIEW_PATH, previews)
+                    self._respond(_page(report, previews, queue_snapshot=queue.snapshot()))
+                    return
                 if self.path == "/discover":
                     provider = _paid_research_provider()
                     discovered = discover_trends(provider)
@@ -2042,15 +2446,54 @@ def create_handler():
                     selected_insights = _select_accepted_strategy_insights(
                         form.get("insight_id", []),
                     )
-                    provider = None if _free_mode() else _paid_research_provider()
+                    item = report["trends"][index]
+                    if _scout_age_warning(item) and form.get("confirm_source_age", [""])[0] != "yes":
+                        raise ValueError("발행 시각을 확인한 뒤 확인란을 선택하세요.")
+                    provider = None if _free_mode() or item.get("origin") == "tak-scout" else _paid_research_provider()
                     preview = _make_preview(
-                        report["trends"][index], report, provider=provider,
+                        item, report, provider=provider,
                         strategy_insights=selected_insights,
                     )
-                    previews = [row for row in previews if row.get("keyword") != preview["keyword"]]
+                    if any(
+                        _same_preview_topic(row, preview) and row.get("editorial_history")
+                        for row in previews
+                    ):
+                        raise ValueError("직접 수정한 초안이 있습니다. 기존 원고와 수정 이력을 확인하세요.")
+                    previews = [row for row in previews if not _same_preview_topic(row, preview)]
                     previews.insert(0, preview)
-                    _write_json(PREVIEW_PATH, previews[:10])
-                    self._respond(_page(report, previews[:10], queue_snapshot=queue.snapshot()))
+                    _write_json(PREVIEW_PATH, previews)
+                    self._respond(_page(report, previews, queue_snapshot=queue.snapshot()))
+                    return
+                if self.path == "/scout/edit":
+                    index = int(form.get("preview_index", ["-1"])[0])
+                    if index < 0 or index >= len(previews):
+                        raise ValueError("수정할 초안을 찾을 수 없습니다.")
+                    preview = previews[index]
+                    target = form.get("target", [""])[0]
+                    if preview.get("content_model") not in {"tak-scout-template", "perplexity-free-paste"} or target not in {"blog.body", "shorts.0.body"}:
+                        raise ValueError("수정할 원고를 찾을 수 없습니다.")
+                    current = _read_editorial_target(preview, target)
+                    supplied_hash = form.get("base_hash", [""])[0]
+                    expected_hash = hashlib.sha256(current.encode("utf-8")).hexdigest()
+                    if not supplied_hash.isascii() or not hmac.compare_digest(supplied_hash, expected_hash):
+                        raise ValueError("원고가 바뀌었습니다. 새로고침 후 다시 수정하세요.")
+                    revised = form.get("body", [""])[0].strip()
+                    if not revised or len(revised) > 8000:
+                        raise ValueError("수정 원고는 1~8000자여야 합니다.")
+                    if revised == current:
+                        raise ValueError("수정한 내용이 원문과 같습니다.")
+                    revision_id = secrets.token_urlsafe(18)
+                    history = preview.setdefault("editorial_history", [])
+                    history.insert(0, {
+                        "target": target, "before": current, "after": revised,
+                        "revision_id": revision_id, "applied_at": utc_now(),
+                        "applied_by": os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user",
+                    })
+                    preview["editorial_history"] = history[:20]
+                    _write_editorial_target(preview, target, revised)
+                    _refresh_preview_editorial_checks(preview)
+                    _write_json(PREVIEW_PATH, previews)
+                    self._respond(_page(report, previews, "수정한 원고를 저장했습니다.", queue.snapshot()))
                     return
                 if self.path == "/editorial/revise":
                     preview_index = int(form.get("preview_index", ["-1"])[0])

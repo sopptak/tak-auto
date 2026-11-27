@@ -59,9 +59,14 @@ jobs:
       - name: Install application dependencies
         run: python3 -m pip install --disable-pip-version-check -r requirements.txt
 
-      # 테스트가 실패하면 이후 단계(실제 RSS 수집/결과 commit)로 진행하지 않는다.
-      - name: Run existing test suite
-        run: python3 -m unittest discover -s tests -p 'test*.py'
+      # Verify collection and trend reporting before reading feeds or writing data.
+      # The separate PR workflow runs the full application suite.
+      - name: Test TAK SCOUT collection and trend reporting
+        run: |
+          python3 -m unittest discover -s tests -p 'test_scout*.py'
+          python3 -m unittest discover -s tests -p 'test_run_scout_cli.py'
+          python3 -m unittest discover -s tests -p 'test_trend_history.py'
+          python3 -m unittest discover -s tests -p 'test_trend_scoring.py'
 
       # 실제 공개 RSS만 읽는다(로그인/크롤링 없음, scripts/run_scout.py docstring
       # 그대로). LLM/게시 API Secrets은 필요 없다 - 여기서 쓰지 않는다.

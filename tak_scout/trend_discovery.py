@@ -180,12 +180,18 @@ def parse_trend_result(result: ResearchResult, *, researched_at: str | None = No
     for raw in payload["trends"][:40]:
         if not isinstance(raw, dict):
             continue
-        keyword = _clean_text(raw.get("keyword"), "keyword")
-        summary = _clean_text(raw.get("summary"), "summary")
-        why_now = _clean_text(raw.get("why_now"), "why_now")
-        question = _clean_text(raw.get("audience_question"), "audience_question")
-        angle = _clean_text(raw.get("content_angle"), "content_angle")
-        category = _clean_text(raw.get("category"), "category", required=False) or "기타"
+        try:
+            keyword = _clean_text(raw.get("keyword"), "keyword")
+            summary = _clean_text(raw.get("summary"), "summary")
+            why_now = _clean_text(raw.get("why_now"), "why_now")
+            question = _clean_text(raw.get("audience_question"), "audience_question")
+            angle = _clean_text(raw.get("content_angle"), "content_angle")
+            category = _clean_text(raw.get("category"), "category", required=False) or "기타"
+            blog_title = _clean_text(raw.get("blog_title"), "blog_title")
+            shorts_hook = _clean_text(raw.get("shorts_hook"), "shorts_hook")
+        except ValueError:
+            # Preserve cited, usable items when one model-produced row is malformed.
+            continue
         normalized = " ".join(_tokens(keyword))
         if not normalized or normalized in seen_keywords:
             continue
@@ -204,8 +210,7 @@ def parse_trend_result(result: ResearchResult, *, researched_at: str | None = No
         candidates.append(TrendItem(
             rank=0, keyword=keyword, category=category, summary=summary,
             why_now=why_now, audience_question=question, content_angle=angle,
-            blog_title=_clean_text(raw.get("blog_title"), "blog_title"),
-            shorts_hook=_clean_text(raw.get("shorts_hook"), "shorts_hook"),
+            blog_title=blog_title, shorts_hook=shorts_hook,
             key_points=points, source_urls=source_urls,
             content_score=_content_score(
                 keyword=keyword, summary=summary, why_now=why_now,
@@ -238,10 +243,8 @@ def parse_trend_result(result: ResearchResult, *, researched_at: str | None = No
 
     trends = [TrendItem(**{**item.__dict__, "rank": index})
               for index, item in enumerate(selected, 1)]
-    if len(trends) < 5:
-        raise ValueError(
-            f"출처·중복·품질 검증 후 유효한 트렌드가 {len(trends)}개뿐입니다. 최소 5개가 필요합니다."
-        )
+    if not trends:
+        raise ValueError("출처·중복·품질 검증 후 원고를 만들 수 있는 트렌드가 없습니다.")
     return TrendDiscovery(
         researched_at=researched_at or datetime.now(KST).isoformat(timespec="seconds"),
         period="최근 7일", model=result.model, query=result.query,

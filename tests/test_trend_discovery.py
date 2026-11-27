@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 from tak_scout.perplexity_research import ResearchResult
 from tak_scout.trend_discovery import build_trend_query, parse_trend_result
+from scripts import run_trend_content_mvp as app
 from scripts.run_trend_content_mvp import (
     _basic_auth_valid, _make_preview, _page, _parse_content_package, _same_origin,
     _resolve_writable_data_dir,
@@ -88,13 +89,25 @@ class TrendDiscoveryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_trend_result(result)
 
-    def test_duplicate_keywords_are_removed(self):
+    def test_one_cited_topic_remains_usable_after_duplicates(self):
         payload = json.loads(self._answer())
         payload["trends"] = [payload["trends"][0]] * 6
         result = ResearchResult("query", json.dumps(payload, ensure_ascii=False),
                                 ("https://example.com/source",), "sonar-pro")
-        with self.assertRaises(ValueError):
-            parse_trend_result(result)
+        parsed = parse_trend_result(result)
+        self.assertEqual(len(parsed.trends), 1)
+        self.assertEqual(parsed.trends[0].source_urls, ("https://example.com/source",))
+
+    def test_one_malformed_row_does_not_discard_cited_topic(self):
+        payload = json.loads(self._answer())
+        payload["trends"] = [
+            {**payload["trends"][0], "blog_title": ""},
+            payload["trends"][1],
+        ]
+        result = ResearchResult("query", json.dumps(payload, ensure_ascii=False),
+                                ("https://example.com/source",), "sonar-pro")
+        parsed = parse_trend_result(result)
+        self.assertEqual([item.keyword for item in parsed.trends], [payload["trends"][1]["keyword"]])
 
     def test_selected_trend_generates_preview_bundle_without_publishing(self):
         report = {
@@ -247,6 +260,64 @@ class TrendDiscoveryTests(unittest.TestCase):
         self.assertIn("tiktok_caption", preview["shorts"][0])
         self.assertEqual(len(preview["threads"]), 2)
         self.assertIn("https://example.com/extra", preview["source_urls"])
+
+    def test_perplexity_research_to_blog_and_shorts_http_flow(self):
+        import threading
+        from http.server import ThreadingHTTPServer
+        from urllib.parse import urlencode
+        from urllib.request import Request, urlopen
+
+        topic = json.loads(self._answer())["trends"][0]
+        body = "# 확인된 자료 정리\n\n" + ("원문에서 확인된 사실을 독자가 이해하기 쉽게 정리합니다. " * 30)
+        package = {
+            "blog": {"title": "블로그 원고", "meta_description": "핵심 설명",
+                     "focus_keyword": topic["keyword"], "body": body},
+            "shorts": {"title": "쇼츠 대본", "duration_seconds": 60, "hook": "첫 3초 도입",
+                       "scenes": [{"time": f"{i*8:02d}-{i*8+8:02d}초", "visual": "세로 화면",
+                                   "caption": "짧은 자막", "narration": "근거 설명"} for i in range(6)],
+                       "closing_cta": "원문을 확인하세요", "youtube_description": "출처 설명",
+                       "hashtags": ["트렌드"]},
+        }
+        class FakeProvider:
+            def __init__(self):
+                self.calls = 0
+
+            def search(self, query, **kwargs):
+                self.calls += 1
+                answer = json.dumps({"trends": [topic]}, ensure_ascii=False) if self.calls == 1 else json.dumps(package, ensure_ascii=False)
+                return ResearchResult(query, answer, ("https://example.com/source",), "perplexity/sonar")
+
+        provider = FakeProvider()
+        with tempfile.TemporaryDirectory() as directory, patch.dict("os.environ", {
+            "TAK_AUTO_FREE_MODE": "false", "TAK_AUTO_PUBLISHING_ENABLED": "false",
+            "TAK_WEB_USERNAME": "", "TAK_WEB_PASSWORD": "", "TAK_AUTO_PUBLIC_URL": "",
+        }), patch.object(app.PerplexityResearchProvider, "from_environment", return_value=provider):
+            root = Path(directory)
+            with patch.multiple(app, DATA_DIR=root, TREND_PATH=root / "trends.json", PREVIEW_PATH=root / "previews.json", QUEUE_PATH=root / "queue.json"):
+                server = ThreadingHTTPServer(("127.0.0.1", 0), app.create_handler())
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                origin = f"http://127.0.0.1:{server.server_port}"
+                def post(path, data):
+                    request = Request(origin + path, data=urlencode(data).encode(), headers={"Origin": origin})
+                    with urlopen(request, timeout=5) as response:
+                        return response.read().decode()
+                try:
+                    post("/discover", {})
+                    html = post("/generate", {"index": "0"})
+                    draft = app._read_json(app.PREVIEW_PATH, [])[0]
+                    self.assertEqual(provider.calls, 2)
+                    self.assertEqual(draft["blog"]["body"], body)
+                    self.assertEqual(len(draft["shorts"][0]["scenes"]), 6)
+                    self.assertEqual(draft["threads"], [])
+                    self.assertFalse(any("Threads" in warning or "Facebook" in warning for warning in draft["quality_report"]["warnings"]))
+                    self.assertEqual(draft["status"], "preview_only_not_approved")
+                    self.assertIn("블로그 원고 복사", html)
+                    self.assertIn("쇼츠 대본 복사", html)
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
 
 
     def test_unwritable_configured_data_dir_falls_back_to_tmp(self):
