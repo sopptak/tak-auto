@@ -1,7 +1,7 @@
 # TAK AUTO Trend Content Factory MVP
 
 ## 목적
-최신 공개 웹 트렌드를 Perplexity Agent API로 발굴하고, 키워드별 콘텐츠 기회를 제시한 뒤 블로그·YouTube Shorts·Threads 초안을 빠르게 미리 보는 로컬 웹 MVP입니다. 법원경매 등 특정 분야에 고정하지 않습니다.
+1단계의 결과물은 블로그 원고와 쇼츠 대본입니다. Perplexity Agent API 경로는 공개 웹 자료에서 주제를 조사하고 선택한 주제로 두 초안을 만듭니다. API 키와 호출 비용이 필요할 수 있습니다. 무료 경로는 공개 RSS를 모아 짧은 템플릿 초안을 만듭니다. 두 경로 모두 원문 확인 후 사람이 수동으로 게시합니다.
 
 ## 1단계 실행 (무료, Windows PowerShell)
 ```powershell

@@ -457,6 +457,15 @@ def _scout_age_warning(item: dict, *, now: datetime | None = None) -> str:
     return ""
 
 
+def _same_preview_topic(existing: dict, incoming: dict) -> bool:
+    """Identify a Scout article by source, rather than its potentially shared title."""
+    existing_scout = existing.get("content_model") == "tak-scout-template"
+    incoming_scout = incoming.get("content_model") == "tak-scout-template"
+    if existing_scout or incoming_scout:
+        return bool(existing_scout and incoming_scout and existing.get("source_urls") == incoming.get("source_urls"))
+    return existing.get("keyword") == incoming.get("keyword")
+
+
 def _manual_trend(form: dict) -> dict:
     keyword = str(form.get("keyword", [""])[0]).strip()
     source = str(form.get("source_url", [""])[0]).strip()
@@ -604,8 +613,8 @@ def _build_content_prompt(
         "research_date": trend_report.get("researched_at"),
         "human_accepted_performance_insights": strategy_insights or [],
     }
-    return f"""당신은 한국어 검색 유입과 영상 시청 지속시간을 설계하는 전문 콘텐츠 에디터입니다.
-아래 Perplexity 트렌드 조사 자료만 사실의 출발점으로 삼아 게시 직전 검토가 가능한 콘텐츠 패키지를 작성하세요.
+    return f"""당신은 한국어 블로그 원고와 쇼츠 대본을 작성하는 콘텐츠 에디터입니다.
+아래 Perplexity 트렌드 조사 자료만 사실의 출발점으로 삼아 사람이 검토할 두 가지 초안을 작성하세요.
 
 자료:
 {json.dumps(facts, ensure_ascii=False, indent=2)}
@@ -617,17 +626,13 @@ def _build_content_prompt(
 - 원문 출처 URL은 위 verified_source_urls만 사용하세요.
 - 블로그는 검색 의도에 답하는 충분한 본문(한국어 1,200자 이상 목표), 소제목, 체크포인트, 요약, 자연스러운 다음 행동 CTA를 포함하세요.
 - 쇼츠는 약 60초 분량으로 6~8개 장면을 구성하세요. 각 장면은 time, visual, caption, narration을 포함하고 첫 3초 후킹과 마지막 행동 유도를 포함하세요. 세로 9:16(1080x1920) 기준으로 화면 중앙 안전영역에 핵심 피사체와 자막을 배치하고, 자막은 한 화면 최대 2줄·짧은 문장으로 작성하며 화면 가장자리 잘림을 피하도록 visual에 구도를 구체적으로 지시하세요.
-- Threads는 각각 독립적으로 읽혀도 되는 후킹 중심 글 2개를 만들고 각 본문은 500자 이내로 하세요.
-- Facebook 페이지용 글은 Threads와 별도로 작성하세요. 2~4개 짧은 문단으로 맥락과 경험·실행 포인트를 설명하고, 마지막에 자연스러운 질문이나 댓글 유도 문장을 넣으세요. 확인되지 않은 개인 경험을 창작하지 마세요.
-- 같은 내용을 세 번 반복하지 말고 플랫폼별 문법에 맞게 재구성하세요.
+- 블로그 본문과 쇼츠 장면에 집중하고, 다른 SNS용 원고는 만들지 마세요.
 - human_accepted_performance_insights는 사람이 명시적으로 선택한 과거 성과 관찰입니다. 사실 근거가 아니라 형식·후킹·구성의 참고자료로만 활용하고, 이번 트렌드의 사실처럼 인용하거나 수치·성과를 보장하지 마세요.
 - 참고자료와 현재 트렌드가 맞지 않으면 참고자료를 무시하세요. 선택된 관찰을 기계적으로 복제하지 말고 현재 독자 검색 의도에 맞게 변형하세요.
 - 결과는 아래 JSON 객체 하나로만 출력하세요. 코드펜스나 설명은 붙이지 마세요.
 {{
   "blog": {{"title":"검색형 제목","meta_description":"검색 결과 설명","focus_keyword":"핵심 키워드","body":"Markdown 본문"}},
-  "shorts": {{"title":"쇼츠 제목","duration_seconds":60,"hook":"첫 3초 후킹","scenes":[{{"time":"00-05초","visual":"9:16 화면 구도와 안전영역을 포함한 화면 구성","caption":"짧은 자막","narration":"내레이션"}}],"closing_cta":"마지막 행동 유도","youtube_description":"유튜브 설명란 문안","instagram_caption":"인스타그램 릴스 설명문","tiktok_caption":"틱톡 설명문","hashtags":["해시태그1","해시태그2"]}},
-  "threads": [{{"title":"후킹 제목","body":"Threads 본문"}},{{"title":"후킹 제목","body":"Threads 본문"}}],
-  "facebook": {{"title":"Facebook 페이지 제목","body":"Facebook 페이지 전용 게시 본문"}}
+  "shorts": {{"title":"쇼츠 제목","duration_seconds":60,"hook":"첫 3초 후킹","scenes":[{{"time":"00-05초","visual":"9:16 화면 구도와 안전영역을 포함한 화면 구성","caption":"짧은 자막","narration":"내레이션"}}],"closing_cta":"마지막 행동 유도","youtube_description":"유튜브 설명란 문안","hashtags":["해시태그1","해시태그2"]}}
 }}"""
 
 
@@ -648,7 +653,7 @@ def _parse_content_package(answer: str) -> dict:
         raise ValueError("콘텐츠 패키지는 JSON 객체여야 합니다.")
     blog = package.get("blog")
     shorts = package.get("shorts")
-    threads = package.get("threads")
+    threads = package.get("threads", [])
     if not isinstance(blog, dict):
         raise ValueError("블로그 원고 구조가 올바르지 않습니다. 다시 생성하세요.")
     for field, label in (("title", "제목"), ("meta_description", "검색 설명"),
@@ -660,9 +665,7 @@ def _parse_content_package(answer: str) -> dict:
     if not isinstance(shorts, dict):
         raise ValueError("쇼츠 원고 구조가 올바르지 않습니다. 다시 생성하세요.")
     for field, label in (("title", "제목"), ("hook", "도입 문장"), ("closing_cta", "마무리 안내"),
-                         ("youtube_description", "YouTube 설명란"),
-                         ("instagram_caption", "Instagram 문안"),
-                         ("tiktok_caption", "TikTok 문안")):
+                         ("youtube_description", "YouTube 설명란")):
         if not isinstance(shorts.get(field), str) or not shorts[field].strip():
             raise ValueError(f"쇼츠 {label}이 비어 있거나 문자열이 아닙니다. 다시 생성하세요.")
     duration = shorts.get("duration_seconds")
@@ -681,8 +684,8 @@ def _parse_content_package(answer: str) -> dict:
     hashtags = shorts.get("hashtags", [])
     if not isinstance(hashtags, list) or any(not isinstance(tag, str) or not tag.strip() for tag in hashtags):
         raise ValueError("쇼츠 해시태그 형식이 올바르지 않습니다. 다시 생성하세요.")
-    if not isinstance(threads, list) or len(threads) != 2:
-        raise ValueError("Threads 초안은 정확히 2개가 필요합니다.")
+    if not isinstance(threads, list) or len(threads) not in {0, 2}:
+        raise ValueError("Threads 초안은 없거나 정확히 2개여야 합니다.")
     for index, post in enumerate(threads, 1):
         if not isinstance(post, dict):
             raise ValueError(f"Threads {index}번째 초안 구조가 올바르지 않습니다.")
@@ -692,11 +695,13 @@ def _parse_content_package(answer: str) -> dict:
             raise ValueError("Threads 본문은 비어 있지 않고 500자 이하여야 합니다.")
     facebook = package.get("facebook")
     if not isinstance(facebook, dict):
-        facebook = {"title": threads[0]["title"], "body": threads[0]["body"]}
-    if not isinstance(facebook.get("title"), str) or not facebook["title"].strip():
-        facebook["title"] = threads[0]["title"]
-    if not isinstance(facebook.get("body"), str) or not facebook["body"].strip():
-        facebook["body"] = threads[0]["body"]
+        facebook = {}
+    if threads:
+        if not isinstance(facebook.get("title"), str) or not facebook["title"].strip():
+            facebook["title"] = threads[0]["title"]
+        if not isinstance(facebook.get("body"), str) or not facebook["body"].strip():
+            facebook["body"] = threads[0]["body"]
+    package["threads"] = threads
     package["facebook"] = facebook
     return package
 
@@ -921,7 +926,10 @@ def _evaluate_content_quality(
         ("facebook_native", "Facebook 전용 문안이 Threads와 구분됨", bool(str(facebook.get("body") or "").strip()) and str(facebook.get("body") or "").strip() not in thread_bodies, 5),
         ("hashtags", "쇼츠 해시태그 3개 이상", isinstance(shorts.get("hashtags"), list) and len(shorts["hashtags"]) >= 3, 5),
     ]
-    score = sum(weight for _, _, passed, weight in checks if passed)
+    if not threads and not facebook:
+        checks = [row for row in checks if row[0] not in {"threads_pair", "threads_distinct", "facebook_native"}]
+    total_weight = sum(weight for _, _, _, weight in checks)
+    score = round(100 * sum(weight for _, _, passed, weight in checks if passed) / total_weight)
     failed = [label for _, label, passed, _ in checks if not passed]
     return {
         "score": score,
@@ -1494,7 +1502,7 @@ def _page(
     {scout_age_html}
     {''.join(f'<label class="meta"><input type="checkbox" name="insight_id" value="{escape(row.insight_id, quote=True)}"> 성과 참고: {escape(row.platform)} · {escape(row.metric)} · {escape(row.result)} · 표본 {row.sample_size}건</label>' for row in accepted_insights if item.get("origin") != "tak-scout")}
     <p class="meta">사람이 승인한 과거 성과를 선택하면 후킹·구성 참고자료로만 반영합니다. 선택하지 않아도 생성할 수 있습니다. 최대 5개.</p>
-    <button type="submit">{"블로그·쇼츠 초안 생성" if item.get("origin") == "tak-scout" else "선택한 참고자료로 콘텐츠 패키지 생성"}</button></form>
+    <button type="submit">블로그·쇼츠 초안 생성</button></form>
 </article>""")
     preview_cards = []
     for preview_index, preview in enumerate(previews):
@@ -2272,14 +2280,14 @@ def create_handler():
                         strategy_insights=selected_insights,
                     )
                     if any(
-                        row.get("keyword") == preview["keyword"] and row.get("editorial_history")
+                        _same_preview_topic(row, preview) and row.get("editorial_history")
                         for row in previews
                     ):
                         raise ValueError("직접 수정한 초안이 있습니다. 기존 원고와 수정 이력을 확인하세요.")
-                    previews = [row for row in previews if row.get("keyword") != preview["keyword"]]
+                    previews = [row for row in previews if not _same_preview_topic(row, preview)]
                     previews.insert(0, preview)
-                    _write_json(PREVIEW_PATH, previews[:10])
-                    self._respond(_page(report, previews[:10], queue_snapshot=queue.snapshot()))
+                    _write_json(PREVIEW_PATH, previews)
+                    self._respond(_page(report, previews, queue_snapshot=queue.snapshot()))
                     return
                 if self.path == "/scout/edit":
                     index = int(form.get("preview_index", ["-1"])[0])

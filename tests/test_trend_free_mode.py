@@ -66,6 +66,56 @@ class FreeModeTests(unittest.TestCase):
         with patch.object(app, "USING_EPHEMERAL_STORAGE", True):
             self.assertFalse(app._health_payload(env)["ready"])
 
+    def test_many_scout_drafts_keep_edited_copy_and_same_title_sources(self):
+        import tempfile
+        import threading
+        from datetime import datetime, timezone
+        from http.server import ThreadingHTTPServer
+        from pathlib import Path
+        from urllib.parse import urlencode
+        from urllib.request import Request, urlopen
+
+        with tempfile.TemporaryDirectory() as directory, patch.dict("os.environ", {
+            "TAK_AUTO_FREE_MODE": "true", "TAK_AUTO_PUBLISHING_ENABLED": "false",
+            "TAK_WEB_USERNAME": "", "TAK_WEB_PASSWORD": "", "TAK_AUTO_PUBLIC_URL": "",
+        }), patch.object(app.PerplexityResearchProvider, "from_environment") as provider:
+            root = Path(directory)
+            with patch.multiple(app, DATA_DIR=root, TREND_PATH=root / "trends.json", PREVIEW_PATH=root / "previews.json", QUEUE_PATH=root / "queue.json"):
+                server = ThreadingHTTPServer(("127.0.0.1", 0), app.create_handler())
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                origin = f"http://127.0.0.1:{server.server_port}"
+                def post(path, data):
+                    request = Request(origin + path, data=urlencode(data).encode(), headers={"Origin": origin})
+                    with urlopen(request, timeout=5) as response:
+                        return response.read()
+                try:
+                    candidates = [{
+                        "title": "공통 제목" if index < 2 else f"주제 {index}",
+                        "summary": f"출처 {index}에서 확인한 충분한 길이의 원본 요약입니다.",
+                        "source_url": f"https://example.com/article/{index}",
+                        "source_name": "검증 피드",
+                        "published_at": datetime.now(timezone.utc).isoformat(),
+                    } for index in range(11)]
+                    app._write_json(app.TREND_PATH, app._scout_trends(json.dumps({"candidates": candidates}), {}))
+                    post("/generate", {"index": "0"})
+                    original = app._read_json(app.PREVIEW_PATH, [])[0]["blog"]["body"]
+                    edited = "원문 확인 뒤 수정한 원고"
+                    post("/scout/edit", {"preview_index": "0", "target": "blog.body",
+                         "base_hash": hashlib.sha256(original.encode()).hexdigest(), "body": edited})
+                    for index in range(1, len(candidates)):
+                        post("/generate", {"index": str(index)})
+                    previews = app._read_json(app.PREVIEW_PATH, [])
+                    self.assertEqual(len(previews), 11)
+                    self.assertEqual(previews[-1]["blog"]["body"], edited)
+                    self.assertEqual(len([row for row in previews if row["keyword"] == "공통 제목"]), 2)
+                    self.assertEqual(len({row["source_urls"][0] for row in previews}), 11)
+                    provider.assert_not_called()
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+
     def test_free_http_flow_and_paid_route_guards(self):
         import tempfile
         import threading
