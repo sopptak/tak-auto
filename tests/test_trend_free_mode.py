@@ -7,6 +7,13 @@ from scripts.check_trend_factory_deployment import validate_health
 
 
 class FreeModeTests(unittest.TestCase):
+    def test_combined_perplexity_answer_requires_two_ordered_sections(self):
+        blog, shorts = app._split_pasted_draft("안내\n## 블로그 원고\n기사 본문\n## 60초 쇼츠 대본\n장면 대본")
+        self.assertEqual((blog, shorts), ("기사 본문", "장면 대본"))
+        for invalid in ("블로그 원고\n기사만", "쇼츠 대본\n장면\n블로그 원고\n기사", "블로그 원고\n기사\n쇼츠 대본\n장면\n쇼츠 대본\n다른 장면"):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError, "순서대로"):
+                app._split_pasted_draft(invalid)
+
     def test_free_mode_blocks_paid_provider_even_with_key(self):
         with patch.dict("os.environ", {"TAK_AUTO_FREE_MODE": "true", "TAK_SCOUT_PERPLEXITY_API_KEY": "unused"}), patch.object(app.PerplexityResearchProvider, "from_environment") as provider:
             with self.assertRaises(ValueError):
@@ -228,6 +235,17 @@ class FreeModeTests(unittest.TestCase):
                                                     "blog_body": pasted_blog, "shorts_body": pasted_shorts})
                     self.assertEqual(unsafe_source.exception.code, 400)
                     unsafe_source.exception.close()
+                    combined = "사실 확인 안내\n## 블로그 원고\n" + pasted_blog + "\n## 60초 쇼츠 대본\n" + pasted_shorts
+                    post("/perplexity/import", {"title": "무료 Perplexity 원고", "source_url": "https://example.com/official",
+                                                "combined_body": combined})
+                    combined_draft = app._read_json(app.PREVIEW_PATH, [])[0]
+                    self.assertEqual(combined_draft["blog"]["body"], pasted_blog.strip())
+                    self.assertEqual(combined_draft["shorts"][0]["body"], pasted_shorts)
+                    with self.assertRaises(HTTPError) as mixed_input:
+                        post("/perplexity/import", {"title": "무료 Perplexity 원고", "source_url": "https://example.com/official",
+                                                    "combined_body": combined, "blog_body": pasted_blog})
+                    self.assertEqual(mixed_input.exception.code, 400)
+                    mixed_input.exception.close()
                     post("/scout/edit", {"preview_index": "0", "target": "blog.body",
                                          "base_hash": hashlib.sha256(pasted_blog.strip().encode()).hexdigest(),
                                          "body": "원문 확인 후 수정한 블로그 원고"})

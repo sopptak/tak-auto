@@ -467,6 +467,21 @@ def _same_preview_topic(existing: dict, incoming: dict) -> bool:
     return existing.get("keyword") == incoming.get("keyword")
 
 
+def _split_pasted_draft(text: str) -> tuple[str, str]:
+    """Split a copied Perplexity answer at explicit blog and Shorts headings."""
+    heading = re.compile(
+        r"^[ \t]{0,3}(?:#{1,6}[ \t]*)?"
+        r"(?P<section>블로그[ \t]*(?:원고|글)|(?:60[ \t]*초[ \t]*)?쇼츠[ \t]*대본)"
+        r"[ \t]*[:：]?[ \t]*$", re.MULTILINE,
+    )
+    matches = list(heading.finditer(text))
+    if len(matches) != 2 or not matches[0].group("section").startswith("블로그") or "쇼츠" not in matches[1].group("section"):
+        raise ValueError("통합 원고에 '블로그 원고'와 '60초 쇼츠 대본' 제목을 순서대로 한 번씩 넣으세요.")
+    blog = text[matches[0].end():matches[1].start()].strip()
+    shorts = text[matches[1].end():].strip()
+    return blog, shorts
+
+
 def _manual_trend(form: dict) -> dict:
     keyword = str(form.get("keyword", [""])[0]).strip()
     source = str(form.get("source_url", [""])[0]).strip()
@@ -1740,8 +1755,11 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 <form method="post" action="/perplexity/import">
 <label>원고 제목 <input name="title" maxlength="200" required></label>
 <label>확인한 원문 URL <input name="source_url" type="url" required></label>
-<label>블로그 원고 <textarea name="blog_body" maxlength="8000" rows="8" required></textarea></label>
-<label>쇼츠 대본 <textarea name="shorts_body" maxlength="8000" rows="8" required></textarea></label>
+<label>Perplexity 답변 전체 <textarea name="combined_body" maxlength="16000" rows="12" placeholder="블로그 원고&#10;...&#10;60초 쇼츠 대본&#10;..."></textarea></label>
+<details><summary>블로그와 쇼츠를 따로 붙여넣기</summary>
+<label>블로그 원고 <textarea name="blog_body" maxlength="8000" rows="8"></textarea></label>
+<label>쇼츠 대본 <textarea name="shorts_body" maxlength="8000" rows="8"></textarea></label></details>
+<p class="meta">전체 답변을 붙여넣거나 두 칸에 따로 입력하세요. 원문 URL은 공식 자료를 확인해 입력합니다.</p>
 <button type="submit">미승인 초안으로 저장</button></form></section>
 <section class="toolbar"><h2>자료 직접 입력 · 무료</h2>
 <p>{"무료 모드: 외부 AI 요청 없이 템플릿 초안을 만듭니다." if _free_mode() else "현재 AI 모드: 조사·생성·자동 수정은 API 이용료가 발생할 수 있습니다."}</p>
@@ -2270,8 +2288,13 @@ def create_handler():
                 if self.path == "/perplexity/import":
                     title = form.get("title", [""])[0].strip()
                     source = _safe_http_url(form.get("source_url", [""])[0])
+                    combined_body = form.get("combined_body", [""])[0].strip()
                     blog_body = form.get("blog_body", [""])[0].strip()
                     shorts_body = form.get("shorts_body", [""])[0].strip()
+                    if combined_body:
+                        if blog_body or shorts_body:
+                            raise ValueError("전체 답변과 개별 원고 중 한 방식만 입력하세요.")
+                        blog_body, shorts_body = _split_pasted_draft(combined_body)
                     if not title or len(title) > 200 or not source or not source.startswith("https://"):
                         raise ValueError("제목과 HTTPS 원문 URL을 확인하세요.")
                     if not 300 <= len(blog_body) <= 8000 or not 50 <= len(shorts_body) <= 8000:
