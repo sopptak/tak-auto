@@ -7,6 +7,13 @@ from scripts.check_trend_factory_deployment import validate_health
 
 
 class FreeModeTests(unittest.TestCase):
+    def test_local_opaque_origin_requires_unambiguous_loopback_host(self):
+        self.assertTrue(app._loopback_request_host("127.0.0.1:8080"))
+        self.assertTrue(app._loopback_request_host("localhost:8080"))
+        for host in ("example.com:8080", "attacker@localhost:8080", "localhost:8080/path", "localhost:bad", "[bad"):
+            with self.subTest(host=host):
+                self.assertFalse(app._loopback_request_host(host))
+
     def test_scout_selection_keeps_topic_diversity(self):
         from datetime import datetime, timezone
         from tak_scout.models import ScoutCandidate
@@ -282,6 +289,23 @@ class FreeModeTests(unittest.TestCase):
                     self.assertEqual(pasted["content_model"], "perplexity-free-paste")
                     self.assertEqual(pasted["status"], "preview_only_not_approved")
                     self.assertIn("블로그 원고 복사", html)
+                    self.assertIn('name="_tak_csrf"', html)
+                    opaque_form = {"title": "무료 Perplexity 원고", "source_url": "https://example.com/official",
+                                   "blog_body": pasted_blog, "shorts_body": pasted_shorts,
+                                   "_tak_csrf": app._LOCAL_CSRF_TOKEN}
+                    opaque_request = Request(origin + "/perplexity/import", data=urlencode(opaque_form).encode(),
+                                             headers={"Origin": "null", "Content-Type": "application/x-www-form-urlencoded"})
+                    with urlopen(opaque_request, timeout=5) as opaque_response:
+                        self.assertEqual(opaque_response.status, 200)
+                    for bad_origin, bad_token in (("null", "wrong-token"), ("https://evil.example", app._LOCAL_CSRF_TOKEN)):
+                        with self.subTest(origin=bad_origin):
+                            denied_form = {**opaque_form, "_tak_csrf": bad_token}
+                            denied_request = Request(origin + "/perplexity/import", data=urlencode(denied_form).encode(),
+                                                     headers={"Origin": bad_origin, "Content-Type": "application/x-www-form-urlencoded"})
+                            with self.assertRaises(HTTPError) as denied:
+                                urlopen(denied_request, timeout=5)
+                            self.assertEqual(denied.exception.code, 403)
+                            denied.exception.close()
                     with self.assertRaises(HTTPError) as unsafe_source:
                         post("/perplexity/import", {"title": "잘못된 출처", "source_url": "http://example.com",
                                                     "blog_body": pasted_blog, "shorts_body": pasted_shorts})

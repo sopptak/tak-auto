@@ -372,6 +372,19 @@ def _paid_research_provider():
 
 
 _MAX_SCOUT_PACK_BYTES = 2 * 1024 * 1024
+_LOCAL_CSRF_TOKEN = secrets.token_urlsafe(32)
+
+
+def _loopback_request_host(host: str) -> bool:
+    try:
+        parsed = urlparse(f"//{host}")
+        if parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment:
+            return False
+        _ = parsed.port
+        hostname = (parsed.hostname or "").lower().rstrip(".")
+        return hostname == "localhost" or ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
 
 
 def _select_diverse_scout_candidates(candidates: list, limit: int = 10) -> list:
@@ -1783,6 +1796,7 @@ def _page(
 </section>""")
     generated = escape(str(report.get("researched_at", "아직 조사 전")))
     rendered_page = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="tak-local-csrf-token" content="{_LOCAL_CSRF_TOKEN}">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>TAK AUTO Trend Factory</title>
 <style>
 :root{{--bg:#f3f5f9;--ink:#182235;--muted:#65728a;--line:#dfe5ee;--accent:#3157c8}}
@@ -1855,7 +1869,7 @@ document.getElementById("scout-import").addEventListener("click", async () => {{
   button.disabled = true;
   try {{
     const response = await fetch("/scout/import", {{
-      method: "POST", headers: {{"Content-Type": "application/json"}}, body: file
+      method: "POST", headers: {{"Content-Type": "application/json", "X-TAK-CSRF": document.querySelector('meta[name="tak-local-csrf-token"]').content}}, body: file
     }});
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "탁스카우트 파일을 불러오지 못했습니다.");
@@ -1931,6 +1945,11 @@ if (publishForm) {{
   syncPrivacyRequirement();
 }}
 </script></body></html>"""
+    rendered_page = re.sub(
+        r'(<form\b[^>]*\bmethod="post"[^>]*>)',
+        lambda match: match.group(0) + f'<input type="hidden" name="_tak_csrf" value="{_LOCAL_CSRF_TOKEN}">',
+        rendered_page, flags=re.IGNORECASE,
+    )
     return _CSPNonceHTML(rendered_page, script_nonce)
 
 
@@ -2209,9 +2228,34 @@ def create_handler():
             origin = self.headers.get("Origin", "")
             forwarded_proto = self.headers.get("X-Forwarded-Proto", "http")
             if not _same_origin(origin, host, forwarded_proto, os.getenv("TAK_AUTO_PUBLIC_URL", "")):
-                self._respond(_page(_read_json(TREND_PATH, {}), [], "허용되지 않은 출처의 요청입니다."), 403)
-                return False
+                if not self._valid_local_null_origin(origin, host):
+                    self._respond(_page(_read_json(TREND_PATH, {}), [], "허용되지 않은 출처의 요청입니다."), 403)
+                    return False
             return True
+
+        def _valid_local_null_origin(self, origin: str, host: str) -> bool:
+            """Allow the local browser bridge's opaque origin with a page token."""
+            try:
+                client_is_loopback = ipaddress.ip_address(self.client_address[0]).is_loopback
+            except ValueError:
+                client_is_loopback = False
+            if origin != "null" or not _free_mode() or not _loopback_request_host(host) or not client_is_loopback:
+                return False
+            header_token = self.headers.get("X-TAK-CSRF", "")
+            if header_token and hmac.compare_digest(header_token, _LOCAL_CSRF_TOKEN):
+                return True
+            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/x-www-form-urlencoded":
+                return False
+            try:
+                length = _request_body_content_length(self.headers)
+                if length <= 0 or length > 160_000:
+                    return False
+                body = _read_utf8_request_body(self.rfile, length)
+            except (ValueError, OverflowError):
+                return False
+            self._prefetched_form_body = body
+            token = parse_qs(body).get("_tak_csrf", [""])[0]
+            return bool(token) and hmac.compare_digest(token, _LOCAL_CSRF_TOKEN)
 
         def _do_post_impl(self, *, request_security_checked: bool = False):
             if not request_security_checked and not self._validate_post_security():
@@ -2295,7 +2339,9 @@ def create_handler():
                 self._respond(_page(_read_json(TREND_PATH, {}), [], "요청이 너무 큽니다."), 413)
                 return
             try:
-                decoded_body = _read_utf8_request_body(self.rfile, length)
+                decoded_body = getattr(self, "_prefetched_form_body", None)
+                if decoded_body is None:
+                    decoded_body = _read_utf8_request_body(self.rfile, length)
             except ValueError as error:
                 self._respond(_page(_read_json(TREND_PATH, {}), [], str(error)), 400)
                 return
