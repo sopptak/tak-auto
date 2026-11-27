@@ -30,6 +30,21 @@ RSS_XML = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 class ParseRssItemsTests(unittest.TestCase):
+    def test_atom_feed_uses_alternate_article_link_and_summary(self):
+        atom = """<feed xmlns="http://www.w3.org/2005/Atom">
+        <entry><title>기술 기사</title>
+          <link rel="self" href="https://example.test/feed/1"/>
+          <link rel="alternate" href="https://example.test/articles/1"/>
+          <summary type="html">&lt;p&gt;확인된 기술 기사 요약입니다.&lt;/p&gt;</summary>
+          <published>2026-11-27T10:00:00+09:00</published></entry>
+        <entry><title>링크 없는 기사</title><summary>건너뜀</summary></entry>
+        </feed>"""
+        candidates = parse_rss_items(atom, source_name="기술 피드", category="tech")
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].source_url, "https://example.test/articles/1")
+        self.assertEqual(candidates[0].summary, "확인된 기술 기사 요약입니다.")
+        self.assertEqual(candidates[0].published_at, "2026-11-27T10:00:00+09:00")
+
     def test_parses_title_summary_url_published_at(self):
         candidates = parse_rss_items(RSS_XML, source_name="테스트 소스", category="finance")
 

@@ -7,6 +7,33 @@ from scripts.check_trend_factory_deployment import validate_health
 
 
 class FreeModeTests(unittest.TestCase):
+    def test_scout_selection_keeps_topic_diversity(self):
+        from datetime import datetime, timezone
+        from tak_scout.models import ScoutCandidate
+        now = datetime.now(timezone.utc).isoformat()
+        finance = [ScoutCandidate(f"finance-{i}", f"금융 변화 발표 {i}", "금융 소식 요약", f"https://example.com/f/{i}", now, "금융 피드", "finance") for i in range(12)]
+        tech = ScoutCandidate("tech-1", "새 기술 소식", "기술 소식 요약", "https://example.com/t/1", now, "기술 피드", "tech")
+        selected = app._select_diverse_scout_candidates(finance + [tech])
+        self.assertEqual(len(selected), 10)
+        self.assertIn(tech, selected)
+
+    def test_scout_category_leader_prefers_publisher_link(self):
+        from datetime import datetime, timezone
+        from tak_scout.models import ScoutCandidate
+        now = datetime.now(timezone.utc).isoformat()
+        relay = ScoutCandidate("relay", "충격 발표 최초 공개", "변화와 영향", "https://news.google.com/rss/articles/1", now, "Google News", "tech")
+        publisher = ScoutCandidate("publisher", "기술 소식", "새로운 기술", "https://www.bbc.com/news/technology-1", now, "BBC Technology", "tech")
+        selected = app._select_diverse_scout_candidates([relay, publisher], limit=1)
+        self.assertEqual(selected, [publisher])
+
+    def test_google_news_relay_is_marked_as_unverified_original(self):
+        from types import SimpleNamespace
+        item = {"summary": "피드에 나온 짧은 요약입니다.", "source_urls": ["https://news.google.com/rss/articles/example"],
+                "source_name": "Google News", "published_at": "2026-11-27T00:00:00+00:00", "origin": "tak-scout"}
+        preview = app._make_scout_preview(item, {}, SimpleNamespace(title="기사 제목", id="knowledge-1"))
+        self.assertIn("중계 링크", preview["warning"])
+        self.assertEqual(preview["status"], "preview_only_not_approved")
+
     def test_free_perplexity_prompt_uses_https_scout_lead(self):
         item = {"keyword": "오늘 수집한 주제", "source_urls": ["https://example.com/news"]}
         prompt = app._free_perplexity_prompt(item)
@@ -47,6 +74,16 @@ class FreeModeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "최근 7일"):
                 app._refresh_scout_trends(previous, now=now)
         self.assertEqual(previous["trends"][0]["keyword"], "기존 후보")
+
+    def test_refresh_selects_usable_article_before_ranking(self):
+        from datetime import datetime, timezone
+        from tak_scout.models import ScoutCandidate
+        now = datetime.now(timezone.utc)
+        empty = ScoutCandidate("empty", "충격 발표", "", "https://example.com/empty", now.isoformat(), "빈 피드", "tech")
+        usable = ScoutCandidate("usable", "기술 기사", "원문을 설명하는 충분한 길이의 요약입니다.", "https://example.com/usable", now.isoformat(), "기술 피드", "tech")
+        with patch.object(app, "load_sources", return_value=[]), patch.object(app, "collect_all", return_value=([empty, usable], [])):
+            report = app._refresh_scout_trends({}, now=now)
+        self.assertEqual([row["keyword"] for row in report["trends"]], ["기술 기사"])
 
     def test_imported_scout_age_warning_uses_publication_time(self):
         from datetime import datetime, timedelta, timezone

@@ -374,19 +374,46 @@ def _paid_research_provider():
 _MAX_SCOUT_PACK_BYTES = 2 * 1024 * 1024
 
 
+def _select_diverse_scout_candidates(candidates: list, limit: int = 10) -> list:
+    """Keep category coverage and favor publisher links over news aggregators."""
+    ranked = [item for item, _ in rank_trend_candidates(candidates)]
+    selected = []
+    categories = list(dict.fromkeys(item.category for item in ranked))
+    aggregator_hosts = {"news.google.com", "news.ycombinator.com"}
+    for category in categories:
+        options = [item for item in ranked if item.category == category]
+        original = next(
+            (item for item in options if urlparse(item.source_url).hostname not in aggregator_hosts),
+            None,
+        )
+        selected.append(original or options[0])
+        if len(selected) == limit:
+            return selected
+    selected_ids = {item.scout_id for item in selected}
+    for item in ranked:
+        if item.scout_id not in selected_ids:
+            selected.append(item)
+            selected_ids.add(item.scout_id)
+            if len(selected) == limit:
+                return selected
+    return selected
+
+
 def _refresh_scout_trends(previous: dict, *, now: datetime | None = None) -> dict:
     current = now or datetime.now(timezone.utc)
     sources = load_sources(ROOT / "data" / "scout_sources.json")
     collected, results = collect_all(sources, timeout=12)
     recent = []
     for candidate in dedupe_candidates(collected):
+        if len(candidate.summary.strip()) < 12 or not _safe_http_url(candidate.source_url):
+            continue
         try:
             published = datetime.fromisoformat(candidate.published_at.replace("Z", "+00:00"))
             if published.tzinfo is not None and timedelta(0) <= current - published <= timedelta(days=7):
                 recent.append(candidate)
         except (TypeError, ValueError, OverflowError):
             continue
-    selected = [candidate.to_dict() for candidate, _ in rank_trend_candidates(recent)[:10]]
+    selected = [candidate.to_dict() for candidate in _select_diverse_scout_candidates(recent)]
     if not selected:
         raise ValueError("최근 7일의 탁스카우트 후보가 없습니다. RSS 출처 상태를 확인하세요.")
     pack = {"generated_at": current.isoformat(), "candidates": selected}
@@ -1220,11 +1247,15 @@ def _make_scout_preview(item: dict, report: dict, knowledge: KnowledgeRecord) ->
     quality = _evaluate_content_quality(package, title, item)
     coverage = _evaluate_claim_citation_coverage(package, [source])
     age_warning = _scout_age_warning(item)
+    relay_warning = (
+        " 구글 뉴스 중계 링크만 수집했습니다. 실제 언론사 원문 주소와 사실을 확인하세요."
+        if urlparse(source).hostname == "news.google.com" else ""
+    )
     return {
         "keyword": title, "knowledge_id": knowledge.id, "created_at": utc_now(),
         "status": "preview_only_not_approved", "content_model": "tak-scout-template",
         "warning": "탁스카우트 수집 요약 기반입니다. 수동 게시 전에 원문과 최신성을 확인하고, 외국어 요약은 번역을 검토하세요."
-                   + (" " + age_warning if age_warning else ""),
+                   + relay_warning + (" " + age_warning if age_warning else ""),
         "blog": blog, "shorts": [short], "source_urls": [source],
         "quality_report": quality, "claim_coverage": coverage,
         "source_integrity": _evaluate_source_integrity(item, report),
