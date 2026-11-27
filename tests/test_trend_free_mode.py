@@ -32,6 +32,17 @@ class FreeModeTests(unittest.TestCase):
                 app._refresh_scout_trends(previous, now=now)
         self.assertEqual(previous["trends"][0]["keyword"], "기존 후보")
 
+    def test_imported_scout_age_warning_uses_publication_time(self):
+        from datetime import datetime, timedelta, timezone
+
+        now = datetime(2026, 11, 27, tzinfo=timezone.utc)
+        item = {"origin": "tak-scout", "published_at": (now - timedelta(days=8)).isoformat()}
+        self.assertIn("7일", app._scout_age_warning(item, now=now))
+        item["published_at"] = (now - timedelta(days=1)).isoformat()
+        self.assertEqual(app._scout_age_warning(item, now=now), "")
+        item["published_at"] = ""
+        self.assertIn("확인할 수 없습니다", app._scout_age_warning(item, now=now))
+
     def test_manual_input_to_template_and_queue_payload(self):
         item = app._manual_trend({"keyword": ["생활 정보"], "source_url": ["https://example.com/source"], "facts": ["첫 번째 확인한 근거 자료입니다.\n두 번째 확인한 근거 자료입니다.\n세 번째 확인한 근거 자료입니다."]})
         with patch.object(app.PerplexityResearchProvider, "from_environment") as provider:
@@ -97,7 +108,11 @@ class FreeModeTests(unittest.TestCase):
                     self.assertIn("오늘 수집한 주제", app._read_json(app.TREND_PATH, {})["trends"][0]["keyword"])
                     scout_pack = {"generated_at": "2026-11-26T00:00:00Z", "candidates": [
                         {"title": "탁스카우트 검증 주제", "summary": "수집 피드에 포함된 원본 요약입니다.",
-                         "source_url": "https://example.com/scout", "source_name": "검증 피드"},
+                         "source_url": "https://example.com/scout", "source_name": "검증 피드",
+                         "published_at": datetime.now(timezone.utc).isoformat()},
+                        {"title": "지난 주 소식", "summary": "날짜 확인을 요구할 충분한 길이의 원본 요약입니다.",
+                         "source_url": "https://example.com/old", "source_name": "검증 피드",
+                         "published_at": (datetime.now(timezone.utc) - timedelta(days=8)).isoformat()},
                         {"title": "잘못된 주소", "summary": "선택지에 나타나지 않아야 하는 후보입니다.",
                          "source_url": "javascript:alert(1)"},
                     ]}
@@ -139,6 +154,12 @@ class FreeModeTests(unittest.TestCase):
                     stale.exception.close()
                     post("/editorial/revert", {"preview_index": "0", "revision_id": updated["editorial_history"][0]["revision_id"]})
                     self.assertEqual(app._read_json(app.PREVIEW_PATH, [])[0]["blog"]["body"], original)
+                    with self.assertRaises(HTTPError) as stale_source:
+                        post("/generate", {"index": "1"})
+                    self.assertEqual(stale_source.exception.code, 400)
+                    stale_source.exception.close()
+                    post("/generate", {"index": "1", "confirm_source_age": "yes"})
+                    self.assertIn("7일", app._read_json(app.PREVIEW_PATH, [])[0]["warning"])
                     self.assertEqual(len(PublishingQueue(app.QUEUE_PATH).snapshot()["items"]), len(preview["threads"]))
                     provider.assert_not_called()
                     self.assertFalse(app._health_payload()["publishing_enabled"])

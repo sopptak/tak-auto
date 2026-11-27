@@ -3,7 +3,13 @@
 ## 목적
 최신 공개 웹 트렌드를 Perplexity Agent API로 발굴하고, 키워드별 콘텐츠 기회를 제시한 뒤 블로그·YouTube Shorts·Threads 초안을 빠르게 미리 보는 로컬 웹 MVP입니다. 법원경매 등 특정 분야에 고정하지 않습니다.
 
-## 실행 (Windows PowerShell)
+## 1단계 실행 (무료, Windows PowerShell)
+```powershell
+scripts\start_free_trend_factory.cmd
+```
+브라우저에서 `http://127.0.0.1:8080`을 엽니다.
+
+## 선택: Perplexity 기반 조사 모드
 ```powershell
 git fetch origin
 # 로컬 브랜치가 이미 있으면:
@@ -18,7 +24,7 @@ py scripts/run_trend_content_mvp.py
 
 ## 1단계 · 탁스카우트 후보로 블로그 글과 쇼츠 대본 만들기
 
-1. Windows에서 `powershell -File scripts/start_free_trend_factory.ps1`로 실행한다.
+1. Windows에서 `scripts\start_free_trend_factory.cmd`로 실행한다.
 2. 로컬 화면의 **탁스카우트 트렌드**에서 **탁스카우트 최신 후보 수집**을
    누른다. 공개 RSS를 읽어 새 후보를 화면에 표시한다. 저장된 일일 후보 JSON은
    **저장된 탁스카우트 후보 불러오기**에서 선택할 수 있다. 기본 입력은 기존 탁스카우트가 만든 `data/tak_scout_daily.json`이다.
@@ -29,15 +35,19 @@ py scripts/run_trend_content_mvp.py
 4. 원문과 발행 시각을 확인한 뒤 원하는 플랫폼에 직접 게시한다. 쇼츠 결과물은 편집에
    쓰는 대본이며 MP4 렌더링과 자동 게시는 별도 단계다.
 
-이 기능은 수집이 끝난 일일 후보 파일을 읽는다. 오래된 파일은 탁스카우트에서 최신
-후보를 다시 수집해 교체한다. 외국어 제목과 요약은 수집 원문 기준으로 보존된다.
+저장된 후보의 발행 시각이 없거나 7일이 지났다면 화면에 경고가 나타난다. 해당 후보로
+초안을 만들려면 원문 날짜를 확인하고 확인란을 선택해야 한다. 이 확인은 원문 내용의
+사실 검증을 대신하지 않는다.
+
+저장된 후보 불러오기는 수집이 끝난 일일 후보 파일을 읽는다. 최신 후보 수집 버튼은
+공개 RSS를 다시 확인한다. 외국어 제목과 요약은 수집 원문 기준으로 보존된다.
 
 ## Perplexity API 없이 로컬 무료 템플릿 모드
 
 Perplexity 키가 없거나 API 호출을 원하지 않으면 Windows PowerShell에서 다음을 실행합니다.
 
 ```powershell
-powershell -File scripts/start_free_trend_factory.ps1
+scripts\start_free_trend_factory.cmd
 ```
 
 브라우저에서 `http://127.0.0.1:8080`을 엽니다. 화면의 **자료 직접 입력 · 무료**에서 주제, 출처 URL, 직접 확인한 근거 3개 이상(각 근거 12자 이상)을 입력하면 규칙 기반 템플릿 초안을 저장합니다. 자료를 입력하지 않으면 웹 조사를 수행하지 않습니다.

@@ -436,6 +436,27 @@ def _scout_trends(raw: str, previous: dict) -> dict:
     }
 
 
+def _scout_age_warning(item: dict, *, now: datetime | None = None) -> str:
+    """Flag Scout items whose publication time cannot establish recent coverage."""
+    if item.get("origin") != "tak-scout":
+        return ""
+    published_at = item.get("published_at")
+    if not isinstance(published_at, str) or not published_at.strip():
+        return "발행 시각이 없어 최신 소식인지 확인할 수 없습니다."
+    try:
+        published = datetime.fromisoformat(published_at.strip().replace("Z", "+00:00"))
+        if published.tzinfo is None:
+            raise ValueError("timezone missing")
+        age = (now or datetime.now(timezone.utc)) - published
+    except (ValueError, OverflowError):
+        return "발행 시각을 확인할 수 없습니다. 원문 날짜를 확인하세요."
+    if age < timedelta(0):
+        return "발행 시각이 미래입니다. 원문 날짜를 확인하세요."
+    if age > timedelta(days=7):
+        return "발행 후 7일이 지났습니다. 최신성 확인 후 초안을 만드세요."
+    return ""
+
+
 def _manual_trend(form: dict) -> dict:
     keyword = str(form.get("keyword", [""])[0]).strip()
     source = str(form.get("source_url", [""])[0]).strip()
@@ -1151,10 +1172,12 @@ def _make_scout_preview(item: dict, report: dict, knowledge: KnowledgeRecord) ->
     package = {"blog": blog, "shorts": {"hook": hook}, "threads": []}
     quality = _evaluate_content_quality(package, title, item)
     coverage = _evaluate_claim_citation_coverage(package, [source])
+    age_warning = _scout_age_warning(item)
     return {
         "keyword": title, "knowledge_id": knowledge.id, "created_at": utc_now(),
         "status": "preview_only_not_approved", "content_model": "tak-scout-template",
-        "warning": "탁스카우트 수집 요약 기반입니다. 수동 게시 전에 원문과 최신성을 확인하고, 외국어 요약은 번역을 검토하세요.",
+        "warning": "탁스카우트 수집 요약 기반입니다. 수동 게시 전에 원문과 최신성을 확인하고, 외국어 요약은 번역을 검토하세요."
+                   + (" " + age_warning if age_warning else ""),
         "blog": blog, "shorts": [short], "source_urls": [source],
         "quality_report": quality, "claim_coverage": coverage,
         "source_integrity": _evaluate_source_integrity(item, report),
@@ -1447,6 +1470,12 @@ def _page(
     accepted_insights = sorted(accepted_insights, key=lambda row: row.created_at, reverse=True)[:20]
     cards = []
     for index, item in enumerate(trends):
+        scout_age_warning = _scout_age_warning(item)
+        scout_age_html = (
+            f'<p class="warning">{escape(scout_age_warning)}</p>'
+            '<label class="meta"><input type="checkbox" name="confirm_source_age" value="yes" required>'
+            '원문 날짜를 확인했고 이 후보로 초안을 만들겠습니다.</label>'
+        ) if scout_age_warning else ""
         sources = " ".join(
             f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener">출처 {i}</a>'
             for i, url in enumerate(_safe_http_urls(item.get("source_urls", [])), 1)
@@ -1462,6 +1491,7 @@ def _page(
   <p class="hook">쇼츠 후킹: {escape(str(item.get('shorts_hook', '')))}</p>
   <p class="meta">{sources}</p>
   <form method="post" action="/generate"><input type="hidden" name="index" value="{index}">
+    {scout_age_html}
     {''.join(f'<label class="meta"><input type="checkbox" name="insight_id" value="{escape(row.insight_id, quote=True)}"> 성과 참고: {escape(row.platform)} · {escape(row.metric)} · {escape(row.result)} · 표본 {row.sample_size}건</label>' for row in accepted_insights if item.get("origin") != "tak-scout")}
     <p class="meta">사람이 승인한 과거 성과를 선택하면 후킹·구성 참고자료로만 반영합니다. 선택하지 않아도 생성할 수 있습니다. 최대 5개.</p>
     <button type="submit">{"블로그·쇼츠 초안 생성" if item.get("origin") == "tak-scout" else "선택한 참고자료로 콘텐츠 패키지 생성"}</button></form>
@@ -2234,6 +2264,8 @@ def create_handler():
                         form.get("insight_id", []),
                     )
                     item = report["trends"][index]
+                    if _scout_age_warning(item) and form.get("confirm_source_age", [""])[0] != "yes":
+                        raise ValueError("발행 시각을 확인한 뒤 확인란을 선택하세요.")
                     provider = None if _free_mode() or item.get("origin") == "tak-scout" else _paid_research_provider()
                     preview = _make_preview(
                         item, report, provider=provider,
