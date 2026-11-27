@@ -459,10 +459,11 @@ def _scout_age_warning(item: dict, *, now: datetime | None = None) -> str:
 
 def _same_preview_topic(existing: dict, incoming: dict) -> bool:
     """Identify a Scout article by source, rather than its potentially shared title."""
-    existing_scout = existing.get("content_model") == "tak-scout-template"
-    incoming_scout = incoming.get("content_model") == "tak-scout-template"
-    if existing_scout or incoming_scout:
-        return bool(existing_scout and incoming_scout and existing.get("source_urls") == incoming.get("source_urls"))
+    source_bound = {"tak-scout-template", "perplexity-free-paste"}
+    existing_source_bound = existing.get("content_model") in source_bound
+    incoming_source_bound = incoming.get("content_model") in source_bound
+    if existing_source_bound or incoming_source_bound:
+        return bool(existing_source_bound and incoming_source_bound and existing.get("source_urls") == incoming.get("source_urls"))
     return existing.get("keyword") == incoming.get("keyword")
 
 
@@ -1083,6 +1084,9 @@ def _build_editorial_revision_prompt(preview: dict, recommendation: dict, target
 
 def _refresh_preview_editorial_checks(preview: dict) -> None:
     """Recompute deterministic checks after an explicit editorial change."""
+    if preview.get("content_model") == "perplexity-free-paste":
+        preview["claim_coverage"] = _evaluate_claim_citation_coverage(preview, preview.get("source_urls") or [])
+        return
     shorts = preview.get("shorts") or []
     package = {
         "blog": preview.get("blog") or {},
@@ -1645,7 +1649,7 @@ def _page(
             + '</ul><p class="meta">' + escape(str(quality_report.get("scope_note", ""))) + '</p></div>'
         )
         scout_edit_html = ""
-        if preview.get("content_model") == "tak-scout-template" and shorts:
+        if preview.get("content_model") in {"tak-scout-template", "perplexity-free-paste"} and shorts:
             edit_forms = []
             for target, label in (("blog.body", "블로그 원고"), ("shorts.0.body", "쇼츠 대본")):
                 current = _read_editorial_target(preview, target)
@@ -1731,6 +1735,14 @@ table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;
 <label>다른 곳에서 받은 탁스카우트 JSON <input id="scout-pack" type="file" accept=".json,application/json"></label>
 <button type="button" id="scout-import">파일 불러오기</button><p id="scout-import-status" role="status"></p>
 <p>후보를 선택하면 외부 AI 호출 없이 블로그 초안과 쇼츠 대본을 만듭니다.</p></section>
+<section class="toolbar"><h2>무료 Perplexity 원고 가져오기</h2>
+<p>Perplexity 무료 웹 검색에서 만든 블로그 원고와 쇼츠 대본을 붙여넣어 보관합니다. 원문 URL을 직접 확인한 뒤 입력하세요. 이 화면은 Perplexity API를 호출하지 않습니다.</p>
+<form method="post" action="/perplexity/import">
+<label>원고 제목 <input name="title" maxlength="200" required></label>
+<label>확인한 원문 URL <input name="source_url" type="url" required></label>
+<label>블로그 원고 <textarea name="blog_body" maxlength="8000" rows="8" required></textarea></label>
+<label>쇼츠 대본 <textarea name="shorts_body" maxlength="8000" rows="8" required></textarea></label>
+<button type="submit">미승인 초안으로 저장</button></form></section>
 <section class="toolbar"><h2>자료 직접 입력 · 무료</h2>
 <p>{"무료 모드: 외부 AI 요청 없이 템플릿 초안을 만듭니다." if _free_mode() else "현재 AI 모드: 조사·생성·자동 수정은 API 이용료가 발생할 수 있습니다."}</p>
 <form method="post" action="/manual">
@@ -2195,7 +2207,7 @@ def create_handler():
             except OverflowError:
                 self._respond(_page(_read_json(TREND_PATH, {}), [], "요청이 너무 큽니다."), 413)
                 return
-            if length > 16_384:
+            if length > (160_000 if self.path == "/perplexity/import" else 16_384):
                 self._respond(_page(_read_json(TREND_PATH, {}), [], "요청이 너무 큽니다."), 413)
                 return
             try:
@@ -2255,6 +2267,34 @@ def create_handler():
                     _write_json(TREND_PATH, report)
                     self._respond(_page(report, previews, queue_snapshot=queue.snapshot()))
                     return
+                if self.path == "/perplexity/import":
+                    title = form.get("title", [""])[0].strip()
+                    source = _safe_http_url(form.get("source_url", [""])[0])
+                    blog_body = form.get("blog_body", [""])[0].strip()
+                    shorts_body = form.get("shorts_body", [""])[0].strip()
+                    if not title or len(title) > 200 or not source or not source.startswith("https://"):
+                        raise ValueError("제목과 HTTPS 원문 URL을 확인하세요.")
+                    if not 300 <= len(blog_body) <= 8000 or not 50 <= len(shorts_body) <= 8000:
+                        raise ValueError("블로그 원고는 300~8000자, 쇼츠 대본은 50~8000자로 입력하세요.")
+                    identity = hashlib.sha256((title + "\n" + source).encode("utf-8")).hexdigest()[:16]
+                    preview = {
+                        "keyword": title, "knowledge_id": "trend-preview-" + identity,
+                        "created_at": utc_now(), "status": "preview_only_not_approved",
+                        "content_model": "perplexity-free-paste",
+                        "warning": "Perplexity 무료 웹 검색에서 붙여넣은 미승인 초안입니다. 원문 사실과 최신성을 사람이 확인한 뒤 수동 게시하세요.",
+                        "blog": {"title": title, "body": blog_body},
+                        "shorts": [{"title": title, "body": shorts_body}],
+                        "threads": [], "facebook": {}, "source_urls": [source],
+                        "source_integrity": _evaluate_source_integrity({"source_urls": [source]}, {}),
+                    }
+                    preview["claim_coverage"] = _evaluate_claim_citation_coverage(preview, [source])
+                    if any(_same_preview_topic(row, preview) and row.get("editorial_history") for row in previews):
+                        raise ValueError("직접 수정한 초안이 있습니다. 기존 원고와 수정 이력을 확인하세요.")
+                    previews = [row for row in previews if not _same_preview_topic(row, preview)]
+                    previews.insert(0, preview)
+                    _write_json(PREVIEW_PATH, previews)
+                    self._respond(_page(report, previews, queue_snapshot=queue.snapshot()))
+                    return
                 if self.path == "/discover":
                     provider = _paid_research_provider()
                     discovered = discover_trends(provider)
@@ -2295,7 +2335,7 @@ def create_handler():
                         raise ValueError("수정할 초안을 찾을 수 없습니다.")
                     preview = previews[index]
                     target = form.get("target", [""])[0]
-                    if preview.get("content_model") != "tak-scout-template" or target not in {"blog.body", "shorts.0.body"}:
+                    if preview.get("content_model") not in {"tak-scout-template", "perplexity-free-paste"} or target not in {"blog.body", "shorts.0.body"}:
                         raise ValueError("수정할 원고를 찾을 수 없습니다.")
                     current = _read_editorial_target(preview, target)
                     supplied_hash = form.get("base_hash", [""])[0]

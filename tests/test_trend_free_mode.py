@@ -213,6 +213,26 @@ class FreeModeTests(unittest.TestCase):
                     self.assertEqual(len(PublishingQueue(app.QUEUE_PATH).snapshot()["items"]), len(preview["threads"]))
                     provider.assert_not_called()
                     self.assertFalse(app._health_payload()["publishing_enabled"])
+                    pasted_blog = "# 실제 원문을 대조한 블로그 원고\n\n" + ("공식 자료에서 확인한 내용을 정리합니다. " * 20)
+                    pasted_shorts = "0~10초 | 화면: 공식 발표문 | 자막: 오늘의 발표 | 내레이션: 공식 발표 내용을 확인합니다."
+                    html = post("/perplexity/import", {"title": "무료 Perplexity 원고", "source_url": "https://example.com/official",
+                                                     "blog_body": pasted_blog, "shorts_body": pasted_shorts})
+                    pasted = app._read_json(app.PREVIEW_PATH, [])[0]
+                    self.assertEqual(pasted["blog"]["body"], pasted_blog.strip())
+                    self.assertEqual(pasted["shorts"][0]["body"], pasted_shorts)
+                    self.assertEqual(pasted["content_model"], "perplexity-free-paste")
+                    self.assertEqual(pasted["status"], "preview_only_not_approved")
+                    self.assertIn("블로그 원고 복사", html)
+                    with self.assertRaises(HTTPError) as unsafe_source:
+                        post("/perplexity/import", {"title": "잘못된 출처", "source_url": "http://example.com",
+                                                    "blog_body": pasted_blog, "shorts_body": pasted_shorts})
+                    self.assertEqual(unsafe_source.exception.code, 400)
+                    unsafe_source.exception.close()
+                    post("/scout/edit", {"preview_index": "0", "target": "blog.body",
+                                         "base_hash": hashlib.sha256(pasted_blog.strip().encode()).hexdigest(),
+                                         "body": "원문 확인 후 수정한 블로그 원고"})
+                    self.assertEqual(app._read_json(app.PREVIEW_PATH, [])[0]["blog"]["body"], "원문 확인 후 수정한 블로그 원고")
+                    provider.assert_not_called()
                 finally:
                     server.shutdown()
                     server.server_close()
