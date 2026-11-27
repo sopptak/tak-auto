@@ -482,6 +482,26 @@ def _split_pasted_draft(text: str) -> tuple[str, str]:
     return blog, shorts
 
 
+def _free_perplexity_prompt(item: dict) -> str:
+    """Give the reader a grounded prompt for the free Perplexity website."""
+    sources = _safe_http_urls(item.get("source_urls", []))
+    source = next((url for url in sources if url.startswith("https://")), "")
+    if not source or not str(item.get("keyword", "")).strip():
+        return ""
+    title = str(item["keyword"]).strip()[:200]
+    return (
+        "다음 뉴스 후보를 조사해 한국어 블로그 원고와 60초 쇼츠 대본을 작성해 주세요.\n"
+        f"후보 제목: {title}\n후보 링크: {source}\n\n"
+        "후보 제목과 링크는 조사 단서일 뿐입니다. 공식 원문을 찾아 발표 날짜와 핵심 사실을 확인하고, "
+        "확인되지 않은 내용은 쓰지 마세요. 계획을 완료된 사실처럼 표현하지 마세요. "
+        "공식 원문을 확인할 수 없으면 원고 대신 그 이유를 알려 주세요.\n\n"
+        "출력 형식:\n## 블로그 원고\n제목과 소제목 3개, 본문 700자 이상. "
+        "마지막에 확인한 공식 원문 URL과 발표 날짜를 적어 주세요.\n"
+        "## 60초 쇼츠 대본\n6개 장면마다 시간, 화면, 자막, 내레이션을 적어 주세요. "
+        "추측과 출처 없는 통계는 제외해 주세요."
+    )
+
+
 def _manual_trend(form: dict) -> dict:
     keyword = str(form.get("keyword", [""])[0]).strip()
     source = str(form.get("source_url", [""])[0]).strip()
@@ -1507,6 +1527,15 @@ def _page(
             f'<a href="{escape(url, quote=True)}" target="_blank" rel="noopener">출처 {i}</a>'
             for i, url in enumerate(_safe_http_urls(item.get("source_urls", [])), 1)
         )
+        prompt = _free_perplexity_prompt(item) if item.get("origin") == "tak-scout" else ""
+        prompt_html = (
+            '<details><summary>무료 Perplexity로 긴 원고 만들기</summary>'
+            f'<button type="button" class="secondary copy" data-copy="prompt-{index}">요청문 복사</button>'
+            f'<pre id="prompt-{index}">{escape(prompt)}</pre>'
+            '<p class="meta">Perplexity 무료 웹에서 붙여넣고 공식 원문을 확인한 뒤, '
+            '답변 전체를 아래 무료 원고 가져오기에 저장하세요.</p>'
+            '<a href="https://www.perplexity.ai/" target="_blank" rel="noopener noreferrer">Perplexity 열기</a></details>'
+        ) if prompt else ""
         cards.append(f"""
 <article class="trend">
   <div class="meta">#{index + 1} · {escape(str(item.get('category', '기타')))} · {escape(str(item.get('published_at', '')))}</div>
@@ -1517,6 +1546,7 @@ def _page(
   <p><b>콘텐츠 관점</b> {escape(str(item.get('content_angle', '')))}</p>
   <p class="hook">쇼츠 후킹: {escape(str(item.get('shorts_hook', '')))}</p>
   <p class="meta">{sources}</p>
+  {prompt_html}
   <form method="post" action="/generate"><input type="hidden" name="index" value="{index}">
     {scout_age_html}
     {''.join(f'<label class="meta"><input type="checkbox" name="insight_id" value="{escape(row.insight_id, quote=True)}"> 성과 참고: {escape(row.platform)} · {escape(row.metric)} · {escape(row.result)} · 표본 {row.sample_size}건</label>' for row in accepted_insights if item.get("origin") != "tak-scout")}

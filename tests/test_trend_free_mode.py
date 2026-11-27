@@ -7,6 +7,15 @@ from scripts.check_trend_factory_deployment import validate_health
 
 
 class FreeModeTests(unittest.TestCase):
+    def test_free_perplexity_prompt_uses_https_scout_lead(self):
+        item = {"keyword": "오늘 수집한 주제", "source_urls": ["https://example.com/news"]}
+        prompt = app._free_perplexity_prompt(item)
+        self.assertIn("https://example.com/news", prompt)
+        self.assertIn("공식 원문을 확인할 수 없으면", prompt)
+        self.assertIn("## 블로그 원고", prompt)
+        self.assertIn("## 60초 쇼츠 대본", prompt)
+        self.assertEqual(app._free_perplexity_prompt({**item, "source_urls": ["javascript:alert(1)"]}), "")
+
     def test_combined_perplexity_answer_requires_two_ordered_sections(self):
         blog, shorts = app._split_pasted_draft("안내\n## 블로그 원고\n기사 본문\n## 60초 쇼츠 대본\n장면 대본")
         self.assertEqual((blog, shorts), ("기사 본문", "장면 대본"))
@@ -178,6 +187,8 @@ class FreeModeTests(unittest.TestCase):
                     with patch.dict("os.environ", {"TAK_SCOUT_DAILY_PACK": str(scout_path)}):
                         html = post("/scout/import", {})
                     self.assertIn("탁스카우트 검증 주제", html)
+                    self.assertIn("요청문 복사", html)
+                    self.assertIn("공식 원문을 확인할 수 없으면", html)
                     self.assertNotIn("잘못된 주소", html)
                     upload = Request(origin + "/scout/import", data=json.dumps(scout_pack).encode(), headers={
                         "Origin": origin, "Content-Type": "application/json",
