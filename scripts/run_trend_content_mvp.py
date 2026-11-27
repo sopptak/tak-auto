@@ -1606,6 +1606,21 @@ def _page(
             + "".join("<li>" + escape(str(value)) + "</li>" for value in quality_report.get("warnings", []))
             + '</ul><p class="meta">' + escape(str(quality_report.get("scope_note", ""))) + '</p></div>'
         )
+        scout_edit_html = ""
+        if preview.get("content_model") == "tak-scout-template" and shorts:
+            edit_forms = []
+            for target, label in (("blog.body", "블로그 원고"), ("shorts.0.body", "쇼츠 대본")):
+                current = _read_editorial_target(preview, target)
+                current_hash = hashlib.sha256(current.encode("utf-8")).hexdigest()
+                edit_forms.append(
+                    f'<form method="post" action="/scout/edit">'
+                    f'<input type="hidden" name="preview_index" value="{preview_index}">'
+                    f'<input type="hidden" name="target" value="{target}">'
+                    f'<input type="hidden" name="base_hash" value="{current_hash}">'
+                    f'<label>{label} 직접 수정<textarea name="body" maxlength="8000" rows="8" required>{escape(current)}</textarea></label>'
+                    '<button type="submit">수정한 원고 저장</button></form>'
+                )
+            scout_edit_html = '<details><summary>원고 직접 수정</summary>' + "".join(edit_forms) + '</details>'
         preview_cards.append(f"""
 <section class="preview">
   <h2>{escape(str(preview.get('keyword', '')))} 콘텐츠 미리보기</h2>
@@ -1616,6 +1631,7 @@ def _page(
   {editorial_recommendations_html}
   {editorial_revisions_html}
   {editorial_history_html}
+  {scout_edit_html}
   {source_feedback_html}\n  {claim_feedback_html}
   {strategy_feedback_html}
   <h3>네이버 블로그 · {escape(str(blog.get('title', '')))}</h3>
@@ -2223,10 +2239,46 @@ def create_handler():
                         item, report, provider=provider,
                         strategy_insights=selected_insights,
                     )
+                    if any(
+                        row.get("keyword") == preview["keyword"] and row.get("editorial_history")
+                        for row in previews
+                    ):
+                        raise ValueError("직접 수정한 초안이 있습니다. 기존 원고와 수정 이력을 확인하세요.")
                     previews = [row for row in previews if row.get("keyword") != preview["keyword"]]
                     previews.insert(0, preview)
                     _write_json(PREVIEW_PATH, previews[:10])
                     self._respond(_page(report, previews[:10], queue_snapshot=queue.snapshot()))
+                    return
+                if self.path == "/scout/edit":
+                    index = int(form.get("preview_index", ["-1"])[0])
+                    if index < 0 or index >= len(previews):
+                        raise ValueError("수정할 초안을 찾을 수 없습니다.")
+                    preview = previews[index]
+                    target = form.get("target", [""])[0]
+                    if preview.get("content_model") != "tak-scout-template" or target not in {"blog.body", "shorts.0.body"}:
+                        raise ValueError("수정할 원고를 찾을 수 없습니다.")
+                    current = _read_editorial_target(preview, target)
+                    supplied_hash = form.get("base_hash", [""])[0]
+                    expected_hash = hashlib.sha256(current.encode("utf-8")).hexdigest()
+                    if not supplied_hash.isascii() or not hmac.compare_digest(supplied_hash, expected_hash):
+                        raise ValueError("원고가 바뀌었습니다. 새로고침 후 다시 수정하세요.")
+                    revised = form.get("body", [""])[0].strip()
+                    if not revised or len(revised) > 8000:
+                        raise ValueError("수정 원고는 1~8000자여야 합니다.")
+                    if revised == current:
+                        raise ValueError("수정한 내용이 원문과 같습니다.")
+                    revision_id = secrets.token_urlsafe(18)
+                    history = preview.setdefault("editorial_history", [])
+                    history.insert(0, {
+                        "target": target, "before": current, "after": revised,
+                        "revision_id": revision_id, "applied_at": utc_now(),
+                        "applied_by": os.getenv("TAK_WEB_USERNAME", "local-user").strip() or "local-user",
+                    })
+                    preview["editorial_history"] = history[:20]
+                    _write_editorial_target(preview, target, revised)
+                    _refresh_preview_editorial_checks(preview)
+                    _write_json(PREVIEW_PATH, previews)
+                    self._respond(_page(report, previews, "수정한 원고를 저장했습니다.", queue.snapshot()))
                     return
                 if self.path == "/editorial/revise":
                     preview_index = int(form.get("preview_index", ["-1"])[0])

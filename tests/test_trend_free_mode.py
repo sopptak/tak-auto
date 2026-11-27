@@ -1,3 +1,4 @@
+import hashlib
 import json
 import unittest
 from unittest.mock import patch
@@ -119,6 +120,25 @@ class FreeModeTests(unittest.TestCase):
                     self.assertIn("원본 요약", scout_draft["blog"]["body"])
                     self.assertIn("원본 요약", scout_draft["shorts"][0]["body"])
                     self.assertEqual(scout_draft["status"], "preview_only_not_approved")
+                    original = scout_draft["blog"]["body"]
+                    edit = {"preview_index": "0", "target": "blog.body",
+                            "base_hash": hashlib.sha256(original.encode()).hexdigest(),
+                            "body": "원문 확인 후 직접 고친 블로그 원고"}
+                    post("/scout/edit", edit)
+                    updated = app._read_json(app.PREVIEW_PATH, [])[0]
+                    self.assertEqual(updated["blog"]["body"], edit["body"])
+                    self.assertEqual(updated["editorial_history"][0]["before"], original)
+                    with self.assertRaises(HTTPError) as regenerate:
+                        post("/generate", {"index": "0"})
+                    self.assertEqual(regenerate.exception.code, 400)
+                    regenerate.exception.close()
+                    self.assertEqual(app._read_json(app.PREVIEW_PATH, [])[0]["blog"]["body"], edit["body"])
+                    with self.assertRaises(HTTPError) as stale:
+                        post("/scout/edit", edit)
+                    self.assertEqual(stale.exception.code, 400)
+                    stale.exception.close()
+                    post("/editorial/revert", {"preview_index": "0", "revision_id": updated["editorial_history"][0]["revision_id"]})
+                    self.assertEqual(app._read_json(app.PREVIEW_PATH, [])[0]["blog"]["body"], original)
                     self.assertEqual(len(PublishingQueue(app.QUEUE_PATH).snapshot()["items"]), len(preview["threads"]))
                     provider.assert_not_called()
                     self.assertFalse(app._health_payload()["publishing_enabled"])
